@@ -49,8 +49,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="live"
         options={{
-          title: 'Live Games',
+          title: 'Games',
           tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} />,
+          headerTitle: 'Games',
         }}
       />
       <Tabs.Screen

@@ -14,6 +14,7 @@ import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Wallet, Calendar, TrendingUp, History, Bell, Award, Users } from 'lucide-react-native';
 import MultiSelect from 'react-native-multiple-select';
+import { supabase } from '@/app/services/api/supabaseClient';
 
 export default function ProfileScreen() {
   const [userStats, setUserStats] = useState({
@@ -624,6 +625,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
   },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  errorText: {
+    color: '#EF4444',
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  successText: {
+    color: '#10B981',
+    marginTop: 10,
+    textAlign: 'center',
+  },
 });
 
 const AIPreferencesSection = () => {
@@ -643,18 +657,62 @@ const AIPreferencesSection = () => {
     { id: 10, name: 'Basketball' }
   ]);
   const [selectedSports, setSelectedSports] = useState<number[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSavePreferences = async () => {
     try {
-      // TODO: Implement saving preferences to backend
-      console.log('Saving preferences:', {
-        riskTolerance,
-        selectedSports,
-        bankroll,
-        maxBetPercentage
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveSuccess(false);
+      
+      // Convert selectedSports IDs to sport names
+      const sportNames = selectedSports.map(id => 
+        availableSports.find(sport => sport.id === id)?.name || ''
+      ).filter(name => name !== '');
+      
+      // Prepare data for API
+      const preferences = {
+        risk_tolerance: riskTolerance,
+        sports: sportNames,
+        bet_types: ['moneyline', 'spread', 'total'], // Default bet types
+        max_bet_size: parseInt(bankroll) ? Math.floor(parseInt(bankroll) * (maxBetPercentage / 100)) : 0,
+        notification_preferences: {
+          frequency: 'daily',
+          types: ['new_predictions', 'bet_results']
+        }
+      };
+      
+      // Get token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('You must be logged in to save preferences');
+      }
+      
+      // Send to backend API
+      const response = await fetch('http://localhost:3000/api/user-preferences', {
+        method: 'PUT', // Update existing preferences
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(preferences)
       });
-    } catch (error) {
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save preferences');
+      }
+      
+      setSaveSuccess(true);
+      console.log('Preferences saved successfully');
+    } catch (error: any) {
       console.error('Error saving preferences:', error);
+      setSaveError(error.message || 'An error occurred while saving preferences');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -736,8 +794,22 @@ const AIPreferencesSection = () => {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSavePreferences}>
-        <Text style={styles.saveButtonText}>Save Preferences</Text>
+      {saveError && (
+        <Text style={styles.errorText}>{saveError}</Text>
+      )}
+      
+      {saveSuccess && (
+        <Text style={styles.successText}>Preferences saved successfully!</Text>
+      )}
+
+      <TouchableOpacity 
+        style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} 
+        onPress={handleSavePreferences}
+        disabled={isSaving}
+      >
+        <Text style={styles.saveButtonText}>
+          {isSaving ? 'Saving...' : 'Save Preferences'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

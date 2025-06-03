@@ -2,9 +2,9 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-config.resolver.extraNodeModules = {
-  'react-native-vector-icons': require.resolve('react-native-vector-icons'),
-};
+// config.resolver.extraNodeModules = {
+//   'react-native-vector-icons': require.resolve('react-native-vector-icons'),
+// };
 
 // Add resolution for deprecated prop types
 config.resolver.resolveRequest = (context, moduleName, platform) => {

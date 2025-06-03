@@ -6,6 +6,7 @@ import {
   updatePredictionStatus 
 } from '../controllers/predictions';
 import { authenticateUser } from '../middleware/auth';
+import { validatePrediction } from '../middleware/validation';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/', getPredictions);
 router.get('/:id', getPredictionById);
 
 // Generate a new prediction
-router.post('/', generatePrediction);
+router.post('/', validatePrediction, generatePrediction);
 
 // Update prediction status (e.g., mark as won/lost)
 router.patch('/:id/status', updatePredictionStatus);
