@@ -7,16 +7,35 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Filter, ArrowUpRight, ChartBar as BarChart2 } from 'lucide-react-native';
+import { Filter, ArrowUpRight, ChartBar as BarChart2, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react-native';
 import { mockPredictionData } from '@/data/mockData';
+
+interface Prediction {
+  id: string;
+  matchup: string;
+  time: string;
+  confidence: number;
+  pick: string;
+  odds: string;
+  analysis: string;
+  winRate: number;
+  roi: number;
+  value: string;
+}
+
+interface PredictionCardProps {
+  prediction: Prediction;
+}
 
 export default function PredictionsScreen() {
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [predictions, setPredictions] = useState([]);
+  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [sportFilters, setSportFilters] = useState([
     { id: 'all', name: 'All Sports', active: true },
     { id: 'nfl', name: 'NFL', active: false },
@@ -74,6 +93,76 @@ export default function PredictionsScreen() {
       </View>
     );
   };
+
+  const fetchPredictions = async () => {
+    try {
+      // TODO: Replace with actual API call
+      const response = await fetch('YOUR_BACKEND_URL/api/predictions');
+      const data = await response.json();
+      setPredictions(data);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchPredictions();
+  }, []);
+
+  const PredictionCard: React.FC<PredictionCardProps> = ({ prediction }) => (
+    <View style={styles.card}>
+      <LinearGradient
+        colors={['#1a2a6c', '#b21f1f']}
+        style={styles.gradientHeader}
+      >
+        <Text style={styles.matchupText}>{prediction.matchup}</Text>
+        <Text style={styles.timeText}>{prediction.time}</Text>
+      </LinearGradient>
+
+      <View style={styles.predictionContent}>
+        <View style={styles.confidenceIndicator}>
+          <TrendingUp color="#007AFF" size={24} />
+          <Text style={styles.confidenceText}>
+            {prediction.confidence}% Confidence
+          </Text>
+        </View>
+
+        <View style={styles.pickContainer}>
+          <Text style={styles.pickLabel}>AI PICK:</Text>
+          <Text style={styles.pickText}>{prediction.pick}</Text>
+          <Text style={styles.oddsText}>{prediction.odds}</Text>
+        </View>
+
+        <View style={styles.analysisContainer}>
+          <Text style={styles.analysisTitle}>Analysis:</Text>
+          <Text style={styles.analysisText}>{prediction.analysis}</Text>
+        </View>
+
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Win Rate</Text>
+            <Text style={styles.statValue}>{prediction.winRate}%</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>ROI</Text>
+            <Text style={styles.statValue}>{prediction.roi}%</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Value</Text>
+            <Text style={styles.statValue}>{prediction.value}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.trackButton}>
+          <Text style={styles.trackButtonText}>Track This Pick</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -140,7 +229,9 @@ export default function PredictionsScreen() {
       </ScrollView>
       
       {/* Predictions List */}
-      <ScrollView style={styles.predictionsContainer}>
+      <ScrollView style={styles.predictionsContainer} refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#00E5FF" />
@@ -156,45 +247,7 @@ export default function PredictionsScreen() {
           </View>
         ) : (
           predictions.map((prediction) => (
-            <TouchableOpacity key={prediction.id} style={styles.predictionCard}>
-              <View style={styles.predictionHeader}>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.sportTag}>{prediction.sport}</Text>
-                  <Text style={styles.eventTime}>{prediction.time}</Text>
-                </View>
-                <TouchableOpacity style={styles.analyzeButton}>
-                  <ArrowUpRight size={16} color="#00E5FF" />
-                </TouchableOpacity>
-              </View>
-              
-              <Text style={styles.matchupText}>{prediction.matchup}</Text>
-              
-              <View style={styles.predictionDetails}>
-                <View style={styles.predictionType}>
-                  <Text style={styles.predictionTypeLabel}>Prediction Type</Text>
-                  <Text style={styles.predictionTypeValue}>{prediction.type}</Text>
-                </View>
-                <View style={styles.predictionPick}>
-                  <Text style={styles.predictionPickLabel}>AI Pick</Text>
-                  <Text style={styles.predictionPickValue}>{prediction.pick}</Text>
-                </View>
-              </View>
-              
-              <View style={styles.oddsContainer}>
-                <Text style={styles.oddsLabel}>Odds</Text>
-                <Text style={styles.oddsValue}>{prediction.odds}</Text>
-              </View>
-              
-              <View style={styles.confidenceContainer}>
-                <Text style={styles.confidenceLabel}>AI Confidence</Text>
-                {renderConfidenceBar(prediction.confidence)}
-              </View>
-              
-              <View style={styles.insightContainer}>
-                <Text style={styles.insightLabel}>Key Insight</Text>
-                <Text style={styles.insightText}>{prediction.insight}</Text>
-              </View>
-            </TouchableOpacity>
+            <PredictionCard key={prediction.id} prediction={prediction} />
           ))
         )}
       </ScrollView>
@@ -340,7 +393,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 20,
   },
-  predictionCard: {
+  card: {
     backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
@@ -360,127 +413,81 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  predictionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  eventInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sportTag: {
-    fontSize: 12,
-    color: '#00E5FF',
-    fontWeight: '600',
-    marginRight: 10,
-  },
-  eventTime: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  analyzeButton: {
-    height: 30,
-    width: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  gradientHeader: {
+    padding: 15,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
   },
   matchupText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 16,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  predictionDetails: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  predictionType: {
-    flex: 1,
-  },
-  predictionTypeLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginBottom: 4,
-  },
-  predictionTypeValue: {
+  timeText: {
+    color: '#fff',
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    marginTop: 5,
   },
-  predictionPick: {
-    flex: 1,
+  predictionContent: {
+    padding: 15,
   },
-  predictionPickLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginBottom: 4,
-  },
-  predictionPickValue: {
-    fontSize: 14,
-    color: '#00E5FF',
-    fontWeight: '700',
-  },
-  oddsContainer: {
+  confidenceIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  oddsLabel: {
-    fontSize: 14,
-    color: '#94A3B8',
-    marginRight: 8,
-  },
-  oddsValue: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  confidenceContainer: {
-    marginBottom: 16,
-  },
-  confidenceLabel: {
-    fontSize: 14,
-    color: '#94A3B8',
-    marginBottom: 8,
-  },
-  confidenceBarContainer: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    position: 'relative',
-  },
-  confidenceBar: {
-    height: 8,
-    borderRadius: 4,
-    position: 'absolute',
-    left: 0,
-    top: 0,
+    marginBottom: 15,
   },
   confidenceText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    marginLeft: 10,
+    fontSize: 16,
     fontWeight: '600',
-    position: 'absolute',
-    right: 0,
-    top: -20,
   },
-  insightContainer: {
-    padding: 12,
-    backgroundColor: 'rgba(0, 229, 255, 0.05)',
-    borderRadius: 8,
+  pickContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
   },
-  insightLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginBottom: 4,
-  },
-  insightText: {
+  pickLabel: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: '#666',
+    marginBottom: 5,
+  },
+  pickText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  oddsText: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  analysisContainer: {
+    marginBottom: 15,
+  },
+  analysisTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  analysisText: {
+    fontSize: 14,
+    color: '#444',
     lineHeight: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  trackButton: {
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  trackButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

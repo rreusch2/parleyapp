@@ -6,10 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, Wallet, Calendar, TrendingUp, History, Bell, Award, Users } from 'lucide-react-native';
+import MultiSelect from 'react-native-multiple-select';
 
 export default function ProfileScreen() {
   const [userStats, setUserStats] = useState({
@@ -82,6 +86,28 @@ export default function ProfileScreen() {
       color: '#EC4899' 
     }
   ];
+
+  const [riskTolerance, setRiskTolerance] = useState('medium');
+  const [pickFrequency, setPickFrequency] = useState('daily');
+  const [bankroll, setBankroll] = useState('');
+  const [maxBetPercentage, setMaxBetPercentage] = useState(5);
+  const [availableSports, setAvailableSports] = useState([
+    { id: 1, name: 'Football' },
+    { id: 2, name: 'Basketball' },
+    { id: 3, name: 'Baseball' },
+    { id: 4, name: 'Tennis' },
+    { id: 5, name: 'Golf' },
+    { id: 6, name: 'Cricket' },
+    { id: 7, name: 'Hockey' },
+    { id: 8, name: 'Volleyball' },
+    { id: 9, name: 'Handball' },
+    { id: 10, name: 'Basketball' }
+  ]);
+  const [selectedSports, setSelectedSports] = useState([]);
+
+  const handleSavePreferences = () => {
+    // Implementation of saving preferences
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -212,6 +238,8 @@ export default function ProfileScreen() {
       <View style={styles.versionInfo}>
         <Text style={styles.versionText}>BetGenius AI v1.0.0</Text>
       </View>
+
+      <AIPreferencesSection />
     </ScrollView>
   );
 }
@@ -500,4 +528,217 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
   },
+  preferenceItem: {
+    marginBottom: 16,
+  },
+  preferenceLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 8,
+  },
+  pickerContainer: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  picker: {
+    backgroundColor: '#0F172A',
+    color: '#FFFFFF',
+    height: 50,
+  },
+  pickerItem: {
+    color: '#FFFFFF',
+  },
+  input: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderValue: {
+    color: '#FFFFFF',
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  saveButton: {
+    backgroundColor: '#00E5FF',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  saveButtonText: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  preferencesCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
+    margin: 16,
+  },
+  preferencesTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+  },
+  multiSelectDropdown: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+  },
+  multiSelectDropdownSubsection: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  multiSelectInputGroup: {
+    backgroundColor: '#0F172A',
+  },
+  multiSelectItemsContainer: {
+    backgroundColor: '#1E293B',
+  },
+  multiSelectListContainer: {
+    backgroundColor: '#1E293B',
+  },
+  multiSelectSelectorContainer: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+  },
+  multiSelectTextDropdown: {
+    color: '#94A3B8',
+    fontSize: 16,
+  },
+  multiSelectTextDropdownSelected: {
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
 });
+
+const AIPreferencesSection = () => {
+  const [riskTolerance, setRiskTolerance] = useState('medium');
+  const [bankroll, setBankroll] = useState('');
+  const [maxBetPercentage, setMaxBetPercentage] = useState(5);
+  const [availableSports] = useState([
+    { id: 1, name: 'Football' },
+    { id: 2, name: 'Basketball' },
+    { id: 3, name: 'Baseball' },
+    { id: 4, name: 'Tennis' },
+    { id: 5, name: 'Golf' },
+    { id: 6, name: 'Cricket' },
+    { id: 7, name: 'Hockey' },
+    { id: 8, name: 'Volleyball' },
+    { id: 9, name: 'Handball' },
+    { id: 10, name: 'Basketball' }
+  ]);
+  const [selectedSports, setSelectedSports] = useState<number[]>([]);
+
+  const handleSavePreferences = async () => {
+    try {
+      // TODO: Implement saving preferences to backend
+      console.log('Saving preferences:', {
+        riskTolerance,
+        selectedSports,
+        bankroll,
+        maxBetPercentage
+      });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+    }
+  };
+
+  return (
+    <View style={styles.preferencesCard}>
+      <Text style={styles.preferencesTitle}>AI Betting Preferences</Text>
+      
+      <View style={styles.preferenceItem}>
+        <Text style={styles.preferenceLabel}>Risk Tolerance</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={riskTolerance}
+            onValueChange={(value: string) => setRiskTolerance(value)}
+            style={styles.picker}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Low" value="low" />
+            <Picker.Item label="Medium" value="medium" />
+            <Picker.Item label="High" value="high" />
+          </Picker>
+        </View>
+      </View>
+
+      <View style={styles.preferenceItem}>
+        <Text style={styles.preferenceLabel}>Sports</Text>
+        <MultiSelect
+          items={availableSports}
+          uniqueKey="id"
+          onSelectedItemsChange={(items: number[]) => setSelectedSports(items)}
+          selectedItems={selectedSports}
+          selectText="Select Sports"
+          searchInputPlaceholderText="Search Sports..."
+          tagRemoveIconColor="#CCC"
+          tagBorderColor="#CCC"
+          tagTextColor="#CCC"
+          selectedItemTextColor="#00E5FF"
+          selectedItemIconColor="#00E5FF"
+          itemTextColor="#FFFFFF"
+          displayKey="name"
+          searchInputStyle={{ color: '#FFFFFF' }}
+          styleDropdownMenu={styles.multiSelectDropdown}
+          styleDropdownMenuSubsection={styles.multiSelectDropdownSubsection}
+          styleInputGroup={styles.multiSelectInputGroup}
+          styleItemsContainer={styles.multiSelectItemsContainer}
+          styleListContainer={styles.multiSelectListContainer}
+          styleSelectorContainer={styles.multiSelectSelectorContainer}
+          styleTextDropdown={styles.multiSelectTextDropdown}
+          styleTextDropdownSelected={styles.multiSelectTextDropdownSelected}
+        />
+      </View>
+
+      <View style={styles.preferenceItem}>
+        <Text style={styles.preferenceLabel}>Bankroll</Text>
+        <TextInput
+          style={styles.input}
+          value={bankroll}
+          onChangeText={setBankroll}
+          placeholder="Enter your bankroll"
+          placeholderTextColor="#64748B"
+          keyboardType="numeric"
+        />
+      </View>
+
+      <View style={styles.preferenceItem}>
+        <Text style={styles.preferenceLabel}>Max Bet Size (%)</Text>
+        <View style={styles.sliderContainer}>
+          <Slider
+            style={styles.slider}
+            value={maxBetPercentage}
+            onValueChange={setMaxBetPercentage}
+            minimumValue={1}
+            maximumValue={10}
+            step={1}
+            minimumTrackTintColor="#00E5FF"
+            maximumTrackTintColor="#1E293B"
+            thumbTintColor="#00E5FF"
+          />
+          <Text style={styles.sliderValue}>{maxBetPercentage}%</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.saveButton} onPress={handleSavePreferences}>
+        <Text style={styles.saveButtonText}>Save Preferences</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
