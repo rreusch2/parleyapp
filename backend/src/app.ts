@@ -5,6 +5,7 @@ import predictionsRouter from './api/routes/predictions';
 import sportsEventsRouter from './api/routes/sportsEvents';
 import betHistoryRouter from './api/routes/betHistory';
 import sportsDataAdminRouter from './api/routes/sportsDataAdmin';
+import sportsDataRouter from './api/routes/sportsData';
 import { initScheduler } from './services/sportsData/scheduler';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/predictions', predictionsRouter);
 app.use('/api/sports-events', sportsEventsRouter);
 app.use('/api/bets', betHistoryRouter);
 app.use('/api/sports-data-admin', sportsDataAdminRouter);
+app.use('/api/sports-data', sportsDataRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

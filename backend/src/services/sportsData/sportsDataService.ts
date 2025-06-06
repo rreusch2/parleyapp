@@ -2,6 +2,13 @@ import { supabase } from '../supabase/client';
 // Import the new sportsDbApi client and base URL
 import { sportsDbApi, THESPORTSDB_V1_BASE_URL } from './apiSportsClient';
 import axios from 'axios';
+import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Define TheSportsDB specific League IDs and Sport Names
 // IMPORTANT: Replace these placeholder IDs with actual IDs from TheSportsDB
@@ -67,8 +74,149 @@ interface TheSportsDBEvent {
   strSport: string;
 }
 
-export const sportsDataService = {
-  fetchAndStoreUpcomingGames: async () => {
+class SportsDataService {
+  private apiKey: string;
+  private baseUrl: string = 'https://api.sportradar.us';
+  private cachePath: string;
+  private cacheExpiration: number = 3600000; // 1 hour in milliseconds
+
+  constructor() {
+    this.apiKey = process.env.SPORTRADAR_API_KEY || '';
+    if (!this.apiKey) {
+      console.error('SPORTRADAR_API_KEY is not set in the environment variables');
+    }
+    
+    // Setup cache directory
+    this.cachePath = path.join(__dirname, '../../../data/cache');
+    if (!fs.existsSync(this.cachePath)) {
+      fs.mkdirSync(this.cachePath, { recursive: true });
+    }
+  }
+
+  /**
+   * Get available sports from the Odds Comparison API (Player Props)
+   */
+  async getAvailableSports() {
+    return this.fetchWithCache('player_props_sports', 
+      `${this.baseUrl}/oddscomparison-player-props/trial/v2/en/sports.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Get available sports from the Prematch Odds Comparison API
+   */
+  async getPrematchSports() {
+    return this.fetchWithCache('prematch_sports', 
+      `${this.baseUrl}/oddscomparison-prematch/trial/v2/en/sports.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Get NBA league hierarchy
+   */
+  async getNbaHierarchy() {
+    return this.fetchWithCache('nba_hierarchy', 
+      `${this.baseUrl}/nba/trial/v8/en/league/hierarchy.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Get MLB league hierarchy
+   */
+  async getMlbHierarchy() {
+    return this.fetchWithCache('mlb_hierarchy', 
+      `${this.baseUrl}/mlb/trial/v7/en/league/hierarchy.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Get NHL league hierarchy
+   */
+  async getNhlHierarchy() {
+    return this.fetchWithCache('nhl_hierarchy', 
+      `${this.baseUrl}/nhl/trial/v7/en/league/hierarchy.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Get NBA daily schedule
+   * @param year - Year (YYYY)
+   * @param month - Month (MM)
+   * @param day - Day (DD)
+   */
+  async getNbaDailySchedule(year: string, month: string, day: string) {
+    const cacheKey = `nba_schedule_${year}_${month}_${day}`;
+    return this.fetchWithCache(cacheKey, 
+      `${this.baseUrl}/nba/trial/v8/en/games/${year}/${month}/${day}/schedule.json?api_key=${this.apiKey}`);
+  }
+
+  /**
+   * Generic method to fetch data from any endpoint
+   * @param endpoint - Full endpoint URL
+   */
+  async fetchFromEndpoint(endpoint: string) {
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch data with caching
+   * @param cacheKey - Unique key for caching
+   * @param url - URL to fetch data from
+   */
+  private async fetchWithCache(cacheKey: string, url: string) {
+    const cacheFilePath = path.join(this.cachePath, `${cacheKey}.json`);
+    
+    // Check if cache exists and is not expired
+    if (fs.existsSync(cacheFilePath)) {
+      const stats = fs.statSync(cacheFilePath);
+      const fileAge = Date.now() - stats.mtimeMs;
+      
+      if (fileAge < this.cacheExpiration) {
+        try {
+          const cachedData = fs.readFileSync(cacheFilePath, 'utf8');
+          return JSON.parse(cachedData);
+        } catch (error) {
+          console.error('Error reading cache:', error);
+          // Continue to fetch fresh data if cache read fails
+        }
+      }
+    }
+    
+    // Fetch fresh data
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Save to cache
+      fs.writeFileSync(cacheFilePath, JSON.stringify(data, null, 2));
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw error;
+    }
+  }
+
+  async fetchAndStoreUpcomingGames() {
     console.log("Attempting to fetch and store upcoming games...");
     const systemDate = new Date();
     const year = systemDate.getFullYear();
@@ -285,9 +433,9 @@ export const sportsDataService = {
       }
     }
     console.log("Completed fetching and storing games using TheSportsDB.");
-  },
+  }
 
-  updateGameStatuses: async () => {
+  async updateGameStatuses() {
     console.log("Starting game status updates...");
     try {
       // Get all games that are either scheduled or live
@@ -374,30 +522,21 @@ export const sportsDataService = {
     } catch (error) {
       console.error("Error in updateGameStatuses:", error);
     }
-  },
+  }
   
-  // fetchLeagues: async (sport?: string, country?: string) => {
-  //   console.warn("fetchLeagues (admin utility) needs to be adapted for sportsDbApi.getAllLeagues() or specific sport/country lookups if needed.");
-  //   // Use sportsDbApi.getAllLeagues() and then filter if necessary,
-  //   // or implement specific lookup in the client if TheSportsDB supports it directly.
-  //   // return sportsDbApi.getAllLeagues(); // Example
-  // },
-  
-  runFullUpdate: async () => {
+  async runFullUpdate() {
     try {
       console.log('Starting full sports data update with TheSportsDB...');
-      // No longer iterating a sportsToUpdate array in the same way,
-      // fetchAndStoreUpcomingGames now iterates through LEAGUES_TSDB internally.
-      await sportsDataService.fetchAndStoreUpcomingGames();
+      await this.fetchAndStoreUpcomingGames();
       
-      // await sportsDataService.updateGameStatuses(); // Commented out until refactored
+      // await this.updateGameStatuses(); // Commented out until refactored
       
       console.log('Full sports data update with TheSportsDB completed successfully');
     } catch (error: any) {
       console.error('Error running full update with TheSportsDB:', error.response ? error.response.data : error.message);
     }
   }
-};
+}
 
 // Helper function to map TheSportsDB status strings to our database status values
 // This is a starting point and needs to be comprehensive based on TheSportsDB's actual status strings
@@ -416,4 +555,6 @@ function mapStatus(apiStatus: string): string {
   }
   console.warn(`Unknown TheSportsDB status: '${apiStatus}', defaulting to 'scheduled'.`);
   return 'scheduled'; // Default for unknown statuses
-} 
+}
+
+export default new SportsDataService(); 

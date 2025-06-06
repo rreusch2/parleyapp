@@ -1,0 +1,48 @@
+{
+  "id": "2288617a-4a44-440a-ae72-88928d36c637",
+  "title": "Game 1",
+  "status": "scheduled",
+  "coverage": "full",
+  "scheduled": "2025-06-06T00:30:00+00:00",
+  "track_on_court": true,
+  "reference": "0042400401",
+  "sr_id": "sr:match:59796354",
+  "broadcasts": [
+    {
+      "type": "TV",
+      "locale": "National",
+      "network": "ABC"
+    }
+  ],
+  "time_zones": {
+    "venue": "US/Central",
+    "home": "US/Central",
+    "away": "US/Eastern"
+  },
+  "season": {
+    "id": "64bb5ffa-bd55-4ea3-b7f8-efc4959c1187",
+    "year": 2024,
+    "type": "PST",
+    "name": "Post-season"
+  },
+  "home": {
+    "name": "Oklahoma City Thunder",
+    "alias": "OKC",
+    "market": "Oklahoma City",
+    "id": "583ecfff-fb46-11e1-82cb-f4ce4684ea4c",
+    "points": 0,
+    "seed": 1,
+    "sr_id": "sr:team:3418",
+    "reference": "1610612760"
+  },
+  "away": {
+    "name": "Indiana Pacers",
+    "alias": "IND",
+    "market": "Indiana",
+    "id": "583ec7cd-fb46-11e1-82cb-f4ce4684ea4c",
+    "points": 0,
+    "seed": 4,
+    "sr_id": "sr:team:3419",
+    "reference": "1610612754"
+  }
+}

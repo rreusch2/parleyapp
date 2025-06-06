@@ -56,19 +56,58 @@ const updateEnvFile = (apiKey) => {
   }
 };
 
-console.log('===== API-Sports Key Setup =====');
-console.log('This script will add your API-Sports key to the .env file.');
-console.log('You can find your API key at: https://dashboard.api-football.com/profile?access');
-console.log('');
+console.log('📝 SportRadar API Key Setup');
+console.log('--------------------------');
+console.log('This script will help you set up your SportRadar API key.');
+console.log('You need to enter your complete API key, not just the prefix.\n');
 
-rl.question('Please enter your API-Sports key: ', (apiKey) => {
+// Check if .env file exists
+const envExists = fs.existsSync(ENV_FILE_PATH);
+
+if (envExists) {
+  console.log('ℹ️ An .env file already exists. We will update it.\n');
+} else {
+  console.log('ℹ️ No .env file found. We will create one for you.\n');
+}
+
+// Get existing environment variables if the file exists
+let existingEnv = {};
+if (envExists) {
+  const envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+  envContent.split('\n').forEach(line => {
+    if (line.trim() && !line.startsWith('#')) {
+      const [key, value] = line.split('=');
+      if (key && value) {
+        existingEnv[key.trim()] = value.trim();
+      }
+    }
+  });
+}
+
+rl.question('Enter your complete SportRadar API key: ', (apiKey) => {
   if (!apiKey) {
-    console.log('No API key provided. Exiting without making changes.');
+    console.log('❌ API key cannot be empty. Exiting...');
     rl.close();
     return;
   }
 
-  updateEnvFile(apiKey);
+  // Update or add API key to environment variables
+  existingEnv.SPORTRADAR_API_KEY = apiKey;
+
+  // Build .env file content
+  let envContent = '';
+  Object.entries(existingEnv).forEach(([key, value]) => {
+    envContent += `${key}=${value}\n`;
+  });
+
+  // Write to .env file
+  fs.writeFileSync(ENV_FILE_PATH, envContent);
+
+  console.log('\n✅ API key has been successfully saved to .env file.');
+  console.log('\n🚀 You can now run your application with the SportRadar API key.');
+  console.log('\n📋 Test the API connection with:');
+  console.log('   npx ts-node src/scripts/testSportRadar.ts');
+
   rl.close();
 });
 
