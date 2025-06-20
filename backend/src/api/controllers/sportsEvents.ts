@@ -34,14 +34,25 @@ export const getSportsEvents = async (req: Request, res: Response) => {
       query = query.lte('start_time', end_date);
     }
 
-    // Limit to upcoming games for better performance
+    // Limit to upcoming games for today and tomorrow only (unless specific dates provided)
     if (!start_date && !end_date) {
       const now = new Date();
-      // Set to start of current day in UTC
-      now.setUTCHours(0, 0, 0, 0);
-      const nowStr = now.toISOString();
-      console.log('Filtering games after:', nowStr);
-      query = query.gte('start_time', nowStr);
+      const today = new Date(now);
+      today.setUTCHours(0, 0, 0, 0);
+      
+      const dayAfterTomorrow = new Date(now);
+      dayAfterTomorrow.setDate(now.getDate() + 2);
+      dayAfterTomorrow.setUTCHours(0, 0, 0, 0);
+      
+      console.log('Filtering games for today and tomorrow:', {
+        from: today.toISOString(),
+        to: dayAfterTomorrow.toISOString()
+      });
+      
+      query = query
+        .gte('start_time', today.toISOString())
+        .lt('start_time', dayAfterTomorrow.toISOString())
+        .eq('status', 'scheduled'); // Only show scheduled games
     }
 
     // Paginate results

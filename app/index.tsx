@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 // import { Link } from 'expo-router'; // No longer needed for these buttons
 import { useRouter } from 'expo-router'; // Import useRouter
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogIn, UserPlus, CheckCircle } from 'lucide-react-native';
+import { LogIn, UserPlus, CheckCircle, Bug } from 'lucide-react-native';
 
 export default function LandingPage() {
   const router = useRouter(); // Initialize router
@@ -33,6 +33,14 @@ export default function LandingPage() {
           >
             <UserPlus color="black" size={20} style={styles.iconStyle} />
             <Text style={styles.signupButtonText}>Sign Up</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, styles.debugButton]}
+            onPress={() => router.push('/debug-react-native-supabase')} // Debug navigation
+          >
+            <Bug color="white" size={20} style={styles.iconStyle} />
+            <Text style={styles.debugButtonText}>Debug RN Supabase</Text>
           </TouchableOpacity>
         </View>
 
@@ -116,6 +124,17 @@ const styles = StyleSheet.create({
   signupButtonText: {
     color: 'black',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  debugButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'white',
+  },
+  debugButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   iconStyle: {

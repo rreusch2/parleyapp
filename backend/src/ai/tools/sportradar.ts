@@ -203,8 +203,8 @@ export const sportradarOddsService = {
             line: market.line,
             books: processedBooks,
             consensusImpliedProbabilities: {
-              over: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.over, 0) / processedBooks.length,
-              under: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.under, 0) / processedBooks.length
+              over: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.over, 0) / processedBooks.length,
+              under: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.under, 0) / processedBooks.length
             }
           };
         });
@@ -289,8 +289,8 @@ export const sportradarOddsService = {
             ...baseMarket,
             books: processedBooks,
             consensusImpliedProbabilities: {
-              home: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.home, 0) / processedBooks.length,
-              away: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.away, 0) / processedBooks.length
+              home: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.home, 0) / processedBooks.length,
+              away: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.away, 0) / processedBooks.length
             }
           };
         } else if (market.type === 'total') {
@@ -323,8 +323,8 @@ export const sportradarOddsService = {
             ...baseMarket,
             books: processedBooks,
             consensusImpliedProbabilities: {
-              over: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.over, 0) / processedBooks.length,
-              under: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.under, 0) / processedBooks.length
+              over: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.over, 0) / processedBooks.length,
+              under: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.under, 0) / processedBooks.length
             }
           };
         } else { // moneyline
@@ -339,7 +339,7 @@ export const sportradarOddsService = {
             
             const rawHomeProb = probabilityUtils.decimalToImpliedProbability(homeDecimal);
             const rawAwayProb = probabilityUtils.decimalToImpliedProbability(awayDecimal);
-            const rawDrawProb = drawOutcome ? probabilityUtils.decimalToImpliedProbability(drawDecimal) : null;
+            const rawDrawProb = drawOutcome && drawDecimal ? probabilityUtils.decimalToImpliedProbability(drawDecimal) : 0;
             
             const probsToRemoveVig = drawOutcome ? 
               [rawHomeProb, rawAwayProb, rawDrawProb] : 
@@ -356,7 +356,7 @@ export const sportradarOddsService = {
                 home: trueProbs[0],
                 away: trueProbs[1],
                 draw: drawOutcome ? trueProbs[2] : null,
-                vigPercentage: ((probsToRemoveVig.reduce((a, b) => a + b, 0) - 1) * 100).toFixed(2) + '%'
+                vigPercentage: ((probsToRemoveVig.reduce((a: number, b: number) => a + b, 0) - 1) * 100).toFixed(2) + '%'
               }
             };
           });
@@ -365,10 +365,10 @@ export const sportradarOddsService = {
             ...baseMarket,
             books: processedBooks,
             consensusImpliedProbabilities: {
-              home: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.home, 0) / processedBooks.length,
-              away: processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.away, 0) / processedBooks.length,
+              home: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.home, 0) / processedBooks.length,
+              away: processedBooks.reduce((sum: number, book: any) => sum + book.impliedProbabilities.away, 0) / processedBooks.length,
               draw: processedBooks[0].impliedProbabilities.draw !== null ?
-                processedBooks.reduce((sum, book) => sum + book.impliedProbabilities.draw, 0) / processedBooks.length :
+                processedBooks.reduce((sum: number, book: any) => sum + (book.impliedProbabilities.draw || 0), 0) / processedBooks.length :
                 null
             }
           };
@@ -451,4 +451,3 @@ export const sportradarGetMatchProbabilitiesTool = {
   },
 };
 */ 
-}; 

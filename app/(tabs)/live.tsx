@@ -11,7 +11,7 @@ import {
   Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Clock } from 'lucide-react-native';
+import { ChevronRight, Clock, RefreshCw, Calendar } from 'lucide-react-native';
 import { sportsApi, type SportsEvent } from '@/app/services/api/sportsApi';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
@@ -65,15 +65,35 @@ export default function GamesScreen() {
       const games = response.data.data || [];
       console.log('Fetched games:', games.length);
 
-      // Separate games into live, upcoming, and completed
-      const live = games.filter(game => game.status === 'live');
-      const upcoming = games.filter(game => game.status === 'scheduled');
-      const completed = games.filter(game => game.status === 'completed');
-      console.log('Live games:', live.length, 'Upcoming games:', upcoming.length, 'Completed games:', completed.length);
+      // Filter for upcoming games (scheduled status for today and tomorrow)
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      
+      const todayStr = today.toDateString();
+      const tomorrowStr = tomorrow.toDateString();
+      
+      const todayGames = games.filter(game => {
+        const gameDate = new Date(game.start_time);
+        const gameDateStr = gameDate.toDateString();
+        return game.status === 'scheduled' && gameDateStr === todayStr;
+      });
 
-      setLiveGames(live);
-      setUpcomingGames(upcoming);
-      setCompletedGames(completed);
+      const tomorrowGames = games.filter(game => {
+        const gameDate = new Date(game.start_time);
+        const gameDateStr = gameDate.toDateString();
+        return game.status === 'scheduled' && gameDateStr === tomorrowStr;
+      });
+      
+      const upcomingGames = [...todayGames, ...tomorrowGames];
+      
+      console.log('Today\'s games:', todayGames.length);
+      console.log('Tomorrow\'s games:', tomorrowGames.length);
+      console.log('Total upcoming games:', upcomingGames.length);
+
+      setUpcomingGames(upcomingGames);
+      setLiveGames([]); // Clear live games
+      setCompletedGames([]); // Clear completed games
     } catch (error: any) {
       console.error('Error fetching games:', error);
       if (error?.response?.status === 401) {
@@ -94,6 +114,32 @@ export default function GamesScreen() {
     setRefreshing(true);
     await fetchGames();
     setRefreshing(false);
+  };
+
+  const fetchTomorrowGames = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Fetching tomorrow\'s games...');
+      
+      const response = await fetch('http://localhost:3001/api/fetch-tomorrow-games', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        console.log('✅ Tomorrow\'s games fetched successfully');
+        // Refresh the games list
+        await fetchGames();
+      } else {
+        console.error('❌ Failed to fetch tomorrow\'s games');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching tomorrow\'s games:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -129,7 +175,7 @@ export default function GamesScreen() {
             <Text style={styles.sportText}>{game.league}</Text>
           </View>
           <Text style={styles.timeText}>
-            {game.status === 'live' ? 'LIVE' : formatGameTime(game.start_time)}
+            {formatGameTime(game.start_time)}
           </Text>
         </View>
 
@@ -188,6 +234,19 @@ export default function GamesScreen() {
         ))}
       </ScrollView>
 
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.fetchButton}
+          onPress={fetchTomorrowGames}
+          disabled={loading}
+        >
+          <Calendar size={16} color="#111827" />
+          <Text style={styles.fetchButtonText}>
+            {loading ? 'Fetching...' : 'Fetch Tomorrow\'s Games'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         style={styles.gamesContainer}
         refreshControl={
@@ -198,30 +257,16 @@ export default function GamesScreen() {
           <ActivityIndicator size="large" color="#00E5FF" style={styles.loader} />
         ) : (
           <>
-            {liveGames.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Live Games</Text>
-                {liveGames.map(renderGameCard)}
-              </View>
-            )}
-
             {upcomingGames.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Upcoming Games</Text>
+                <Text style={styles.sectionTitle}>Today & Tomorrow</Text>
                 {upcomingGames.map(renderGameCard)}
               </View>
             )}
 
-            {completedGames.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Completed Games</Text>
-                {completedGames.map(renderGameCard)}
-              </View>
-            )}
-
-            {liveGames.length === 0 && upcomingGames.length === 0 && completedGames.length === 0 && (
+            {upcomingGames.length === 0 && (
               <View style={styles.noGamesContainer}>
-                <Text style={styles.noGamesText}>No games available</Text>
+                <Text style={styles.noGamesText}>No upcoming games for today or tomorrow</Text>
               </View>
             )}
           </>
@@ -345,5 +390,24 @@ const styles = StyleSheet.create({
     color: '#717171',
     fontSize: 16,
     fontWeight: '500',
+  },
+  actionContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  fetchButton: {
+    backgroundColor: '#00E5FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+  },
+  fetchButtonText: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

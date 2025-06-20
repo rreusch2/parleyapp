@@ -3,7 +3,7 @@ import { SportsEvent, GetGamesParams } from '@/app/types/sports';
 import { supabase } from './supabaseClient';
 
 // Use environment variable with fallback to localhost
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.58:3000/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.99:3001/api';
 
 export { type SportsEvent, type GetGamesParams };
 

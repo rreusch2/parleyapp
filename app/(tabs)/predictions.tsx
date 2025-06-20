@@ -8,250 +8,348 @@ import {
   Dimensions,
   ActivityIndicator,
   Platform,
-  RefreshControl
+  RefreshControl,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Filter, ArrowUpRight, ChartBar as BarChart2, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react-native';
-import { mockPredictionData } from '@/data/mockData';
-
-interface Prediction {
-  id: string;
-  matchup: string;
-  time: string;
-  confidence: number;
-  pick: string;
-  odds: string;
-  analysis: string;
-  winRate: number;
-  roi: number;
-  value: string;
-}
-
-interface PredictionCardProps {
-  prediction: Prediction;
-}
+import { 
+  TrendingUp, 
+  Target, 
+  Calendar, 
+  Filter, 
+  BarChart3,
+  Clock,
+  Zap,
+  Eye,
+  Star,
+  Trophy,
+  Activity
+} from 'lucide-react-native';
+import { aiService, AIPrediction } from '@/app/services/api/aiService';
 
 export default function PredictionsScreen() {
-  const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [sportFilters, setSportFilters] = useState([
-    { id: 'all', name: 'All Sports', active: true },
-    { id: 'nfl', name: 'NFL', active: false },
-    { id: 'nba', name: 'NBA', active: false },
-    { id: 'mlb', name: 'MLB', active: false },
-    { id: 'nhl', name: 'NHL', active: false },
-  ]);
+  const [predictions, setPredictions] = useState<AIPrediction[]>([]);
+  const [filterType, setFilterType] = useState<'all' | 'high' | 'value'>('all');
+  const [selectedSport, setSelectedSport] = useState<string>('all');
 
   useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      setPredictions(mockPredictionData);
-      setLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
+    loadPredictions();
   }, []);
 
-  const handleSportFilter = (sportId) => {
-    setActiveTab(sportId);
-    
-    // Update filter states
-    setSportFilters(sportFilters.map(sport => ({
-      ...sport,
-      active: sport.id === sportId
-    })));
-    
-    // Apply filtering logic here
+  const loadPredictions = async () => {
     setLoading(true);
-    setTimeout(() => {
-      if (sportId === 'all') {
-        setPredictions(mockPredictionData);
-      } else {
-        setPredictions(mockPredictionData.filter(
-          prediction => prediction.sportId === sportId
-        ));
-      }
-      setLoading(false);
-    }, 500);
-  };
-
-  const renderConfidenceBar = (confidence) => {
-    let barColor = '#EF4444'; // Low confidence
-    
-    if (confidence >= 90) {
-      barColor = '#10B981'; // High confidence
-    } else if (confidence >= 75) {
-      barColor = '#F59E0B'; // Medium confidence
-    }
-    
-    return (
-      <View style={styles.confidenceBarContainer}>
-        <View style={[styles.confidenceBar, { width: `${confidence}%`, backgroundColor: barColor }]} />
-        <Text style={styles.confidenceText}>{confidence}%</Text>
-      </View>
-    );
-  };
-
-  const fetchPredictions = async () => {
     try {
-      // TODO: Replace with actual API call
-      const response = await fetch('YOUR_BACKEND_URL/api/predictions');
-      const data = await response.json();
+      const data = await aiService.getTodaysPicks();
       setPredictions(data);
     } catch (error) {
-      console.error('Error fetching predictions:', error);
+      console.error('Error loading predictions:', error);
+      Alert.alert('Error', 'Failed to load predictions');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchPredictions();
-  }, []);
+    await loadPredictions();
+    setRefreshing(false);
+  };
 
-  const PredictionCard: React.FC<PredictionCardProps> = ({ prediction }) => (
-    <View style={styles.card}>
-      <LinearGradient
-        colors={['#1a2a6c', '#b21f1f']}
-        style={styles.gradientHeader}
-      >
-        <Text style={styles.matchupText}>{prediction.matchup}</Text>
-        <Text style={styles.timeText}>{prediction.time}</Text>
-      </LinearGradient>
+  const generateNewPredictions = async () => {
+    try {
+      Alert.alert(
+        'Generate New Predictions',
+        'This will use our AI to analyze current market conditions and generate fresh predictions. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Generate', 
+            onPress: async () => {
+              setLoading(true);
+              try {
+                const newPredictions = await aiService.generateNewPicks();
+                setPredictions(newPredictions);
+                Alert.alert('Success!', 'New AI predictions generated successfully');
+              } catch (error) {
+                Alert.alert('Error', 'Failed to generate new predictions');
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error generating predictions:', error);
+    }
+  };
 
-      <View style={styles.predictionContent}>
-        <View style={styles.confidenceIndicator}>
-          <TrendingUp color="#007AFF" size={24} />
-          <Text style={styles.confidenceText}>
-            {prediction.confidence}% Confidence
-          </Text>
-        </View>
+  const getFilteredPredictions = () => {
+    let filtered = predictions;
 
-        <View style={styles.pickContainer}>
-          <Text style={styles.pickLabel}>AI PICK:</Text>
-          <Text style={styles.pickText}>{prediction.pick}</Text>
-          <Text style={styles.oddsText}>{prediction.odds}</Text>
-        </View>
+    if (filterType === 'high') {
+      filtered = filtered.filter(p => p.confidence >= 85);
+    } else if (filterType === 'value') {
+      filtered = filtered.filter(p => (p.value || 0) >= 10);
+    }
 
-        <View style={styles.analysisContainer}>
-          <Text style={styles.analysisTitle}>Analysis:</Text>
-          <Text style={styles.analysisText}>{prediction.analysis}</Text>
-        </View>
+    if (selectedSport !== 'all') {
+      filtered = filtered.filter(p => p.sport.toLowerCase() === selectedSport.toLowerCase());
+    }
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Win Rate</Text>
-            <Text style={styles.statValue}>{prediction.winRate}%</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>ROI</Text>
-            <Text style={styles.statValue}>{prediction.roi}%</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Value</Text>
-            <Text style={styles.statValue}>{prediction.value}</Text>
-          </View>
-        </View>
+    return filtered;
+  };
 
-        <TouchableOpacity style={styles.trackButton}>
-          <Text style={styles.trackButtonText}>Track This Pick</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 85) return '#10B981';
+    if (confidence >= 70) return '#F59E0B';
+    return '#EF4444';
+  };
+
+  const getSportIcon = (sport: string) => {
+    switch (sport.toLowerCase()) {
+      case 'nba': return '🏀';
+      case 'nfl': return '🏈';
+      case 'mlb': return '⚾';
+      case 'nhl': return '🏒';
+      case 'tennis': return '🎾';
+      case 'golf': return '⛳';
+      default: return '🏟️';
+    }
+  };
+
+  const filteredPredictions = getFilteredPredictions();
+  const sports = ['all', ...Array.from(new Set(predictions.map(p => p.sport)))];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>AI Predictions</Text>
-        <TouchableOpacity style={styles.filterButton}>
-          <Filter size={18} color="#FFFFFF" />
-          <Text style={styles.filterText}>Filter</Text>
-        </TouchableOpacity>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#00E5FF"
+          colors={['#00E5FF']}
+        />
+      }
+    >
+      {/* Header Stats */}
+      <LinearGradient
+        colors={['#7C3AED', '#1E40AF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerStats}
+      >
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Activity size={20} color="#00E5FF" />
+            <Text style={styles.statValue}>{predictions.length}</Text>
+            <Text style={styles.statLabel}>Total Picks</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <Target size={20} color="#10B981" />
+            <Text style={styles.statValue}>
+              {predictions.filter(p => p.confidence >= 85).length}
+            </Text>
+            <Text style={styles.statLabel}>High Confidence</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <TrendingUp size={20} color="#F59E0B" />
+            <Text style={styles.statValue}>
+              {predictions.filter(p => (p.value || 0) >= 10).length}
+            </Text>
+            <Text style={styles.statLabel}>Value Bets</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Filter Controls */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterTitle}>Filter Predictions</Text>
+        
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
+            {['all', 'high', 'value'].map(type => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.filterChip,
+                  filterType === type && styles.filterChipActive
+                ]}
+                onPress={() => setFilterType(type as any)}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  filterType === type && styles.filterChipTextActive
+                ]}>
+                  {type === 'all' ? 'All Picks' : type === 'high' ? 'High Confidence' : 'Value Bets'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView}>
+            {sports.map(sport => (
+              <TouchableOpacity
+                key={sport}
+                style={[
+                  styles.sportChip,
+                  selectedSport === sport && styles.sportChipActive
+                ]}
+                onPress={() => setSelectedSport(sport)}
+              >
+                <Text style={[
+                  styles.sportChipText,
+                  selectedSport === sport && styles.sportChipTextActive
+                ]}>
+                  {sport === 'all' ? 'All Sports' : `${getSportIcon(sport)} ${sport.toUpperCase()}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </View>
-      
-      <View style={styles.statsCard}>
+
+      {/* Generate New Predictions Button */}
+      <TouchableOpacity style={styles.generateButton} onPress={generateNewPredictions}>
         <LinearGradient
-          colors={['#1A365D', '#2D3748']}
+          colors={['#00E5FF', '#0891B2']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.statsGradient}
+          style={styles.generateGradient}
         >
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>72%</Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>+22.8%</Text>
-              <Text style={styles.statLabel}>ROI</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>127</Text>
-              <Text style={styles.statLabel}>Predictions</Text>
-            </View>
-          </View>
+          <Zap size={20} color="#FFFFFF" />
+          <Text style={styles.generateButtonText}>Generate New AI Predictions</Text>
         </LinearGradient>
-      </View>
-      
-      {/* Sport Filter Tabs */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsContainer}
-        contentContainerStyle={styles.tabsContent}
-      >
-        {sportFilters.map((sport) => (
-          <TouchableOpacity
-            key={sport.id}
-            style={[
-              styles.tabButton,
-              activeTab === sport.id && styles.activeTabButton
-            ]}
-            onPress={() => handleSportFilter(sport.id)}
-          >
-            <Text 
-              style={[
-                styles.tabText,
-                activeTab === sport.id && styles.activeTabText
-              ]}
-            >
-              {sport.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-      
+      </TouchableOpacity>
+
       {/* Predictions List */}
-      <ScrollView style={styles.predictionsContainer} refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00E5FF" />
-            <Text style={styles.loadingText}>Analyzing data...</Text>
-          </View>
-        ) : predictions.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <BarChart2 size={48} color="#64748B" />
-            <Text style={styles.emptyText}>No predictions available</Text>
-            <Text style={styles.emptySubtext}>
-              Check back later for new AI predictions
+      <View style={styles.predictionsSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            {filterType === 'all' ? 'All Predictions' : 
+             filterType === 'high' ? 'High Confidence Picks' : 
+             'Value Bet Opportunities'}
+          </Text>
+          <Text style={styles.resultCount}>{filteredPredictions.length} results</Text>
+        </View>
+
+        {filteredPredictions.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Trophy size={48} color="#64748B" />
+            <Text style={styles.emptyStateTitle}>No predictions found</Text>
+            <Text style={styles.emptyStateText}>
+              Try adjusting your filters or generate new predictions
             </Text>
           </View>
         ) : (
-          predictions.map((prediction) => (
-            <PredictionCard key={prediction.id} prediction={prediction} />
-          ))
+          <View style={styles.predictionsContainer}>
+            {filteredPredictions.map((prediction, index) => (
+              <TouchableOpacity key={prediction.id} style={styles.predictionCard}>
+                <LinearGradient
+                  colors={['#1E293B', '#334155']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.predictionGradient}
+                >
+                  {/* Header */}
+                  <View style={styles.predictionHeader}>
+                    <View style={styles.matchInfo}>
+                      <Text style={styles.sportBadge}>
+                        {getSportIcon(prediction.sport)} {prediction.sport}
+                      </Text>
+                      <Text style={styles.matchTitle}>{prediction.match}</Text>
+                      <Text style={styles.eventTime}>
+                        <Clock size={12} color="#94A3B8" /> {prediction.eventTime}
+                      </Text>
+                    </View>
+                    
+                    <View style={[
+                      styles.confidenceBadge, 
+                      { backgroundColor: `${getConfidenceColor(prediction.confidence)}20` }
+                    ]}>
+                      <Text style={[
+                        styles.confidenceText, 
+                        { color: getConfidenceColor(prediction.confidence) }
+                      ]}>
+                        {prediction.confidence}%
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Prediction Details */}
+                  <View style={styles.predictionContent}>
+                    <View style={styles.pickSection}>
+                      <Text style={styles.pickLabel}>AI Prediction</Text>
+                      <Text style={styles.pickValue}>{prediction.pick}</Text>
+                      <Text style={styles.oddsText}>Odds: {prediction.odds}</Text>
+                    </View>
+
+                    {prediction.value && prediction.value > 0 && (
+                      <View style={styles.valueSection}>
+                        <View style={styles.valueIndicator}>
+                          <Target size={16} color="#10B981" />
+                          <Text style={styles.valueText}>+{prediction.value}% Value</Text>
+                        </View>
+                        {prediction.roi_estimate && (
+                          <Text style={styles.roiText}>
+                            Est. ROI: +{prediction.roi_estimate}%
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Reasoning */}
+                  <Text style={styles.reasoningText} numberOfLines={3}>
+                    <Text style={styles.reasoningLabel}>AI Analysis: </Text>
+                    {prediction.reasoning}
+                  </Text>
+
+                  {/* Action Buttons */}
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity style={styles.viewButton}>
+                      <Eye size={16} color="#00E5FF" />
+                      <Text style={styles.viewButtonText}>View Analysis</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.trackButton}>
+                      <Star size={16} color="#F59E0B" />
+                      <Text style={styles.trackButtonText}>Track Bet</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Rank Badge */}
+                  {index < 3 && (
+                    <View style={[
+                      styles.rankBadge,
+                      index === 0 ? styles.goldRank : 
+                      index === 1 ? styles.silverRank : 
+                      styles.bronzeRank
+                    ]}>
+                      <Text style={styles.rankText}>#{index + 1}</Text>
+                    </View>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
-      </ScrollView>
-    </View>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Predictions are generated by our advanced AI models and are for entertainment purposes only.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -263,36 +361,157 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F172A',
   },
-  header: {
+  contentContainer: {
+    paddingBottom: 30,
+  },
+  headerStats: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    textAlign: 'center',
+  },
+  filterSection: {
+    padding: 16,
+  },
+  filterTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+  },
+  filterRow: {
+    marginBottom: 12,
+  },
+  filterScrollView: {
+    flexDirection: 'row',
+  },
+  filterChip: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterChipActive: {
+    backgroundColor: '#00E5FF',
+    borderColor: '#00E5FF',
+  },
+  filterChipText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  sportChip: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  sportChipActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  sportChipText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  sportChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  generateButton: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  generateGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  predictionsSection: {
+    paddingHorizontal: 16,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
+    marginBottom: 16,
   },
-  headerTitle: {
-    fontSize: 20,
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  filterText: {
-    color: '#FFFFFF',
+  resultCount: {
     fontSize: 14,
-    marginLeft: 6,
+    color: '#94A3B8',
   },
-  statsCard: {
-    marginHorizontal: 16,
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  predictionsContainer: {
+    
+  },
+  predictionCard: {
+    marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
+    position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -301,193 +520,182 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+        elevation: 3,
       },
     }),
   },
-  statsGradient: {
-    borderRadius: 16,
-    padding: 16,
+  predictionGradient: {
+    padding: 20,
   },
-  statsRow: {
+  predictionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  statItem: {
+  matchInfo: {
     flex: 1,
+  },
+  sportBadge: {
+    fontSize: 12,
+    color: '#00E5FF',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  matchTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  eventTime: {
+    fontSize: 12,
+    color: '#94A3B8',
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  statValue: {
+  confidenceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  confidenceText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  predictionContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  pickSection: {
+    flex: 1,
+  },
+  pickLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  pickValue: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
+  oddsText: {
+    fontSize: 14,
     color: '#94A3B8',
   },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  valueSection: {
+    alignItems: 'flex-end',
   },
-  tabsContainer: {
-    marginTop: 20,
+  valueIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 4,
   },
-  tabsContent: {
-    paddingHorizontal: 16,
+  valueText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
-  tabButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  activeTabButton: {
-    backgroundColor: '#00E5FF',
-  },
-  tabText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  roiText: {
+    fontSize: 11,
+    color: '#00E5FF',
     fontWeight: '500',
   },
-  activeTabText: {
-    color: '#0F172A',
-  },
-  predictionsContainer: {
-    flex: 1,
-    marginTop: 20,
-    paddingHorizontal: 16,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
+  reasoningText: {
+    fontSize: 14,
     color: '#94A3B8',
-    marginTop: 12,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    color: '#94A3B8',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 20,
-  },
-  card: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
-      },
-    }),
-  },
-  gradientHeader: {
-    padding: 15,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-  },
-  matchupText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  timeText: {
-    color: '#fff',
-    fontSize: 14,
-    marginTop: 5,
-  },
-  predictionContent: {
-    padding: 15,
-  },
-  confidenceIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  confidenceText: {
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  pickContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
-  },
-  pickLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  pickText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  oddsText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  analysisContainer: {
-    marginBottom: 15,
-  },
-  analysisTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 5,
-  },
-  analysisText: {
-    fontSize: 14,
-    color: '#444',
     lineHeight: 20,
+    marginBottom: 16,
   },
-  statsContainer: {
+  reasoningLabel: {
+    fontWeight: '600',
+    color: '#E2E8F0',
+  },
+  actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
+  viewButtonText: {
+    color: '#00E5FF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   trackButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+    marginLeft: 8,
+    justifyContent: 'center',
   },
   trackButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#F59E0B',
+    fontSize: 14,
     fontWeight: '600',
+    marginLeft: 4,
+  },
+  rankBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goldRank: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  silverRank: {
+    backgroundColor: 'rgba(192, 192, 192, 0.2)',
+    borderWidth: 2,
+    borderColor: '#C0C0C0',
+  },
+  bronzeRank: {
+    backgroundColor: 'rgba(205, 127, 50, 0.2)',
+    borderWidth: 2,
+    borderColor: '#CD7F32',
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  footer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'react-native';
-import { Landmark, ChartBar as BarChart3, User, Settings, Trophy } from 'lucide-react-native';
+import { Landmark, ChartBar as BarChart3, Settings, Trophy, Crown, Calendar, Zap } from 'lucide-react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -26,46 +26,60 @@ export default function TabLayout() {
         },
         headerTitleStyle: {
           color: '#FFFFFF',
-          fontWeight: '600',
+          fontWeight: '700',
+          fontSize: 20,
         },
         headerTintColor: '#00E5FF',
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => <Landmark size={size} color={color} />,
-          headerTitle: 'BetGenius AI',
+          headerTitle: 'Predictive Picks',
+          tabBarIcon: ({ color, size }) => (
+            <Landmark size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="predictions"
         options={{
           title: 'Predictions',
-          tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} />,
           headerTitle: 'AI Predictions',
+          tabBarIcon: ({ color, size }) => (
+            <Zap size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="live"
         options={{
           title: 'Games',
-          tabBarIcon: ({ color, size }) => <Trophy size={size} color={color} />,
-          headerTitle: 'Games',
+          headerTitle: 'Upcoming Games',
+          tabBarIcon: ({ color, size }) => (
+            <Calendar size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="pro"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          title: 'Pro',
+          headerTitle: 'Pro Features',
+          tabBarIcon: ({ color, size }) => (
+            <Crown size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings size={size} color={color} />,
+          headerTitle: 'Settings & Profile',
+          tabBarIcon: ({ color, size }) => (
+            <Settings size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

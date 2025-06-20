@@ -11,6 +11,18 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ai-tools": "ts-node src/scripts/testAiTools.ts",
+    "check-duplicates": "ts-node src/scripts/checkDuplicates.ts",
+    "check-game-statuses": "ts-node src/scripts/checkGameStatuses.ts",
+    "fetch-upcoming-mlb": "ts-node src/scripts/fetchUpcomingMLB.ts",
+    "fetch-today-mlb": "ts-node src/scripts/fetchTodayMLB.ts",
+    "fetch-today-nba": "ts-node src/scripts/fetchTodayNBA.ts",
+    "fetch-tomorrow-games": "ts-node src/scripts/fetchTomorrowGames.ts",
+    "daily-setup": "npm run fetch-tomorrow-games",
+    "init-daily-games": "ts-node src/scripts/dailyGamesFetch.ts",
+    "test-enhanced-orchestrator": "ts-node src/scripts/testEnhancedOrchestrator.ts",
+    "clear-mlb-games": "ts-node src/scripts/clearMLBGames.ts",
+    "cleanup-duplicates": "ts-node src/scripts/cleanupDuplicates.ts",
+    "cleanup-duplicates:execute": "ts-node src/scripts/cleanupDuplicates.ts --execute",
     "lint": "eslint . --ext .ts"
   },
   "keywords": [],
@@ -26,9 +38,13 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.x",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0",
     "node-cron": "^3.0.2",
     "node-fetch": "^2.6.1",
-    "pg": "^8.x"
+    "openai": "^5.1.1",
+    "pg": "^8.x",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/cors": "^2.x",

@@ -1,0 +1,666 @@
+{"level":"warn","message":"⚠️ THE_ODDS_API_KEY not found in environment variables","service":"oddsApi","timestamp":"2025-06-11 05:03:41"}
+{"level":"warn","message":"⚠️ THE_ODDS_API_KEY not found in environment variables","service":"oddsApi","timestamp":"2025-06-11 05:04:59"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:07:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:07:04"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:27"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:28"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:29"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:15:30"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:19:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:19:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:19:05"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:23:38"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:38"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:39"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:40"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:41"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:23:42"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:24:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:09"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:10"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:11"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:12"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:24:12"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:24:12"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 05:27:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:08"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 05:27:09"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:55"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:56"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:05:59"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 06:08:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:07"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:08"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:08:08"}
+{"level":"error","message":"❌ The Odds API authentication failed: Invalid API key","service":"oddsApi","timestamp":"2025-06-11 06:08:08"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-11 06:11:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:02"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Pittsburgh Pirates (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:02"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago Cubs @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Cleveland Guardians (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Atlanta Braves @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ St. Louis Cardinals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:03"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Seattle Mariners @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Los Angeles Angels (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Los Angeles Angels\" -> \"Oakland Athletics @ Los Angeles Angels\"","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Dodgers @ San Diego Padres (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Detroit Tigers @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Washington Nationals @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:04"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Texas Rangers @ Minnesota Twins (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:11:05"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Colorado Rockies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-11 06:11:06"}
+{"level":"info","message":"✅ The Odds API service initialized","service":"oddsApi","timestamp":"2025-06-12 22:05:57"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Pittsburgh Pirates @ Chicago Cubs (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:57"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Pittsburgh Pirates @ Chicago Cubs (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Washington Nationals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Miami Marlins @ Washington Nationals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Toronto Blue Jays @ Philadelphia Phillies (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Angels @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Los Angeles Angels @ Baltimore Orioles (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Detroit Tigers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cincinnati Reds @ Detroit Tigers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:58"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for New York Yankees @ Boston Red Sox (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Tampa Bay Rays @ New York Mets (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Colorado Rockies @ Atlanta Braves (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Colorado Rockies @ Atlanta Braves (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Texas Rangers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Chicago White Sox @ Texas Rangers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Minnesota Twins @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Minnesota Twins @ Houston Astros (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:05:59"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Kansas City Royals\" -> \"Oakland Athletics @ Kansas City Royals\"","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Athletics @ Kansas City Royals (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"📝 Fuzzy matched: \"Athletics @ Kansas City Royals\" -> \"Oakland Athletics @ Kansas City Royals\"","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for St. Louis Cardinals @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for St. Louis Cardinals @ Milwaukee Brewers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Oklahoma City Thunder @ Indiana Pacers (basketball_nba)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Diego Padres @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Diego Padres @ Arizona Diamondbacks (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cleveland Guardians @ Seattle Mariners (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for Cleveland Guardians @ Seattle Mariners (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:00"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Los Angeles Dodgers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:01"}
+{"level":"info","message":"🔍 Fetching odds from The Odds API for San Francisco Giants @ Los Angeles Dodgers (baseball_mlb)","service":"oddsApi","timestamp":"2025-06-12 22:06:01"}
+{"level":"info","message":"✅ Retrieved odds from The Odds API: ML YES, Total YES","service":"oddsApi","timestamp":"2025-06-12 22:06:01"}

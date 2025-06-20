@@ -24,23 +24,34 @@ export default function SignupScreen() {
   const router = useRouter();
 
   const handleSignup = async () => {
+    console.log('🔥 Signup button clicked!');
+    console.log('Form data:', { username, email, password: password ? '***' : '', confirmPassword: confirmPassword ? '***' : '' });
+
     if (!username || !email || !password || !confirmPassword) {
+      console.log('❌ Validation failed: Missing fields');
       Alert.alert('Signup Error', 'Please fill in all fields');
       return;
     }
 
     if (password !== confirmPassword) {
+      console.log('❌ Validation failed: Passwords do not match');
       Alert.alert('Signup Error', 'Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
+      console.log('❌ Validation failed: Password too short');
       Alert.alert('Signup Error', 'Password must be at least 6 characters long');
       return;
     }
 
+    console.log('✅ Validation passed, attempting signup...');
+
     try {
+      console.log('🔄 Setting loading state...');
       setLoading(true);
+      console.log('🚀 About to call Supabase signup...');
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -51,19 +62,46 @@ export default function SignupScreen() {
         }
       });
 
-      if (error) throw error;
+      console.log('📥 Supabase response:', { 
+        data: data ? 'User data received' : 'No data', 
+        error: error ? error.message : 'No error',
+        userId: data?.user?.id 
+      });
+
+      if (error) {
+        console.log('❌ Supabase error:', error);
+        throw error;
+      }
 
       if (data.user) {
-        Alert.alert(
-          'Registration Successful',
-          'Please check your email to verify your account before logging in.',
-          [{ text: 'OK', onPress: () => router.replace('/login') }]
-        );
+        console.log('✅ Signup successful! User ID:', data.user.id);
+        console.log('🎯 About to navigate to main app...');
+        
+        try {
+          console.log('🚀 Calling router.replace("/(tabs)")...');
+          router.replace('/(tabs)');
+          console.log('✨ Navigation call completed successfully');
+        } catch (navError) {
+          console.log('💥 Navigation error:', navError);
+        }
+        
+        // Optional: Show a success message that doesn't block navigation
+        setTimeout(() => {
+          Alert.alert('Welcome!', 'Your account has been created successfully.');
+        }, 500);
+      } else {
+        console.log('⚠️ No user data returned');
+        Alert.alert('Signup Warning', 'Account may have been created but no user data returned.');
       }
     } catch (error: any) {
-      Alert.alert('Signup Error', error.message);
+      console.log('💥 Caught error in signup process:', error);
+      console.log('💥 Error message:', error?.message);
+      console.log('💥 Error stack:', error?.stack);
+      Alert.alert('Signup Error', error.message || 'Unknown error occurred');
     } finally {
+      console.log('🔄 Finally block - setting loading to false');
       setLoading(false);
+      console.log('🏁 Signup process complete');
     }
   };
 
@@ -145,13 +183,31 @@ export default function SignupScreen() {
 
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSignup}
+                onPress={() => {
+                  Alert.alert('Debug', 'Button was pressed!');
+                  console.log('🖱️ Button touched!');
+                  handleSignup();
+                }}
                 disabled={loading}
+                activeOpacity={0.7}
               >
                 <UserPlus color={styles.buttonText.color} size={20} style={styles.buttonIcon} />
                 <Text style={styles.buttonText}>
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Text>
+              </TouchableOpacity>
+
+              {/* Emergency Navigation Test Button */}
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: 'green', marginTop: 10 }]}
+                onPress={() => {
+                  Alert.alert('Test', 'Test button works!');
+                  console.log('🧪 Testing direct navigation...');
+                  router.replace('/(tabs)');
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.buttonText}>TEST NAVIGATION</Text>
               </TouchableOpacity>
             </View>
 

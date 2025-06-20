@@ -5,6 +5,12 @@ import { sportsDataIOGetGamePredictionTool, sportsDataIOGetPlayerPropPredictionT
 import { sportmonksGetFootballPredictionTool, sportmonksGetMarketPredictionTool, sportmonksGetValueBetsTool } from '../tools/sportmonks';
 import { webSearchPerformSearchTool } from '../tools/webSearch';
 import { userDataGetUserPreferencesTool, userDataGetUserBettingHistoryTool } from '../tools/userData';
+import { 
+  sportsBettingBacktestStrategyTool,
+  sportsBettingFindValueBetsTool,
+  sportsBettingGetStrategyPerformanceTool,
+  sportsBettingGetOptimalConfigurationTool
+} from '../tools/sportsBetting';
 import { calculateImpliedProbability } from '../../utils/bettingCalculations';
 
 // Load environment variables
@@ -58,7 +64,7 @@ interface OrchestrationResponse {
 class GeminiOrchestratorService {
   private genAI: GoogleGenerativeAI;
   private model: any;
-  private modelVersion = 'gemini-1.5-pro';
+  private modelVersion = 'gemini-2.0-flash-exp';
 
   constructor() {
     if (!GEMINI_API_KEY) {
@@ -67,27 +73,60 @@ class GeminiOrchestratorService {
     }
 
     this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    this.model = this.genAI.getGenerativeModel({
-      model: this.modelVersion,
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-        },
-      ],
-    });
+    
+    try {
+      logger.info(`🚀 Initializing Gemini model: ${this.modelVersion}`);
+      this.model = this.genAI.getGenerativeModel({
+        model: this.modelVersion,
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+        ],
+      });
+      logger.info(`✅ Gemini ${this.modelVersion} initialized successfully`);
+    } catch (error) {
+      logger.error(`❌ Failed to initialize Gemini ${this.modelVersion}: ${error}`);
+      logger.info(`🔄 Falling back to Gemini 1.5 Pro...`);
+      
+      // Fallback to Gemini 1.5 Pro
+      this.modelVersion = 'gemini-1.5-pro';
+      this.model = this.genAI.getGenerativeModel({
+        model: this.modelVersion,
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+          },
+        ],
+      });
+      logger.info(`✅ Fallback to Gemini 1.5 Pro successful`);
+    }
   }
 
   /**
@@ -100,7 +139,8 @@ class GeminiOrchestratorService {
     const toolsUsed: string[] = [];
     
     try {
-      logger.info(`Generating recommendation for ${request.sport} game ${request.gameId || request.fixtureId}, bet type: ${request.betType}`);
+      logger.info(`🎯 ORCHESTRATOR STARTING: ${request.sport} game ${request.gameId || request.fixtureId}, bet type: ${request.betType}`);
+      logger.info(`📋 Request details: ${JSON.stringify(request, null, 2)}`);
       
       // Define available tools for Gemini
       const tools = [
@@ -201,12 +241,67 @@ class GeminiOrchestratorService {
             required: ["userId"],
           },
         },
+        {
+          name: "sportsBetting_backtestStrategy",
+          description: "Backtests a betting strategy using historical data to validate its effectiveness and profitability.",
+          parameters: {
+            type: "object",
+            properties: {
+              sport: { type: "string", description: "The sport to analyze (NBA, NFL, MLB, etc.)." },
+              strategy: { type: "string", description: "The strategy to backtest (e.g., 'value_betting', 'over_under', 'favorite_spread')." },
+              startDate: { type: "string", description: "Start date for backtesting in YYYY-MM-DD format." },
+              endDate: { type: "string", description: "End date for backtesting in YYYY-MM-DD format." },
+            },
+            required: ["sport", "strategy", "startDate", "endDate"],
+          },
+        },
+        {
+          name: "sportsBetting_findValueBets",
+          description: "Identifies value bets for upcoming games using mathematical models and market analysis.",
+          parameters: {
+            type: "object",
+            properties: {
+              sport: { type: "string", description: "The sport to analyze for value bets." },
+              threshold: { type: "number", description: "Minimum expected value threshold (e.g., 0.05 for 5% edge).", default: 0.05 },
+              maxOdds: { type: "number", description: "Maximum odds to consider for value bets.", default: 5.0 },
+            },
+            required: ["sport"],
+          },
+        },
+        {
+          name: "sportsBetting_getStrategyPerformance",
+          description: "Analyzes the performance of a specific betting strategy over a given time period.",
+          parameters: {
+            type: "object",
+            properties: {
+              sport: { type: "string", description: "The sport to analyze." },
+              strategy: { type: "string", description: "The strategy to analyze performance for." },
+              period: { type: "string", description: "Time period for analysis (30d, 90d, 1y).", default: "90d" },
+            },
+            required: ["sport", "strategy"],
+          },
+        },
+        {
+          name: "sportsBetting_getOptimalConfiguration",
+          description: "Determines optimal betting configuration and bankroll management for a user's profile.",
+          parameters: {
+            type: "object",
+            properties: {
+              sport: { type: "string", description: "The sport to optimize betting configuration for." },
+              bankroll: { type: "number", description: "User's total bankroll amount." },
+              riskTolerance: { type: "string", description: "User's risk tolerance level (low, medium, high).", default: "medium" },
+            },
+            required: ["sport", "bankroll"],
+          },
+        },
       ];
       
       // Create the system prompt
       const systemPrompt = this.createSystemPrompt(request);
+      logger.info(`🧠 System prompt created (${systemPrompt.length} characters)`);
       
       // Create the chat instance
+      logger.info(`💬 Initializing Gemini chat with ${tools.length} available tools`);
       const chat = this.model.startChat({
         history: [
           {
@@ -218,13 +313,19 @@ class GeminiOrchestratorService {
       });
       
       // Send the initial request to Gemini
+      logger.info(`🚀 Sending analysis request to Gemini AI...`);
       const result = await chat.sendMessage("Please analyze this bet and provide your recommendation.");
+      logger.info(`📨 Gemini response received`);
       
       // Handle tool calls
+      logger.info(`🔧 Processing tool calls and generating final recommendation...`);
       const response = await this.processToolCalls(chat, result, request, toolsUsed);
       
       // Calculate processing time
       const processingTime = Date.now() - startTime;
+      logger.info(`⏱️ Total orchestration time: ${processingTime}ms`);
+      logger.info(`🛠️ Tools used: ${toolsUsed.join(', ') || 'None'}`);
+      logger.info(`✅ ORCHESTRATOR COMPLETE: Final recommendation generated`);
       
       // Add metadata to the response
       response.metadata = {
@@ -260,7 +361,8 @@ class GeminiOrchestratorService {
         const toolName = functionCall.name;
         const args = JSON.parse(functionCall.args);
         
-        logger.info(`Processing tool call: ${toolName}`);
+        logger.info(`🔧 TOOL EXECUTION: ${toolName}`);
+        logger.info(`📝 Tool arguments: ${JSON.stringify(args, null, 2)}`);
         toolsUsed.push(toolName);
         
         let toolResult;
@@ -320,12 +422,48 @@ class GeminiOrchestratorService {
             );
             break;
             
+          case "sportsBetting_backtestStrategy":
+            toolResult = await sportsBettingBacktestStrategyTool(
+              args.sport,
+              args.strategy,
+              args.startDate,
+              args.endDate
+            );
+            break;
+            
+          case "sportsBetting_findValueBets":
+            toolResult = await sportsBettingFindValueBetsTool(
+              args.sport,
+              args.threshold,
+              args.maxOdds
+            );
+            break;
+            
+          case "sportsBetting_getStrategyPerformance":
+            toolResult = await sportsBettingGetStrategyPerformanceTool(
+              args.sport,
+              args.strategy,
+              args.period
+            );
+            break;
+            
+          case "sportsBetting_getOptimalConfiguration":
+            toolResult = await sportsBettingGetOptimalConfigurationTool(
+              args.sport,
+              args.bankroll,
+              args.riskTolerance
+            );
+            break;
+            
           default:
-            logger.warn(`Unknown tool called: ${toolName}`);
+            logger.warn(`❌ Unknown tool called: ${toolName}`);
             toolResult = { error: "Unknown tool" };
         }
         
+        logger.info(`📊 Tool result: ${JSON.stringify(toolResult, null, 2)}`);
+        
         // Send the tool result back to Gemini
+        logger.info(`📤 Sending tool result back to Gemini for analysis...`);
         await chat.sendMessage({
           role: "function",
           name: toolName,
@@ -334,7 +472,9 @@ class GeminiOrchestratorService {
       }
       
       // Get the final recommendation from Gemini
+      logger.info(`🤔 Requesting final recommendation from Gemini after tool analysis...`);
       const finalResponse = await chat.sendMessage("Based on all the data you've gathered, what is your final recommendation?");
+      logger.info(`✅ Final recommendation received from Gemini`);
       
       // Parse and format the response
       return this.parseGeminiResponse(finalResponse);
@@ -420,6 +560,12 @@ class GeminiOrchestratorService {
 
     ${predictionToolsInstructions}
 
+    Advanced Sports Betting Analytics (NEW - Use these for deeper analysis):
+    - sportsBetting_findValueBets - Use this to identify value betting opportunities with mathematical edge
+    - sportsBetting_backtestStrategy - Use this to validate betting strategies with historical data
+    - sportsBetting_getStrategyPerformance - Use this to analyze performance of specific betting approaches
+    - sportsBetting_getOptimalConfiguration - Use this to determine optimal bankroll management and betting configuration
+
     Additional tools available:
     - webSearch_performSearch - Use this to find recent news, injury reports, or other qualitative information
     - userData_getUserPreferences - Use this to understand the user's preferences and risk tolerance
@@ -427,10 +573,13 @@ class GeminiOrchestratorService {
 
     ANALYSIS PROCESS:
     1. First, gather all relevant quantitative data using the appropriate prediction tools.
-    2. Then, search for recent news or developments that might impact the game using the webSearch tool.
-    3. Consider the user's preferences and betting history to personalize your recommendation.
-    4. Analyze the value of the bet by comparing the predicted probabilities to the implied probabilities from the odds.
-    5. Make a final recommendation with a confidence level and detailed reasoning.
+    2. Use sportsBetting_findValueBets to identify if this specific bet represents good value.
+    3. If relevant, use sportsBetting_getStrategyPerformance to understand how similar bets have performed historically.
+    4. Search for recent news or developments that might impact the game using the webSearch tool.
+    5. Consider the user's preferences and betting history to personalize your recommendation.
+    6. Use sportsBetting_getOptimalConfiguration to suggest appropriate bet sizing based on user's bankroll and risk tolerance.
+    7. Analyze the value of the bet by comparing the predicted probabilities to the implied probabilities from the odds.
+    8. Make a final recommendation with a confidence level and detailed reasoning.
 
     YOUR RESPONSE FORMAT:
     Provide your recommendation in JSON format with the following structure:

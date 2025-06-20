@@ -1,0 +1,164 @@
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 01:49:49"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 01:49:49"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 01:49:49"}
+{"level":"info","message":"Performing web search for: \"NFL game nfl_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 01:50:10"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 01:50:10"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 01:50:10"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 01:50:35"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 01:50:35"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 01:50:35"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 02:26:00"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 02:26:00"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 02:26:00"}
+{"level":"info","message":"Performing web search for: \"NFL nfl_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 02:26:22"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 02:26:22"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 02:26:22"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-06 02:26:42"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-06 02:26:42"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-06 02:26:42"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 02:29:18"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 02:29:18"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-08 02:29:18"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 02:30:01"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 02:30:01"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-08 02:30:01"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 02:47:31"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 02:47:31"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-08 02:47:31"}
+{"level":"info","message":"Performing web search for: \"NFL game nfl_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 02:47:52"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 02:47:52"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-08 02:47:52"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 02:48:28"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 02:48:28"}
+{"level":"warn","message":"Using mock search results. This should not be used in production.","service":"webSearch","timestamp":"2025-06-08 02:48:28"}
+{"level":"info","message":"Performing web search for: \"NBA Game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-08 03:40:55"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 09:44:53"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 09:45:22"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 10:30:12"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_2 injury news\"","service":"webSearch","timestamp":"2025-06-08 10:30:40"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 10:51:01"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 10:51:09"}
+{"level":"info","message":"Performing web search for: \"MLB game mlb_real_2 recent news injuries weather\"","service":"webSearch","timestamp":"2025-06-08 10:51:41"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 12:13:26"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:13:26"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:13:26"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_2 injury news\"","service":"webSearch","timestamp":"2025-06-08 12:13:51"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:13:51"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:13:51"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 12:14:29"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:14:29"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:14:29"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 12:14:36"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:14:36"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:14:36"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 12:21:01"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:21:01"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:21:01"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_2 recent news injuries weather\"","service":"webSearch","timestamp":"2025-06-08 12:21:24"}
+{"level":"warn","message":"No search API keys found. Using fallback search method.","service":"webSearch","timestamp":"2025-06-08 12:21:24"}
+{"level":"info","message":"Using optimized mock search results for development","service":"webSearch","timestamp":"2025-06-08 12:21:24"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 13:36:55"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_2 injury news\"","service":"webSearch","timestamp":"2025-06-08 13:37:17"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_real_1 injury news\"","service":"webSearch","timestamp":"2025-06-08 13:41:53"}
+{"level":"info","message":"Performing web search for: \"MLB game mlb_real_2 recent news injuries weather\"","service":"webSearch","timestamp":"2025-06-08 13:42:14"}
+{"level":"info","message":"Performing web search for: \"Padres Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-08 14:52:14"}
+{"level":"info","message":"Performing web search for: \"Dodgers vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-08 14:52:41"}
+{"level":"info","message":"Performing web search for: \"Padres vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-08 19:02:20"}
+{"level":"info","message":"Performing web search for: \"Dodgers vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-08 19:02:43"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 20:04:32"}
+{"level":"info","message":"Performing web search for: \"Dodgers vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-08 20:16:02"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 21:21:41"}
+{"level":"info","message":"Performing web search for: \"Away Team vs Home Team MLB injury report today\"","service":"webSearch","timestamp":"2025-06-08 21:31:21"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 02:23:44"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 02:23:50"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 02:24:26"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 02:46:39"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 02:47:04"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals recent news injuries\"","service":"webSearch","timestamp":"2025-06-09 02:47:35"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news\"","service":"webSearch","timestamp":"2025-06-09 02:48:02"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 02:48:14"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 02:48:59"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 02:49:28"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 03:18:47"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news\"","service":"webSearch","timestamp":"2025-06-09 03:19:16"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals recent news injuries\"","service":"webSearch","timestamp":"2025-06-09 03:39:10"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 03:39:37"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 03:42:13"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news\"","service":"webSearch","timestamp":"2025-06-09 03:42:41"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:46:49"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:46:53"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 03:47:18"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:47:48"}
+{"level":"info","message":"Performing web search for: \"Rays vs Red Sox injury news\"","service":"webSearch","timestamp":"2025-06-09 03:48:15"}
+{"level":"info","message":"Performing web search for: \"Reds vs Guardians injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 03:48:35"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 03:55:42"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 03:56:10"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:56:40"}
+{"level":"info","message":"Performing web search for: \"Rays vs Red Sox injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:57:05"}
+{"level":"info","message":"Performing web search for: \"Reds vs Guardians injury report today\"","service":"webSearch","timestamp":"2025-06-09 03:57:25"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 04:14:32"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:27:54"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 04:28:22"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news\"","service":"webSearch","timestamp":"2025-06-09 04:28:49"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:29:18"}
+{"level":"info","message":"Performing web search for: \"Rays vs Red Sox injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:29:46"}
+{"level":"info","message":"Performing web search for: \"Reds vs Guardians injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:30:16"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:35:35"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 04:38:24"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 04:38:55"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:39:27"}
+{"level":"info","message":"Performing web search for: \"Rays vs Red Sox recent news injuries\"","service":"webSearch","timestamp":"2025-06-09 04:39:54"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals recent news injuries\"","service":"webSearch","timestamp":"2025-06-09 04:40:09"}
+{"level":"info","message":"Performing web search for: \"Reds vs Guardians injury news\"","service":"webSearch","timestamp":"2025-06-09 04:40:15"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 04:40:44"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:41:22"}
+{"level":"info","message":"Performing web search for: \"Rays vs Red Sox injury news\"","service":"webSearch","timestamp":"2025-06-09 04:41:51"}
+{"level":"info","message":"Performing web search for: \"Reds vs Guardians injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:42:13"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:43:37"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:43:38"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:48:07"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 04:58:29"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 04:58:59"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals recent news injuries\"","service":"webSearch","timestamp":"2025-06-09 05:07:19"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news\"","service":"webSearch","timestamp":"2025-06-09 05:07:38"}
+{"level":"info","message":"Performing web search for: \"Braves vs Brewers injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:08:04"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:28:57"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:29:38"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:29:40"}
+{"level":"info","message":"Performing web search for: \"NFL game nfl_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:30:02"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:30:27"}
+{"level":"info","message":"Performing web search for: \"NBA game nba_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:35:18"}
+{"level":"info","message":"Performing web search for: \"NFL game nfl_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:35:41"}
+{"level":"info","message":"Performing web search for: \"MLB mlb_001 injuries news\"","service":"webSearch","timestamp":"2025-06-09 05:36:04"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:42:01"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:42:23"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:42:30"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury report\"","service":"webSearch","timestamp":"2025-06-09 05:42:39"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:42:49"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:43:11"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:43:39"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:44:12"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 05:44:39"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:45:10"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 05:45:40"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:46:12"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 05:46:40"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:47:06"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:47:30"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury report today\"","service":"webSearch","timestamp":"2025-06-09 05:47:58"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 05:48:29"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:48:57"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-09 05:49:27"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 05:50:00"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 13:11:50"}
+{"level":"info","message":"Performing web search for: \"Marlins vs Pirates injury news June 2023\"","service":"webSearch","timestamp":"2025-06-09 13:12:17"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-11 01:16:39"}
+{"level":"info","message":"Performing web search for: \"Athletics vs Angels injury report today\"","service":"webSearch","timestamp":"2025-06-11 01:16:40"}
+{"level":"info","message":"Performing web search for: \"White Sox vs Astros injury report today\"","service":"webSearch","timestamp":"2025-06-11 01:17:13"}
+{"level":"info","message":"Performing web search for: \"Athletics vs Angels injury news\"","service":"webSearch","timestamp":"2025-06-11 01:17:23"}
+{"level":"info","message":"Performing web search for: \"White Sox vs Astros injury report today\"","service":"webSearch","timestamp":"2025-06-11 01:17:54"}
+{"level":"info","message":"Performing web search for: \"Tigers vs Orioles injury report today\"","service":"webSearch","timestamp":"2025-06-11 01:18:21"}
+{"level":"info","message":"Performing web search for: \"Blue Jays vs Cardinals injury news\"","service":"webSearch","timestamp":"2025-06-11 01:18:38"}
+{"level":"info","message":"Performing web search for: \"Giants vs Rockies injury news\"","service":"webSearch","timestamp":"2025-06-11 01:19:08"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-12 21:56:18"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-06-12 22:06:37"}

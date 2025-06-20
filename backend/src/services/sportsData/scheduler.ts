@@ -9,8 +9,8 @@ const SCHEDULES = {
   // Update game statuses every 15 minutes
   STATUS_UPDATE: '*/15 * * * *',
   
-  // Run full update when server starts
-  RUN_ON_START: true
+  // Run full update when server starts (disabled - using smart dailyGamesFetch instead)
+  RUN_ON_START: false
 };
 
 /**
