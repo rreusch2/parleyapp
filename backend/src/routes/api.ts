@@ -1,9 +1,13 @@
 import express, { Request, Response } from 'express';
 import { fetchTomorrowGames } from '../scripts/fetchTomorrowGames';
 import { createLogger } from '../utils/logger';
+import sportsEventsRoutes from '../api/routes/sportsEvents';
 
 const router = express.Router();
 const logger = createLogger('api');
+
+// Mount sports events routes
+router.use('/sports-events', sportsEventsRoutes);
 
 // Endpoint to fetch tomorrow's games
 router.post('/fetch-tomorrow-games', async (req: Request, res: Response) => {

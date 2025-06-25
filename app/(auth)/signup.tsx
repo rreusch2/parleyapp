@@ -13,7 +13,10 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserPlus, Mail, Lock, User } from 'lucide-react-native';
+import { UserPlus, Mail, Lock, User, Square, CheckSquare, FileText } from 'lucide-react-native';
+import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
+import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
+import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -21,15 +24,156 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showSpinningWheel, setShowSpinningWheel] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const router = useRouter();
+
+  const handleSpinningWheelComplete = async (picks: number) => {
+    console.log(`🎊 User won ${picks} picks! Activating welcome bonus...`);
+    
+    try {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData.user) {
+        // Calculate expiration time (midnight of current day)
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(23, 59, 59, 999); // End of today
+        
+        console.log(`🕛 Setting welcome bonus to expire at: ${midnight.toISOString()}`);
+        
+        // Update user profile to activate welcome bonus
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            welcome_bonus_claimed: true,
+            welcome_bonus_expires_at: midnight.toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userData.user.id);
+
+        if (updateError) {
+          console.error('❌ Failed to activate welcome bonus:', updateError);
+          console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
+        } else {
+          console.log(`✅ Welcome bonus activated! User gets ${picks} picks until ${midnight.toISOString()}`);
+          
+          // Verify the update worked
+          const { data: verifyProfile, error: verifyError } = await supabase
+            .from('profiles')
+            .select('welcome_bonus_claimed, welcome_bonus_expires_at')
+            .eq('id', userData.user.id)
+            .single();
+            
+          if (!verifyError && verifyProfile) {
+            console.log(`✅ Verification: bonus_claimed=${verifyProfile.welcome_bonus_claimed}, expires_at=${verifyProfile.welcome_bonus_expires_at}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error activating welcome bonus:', error);
+    }
+    
+    router.replace('/(tabs)');
+  };
+
+  const handleSpinningWheelClose = () => {
+    console.log('🎯 Spinning wheel closed, navigating to main app...');
+    router.replace('/(tabs)');
+  };
+
+  const handleSubscribe = async (planId: 'monthly' | 'yearly' | 'lifetime') => {
+    try {
+      console.log(`🚀 User attempting to subscribe to ${planId} plan`);
+      setLoading(true);
+
+      // Import payment service dynamically to avoid loading issues
+      const { applePaymentService } = await import('@/app/services/paymentService');
+      
+      // For demo purposes, we'll simulate a successful subscription
+      // In production, this would process the actual payment
+      if (__DEV__) {
+        console.log('🔧 Development mode: simulating subscription success');
+        
+        // Update user profile to Pro status in Supabase
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+              subscription_tier: 'pro', // Set to 'pro' for all paid plans
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userData.user.id);
+
+          if (updateError) {
+            console.error('❌ Failed to update user profile:', updateError);
+            throw new Error('Failed to update subscription status');
+          }
+        }
+
+        Alert.alert(
+          '🎉 Welcome to Pro!',
+          `You've successfully subscribed to ${planId} plan. Welcome to the premium experience!`,
+          [{ 
+            text: 'Let\'s Go!', 
+            onPress: () => {
+              setShowSubscriptionModal(false);
+              router.replace('/(tabs)');
+            }
+          }]
+        );
+      } else {
+        // Production: Process actual payment
+        const { data: userData } = await supabase.auth.getUser();
+        const result = await applePaymentService.purchaseSubscription(planId, userData.user?.id || '');
+        
+        if (result.success) {
+          setShowSubscriptionModal(false);
+          router.replace('/(tabs)');
+        } else {
+          throw new Error(result.error || 'Subscription failed');
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Subscription error:', error);
+      Alert.alert(
+        'Subscription Error',
+        error.message || 'Failed to process subscription. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleContinueFree = () => {
+    console.log('🎯 User chose to continue with free account');
+    setShowSubscriptionModal(false);
+    setShowSpinningWheel(true);
+  };
+
+  const handleSubscriptionModalClose = () => {
+    setShowSubscriptionModal(false);
+    setShowSpinningWheel(true);
+  };
 
   const handleSignup = async () => {
     console.log('🔥 Signup button clicked!');
-    console.log('Form data:', { username, email, password: password ? '***' : '', confirmPassword: confirmPassword ? '***' : '' });
+    console.log('Form data:', { username, email, password: password ? '***' : '', confirmPassword: confirmPassword ? '***' : '', agreeToTerms });
 
     if (!username || !email || !password || !confirmPassword) {
       console.log('❌ Validation failed: Missing fields');
       Alert.alert('Signup Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!agreeToTerms) {
+      console.log('❌ Validation failed: Terms not agreed to');
+      Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
       return;
     }
 
@@ -75,20 +219,10 @@ export default function SignupScreen() {
 
       if (data.user) {
         console.log('✅ Signup successful! User ID:', data.user.id);
-        console.log('🎯 About to navigate to main app...');
+        console.log('🎯 About to show subscription modal...');
         
-        try {
-          console.log('🚀 Calling router.replace("/(tabs)")...');
-          router.replace('/(tabs)');
-          console.log('✨ Navigation call completed successfully');
-        } catch (navError) {
-          console.log('💥 Navigation error:', navError);
-        }
-        
-        // Optional: Show a success message that doesn't block navigation
-        setTimeout(() => {
-          Alert.alert('Welcome!', 'Your account has been created successfully.');
-        }, 500);
+        // Show the subscription modal first, then spinning wheel or main app
+        setShowSubscriptionModal(true);
       } else {
         console.log('⚠️ No user data returned');
         Alert.alert('Signup Warning', 'Account may have been created but no user data returned.');
@@ -105,6 +239,18 @@ export default function SignupScreen() {
     }
   };
 
+  const toggleTermsAgreement = () => {
+    setAgreeToTerms(!agreeToTerms);
+  };
+
+  const openTermsModal = () => {
+    setShowTermsModal(true);
+  };
+
+  const closeTermsModal = () => {
+    setShowTermsModal(false);
+  };
+
   return (
     <LinearGradient
       colors={['#1a2a6c', '#b21f1f']}
@@ -117,7 +263,7 @@ export default function SignupScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <Text style={styles.title}>Create Your Account</Text>
-            <Text style={styles.subtitle}>Join the Parley AI Revolution!</Text>
+            <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
 
             <View style={styles.form}>
               <View style={styles.inputContainer}>
@@ -181,33 +327,43 @@ export default function SignupScreen() {
                 </View>
               </View>
 
+              {/* Terms of Service Agreement */}
+              <View style={styles.termsContainer}>
+                <TouchableOpacity 
+                  style={styles.checkboxContainer} 
+                  onPress={toggleTermsAgreement}
+                  activeOpacity={0.7}
+                >
+                  {agreeToTerms ? (
+                    <CheckSquare size={24} color="#4169e1" />
+                  ) : (
+                    <Square size={24} color="#e0e0e0" />
+                  )}
+                </TouchableOpacity>
+                
+                <View style={styles.termsTextContainer}>
+                  <Text style={styles.termsText}>
+                    I have read and agree to the{' '}
+                  </Text>
+                  <TouchableOpacity onPress={openTermsModal} activeOpacity={0.7}>
+                    <Text style={styles.termsLink}>Terms of Service</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={() => {
-                  Alert.alert('Debug', 'Button was pressed!');
-                  console.log('🖱️ Button touched!');
-                  handleSignup();
-                }}
-                disabled={loading}
+                style={[
+                  styles.button, 
+                  (loading || !agreeToTerms) && styles.buttonDisabled
+                ]}
+                onPress={handleSignup}
+                disabled={loading || !agreeToTerms}
                 activeOpacity={0.7}
               >
                 <UserPlus color={styles.buttonText.color} size={20} style={styles.buttonIcon} />
                 <Text style={styles.buttonText}>
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Text>
-              </TouchableOpacity>
-
-              {/* Emergency Navigation Test Button */}
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: 'green', marginTop: 10 }]}
-                onPress={() => {
-                  Alert.alert('Test', 'Test button works!');
-                  console.log('🧪 Testing direct navigation...');
-                  router.replace('/(tabs)');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.buttonText}>TEST NAVIGATION</Text>
               </TouchableOpacity>
             </View>
 
@@ -222,6 +378,27 @@ export default function SignupScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Subscription Modal */}
+      <SignupSubscriptionModal
+        visible={showSubscriptionModal}
+        onClose={handleSubscriptionModalClose}
+        onSubscribe={handleSubscribe}
+        onContinueFree={handleContinueFree}
+      />
+
+      {/* Spinning Wheel Modal */}
+      <SimpleSpinningWheel
+        visible={showSpinningWheel}
+        onClose={handleSpinningWheelClose}
+        onComplete={handleSpinningWheelComplete}
+      />
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        visible={showTermsModal}
+        onClose={closeTermsModal}
+      />
     </LinearGradient>
   );
 }
@@ -285,6 +462,34 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#cccccc',
   },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  checkboxContainer: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  termsTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  termsText: {
+    fontSize: 15,
+    color: '#e0e0e0',
+    lineHeight: 22,
+  },
+  termsLink: {
+    fontSize: 15,
+    color: '#4169e1',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    lineHeight: 22,
+  },
   button: {
     backgroundColor: '#ffffff',
     flexDirection: 'row',
@@ -298,7 +503,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.5,
   },
   buttonText: {
     color: 'black',

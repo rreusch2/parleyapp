@@ -35,7 +35,15 @@ import {
   ExternalLink,
   Award,
   Users,
-  Wallet
+  Wallet,
+  Crown,
+  CheckCircle,
+  Clock,
+  Info,
+  Sparkles,
+  Gift,
+  Lock,
+  Brain
 } from 'lucide-react-native';
 import { Picker } from '@react-native-picker/picker';
 import MultiSelect from 'react-native-multiple-select';
@@ -43,8 +51,10 @@ import { supabase } from '@/app/services/api/supabaseClient';
 import { aiService } from '@/app/services/api/aiService';
 import { router } from 'expo-router';
 import Slider from '@react-native-community/slider';
+import { useSubscription } from '@/app/services/subscriptionContext';
 
 export default function SettingsScreen() {
+  const { isPro, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
   const [settings, setSettings] = useState({
     notifications: true,
     darkMode: true,
@@ -76,11 +86,11 @@ export default function SettingsScreen() {
 
   // User stats (normally would come from API)
   const [userStats] = useState({
-    winRate: '67%',
-    roi: '+22.4%',
-    totalBets: 86,
-    profitLoss: '+$2,456',
-    streak: 5
+    winRate: isPro ? '67%' : '58%',
+    roi: isPro ? '+22.4%' : '+12.1%',
+    totalBets: isPro ? 186 : 32,
+    profitLoss: isPro ? '+$4,456' : '+$325',
+    streak: isPro ? 7 : 3
   });
 
   const [recentBets] = useState([
@@ -113,7 +123,31 @@ export default function SettingsScreen() {
     }
   ]);
 
+  const proFeatures = [
+    { icon: Brain, title: 'Unlimited AI Picks', description: 'Get AI predictions for all games' },
+    { icon: Target, title: 'Advanced Analytics', description: 'Detailed stats and trend analysis' },
+    { icon: Crown, title: 'Multi-Book Odds', description: 'Compare odds across all sportsbooks' },
+    { icon: Sparkles, title: 'Live AI Chat', description: 'Ask anything about bets and strategy' },
+    { icon: Bell, title: 'Priority Alerts', description: 'Real-time value bet notifications' },
+    { icon: Shield, title: 'Exclusive Insights', description: 'Access all premium research content' }
+  ];
+
   const toggleSwitch = (setting) => {
+    if (!isPro && (setting === 'aiAlerts' || setting === 'biometricLogin')) {
+      Alert.alert(
+        'Pro Feature 🌟',
+        'This feature is available for Pro members only.',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { 
+            text: 'Upgrade to Pro', 
+            onPress: () => openSubscriptionModal(),
+            style: 'default'
+          }
+        ]
+      );
+      return;
+    }
     setSettings({ ...settings, [setting]: !settings[setting] });
   };
 
@@ -158,9 +192,10 @@ export default function SettingsScreen() {
         throw new Error(errorData.error || 'Failed to save preferences');
       }
       
-      console.log('Preferences saved successfully');
+      Alert.alert('Success', 'Preferences saved successfully!');
     } catch (error: any) {
       console.error('Error saving preferences:', error);
+      Alert.alert('Error', error.message || 'Failed to save preferences');
     }
   };
 
@@ -204,14 +239,90 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleManageSubscription = () => {
+    if (isPro) {
+      // For Pro users, show subscription management options
+      Alert.alert(
+        'Manage Subscription',
+        'What would you like to do?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'View in App Store',
+            onPress: () => {
+              // Open subscription management in App Store
+              if (Platform.OS === 'ios') {
+                Linking.openURL('https://apps.apple.com/account/subscriptions');
+              }
+            }
+          },
+          {
+            text: 'Contact Support',
+            onPress: () => {
+              // Open support email
+              Linking.openURL('mailto:support@parleyapp.com?subject=Subscription%20Support');
+            }
+          }
+        ]
+      );
+    } else {
+      // For free users, open the subscription modal
+      openSubscriptionModal();
+    }
+  };
+
   const settingsSections = [
     {
       title: 'Account',
       icon: User,
       iconColor: '#00E5FF',
       items: [
-        { id: 'subscription', title: 'Subscription', type: 'link', badge: 'Premium' },
-        { id: 'payment', title: 'Payment Methods', type: 'link' },
+        { 
+          id: 'subscription', 
+          title: 'Subscription', 
+          type: 'link', 
+          badge: isPro ? 'PRO' : 'FREE',
+          badgeColor: isPro ? '#F59E0B' : '#6B7280',
+          action: handleManageSubscription
+        },
+        { 
+          id: 'payment', 
+          title: 'Payment History', 
+          type: 'link',
+          locked: !isPro,
+          action: () => {
+            if (!isPro) {
+              Alert.alert(
+                'Pro Feature 🌟',
+                'View your complete payment history with Pro.',
+                [
+                  { text: 'Maybe Later', style: 'cancel' },
+                  { 
+                    text: 'Upgrade to Pro', 
+                    onPress: () => openSubscriptionModal(),
+                    style: 'default'
+                  }
+                ]
+              );
+            }
+          }
+        },
+        {
+          id: 'restore',
+          title: 'Restore Purchases',
+          type: 'link',
+          action: async () => {
+            try {
+              await restorePurchases();
+              Alert.alert('Success', 'Purchases restored successfully!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+            }
+          }
+        }
       ]
     },
     {
@@ -221,7 +332,14 @@ export default function SettingsScreen() {
       items: [
         { id: 'notifications', title: 'Notifications', type: 'toggle', value: settings.notifications },
         { id: 'darkMode', title: 'Dark Mode', type: 'toggle', value: settings.darkMode },
-        { id: 'aiAlerts', title: 'AI Value Alerts', type: 'toggle', value: settings.aiAlerts },
+        { 
+          id: 'aiAlerts', 
+          title: 'AI Value Alerts', 
+          type: 'toggle', 
+          value: settings.aiAlerts,
+          locked: !isPro,
+          proFeature: true
+        },
         { id: 'oddsFormat', title: 'Odds Format', type: 'select', value: settings.oddsFormat },
         { id: 'dataUsage', title: 'Data Usage', type: 'select', value: settings.dataUsage },
       ]
@@ -232,8 +350,21 @@ export default function SettingsScreen() {
       iconColor: '#10B981',
       items: [
         { id: 'password', title: 'Change Password', type: 'link' },
-        { id: 'biometricLogin', title: 'Biometric Login', type: 'toggle', value: settings.biometricLogin },
-        { id: 'twoFactor', title: 'Two-Factor Authentication', type: 'link' },
+        { 
+          id: 'biometricLogin', 
+          title: 'Biometric Login', 
+          type: 'toggle', 
+          value: settings.biometricLogin,
+          locked: !isPro,
+          proFeature: true
+        },
+        { 
+          id: 'twoFactor', 
+          title: 'Two-Factor Authentication', 
+          type: 'link',
+          locked: !isPro,
+          proFeature: true
+        },
       ]
     },
     {
@@ -243,7 +374,7 @@ export default function SettingsScreen() {
       items: [
         { id: 'help', title: 'Help Center', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
-        { id: 'about', title: 'About Predictive Picks', type: 'link' },
+        { id: 'about', title: 'About ParleyApp', type: 'link' },
       ]
     }
   ];
@@ -265,19 +396,22 @@ export default function SettingsScreen() {
       id: 'bankroll', 
       title: 'Bankroll Management', 
       icon: Wallet,
-      color: '#10B981' 
+      color: '#10B981',
+      locked: !isPro
     },
     { 
       id: 'leaderboard', 
       title: 'Leaderboard', 
       icon: Award,
-      color: '#8B5CF6' 
+      color: '#8B5CF6',
+      locked: !isPro
     },
     { 
       id: 'friends', 
-      title: 'Friends', 
+      title: 'Friends & Groups', 
       icon: Users,
-      color: '#EC4899' 
+      color: '#EC4899',
+      locked: !isPro
     }
   ];
 
@@ -285,23 +419,43 @@ export default function SettingsScreen() {
     return (
       <TouchableOpacity 
         key={item.id}
-        style={styles.settingItem}
+        style={[styles.settingItem, item.locked && styles.settingItemLocked]}
         onPress={() => {
-          if (item.type === 'toggle') {
+          if (item.action) {
+            item.action();
+          } else if (item.type === 'toggle' && !item.locked) {
             toggleSwitch(item.id);
+          } else if (item.locked) {
+            Alert.alert(
+              'Pro Feature 🌟',
+              `${item.title} is available for Pro members only.`,
+              [
+                { text: 'Maybe Later', style: 'cancel' },
+                { 
+                  text: 'Upgrade to Pro', 
+                  onPress: () => openSubscriptionModal(),
+                  style: 'default'
+                }
+              ]
+            );
           }
         }}
       >
         <View style={styles.settingLeft}>
-          <Text style={styles.settingTitle}>{item.title}</Text>
+          <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked]}>
+            {item.title}
+          </Text>
+          {item.locked && (
+            <Lock size={14} color="#6B7280" style={{ marginLeft: 8 }} />
+          )}
           {item.badge && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{item.badge}</Text>
+            <View style={[styles.badge, { backgroundColor: `${item.badgeColor}20` }]}>
+              <Text style={[styles.badgeText, { color: item.badgeColor }]}>{item.badge}</Text>
             </View>
           )}
         </View>
         <View style={styles.settingRight}>
-          {item.type === 'toggle' && (
+          {item.type === 'toggle' && !item.locked && (
             <Switch
               value={item.value}
               onValueChange={() => toggleSwitch(item.id)}
@@ -333,12 +487,26 @@ export default function SettingsScreen() {
         >
           <View style={styles.profileToggleContent}>
             <View style={styles.profileBasicInfo}>
-              <View style={styles.profileImagePlaceholder}>
-                <Text style={styles.profileInitials}>JD</Text>
-              </View>
+              <LinearGradient
+                colors={isPro ? ['#F59E0B', '#D97706'] : ['#1E293B', '#374151']}
+                style={styles.profileImagePlaceholder}
+              >
+                {isPro && <Crown size={20} color="#FFFFFF" />}
+                {!isPro && <Text style={styles.profileInitials}>JD</Text>}
+              </LinearGradient>
               <View style={styles.profileDetails}>
-                <Text style={styles.profileName}>John Doe</Text>
-                <Text style={styles.profileStatus}>Pro Bettor • Elite Member</Text>
+                <View style={styles.profileNameContainer}>
+                  <Text style={styles.profileName}>John Doe</Text>
+                  {isPro && (
+                    <View style={styles.proBadge}>
+                      <Crown size={12} color="#F59E0B" />
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.profileStatus}>
+                  {isPro ? 'Pro Member • Elite Status' : 'Free Member • Starter'}
+                </Text>
               </View>
             </View>
             {showProfileDetails ? (
@@ -394,6 +562,23 @@ export default function SettingsScreen() {
                   <Text style={styles.statLabel}>Profit/Loss</Text>
                 </View>
               </View>
+
+              {!isPro && (
+                <TouchableOpacity 
+                  style={styles.upgradeStatsButton}
+                  onPress={() => openSubscriptionModal()}
+                >
+                  <LinearGradient
+                    colors={['rgba(245, 158, 11, 0.2)', 'rgba(245, 158, 11, 0.1)']}
+                    style={styles.upgradeStatsGradient}
+                  >
+                    <Sparkles size={16} color="#F59E0B" />
+                    <Text style={styles.upgradeStatsText}>
+                      Unlock advanced stats and analytics with Pro
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Recent Bets */}
@@ -407,7 +592,7 @@ export default function SettingsScreen() {
               </View>
 
               <View style={styles.betsList}>
-                {recentBets.slice(0, 3).map(bet => (
+                {recentBets.slice(0, isPro ? 3 : 2).map(bet => (
                   <TouchableOpacity key={bet.id} style={styles.betItem}>
                     <View>
                       <Text style={styles.betMatch}>{bet.match}</Text>
@@ -432,6 +617,12 @@ export default function SettingsScreen() {
                     </View>
                   </TouchableOpacity>
                 ))}
+                {!isPro && (
+                  <View style={styles.lockedBetItem}>
+                    <Lock size={16} color="#6B7280" />
+                    <Text style={styles.lockedBetText}>View complete history with Pro</Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -440,12 +631,34 @@ export default function SettingsScreen() {
               <Text style={styles.profileActionsTitle}>Quick Actions</Text>
               <View style={styles.profileActionsList}>
                 {menuItems.map(item => (
-                  <TouchableOpacity key={item.id} style={styles.profileActionItem}>
+                  <TouchableOpacity 
+                    key={item.id} 
+                    style={[styles.profileActionItem, item.locked && styles.profileActionItemLocked]}
+                    onPress={() => {
+                      if (item.locked) {
+                        Alert.alert(
+                          'Pro Feature 🌟',
+                          `${item.title} is available for Pro members only.`,
+                          [
+                            { text: 'Maybe Later', style: 'cancel' },
+                            { 
+                              text: 'Upgrade to Pro', 
+                              onPress: () => openSubscriptionModal(),
+                              style: 'default'
+                            }
+                          ]
+                        );
+                      }
+                    }}
+                  >
                     <View style={styles.profileActionLeft}>
                       <View style={[styles.profileActionIcon, { backgroundColor: `${item.color}20` }]}>
-                        <item.icon size={18} color={item.color} />
+                        <item.icon size={18} color={item.locked ? '#6B7280' : item.color} />
                       </View>
-                      <Text style={styles.profileActionTitle}>{item.title}</Text>
+                      <Text style={[styles.profileActionTitle, item.locked && styles.profileActionTitleLocked]}>
+                        {item.title}
+                      </Text>
+                      {item.locked && <Lock size={14} color="#6B7280" style={{ marginLeft: 8 }} />}
                     </View>
                     <ChevronRight size={16} color="#6B7280" />
                   </TouchableOpacity>
@@ -455,6 +668,8 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+
+
 
       {/* Settings Sections */}
       {settingsSections.map((section, index) => (
@@ -477,8 +692,8 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <View style={styles.versionInfo}>
-        <Text style={styles.versionText}>Predictive Picks v1.0.0</Text>
-        <Text style={styles.copyrightText}>© 2025 Predictive Picks Technologies Inc.</Text>
+        <Text style={styles.versionText}>ParleyApp v1.0.0</Text>
+        <Text style={styles.copyrightText}>© 2025 ParleyApp Inc.</Text>
       </View>
     </ScrollView>
   );
@@ -544,11 +759,27 @@ const styles = StyleSheet.create({
   profileDetails: {
     flex: 1,
   },
+  profileNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   profileName: {
     fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 4,
+  },
+  proBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  proBadgeText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '600',
   },
   profileStatus: {
     fontSize: 16,
@@ -709,12 +940,16 @@ const styles = StyleSheet.create({
   profileActionItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 12,
-    width: '50%',
+  },
+  profileActionItemLocked: {
+    opacity: 0.6,
   },
   profileActionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   profileActionIcon: {
     width: 40,
@@ -724,48 +959,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-      profileActionTitle: {
-      fontSize: 16,
-      color: '#FFFFFF',
-      fontWeight: '500',
-    },
-    settingItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    },
-    settingLeft: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    settingTitle: {
-      fontSize: 16,
-      color: '#FFFFFF',
-      fontWeight: '500',
-    },
-    settingRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    badge: {
-      backgroundColor: '#00E5FF',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 12,
-      marginLeft: 8,
-    },
-    badgeText: {
-      color: '#0F172A',
-      fontSize: 10,
-      fontWeight: '600',
-    },
-    section: {
-      marginVertical: 12,
+  profileActionTitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  profileActionTitleLocked: {
+    color: '#94A3B8',
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  settingItemLocked: {
+    opacity: 0.6,
+  },
+  settingLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingTitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  settingTitleLocked: {
+    color: '#94A3B8',
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badge: {
+    backgroundColor: '#00E5FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  section: {
+    marginVertical: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -858,5 +1102,156 @@ const styles = StyleSheet.create({
   copyrightText: {
     color: '#64748B',
     fontSize: 12,
+  },
+  subscriptionSection: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    margin: 16,
+    marginTop: 0,
+    padding: 16,
+  },
+  subscriptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  subscriptionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subscriptionPlans: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  planCard: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  planGradient: {
+    flex: 1,
+    padding: 16,
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  planName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  popularBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  popularText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  saveBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  saveText: {
+    color: '#0F172A',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  planPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  planPeriod: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  planDescription: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  proFeaturesSection: {
+    marginTop: 16,
+  },
+  proFeaturesTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  proFeaturesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  proFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    width: '50%',
+  },
+  proFeatureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  proFeatureContent: {
+    flex: 1,
+  },
+  proFeatureTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  proFeatureDescription: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  lockedBetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  lockedBetText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  upgradeStatsButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  upgradeStatsGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeStatsText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 });

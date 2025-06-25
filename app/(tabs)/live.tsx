@@ -8,22 +8,97 @@ import {
   ActivityIndicator,
   Platform,
   RefreshControl,
-  Alert
+  Alert,
+  Modal,
+  Dimensions,
+  TextInput
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronRight, Clock, RefreshCw, Calendar } from 'lucide-react-native';
+import { 
+  ChevronRight, 
+  Clock, 
+  RefreshCw, 
+  Calendar, 
+  TrendingUp, 
+  Target, 
+  BarChart3, 
+  DollarSign, 
+  Eye, 
+  Search, 
+  Zap, 
+  Brain, 
+  Award,
+  Crown,
+  Lock,
+  AlertCircle,
+  Building2
+} from 'lucide-react-native';
 import { sportsApi, type SportsEvent } from '@/app/services/api/sportsApi';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
+import { aiService, AIPrediction } from '@/app/services/api/aiService';
+import { useSubscription } from '@/app/services/subscriptionContext';
+
+import { useAIChat } from '@/app/services/aiChatContext';
+
+const { width: screenWidth } = Dimensions.get('window');
+
+// Enhanced interfaces for odds and predictions
+interface BookOdds {
+  bookName: string;
+  moneyline: { home: string; away: string };
+  spread: { home: string; away: string; line: string };
+  total: { over: string; under: string; line: string };
+  lastUpdated: Date;
+}
+
+interface OddsData {
+  moneyline: { home: string; away: string };
+  spread: { home: string; away: string; line: string };
+  total: { over: string; under: string; line: string };
+  books?: BookOdds[]; // Multi-book odds for Pro users
+  bestOdds?: {
+    moneylineHome: { book: string; odds: string };
+    moneylineAway: { book: string; odds: string };
+    spreadHome: { book: string; odds: string; line: string };
+    spreadAway: { book: string; odds: string; line: string };
+    totalOver: { book: string; odds: string; line: string };
+    totalUnder: { book: string; odds: string; line: string };
+  };
+}
+
+interface EnhancedSportsEvent extends SportsEvent {
+  odds?: OddsData;
+  aiPick?: AIPrediction;
+  hasAiPick?: boolean;
+  lineMovement?: {
+    direction: 'up' | 'down' | 'stable';
+    percentage: number;
+  };
+  publicBettingPercentage?: {
+    home: number;
+    away: number;
+  };
+}
 
 export default function GamesScreen() {
   const router = useRouter();
+  const { isPro, proFeatures, openSubscriptionModal } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [liveGames, setLiveGames] = useState<SportsEvent[]>([]);
-  const [upcomingGames, setUpcomingGames] = useState<SportsEvent[]>([]);
-  const [completedGames, setCompletedGames] = useState<SportsEvent[]>([]);
+  const [liveGames, setLiveGames] = useState<EnhancedSportsEvent[]>([]);
+  const [upcomingGames, setUpcomingGames] = useState<EnhancedSportsEvent[]>([]);
+  const [completedGames, setCompletedGames] = useState<EnhancedSportsEvent[]>([]);
   const [selectedSport, setSelectedSport] = useState('all');
+  const [viewMode, setViewMode] = useState<'list' | 'featured'>('list');
+  const [selectedGame, setSelectedGame] = useState<EnhancedSportsEvent | null>(null);
+  const [showGameModal, setShowGameModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gameStats, setGameStats] = useState({ total: 0, withAI: 0, live: 0 });
+
+  const { openChatWithContext } = useAIChat();
+  const [selectedBooks, setSelectedBooks] = useState<Record<string, string>>({});
+
 
   const sportFilters = [
     { id: 'all', name: 'All' },
@@ -85,15 +160,48 @@ export default function GamesScreen() {
         return game.status === 'scheduled' && gameDateStr === tomorrowStr;
       });
       
-      const upcomingGames = [...todayGames, ...tomorrowGames];
+      const upcomingGamesList = [...todayGames, ...tomorrowGames];
+      
+      // Enhance games with real odds and AI picks
+      console.log(`🎯 Processing ${upcomingGamesList.length} upcoming games for enhancement`);
+      const enhancedGames = await Promise.all(
+        upcomingGamesList.map(async (game) => {
+          const extractedOdds = extractRealOdds(game);
+          const enhancedGame: EnhancedSportsEvent = {
+            ...game,
+            odds: extractedOdds,
+            aiPick: await fetchGameAIPick(game.id),
+            hasAiPick: false,
+            lineMovement: isPro ? await fetchLineMovement(game.id) : undefined,
+            // Remove fake public betting data
+            // publicBettingPercentage: isPro ? await fetchPublicBetting(game.id) : undefined
+          };
+          enhancedGame.hasAiPick = !!enhancedGame.aiPick;
+          console.log(`✅ Enhanced game: ${game.away_team} @ ${game.home_team}`, {
+            hasOdds: !!extractedOdds,
+            oddsBooks: extractedOdds?.books?.length || 0,
+            hasAiPick: enhancedGame.hasAiPick
+          });
+          return enhancedGame;
+        })
+      );
       
       console.log('Today\'s games:', todayGames.length);
       console.log('Tomorrow\'s games:', tomorrowGames.length);
-      console.log('Total upcoming games:', upcomingGames.length);
+      console.log('Total upcoming games:', enhancedGames.length);
 
-      setUpcomingGames(upcomingGames);
+      setUpcomingGames(enhancedGames);
       setLiveGames([]); // Clear live games
       setCompletedGames([]); // Clear completed games
+      
+      // Update stats
+      const aiPickCount = enhancedGames.filter(g => g.hasAiPick).length;
+      setGameStats({
+        total: enhancedGames.length,
+        withAI: aiPickCount,
+        live: 0 // Would be calculated from live games
+      });
+      
     } catch (error: any) {
       console.error('Error fetching games:', error);
       if (error?.response?.status === 401) {
@@ -110,6 +218,147 @@ export default function GamesScreen() {
     }
   };
 
+  // Helper function to extract real odds from TheOdds API metadata
+  const extractRealOdds = (game: SportsEvent): OddsData | undefined => {
+    try {
+      console.log(`🔍 Processing odds for ${game.away_team} @ ${game.home_team}`);
+      console.log(`📊 Game metadata:`, JSON.stringify(game.metadata, null, 2));
+      
+      // Check if metadata contains TheOdds API data
+      if (!game.metadata || !game.metadata.full_data || !game.metadata.full_data.bookmakers) {
+        console.log(`❌ No odds metadata found for ${game.away_team} @ ${game.home_team}`);
+        return undefined;
+      }
+
+      const bookmakers = game.metadata.full_data.bookmakers;
+      if (!bookmakers || bookmakers.length === 0) {
+        console.log(`No bookmakers found for ${game.away_team} @ ${game.home_team}`);
+        return undefined;
+      }
+
+      console.log(`Found ${bookmakers.length} bookmakers for ${game.away_team} @ ${game.home_team}`);
+
+      // Find the first bookmaker with complete data for basic odds
+      const primaryBook = bookmakers.find((book: any) => 
+        book.markets && book.markets.length >= 3
+      ) || bookmakers[0];
+
+      if (!primaryBook || !primaryBook.markets) {
+        console.log(`No valid primary book found for ${game.away_team} @ ${game.home_team}`);
+        return undefined;
+      }
+
+      // Extract basic odds from the primary bookmaker
+      const h2hMarket = primaryBook.markets.find((m: any) => m.key === 'h2h');
+      const spreadMarket = primaryBook.markets.find((m: any) => m.key === 'spreads');
+      const totalMarket = primaryBook.markets.find((m: any) => m.key === 'totals');
+
+      const basicOdds: OddsData = {
+        moneyline: { 
+          home: h2hMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110',
+          away: h2hMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString() || '+105'
+        },
+        spread: { 
+          home: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString() || '-1.5',
+          away: spreadMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString() || '+1.5',
+          line: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110'
+        },
+        total: { 
+          over: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString() || '8.5',
+          under: totalMarket?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString() || '8.5',
+          line: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString() || '-110'
+        }
+      };
+
+      // Process all bookmakers for sportsbook comparison (always available)
+      if (bookmakers.length > 1) {
+        const books: BookOdds[] = bookmakers.map((book: any) => {
+          const h2h = book.markets?.find((m: any) => m.key === 'h2h');
+          const spread = book.markets?.find((m: any) => m.key === 'spreads');
+          const total = book.markets?.find((m: any) => m.key === 'totals');
+
+          return {
+            bookName: book.title,
+            moneyline: {
+              home: h2h?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110',
+              away: h2h?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString() || '+105'
+            },
+            spread: {
+              home: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString() || '-1.5',
+              away: spread?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString() || '+1.5',
+              line: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110'
+            },
+            total: {
+              over: total?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString() || '8.5',
+              under: total?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString() || '8.5',
+              line: total?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString() || '-110'
+            },
+            lastUpdated: new Date(book.last_update || Date.now())
+          };
+        });
+
+        basicOdds.books = books;
+
+        // For Pro users, find best odds across all books
+        if (isPro) {
+          let bestMoneylineHome = { book: primaryBook.title, odds: basicOdds.moneyline.home };
+          let bestMoneylineAway = { book: primaryBook.title, odds: basicOdds.moneyline.away };
+
+          books.forEach(book => {
+            const homeOdds = parseFloat(book.moneyline.home);
+            const awayOdds = parseFloat(book.moneyline.away);
+            
+            if (homeOdds > parseFloat(bestMoneylineHome.odds)) {
+              bestMoneylineHome = { book: book.bookName, odds: book.moneyline.home };
+            }
+            if (awayOdds > parseFloat(bestMoneylineAway.odds)) {
+              bestMoneylineAway = { book: book.bookName, odds: book.moneyline.away };
+            }
+          });
+
+          basicOdds.bestOdds = {
+            moneylineHome: bestMoneylineHome,
+            moneylineAway: bestMoneylineAway,
+            spreadHome: { book: primaryBook.title, odds: basicOdds.spread.home, line: basicOdds.spread.home },
+            spreadAway: { book: primaryBook.title, odds: basicOdds.spread.away, line: basicOdds.spread.away },
+            totalOver: { book: primaryBook.title, odds: basicOdds.total.over, line: basicOdds.total.over },
+            totalUnder: { book: primaryBook.title, odds: basicOdds.total.under, line: basicOdds.total.under }
+          };
+        }
+      }
+
+      console.log(`Successfully extracted odds for ${game.away_team} @ ${game.home_team}:`, basicOdds);
+      return basicOdds;
+    } catch (error) {
+      console.error(`Error extracting real odds for ${game.away_team} @ ${game.home_team}:`, error);
+      return undefined;
+    }
+  };
+
+  // Helper function to fetch AI picks for a game
+  const fetchGameAIPick = async (gameId: string): Promise<AIPrediction | undefined> => {
+    try {
+      const predictions = await aiService.getPredictionsForGame(gameId);
+      return predictions.length > 0 ? predictions[0] : undefined;
+    } catch (error) {
+      console.error('Error fetching AI pick for game:', gameId, error);
+      return undefined;
+    }
+  };
+
+  // Pro feature: Fetch line movement data
+  const fetchLineMovement = async (gameId: string) => {
+    // Mock data for line movement - TODO: Replace with real data
+    const movements = [
+      { direction: 'up' as const, percentage: 2.5 },
+      { direction: 'down' as const, percentage: 1.8 },
+      { direction: 'stable' as const, percentage: 0 }
+    ];
+    return movements[Math.floor(Math.random() * movements.length)];
+  };
+
+  // Removed fake public betting function - was placeholder data
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchGames();
@@ -117,6 +366,22 @@ export default function GamesScreen() {
   };
 
   const fetchTomorrowGames = async () => {
+    if (!isPro) {
+      Alert.alert(
+        'Pro Feature 🌟',
+        'Fetch tomorrow\'s games and get early AI predictions with Pro!',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { 
+            text: 'Upgrade to Pro', 
+            onPress: () => openSubscriptionModal(),
+            style: 'default'
+          }
+        ]
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       console.log('🔄 Fetching tomorrow\'s games...');
@@ -164,114 +429,470 @@ export default function GamesScreen() {
     });
   };
 
-  const renderGameCard = (game: SportsEvent) => (
-    <TouchableOpacity key={game.id} style={styles.gameCard}>
-      <LinearGradient
-        colors={['#1F2937', '#111827']}
-        style={styles.gradientBackground}
+  const getFilteredGames = () => {
+    let filtered = upcomingGames;
+
+    if (selectedSport !== 'all') {
+      filtered = filtered.filter(game => game.league.toLowerCase() === selectedSport.toLowerCase());
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(game => 
+        game.home_team.toLowerCase().includes(query) ||
+        game.away_team.toLowerCase().includes(query) ||
+        game.league.toLowerCase().includes(query)
+      );
+    }
+
+    // Pro filters removed
+
+    return filtered;
+  };
+
+  // Helper function to get best odds for a market
+  const getBestOdds = (game: EnhancedSportsEvent, marketType: 'moneyline' | 'spread' | 'total') => {
+    if (!game.odds || !game.odds.books || game.odds.books.length === 0) {
+      return null;
+    }
+
+    const books = game.odds.books;
+    let bestAwayOdds = { book: '', odds: '', line: '', price: -Infinity };
+    let bestHomeOdds = { book: '', odds: '', line: '', price: -Infinity };
+
+    books.forEach(book => {
+      let awayOdds, homeOdds;
+      
+      switch (marketType) {
+        case 'moneyline':
+          awayOdds = parseFloat(book.moneyline.away);
+          homeOdds = parseFloat(book.moneyline.home);
+          if (awayOdds > bestAwayOdds.price) {
+            bestAwayOdds = { book: book.bookName, odds: book.moneyline.away, line: '', price: awayOdds };
+          }
+          if (homeOdds > bestHomeOdds.price) {
+            bestHomeOdds = { book: book.bookName, odds: book.moneyline.home, line: '', price: homeOdds };
+          }
+          break;
+        case 'spread':
+          awayOdds = parseFloat(book.spread.line);
+          homeOdds = parseFloat(book.spread.line);
+          if (awayOdds > bestAwayOdds.price) {
+            bestAwayOdds = { book: book.bookName, odds: book.spread.line, line: book.spread.away, price: awayOdds };
+          }
+          if (homeOdds > bestHomeOdds.price) {
+            bestHomeOdds = { book: book.bookName, odds: book.spread.line, line: book.spread.home, price: homeOdds };
+          }
+          break;
+        case 'total':
+          const overOdds = parseFloat(book.total.line);
+          const underOdds = parseFloat(book.total.line);
+          bestAwayOdds = { book: book.bookName, odds: book.total.line, line: `O${book.total.over}`, price: overOdds };
+          bestHomeOdds = { book: book.bookName, odds: book.total.line, line: `U${book.total.under}`, price: underOdds };
+          break;
+      }
+    });
+
+    return { away: bestAwayOdds, home: bestHomeOdds };
+  };
+
+  const getSelectedBookOdds = (game: EnhancedSportsEvent) => {
+    const selectedBook = selectedBooks[game.id];
+    console.log(`📚 Getting odds for ${game.away_team} @ ${game.home_team}:`, {
+      selectedBook,
+      hasOdds: !!game.odds,
+      booksCount: game.odds?.books?.length || 0,
+      firstBookName: game.odds?.books?.[0]?.bookName
+    });
+    
+    if (!game.odds?.books || game.odds.books.length === 0) {
+      // Return primary odds if no books available
+      console.log(`📋 Using primary odds:`, game.odds ? 'Found' : 'None');
+      return game.odds || null;
+    }
+
+    // For Free users: Always prioritize FanDuel if available
+    if (!isPro) {
+      const fanduelBook = game.odds.books.find(book => 
+        book.bookName.toLowerCase().includes('fanduel') || 
+        book.bookName.toLowerCase().includes('fan duel')
+      );
+      if (fanduelBook) {
+        console.log(`📋 Free user: Using FanDuel odds`);
+        return fanduelBook;
+      }
+      // Fallback to first book if FanDuel not available
+      console.log(`📋 Free user: FanDuel not found, using first book`);
+      return game.odds.books[0];
+    }
+
+    // For Pro users: Use selected book or first available
+    if (!selectedBook) {
+      const result = game.odds.books[0];
+      console.log(`📋 Pro user: Using default first book`);
+      return result;
+    }
+    
+    const result = game.odds.books.find(book => book.bookName === selectedBook) || game.odds.books[0];
+    console.log(`📚 Pro user: Selected book result:`, result?.bookName || 'None');
+    return result;
+  };
+
+  const renderEnhancedGameCard = (game: EnhancedSportsEvent) => {
+    const selectedBookData = getSelectedBookOdds(game);
+    const availableBooks = game.odds?.books || [];
+
+    return (
+      <TouchableOpacity 
+        key={game.id} 
+        style={styles.modernGameCard}
+        onPress={() => {
+          setSelectedGame(game);
+          setShowGameModal(true);
+        }}
       >
-        <View style={styles.gameHeader}>
-          <View style={styles.sportBadge}>
-            <Text style={styles.sportText}>{game.league}</Text>
+        <LinearGradient
+          colors={['#1E293B', '#0F172A']}
+          style={styles.modernCardGradient}
+        >
+          {/* Header */}
+          <View style={styles.modernHeader}>
+            <View style={styles.gameTimeContainer}>
+              <Text style={styles.gameTime}>{formatGameTime(game.start_time)}</Text>
+              <Text style={styles.gameDate}>{formatGameDate(game.start_time)}</Text>
+            </View>
+            
+            <View style={styles.headerBadges}>
+              <View style={styles.leagueBadge}>
+                <Text style={styles.leagueText}>{game.league}</Text>
+              </View>
+              {game.hasAiPick && (
+                <View style={styles.aiIndicator}>
+                  <Brain size={12} color="#00E5FF" />
+                </View>
+              )}
+            </View>
           </View>
-          <Text style={styles.timeText}>
-            {formatGameTime(game.start_time)}
-          </Text>
-        </View>
 
-        <View style={styles.teamsContainer}>
-          <View style={styles.teamInfo}>
-            <Text style={styles.teamName}>{game.home_team}</Text>
-            {game.stats.home_score !== null && (
-              <Text style={styles.score}>{game.stats.home_score}</Text>
-            )}
+          {/* Teams and Odds Grid */}
+          <View style={styles.teamsOddsContainer}>
+            {/* Column Headers */}
+            <View style={styles.oddsHeaders}>
+              <View style={styles.teamColumn} />
+              <Text style={styles.oddsHeader}>Spread</Text>
+              <Text style={styles.oddsHeader}>Total</Text>
+              <Text style={styles.oddsHeader}>Money</Text>
+            </View>
+
+            {/* Away Team Row */}
+            <View style={styles.teamOddsRow}>
+              <View style={styles.teamInfo}>
+                <Text style={styles.teamName}>{game.away_team}</Text>
+                <Text style={styles.teamRecord}>
+                  {game.stats.away_score !== null ? game.stats.away_score : ''}
+                </Text>
+              </View>
+              
+              {/* Spread */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.spreadLine}>
+                  {selectedBookData?.spread.away.startsWith('-') ? selectedBookData.spread.away : `+${selectedBookData?.spread.away || '1.5'}`}
+                </Text>
+                <Text style={styles.oddsPrice}>
+                  {selectedBookData?.spread.line.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Total */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.totalLine}>O{selectedBookData?.total.over || '8.5'}</Text>
+                <Text style={styles.oddsPrice}>
+                  {selectedBookData?.total.line.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Moneyline */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.moneylineOdds}>
+                  {selectedBookData?.moneyline.away.startsWith('-') ? selectedBookData.moneyline.away : `+${selectedBookData?.moneyline.away || '150'}`}
+                </Text>
+                <Text style={styles.oddsPrice}> </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Home Team Row */}
+            <View style={styles.teamOddsRow}>
+              <View style={styles.teamInfo}>
+                <Text style={styles.teamName}>{game.home_team}</Text>
+                <Text style={styles.teamRecord}>
+                  {game.stats.home_score !== null ? game.stats.home_score : ''}
+                </Text>
+              </View>
+              
+              {/* Spread */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.spreadLine}>
+                  {selectedBookData?.spread.home.startsWith('-') ? selectedBookData.spread.home : `+${selectedBookData?.spread.home || '1.5'}`}
+                </Text>
+                <Text style={styles.oddsPrice}>
+                  {selectedBookData?.spread.line.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Total */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.totalLine}>U{selectedBookData?.total.under || '8.5'}</Text>
+                <Text style={styles.oddsPrice}>
+                  {selectedBookData?.total.line.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Moneyline */}
+              <TouchableOpacity style={styles.oddsButton}>
+                <Text style={styles.moneylineOdds}>
+                  {selectedBookData?.moneyline.home.startsWith('-') ? selectedBookData.moneyline.home : `+${selectedBookData?.moneyline.home || '150'}`}
+                </Text>
+                <Text style={styles.oddsPrice}> </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.teamInfo}>
-            <Text style={styles.teamName}>{game.away_team}</Text>
-            {game.stats.away_score !== null && (
-              <Text style={styles.score}>{game.stats.away_score}</Text>
-            )}
-          </View>
-        </View>
+          {/* Sportsbook Selector */}
+          {availableBooks.length > 1 && (
+            <View style={styles.sportsbookSelector}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookScrollView}>
+                {/* For Free users: only show FanDuel. For Pro users: show all books */}
+                {(isPro ? availableBooks : availableBooks.filter(book => 
+                  book.bookName.toLowerCase().includes('fanduel') || 
+                  book.bookName.toLowerCase().includes('fan duel')
+                )).map((book, index) => (
+                  <TouchableOpacity
+                    key={book.bookName}
+                    style={[
+                      styles.bookOption,
+                      (selectedBooks[game.id] === book.bookName || (!selectedBooks[game.id] && index === 0)) && styles.selectedBook
+                    ]}
+                    onPress={() => {
+                      // Free users can't change sportsbook - only Pro users can
+                      if (isPro) {
+                        setSelectedBooks(prev => ({ ...prev, [game.id]: book.bookName }));
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.bookName,
+                      (selectedBooks[game.id] === book.bookName || (!selectedBooks[game.id] && index === 0)) && styles.selectedBookName
+                    ]}>
+                      {book.bookName}
+                    </Text>
+                    {(selectedBooks[game.id] === book.bookName || (!selectedBooks[game.id] && index === 0)) && (
+                      <View style={styles.bestOddsIndicator}>
+                        <Text style={styles.bestOddsText}>Best</Text>
+                      </View>
+                    )}
+                    {/* Show lock icon for Free users on non-FanDuel books */}
+                    {!isPro && !book.bookName.toLowerCase().includes('fanduel') && !book.bookName.toLowerCase().includes('fan duel') && (
+                      <Lock size={12} color="#64748B" style={{ marginLeft: 4 }} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              
+              {/* Show upgrade hint for Free users */}
+              {!isPro && availableBooks.length > 1 && (
+                <TouchableOpacity 
+                  style={styles.upgradeHint}
+                  onPress={() => openSubscriptionModal()}
+                >
+                  <Lock size={14} color="#F59E0B" />
+                  <Text style={styles.upgradeHintText}>
+                    Upgrade to Pro to compare odds across all sportsbooks
+                  </Text>
+                  <Crown size={14} color="#F59E0B" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-        <View style={styles.venueContainer}>
-          <Clock size={14} color="#717171" />
-          <Text style={styles.venueText}>
-            {formatGameDate(game.start_time)} • {game.stats.venue}
-          </Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+          {/* AI Pick Preview */}
+          {game.aiPick && (
+            <View style={styles.modernAiPick}>
+              <View style={styles.aiPickHeader}>
+                <Zap size={16} color="#00E5FF" />
+                <Text style={styles.aiPickTitle}>AI Pick</Text>
+                <View style={styles.confidenceBadge}>
+                  <Text style={styles.confidenceText}>{game.aiPick.confidence}%</Text>
+                </View>
+              </View>
+              <Text style={styles.aiPickContent} numberOfLines={2}>
+                {game.aiPick.pick}
+              </Text>
+            </View>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
+
+  const filteredGames = getFilteredGames();
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterContainer}
-      >
-        {sportFilters.map((filter) => (
-          <TouchableOpacity
-            key={filter.id}
-            style={[
-              styles.filterButton,
-              selectedSport === filter.id && styles.filterButtonActive,
-            ]}
-            onPress={() => setSelectedSport(filter.id)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedSport === filter.id && styles.filterTextActive,
-              ]}
-            >
-              {filter.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={styles.actionContainer}>
-        <TouchableOpacity
-          style={styles.fetchButton}
-          onPress={fetchTomorrowGames}
-          disabled={loading}
-        >
-          <Calendar size={16} color="#111827" />
-          <Text style={styles.fetchButtonText}>
-            {loading ? 'Fetching...' : 'Fetch Tomorrow\'s Games'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.gamesContainer}
+      <ScrollView 
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#00E5FF"
+            colors={['#00E5FF']}
+          />
         }
       >
-        {loading ? (
-          <ActivityIndicator size="large" color="#00E5FF" style={styles.loader} />
-        ) : (
-          <>
-            {upcomingGames.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Today & Tomorrow</Text>
-                {upcomingGames.map(renderGameCard)}
-              </View>
-            )}
+        {/* Header Stats */}
+        <LinearGradient
+          colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#334155']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerStats}
+        >
+          {isPro && (
+            <View style={styles.proBadge}>
+              <Crown size={16} color="#F59E0B" />
+              <Text style={styles.proBadgeText}>PRO MEMBER</Text>
+            </View>
+          )}
 
-            {upcomingGames.length === 0 && (
-              <View style={styles.noGamesContainer}>
-                <Text style={styles.noGamesText}>No upcoming games for today or tomorrow</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Calendar size={20} color="#00E5FF" />
+              <Text style={styles.statValue}>{gameStats.total}</Text>
+              <Text style={styles.statLabel}>Total Games</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <Brain size={20} color="#10B981" />
+              <Text style={styles.statValue}>{gameStats.withAI}</Text>
+              <Text style={styles.statLabel}>With AI Picks</Text>
+            </View>
+            
+            <View style={styles.statCard}>
+              <TrendingUp size={20} color="#EF4444" />
+              <Text style={styles.statValue}>{gameStats.live}</Text>
+              <Text style={styles.statLabel}>Live Now</Text>
+            </View>
+          </View>
+
+          <View style={styles.actionButtons}>
+            {/* Removed the Fetch Tomorrow and Pro Filters buttons */}
+          </View>
+        </LinearGradient>
+
+        {/* Pro Filters Section removed */}
+
+        {/* Search Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Search size={20} color="#717171" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search games, teams..."
+              placeholderTextColor="#717171"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        </View>
+
+        {/* View Mode Toggle */}
+        <View style={styles.viewModeContainer}>
+          <View style={styles.viewModeToggle}>
+            <TouchableOpacity
+              style={[styles.toggleButton, styles.toggleButtonActive]}
+              onPress={() => setViewMode('list')}
+            >
+              <BarChart3 size={16} color="#FFF" />
+              <Text style={[
+                styles.toggleButtonText,
+                styles.toggleButtonTextActive
+              ]}>
+                All Games
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sport Filters */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          style={styles.filterContainer}
+          contentContainerStyle={styles.filterContent}
+        >
+          {sportFilters.map(sport => (
+            <TouchableOpacity
+              key={sport.id}
+              style={[
+                styles.filterChip,
+                selectedSport === sport.id && styles.filterChipActive
+              ]}
+              onPress={() => setSelectedSport(sport.id)}
+            >
+              <Text style={[
+                styles.filterChipText,
+                selectedSport === sport.id && styles.filterChipTextActive
+              ]}>
+                {sport.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Games List */}
+        <View style={styles.gamesContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#00E5FF" />
+              <Text style={styles.loadingText}>Loading games...</Text>
+            </View>
+          ) : filteredGames.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Calendar size={48} color="#64748B" />
+              <Text style={styles.emptyTitle}>No games found</Text>
+              <Text style={styles.emptyText}>
+                Try adjusting your filters or search.
+              </Text>
+            </View>
+          ) : (
+            filteredGames.map(game => renderEnhancedGameCard(game))
+          )}
+        </View>
+
+        {!isPro && (
+          <TouchableOpacity 
+            style={styles.upgradeCard}
+            onPress={() => openSubscriptionModal()}
+          >
+            <LinearGradient
+              colors={['#F59E0B', '#D97706']}
+              style={styles.upgradeGradient}
+            >
+              <Crown size={20} color="#FFFFFF" />
+              <View style={styles.upgradeContent}>
+                <Text style={styles.upgradeTitle}>Unlock Pro Features</Text>
+                <Text style={styles.upgradeFeatures}>
+                  • Multi-book odds comparison
+                  • Line movement tracking
+                  • Public betting percentages
+                  • Advanced AI filters
+                </Text>
               </View>
-            )}
-          </>
+              <ChevronRight size={20} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
         )}
       </ScrollView>
+
     </View>
   );
 }
@@ -279,135 +900,758 @@ export default function GamesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#0F172A',
   },
-  filterScroll: {
-    maxHeight: 50,
+  contentContainer: {
+    paddingBottom: 80,
   },
-  filterContainer: {
+  headerStats: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    position: 'relative',
   },
-  filterButton: {
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 20,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  proBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginLeft: 6,
+    letterSpacing: 0.5,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    marginTop: 30,
+  },
+  statCard: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#CBD5E1',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#1F2937',
+    gap: 6,
   },
-  filterButtonActive: {
-    backgroundColor: '#00E5FF',
+  actionButtonDisabled: {
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
   },
-  filterText: {
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  actionButtonTextDisabled: {
+    color: '#64748B',
+  },
+  proFiltersContainer: {
+    backgroundColor: '#1E293B',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  proFiltersTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  filterOptionActive: {
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+  },
+  filterOptionText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  filterOptionTextActive: {
+    color: '#00E5FF',
+  },
+  valueThresholdContainer: {
+    marginTop: 8,
+  },
+  valueButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  valueButton: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  valueButtonText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  viewModeContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  viewModeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#334155',
+  },
+  toggleButtonText: {
     color: '#717171',
     fontSize: 14,
     fontWeight: '600',
   },
-  filterTextActive: {
-    color: '#111827',
+  toggleButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  filterContainer: {
+    maxHeight: 50,
+    paddingVertical: 8,
+  },
+  filterContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterChip: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#1E40AF',
+  },
+  filterChipText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
   },
   gamesContainer: {
-    flex: 1,
     paddingHorizontal: 16,
   },
-  section: {
-    marginBottom: 24,
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
   },
-  sectionTitle: {
-    color: '#FFFFFF',
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#94A3B8',
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
+    color: '#FFFFFF',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  gameCard: {
+  emptyText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  enhancedGameCard: {
     marginBottom: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  gradientBackground: {
+  cardGradient: {
     padding: 16,
+    position: 'relative',
   },
-  gameHeader: {
+  enhancedGameHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  sportTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sportBadge: {
-    backgroundColor: '#374151',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 12,
   },
   sportText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  timeText: {
     color: '#00E5FF',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  timeText: {
+    color: '#94A3B8',
+    fontSize: 14,
+  },
+  indicatorContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  aiPickBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  aiPickText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '600',
   },
-  teamsContainer: {
-    marginBottom: 12,
+  lineMovementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  teamInfo: {
+  lineMovementText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  matchupContainer: {
+    marginBottom: 16,
+  },
+  teamRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
   teamName: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   score: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 16,
+  },
+  vsContainer: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  vsText: {
+    color: '#64748B',
+    fontSize: 12,
+  },
+  publicBettingContainer: {
+    marginBottom: 16,
+  },
+  publicBettingLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 6,
+  },
+  publicBettingBar: {
+    flexDirection: 'row',
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#0F172A',
+  },
+  publicBettingFill: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  publicBettingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  oddsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  oddsSection: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  oddsLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  oddsValues: {
+    alignItems: 'center',
+  },
+  oddsText: {
+    fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
+    marginVertical: 2,
+  },
+  bestOddsValue: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  bookName: {
+    fontSize: 9,
+    color: '#00E5FF',
+    fontWeight: '600',
+  },
+  aiPickPreview: {
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  aiPickHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiPickTitle: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  confidenceBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  confidenceText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  aiPickTextContent: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    fontWeight: '500',
+  },
+  valueIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  valueText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  lockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  lockGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 8,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(100, 116, 139, 0.3)',
   },
   venueContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
     gap: 6,
   },
   venueText: {
-    color: '#717171',
     fontSize: 12,
-  },
-  loader: {
-    marginTop: 24,
-  },
-  noGamesContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 48,
-  },
-  noGamesText: {
-    color: '#717171',
-    fontSize: 16,
-    fontWeight: '500',
+    color: '#64748B',
   },
   actionContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  fetchButton: {
-    backgroundColor: '#00E5FF',
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
     gap: 8,
   },
-  fetchButtonText: {
-    color: '#111827',
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    color: '#00E5FF',
+    fontWeight: '600',
+  },
+  upgradeCard: {
+    margin: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  upgradeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  upgradeContent: {
+    flex: 1,
+    marginHorizontal: 16,
+  },
+  upgradeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  upgradeFeatures: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    lineHeight: 20,
+    opacity: 0.9,
+  },
+  
+  // Modern Card Styles
+  modernGameCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  modernCardGradient: {
+    padding: 16,
+  },
+  modernHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  gameTimeContainer: {
+    alignItems: 'flex-start',
+  },
+  gameTime: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  gameDate: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  headerBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  leagueBadge: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  leagueText: {
+    color: '#00E5FF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  aiIndicator: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    padding: 6,
+    borderRadius: 6,
+  },
+  teamsOddsContainer: {
+    marginBottom: 16,
+  },
+  oddsHeaders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  teamColumn: {
+    flex: 2.5,
+  },
+  oddsHeader: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  teamOddsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  teamInfo: {
+    flex: 2.5,
+    paddingRight: 12,
+  },
+  teamName: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  teamRecord: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  oddsButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  spreadLine: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  totalLine: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  moneylineOdds: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    flex: 1,
+    textAlignVertical: 'center',
+  },
+  oddsPrice: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  sportsbookSelector: {
+    marginBottom: 12,
+  },
+  bookScrollView: {
+    flexGrow: 0,
+  },
+  bookOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  selectedBook: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderColor: '#00E5FF',
+  },
+  bookName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  selectedBookName: {
+    color: '#00E5FF',
+  },
+  bestOddsIndicator: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  bestOddsText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modernAiPick: {
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  aiPickHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiPickTitle: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#00E5FF',
+  },
+  confidenceBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  confidenceText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  aiPickContent: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    fontWeight: '500',
+    lineHeight: 16,
+  },
+  upgradeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  upgradeHintText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#F59E0B',
+    fontWeight: '600',
+    marginHorizontal: 8,
+    textAlign: 'center',
   },
 });

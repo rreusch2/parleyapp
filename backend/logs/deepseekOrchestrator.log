@@ -3561,3 +3561,433 @@
 {"level":"info","message":"⏱️ Total orchestration time: 24102ms","service":"deepseekOrchestrator","timestamp":"2025-06-12 22:06:51"}
 {"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-12 22:06:51"}
 {"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-06-12 22:06:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:04:59"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:04:59"}
+{"level":"info","message":"🎯 DEEPSEEK ORCHESTRATOR STARTING: MLB game daily_analysis, bet type: moneyline","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:06"}
+{"level":"info","message":"📋 Request details: {\n  \"userId\": \"f08b56d3-d4ec-4815-b502-6647d723d2a6\",\n  \"gameId\": \"daily_analysis\",\n  \"betType\": \"moneyline\",\n  \"sport\": \"MLB\",\n  \"odds\": {\n    \"homeOdds\": -110,\n    \"awayOdds\": 105\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:06"}
+{"level":"info","message":"🧠 System prompt created (3086 characters)","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:06"}
+{"level":"info","message":"💬 Starting DeepSeek chat with 8 available tools","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:06"}
+{"level":"info","message":"🚀 Sending analysis request to DeepSeek AI...","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:06"}
+{"level":"info","message":"📨 DeepSeek response received","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:12"}
+{"level":"info","message":"🔧 Processing 3 tool calls...","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:12"}
+{"level":"info","message":"🔧 TOOL EXECUTION: sportsDataIO_getGamePrediction","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:12"}
+{"level":"info","message":"📊 SportsDB prediction data sent to DeepSeek: {\n  \"gameId\": \"daily_analysis\",\n  \"homeTeamPrediction\": {\n    \"teamId\": \"home-id\",\n    \"name\": \"Home Team\",\n    \"winProbability\": 0.5066464695947545,\n    \"predictedScore\": 6\n  },\n  \"awayTeamPrediction\": {\n    \"teamId\": \"away-id\",\n    \"name\": \"Away Team\",\n    \"winProbability\": 0.49335353040524554,\n    \"predictedScore\": 6\n  },\n  \"confidence\": \"Low\",\n  \"bestBets\": [\n    {\n      \"betType\": \"moneyline\",\n      \"recommendation\": \"Away Team ML\",\n      \"expectedValue\": -3.2765830773650633,\n      \"confidence\": \"Low\",\n      \"reasoning\": \"Home Team 49% vs Away Team 50% strength. Home advantage detected.\"\n    }\n  ],\n  \"valueAnalysis\": {\n    \"expectedValue\": -3.2765830773650633,\n    \"expectedROI\": -3.2765830773650633,\n    \"riskAssessment\": \"High\"\n  },\n  \"modelMetrics\": {\n    \"predictionAccuracy\": 0.62,\n    \"historicalPerformance\": \"Good\",\n    \"dataSource\": \"The-Sports-DB + Mathematical Model\"\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:13"}
+{"level":"info","message":"🔧 TOOL EXECUTION: userData_getUserPreferences","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:13"}
+{"level":"info","message":"🔧 TOOL EXECUTION: webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:13"}
+{"level":"info","message":"🤔 Requesting final recommendation from DeepSeek after tool analysis...","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:14"}
+{"level":"info","message":"✅ Final recommendation received from DeepSeek","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:25"}
+{"level":"info","message":"⏱️ Total orchestration time: 19098ms","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:25"}
+{"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:25"}
+{"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:06:25"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:14"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:14"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:15"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:15"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:30"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:31"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:31"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:43"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:16:43"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:29"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:29"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:31"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:17:31"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:32:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 22:32:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-20 23:55:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-20 23:55:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-21 08:14:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-21 08:14:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-21 08:16:10"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-21 08:16:10"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:48:22"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:48:22"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:48:22"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:48:22"}
+{"level":"info","message":"🎯 DEEPSEEK ORCHESTRATOR STARTING: MLB game daily_analysis, bet type: moneyline","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:42"}
+{"level":"info","message":"📋 Request details: {\n  \"userId\": \"f08b56d3-d4ec-4815-b502-6647d723d2a6\",\n  \"gameId\": \"daily_analysis\",\n  \"betType\": \"moneyline\",\n  \"sport\": \"MLB\",\n  \"odds\": {\n    \"homeOdds\": -110,\n    \"awayOdds\": 105\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:42"}
+{"level":"info","message":"🧠 System prompt created (3086 characters)","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:42"}
+{"level":"info","message":"💬 Starting DeepSeek chat with 8 available tools","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:42"}
+{"level":"info","message":"🚀 Sending analysis request to DeepSeek AI...","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:42"}
+{"level":"info","message":"📨 DeepSeek response received","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:48"}
+{"level":"info","message":"🔧 Processing 3 tool calls...","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:48"}
+{"level":"info","message":"🔧 TOOL EXECUTION: sportsDataIO_getGamePrediction","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:48"}
+{"level":"info","message":"📊 SportsDB prediction data sent to DeepSeek: {\n  \"gameId\": \"daily_analysis\",\n  \"homeTeamPrediction\": {\n    \"teamId\": \"home-id\",\n    \"name\": \"Home Team\",\n    \"winProbability\": 0.560248850773236,\n    \"predictedScore\": 9\n  },\n  \"awayTeamPrediction\": {\n    \"teamId\": \"away-id\",\n    \"name\": \"Away Team\",\n    \"winProbability\": 0.43975114922676395,\n    \"predictedScore\": 3\n  },\n  \"confidence\": \"Low\",\n  \"bestBets\": [\n    {\n      \"betType\": \"moneyline\",\n      \"recommendation\": \"Home Team ML\",\n      \"expectedValue\": 6.9565987839814225,\n      \"confidence\": \"Low\",\n      \"reasoning\": \"Home Team 52% vs Away Team 49% strength. Home advantage detected.\"\n    }\n  ],\n  \"valueAnalysis\": {\n    \"expectedValue\": 6.9565987839814225,\n    \"expectedROI\": 6.9565987839814225,\n    \"riskAssessment\": \"High\"\n  },\n  \"modelMetrics\": {\n    \"predictionAccuracy\": 0.62,\n    \"historicalPerformance\": \"Good\",\n    \"dataSource\": \"The-Sports-DB + Mathematical Model\"\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:49"}
+{"level":"info","message":"🔧 TOOL EXECUTION: userData_getUserPreferences","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:49"}
+{"level":"info","message":"🔧 TOOL EXECUTION: webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:49"}
+{"level":"info","message":"🤔 Requesting final recommendation from DeepSeek after tool analysis...","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:54:50"}
+{"level":"info","message":"✅ Final recommendation received from DeepSeek","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:55:00"}
+{"level":"info","message":"⏱️ Total orchestration time: 18120ms","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:55:00"}
+{"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:55:00"}
+{"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-06-22 19:55:00"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:34:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:47:09"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:47:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:51:01"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:51:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:51:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:52:33"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:52:33"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:52:33"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:52:33"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:47"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:47"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:48"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:48"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:50"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 20:53:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:10:09"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:10:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:10:10"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:10:10"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:13"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:22"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:31"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:55"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:55"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:56"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:24:56"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:26:43"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:26:43"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:26:44"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:26:44"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:27:04"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:27:04"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:27:06"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:27:06"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:29:01"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:29:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:32:41"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:32:41"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:32:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:32:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:39:39"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:39:39"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:39:40"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 21:39:40"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:01:26"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:01:26"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:01:27"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:01:27"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:30"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:44"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:44"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:52"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:52"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:53"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:09:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:05"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:05"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:06"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:06"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:23"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:23"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:25"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:25"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:38"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:10:54"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:11:13"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:11:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:11:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:11:51"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:11:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:14:50"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:14:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:51"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:53"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:15:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:05"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:05"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:05"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:07"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:07"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:07"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:30"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:48"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:48"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:48"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:50"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:16:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:17:44"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:17:44"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:17:45"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:17:45"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:17:45"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:18:25"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:18:25"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:33"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:33"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:33"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:43"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:43"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:43"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:52"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:52"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:52"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:53"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:20:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:26"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:26"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:26"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:21:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:22:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:22:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:07"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:07"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:08"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:08"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:08"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:32"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:32"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:32"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:34"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:27:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:00"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:00"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:00"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:01"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:14"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:14"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:14"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:28:23"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:30:48"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:31:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:31:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:23"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:23"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:24"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:24"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:34"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:58"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:58"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:59"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:33:59"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:34:08"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:34:08"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:37:01"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:37:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:37:44"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 22:37:44"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 23:01:39"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 23:01:39"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-22 23:01:39"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-22 23:01:39"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:19"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:19"}
+{"level":"info","message":"🎯 DEEPSEEK ORCHESTRATOR STARTING: MLB game daily_analysis, bet type: moneyline","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:42"}
+{"level":"info","message":"📋 Request details: {\n  \"userId\": \"f08b56d3-d4ec-4815-b502-6647d723d2a6\",\n  \"gameId\": \"daily_analysis\",\n  \"betType\": \"moneyline\",\n  \"sport\": \"MLB\",\n  \"odds\": {\n    \"homeOdds\": -110,\n    \"awayOdds\": 105\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:42"}
+{"level":"info","message":"🧠 System prompt created (3086 characters)","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:42"}
+{"level":"info","message":"💬 Starting DeepSeek chat with 8 available tools","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:42"}
+{"level":"info","message":"🚀 Sending analysis request to DeepSeek AI...","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:42"}
+{"level":"info","message":"📨 DeepSeek response received","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:50"}
+{"level":"info","message":"🔧 Processing 3 tool calls...","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:50"}
+{"level":"info","message":"🔧 TOOL EXECUTION: sportsDataIO_getGamePrediction","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:50"}
+{"level":"info","message":"📊 SportsDB prediction data sent to DeepSeek: {\n  \"gameId\": \"daily_analysis\",\n  \"homeTeamPrediction\": {\n    \"teamId\": \"home-id\",\n    \"name\": \"Home Team\",\n    \"winProbability\": 0.569741046293824,\n    \"predictedScore\": 3\n  },\n  \"awayTeamPrediction\": {\n    \"teamId\": \"away-id\",\n    \"name\": \"Away Team\",\n    \"winProbability\": 0.43025895370617595,\n    \"predictedScore\": 4\n  },\n  \"confidence\": \"Low\",\n  \"bestBets\": [\n    {\n      \"betType\": \"moneyline\",\n      \"recommendation\": \"Home Team ML\",\n      \"expectedValue\": 8.768745201548223,\n      \"confidence\": \"Low\",\n      \"reasoning\": \"Home Team 52% vs Away Team 48% strength. Home advantage detected.\"\n    }\n  ],\n  \"valueAnalysis\": {\n    \"expectedValue\": 8.768745201548223,\n    \"expectedROI\": 8.768745201548223,\n    \"riskAssessment\": \"High\"\n  },\n  \"modelMetrics\": {\n    \"predictionAccuracy\": 0.62,\n    \"historicalPerformance\": \"Good\",\n    \"dataSource\": \"The-Sports-DB + Mathematical Model\"\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:51"}
+{"level":"info","message":"🔧 TOOL EXECUTION: userData_getUserPreferences","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:51"}
+{"level":"info","message":"🔧 TOOL EXECUTION: webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:51"}
+{"level":"info","message":"🤔 Requesting final recommendation from DeepSeek after tool analysis...","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:55:52"}
+{"level":"info","message":"✅ Final recommendation received from DeepSeek","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:56:05"}
+{"level":"info","message":"⏱️ Total orchestration time: 23881ms","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:56:05"}
+{"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:56:05"}
+{"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:56:05"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:58:13"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 11:58:13"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:04:33"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:04:33"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:04:34"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:04:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:15:29"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:15:29"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:15:30"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:15:30"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:16:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:16:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:16:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:16:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:17:13"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:17:13"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:19:29"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:49"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:49"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:49"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:50"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:20:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:09"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:10"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:10"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 14:22:10"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:33:09"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:33:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:33:09"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:33:09"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:00"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:00"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:00"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:02"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:02"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:02"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:03"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:03"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:03"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:58"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:58"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:58"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:59"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:59"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:36:59"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:15"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:15"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:15"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:21"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:21"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:21"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:22"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:22"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:22"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:38:51"}
+{"level":"info","message":"🎯 DEEPSEEK ORCHESTRATOR STARTING: MLB game daily_analysis, bet type: moneyline","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:43"}
+{"level":"info","message":"📋 Request details: {\n  \"userId\": \"f08b56d3-d4ec-4815-b502-6647d723d2a6\",\n  \"gameId\": \"daily_analysis\",\n  \"betType\": \"moneyline\",\n  \"sport\": \"MLB\",\n  \"odds\": {\n    \"homeOdds\": -110,\n    \"awayOdds\": 105\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:43"}
+{"level":"info","message":"🧠 System prompt created (3086 characters)","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:43"}
+{"level":"info","message":"💬 Starting DeepSeek chat with 8 available tools","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:43"}
+{"level":"info","message":"🚀 Sending analysis request to DeepSeek AI...","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:43"}
+{"level":"info","message":"📨 DeepSeek response received","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:51"}
+{"level":"info","message":"🔧 Processing 3 tool calls...","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:51"}
+{"level":"info","message":"🔧 TOOL EXECUTION: sportsDataIO_getGamePrediction","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:51"}
+{"level":"info","message":"📊 SportsDB prediction data sent to DeepSeek: {\n  \"gameId\": \"daily_analysis\",\n  \"homeTeamPrediction\": {\n    \"teamId\": \"home-id\",\n    \"name\": \"Home Team\",\n    \"winProbability\": 0.5388406265170999,\n    \"predictedScore\": 9\n  },\n  \"awayTeamPrediction\": {\n    \"teamId\": \"away-id\",\n    \"name\": \"Away Team\",\n    \"winProbability\": 0.46115937348290015,\n    \"predictedScore\": 8\n  },\n  \"confidence\": \"Low\",\n  \"bestBets\": [\n    {\n      \"betType\": \"moneyline\",\n      \"recommendation\": \"Home Team ML\",\n      \"expectedValue\": 2.869574153264512,\n      \"confidence\": \"Low\",\n      \"reasoning\": \"Home Team 50% vs Away Team 51% strength. Home advantage detected.\"\n    }\n  ],\n  \"valueAnalysis\": {\n    \"expectedValue\": 2.869574153264512,\n    \"expectedROI\": 2.869574153264512,\n    \"riskAssessment\": \"High\"\n  },\n  \"modelMetrics\": {\n    \"predictionAccuracy\": 0.62,\n    \"historicalPerformance\": \"Good\",\n    \"dataSource\": \"The-Sports-DB + Mathematical Model\"\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:52"}
+{"level":"info","message":"🔧 TOOL EXECUTION: userData_getUserPreferences","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:52"}
+{"level":"info","message":"🔧 TOOL EXECUTION: webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:52"}
+{"level":"info","message":"🤔 Requesting final recommendation from DeepSeek after tool analysis...","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:39:54"}
+{"level":"info","message":"✅ Final recommendation received from DeepSeek","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:40:04"}
+{"level":"info","message":"⏱️ Total orchestration time: 20457ms","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:40:04"}
+{"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:40:04"}
+{"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-06-24 19:40:04"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 20:00:53"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 20:00:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 20:00:53"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:04:21"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:05:07"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:05:07"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:06:34"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:06:34"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:12:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:12:28"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:16:26"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:16:26"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:21:27"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:21:27"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:30:59"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:30:59"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:32:13"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:32:13"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:32:14"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:32:14"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:34:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:34:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:40:18"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:40:18"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:54:42"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:54:42"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:55:36"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 21:55:36"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:03:49"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:03:49"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:04:35"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:04:35"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:04:36"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:04:36"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:05:31"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:05:31"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:11:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:11:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:21:48"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:21:48"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:25:05"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:25:05"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:29:46"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:29:46"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:36:40"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 22:36:40"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:03:37"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:03:37"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:11:49"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:11:49"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:12:27"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:12:27"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:12:58"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:12:58"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:16:55"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:16:55"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:20:03"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:20:03"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:37:04"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:37:04"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:39:08"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-24 23:39:08"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 00:54:27"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 00:54:27"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 01:03:39"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 01:03:39"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 01:03:39"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 01:03:39"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 02:04:47"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 02:04:47"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 02:50:12"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 02:50:12"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:49:14"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:49:14"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:49:15"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:49:15"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:52:02"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 03:52:02"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:20:50"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:20:50"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:20:51"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:20:51"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:21"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:21"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:22"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:22"}

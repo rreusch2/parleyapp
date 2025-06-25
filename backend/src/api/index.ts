@@ -14,6 +14,8 @@ import overUnderRoutes from './routes/overUnder';
 import sportsEventsRoutes from './routes/sportsEvents';
 import sportsDataRoutes from './routes/sportsData';
 import sportsDataAdminRoutes from './routes/sportsDataAdmin';
+import injuriesRoutes from './routes/injuries';
+import trendsRoutes from './routes/trends';
 
 // Initialize express app
 const app = express();
@@ -68,6 +70,94 @@ app.use('/api/over-under', overUnderRoutes);
 app.use('/api/sports-events', sportsEventsRoutes);
 app.use('/api/sports-data', sportsDataRoutes);
 app.use('/api/sports-data-admin', sportsDataAdminRoutes);
+app.use('/api/injuries', injuriesRoutes);
+app.use('/api/trends', trendsRoutes);
+
+// Fetch tomorrow's games endpoint
+app.post('/api/fetch-tomorrow-games', async (req, res) => {
+  try {
+    console.log('🚀 Manual fetch tomorrow games triggered from API endpoint');
+    
+    // Import the fetch tomorrow games function
+    const { fetchTomorrowGames } = await import('../scripts/fetchTomorrowGames');
+    
+    // Execute the fetch
+    await fetchTomorrowGames();
+    
+    res.json({
+      success: true,
+      message: 'Successfully fetched tomorrow\'s games',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching tomorrow\'s games:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch tomorrow\'s games',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Debug date endpoint
+app.get('/api/debug-date', async (req, res) => {
+  try {
+    const now = new Date();
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Format date for ESPN API
+    const formatDateForESPN = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    };
+    
+    const todayFormatted = formatDateForESPN(today);
+    const tomorrowFormatted = formatDateForESPN(tomorrow);
+    
+    // Test ESPN API call for today
+    const testUrl = `http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${todayFormatted}`;
+    
+    let testResponse = null;
+    try {
+      const fetch = require('node-fetch');
+      const response = await fetch(testUrl);
+      const data = await response.json();
+      testResponse = {
+        success: true,
+        gamesFound: data.events?.length || 0,
+        url: testUrl
+      };
+    } catch (error) {
+      testResponse = {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        url: testUrl
+      };
+    }
+    
+    res.json({
+      systemDate: {
+        now: now.toISOString(),
+        today: today.toDateString(),
+        tomorrow: tomorrow.toDateString(),
+        todayFormatted,
+        tomorrowFormatted
+      },
+      testApi: testResponse
+    });
+  } catch (error) {
+    console.error('❌ Error in debug date endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to debug date',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
 
 // Health check endpoints
 app.get('/health', (req, res) => {

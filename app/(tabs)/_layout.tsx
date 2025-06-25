@@ -1,44 +1,60 @@
 import { Tabs } from 'expo-router';
+import { View } from 'react-native';
 import { useColorScheme } from 'react-native';
-import { Landmark, ChartBar as BarChart3, Settings, Trophy, Crown, Calendar, Zap } from 'lucide-react-native';
+import { Landmark, ChartBar as BarChart3, Settings, Trophy, Crown, Calendar, Zap, Newspaper, Home, TrendingUp } from 'lucide-react-native';
+import { AIChatProvider } from '@/app/services/aiChatContext';
+import FloatingAIChatButton from '@/app/components/FloatingAIChatButton';
+import ProAIChat from '@/app/components/ProAIChat';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#00E5FF',
-        tabBarInactiveTintColor: '#717171',
-        tabBarStyle: {
-          backgroundColor: '#111827',
-          borderTopColor: '#1F2937',
-          height: 80,
-          paddingBottom: 15,
-          paddingTop: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-        headerStyle: {
-          backgroundColor: '#111827',
-        },
-        headerTitleStyle: {
-          color: '#FFFFFF',
-          fontWeight: '700',
-          fontSize: 20,
-        },
-        headerTintColor: '#00E5FF',
-      }}
-    >
+    <AIChatProvider>
+      <View style={{ flex: 1 }}>
+        <Tabs
+          screenOptions={{
+            tabBarActiveTintColor: '#00E5FF',
+            tabBarInactiveTintColor: '#717171',
+            tabBarStyle: {
+              backgroundColor: '#111827',
+              borderTopColor: '#1F2937',
+              height: 80,
+              paddingBottom: 15,
+              paddingTop: 10,
+            },
+            tabBarLabelStyle: {
+              fontSize: 12,
+              fontWeight: '500',
+            },
+            headerStyle: {
+              backgroundColor: '#111827',
+            },
+            headerTitleStyle: {
+              color: '#FFFFFF',
+              fontWeight: '700',
+              fontSize: 20,
+            },
+            headerTintColor: '#00E5FF',
+          }}
+        >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          headerTitle: 'Predictive Picks',
+          headerTitle: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Landmark size={size} color={color} />
+            <Home size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="live"
+        options={{
+          title: 'Games',
+          headerTitle: 'Live Games & Odds',
+          tabBarIcon: ({ color, size }) => (
+            <Calendar size={size} color={color} />
           ),
         }}
       />
@@ -53,26 +69,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="live"
-        options={{
-          title: 'Games',
-          headerTitle: 'Upcoming Games',
-          tabBarIcon: ({ color, size }) => (
-            <Calendar size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pro"
-        options={{
-          title: 'Pro',
-          headerTitle: 'Pro Features',
-          tabBarIcon: ({ color, size }) => (
-            <Crown size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
@@ -83,5 +79,15 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    
+    {/* Global Floating AI Chat Button - positioned closer to tabs */}
+    <FloatingAIChatButton 
+      bottom={95} // Moved closer to navigation tabs (was 110)
+    />
+    
+    {/* Global AI Chat Modal */}
+    <ProAIChat />
+  </View>
+</AIChatProvider>
   );
 }

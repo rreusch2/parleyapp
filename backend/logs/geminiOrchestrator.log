@@ -36,3 +36,13 @@
 {"level":"info","message":"💬 Initializing Gemini chat with 12 available tools","service":"geminiOrchestrator","timestamp":"2025-06-06 01:41:43"}
 {"level":"info","message":"🚀 Sending analysis request to Gemini AI...","service":"geminiOrchestrator","timestamp":"2025-06-06 01:41:43"}
 {"level":"error","message":"Error generating recommendation: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent: [404 Not Found] models/gemini-2.0-flash-exp is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.","service":"geminiOrchestrator","timestamp":"2025-06-06 01:41:44"}
+{"level":"info","message":"🚀 Initializing Gemini model: gemini-2.0-flash-exp","service":"geminiOrchestrator","timestamp":"2025-06-21 09:38:24"}
+{"level":"info","message":"✅ Gemini gemini-2.0-flash-exp initialized successfully","service":"geminiOrchestrator","timestamp":"2025-06-21 09:38:24"}
+{"level":"info","message":"🚀 Initializing Gemini model: gemini-2.0-flash-exp","service":"geminiOrchestrator","timestamp":"2025-06-21 09:38:25"}
+{"level":"info","message":"✅ Gemini gemini-2.0-flash-exp initialized successfully","service":"geminiOrchestrator","timestamp":"2025-06-21 09:38:25"}
+{"level":"info","message":"🚀 Initializing Gemini model: gemini-2.0-flash-exp","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:19"}
+{"level":"info","message":"✅ Gemini gemini-2.0-flash-exp initialized successfully","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:19"}
+{"level":"info","message":"🚀 Initializing Gemini model: gemini-2.0-flash-exp","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:20"}
+{"level":"info","message":"✅ Gemini gemini-2.0-flash-exp initialized successfully","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:20"}
+{"level":"info","message":"🚀 Initializing Gemini model: gemini-2.0-flash-exp","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:59"}
+{"level":"info","message":"✅ Gemini gemini-2.0-flash-exp initialized successfully","service":"geminiOrchestrator","timestamp":"2025-06-21 09:42:59"}

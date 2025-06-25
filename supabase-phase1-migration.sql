@@ -485,5 +485,5 @@ GRANT ALL ON ai_predictions TO authenticated;
 
 -- After running this, update your environment:
 -- API_PROVIDER=theodds
--- SPORTS_API_KEY=your_the_odds_api_key
+-- SPORTS_API_KEY=your_THEODDS_API_KEY
 -- Then start the data ingestion service! 

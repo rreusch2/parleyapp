@@ -17,6 +17,9 @@ pandas==2.2.0
 numpy==1.26.3
 pydantic==2.5.3
 
+# MLB Data API
+MLB-StatsAPI==1.7.0
+
 # Retry and resilience
 backoff==2.2.1
 tenacity==8.2.3

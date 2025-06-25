@@ -6,7 +6,10 @@ import sportsEventsRouter from './api/routes/sportsEvents';
 import betHistoryRouter from './api/routes/betHistory';
 import sportsDataAdminRouter from './api/routes/sportsDataAdmin';
 import sportsDataRouter from './api/routes/sportsData';
-import { initScheduler } from './services/sportsData/scheduler';
+import aiRouter from './api/routes/ai';
+import newsRouter from './api/routes/news';
+import trendsRouter from './api/routes/trends';
+// import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
 
@@ -52,6 +55,9 @@ app.use('/api/sports-events', sportsEventsRouter);
 app.use('/api/bets', betHistoryRouter);
 app.use('/api/sports-data-admin', sportsDataAdminRouter);
 app.use('/api/sports-data', sportsDataRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/news', newsRouter);
+app.use('/api/trends', trendsRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -78,6 +84,6 @@ app.get('/api/auth-test', (req, res) => {
 });
 
 // Initialize sports data scheduler
-initScheduler();
+// initScheduler(); // Removed - using TheOdds API manually now
 
 export default app; 

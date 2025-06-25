@@ -151,25 +151,57 @@ class AIService {
     }
   }
 
-  // Get today's AI predictions from your backend (persistent)
-  async getTodaysPicks(): Promise<AIPrediction[]> {
+  // Get today's AI predictions with welcome bonus logic
+  async getTodaysPicks(userId?: string, userTier?: string): Promise<AIPrediction[]> {
     try {
-      // First try to get persistent picks from database
-      const userId = 'f08b56d3-d4ec-4815-b502-6647d723d2a6'; // TODO: Get from auth
-      const data = await this.makeRequest(`${BACKEND_URL}/api/ai/picks?userId=${userId}`);
+      const currentUserId = userId || await this.getCurrentUserId();
+      
+      // Get user's subscription tier if not provided
+      let tier = userTier;
+      if (!tier) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('subscription_tier')
+              .eq('id', user.id)
+              .single();
+            tier = profile?.subscription_tier || 'free';
+          } else {
+            tier = 'free';
+          }
+        } catch (error) {
+          console.error('Error getting user tier:', error);
+          tier = 'free';
+        }
+      }
+
+      // Use the picks endpoint that handles welcome bonus logic
+      const data = await this.makeRequest(`${BACKEND_URL}/api/ai/picks?userId=${currentUserId}&userTier=${tier}`);
       
       if (data.success && data.predictions && data.predictions.length > 0) {
-        console.log(`📚 Loaded ${data.predictions.length} persistent AI picks from database`);
+        console.log(`📚 Loaded ${data.predictions.length} AI picks for ${tier} user ${currentUserId}`);
+        
+        // Log metadata for debugging
+        if (data.metadata) {
+          console.log(`📊 API Metadata:`, JSON.stringify(data.metadata, null, 2));
+        }
+        
+        // Log welcome bonus status if applicable
+        if (data.metadata?.welcomeBonusActive) {
+          console.log(`🎁 Welcome bonus active: ${data.predictions.length} picks (expires ${data.metadata.welcomeBonusExpires})`);
+        }
+        
         return data.predictions;
       }
       
-      // Fallback to Python API if no persistent picks
-      console.log('📚 No persistent picks found, trying Python API...');
-      const pythonData = await this.makeRequest(`${PYTHON_API_URL}/api/predictions/today`);
-      return pythonData.predictions || pythonData || [];
+      // If no predictions found, return empty array
+      console.log('📚 No predictions found in database');
+      return [];
     } catch (error) {
       console.error('Error fetching today\'s picks:', error);
-      // Return empty array - let the frontend handle new user experience
+      // Return empty array - let the frontend handle empty state
       return [];
     }
   }

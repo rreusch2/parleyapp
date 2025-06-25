@@ -1,5 +1,6 @@
 import express from 'express';
 import { createLogger } from '../../utils/logger';
+import { supabase } from '../../services/supabase/client';
 
 const router = express.Router();
 const logger = createLogger('userRoutes');
@@ -105,6 +106,94 @@ router.get('/preferences', async (req, res) => {
     return res.status(500).json({ 
       success: false, 
       error: 'Failed to fetch preferences' 
+    });
+  }
+});
+
+/**
+ * @route GET /api/user/welcome-bonus-status
+ * @desc Check if user has active welcome bonus
+ * @access Private
+ */
+router.get('/welcome-bonus-status', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    logger.info(`🎁 Checking welcome bonus status for user ${userId}`);
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      logger.error(`❌ Error fetching user profile: ${error.message}`);
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    const now = new Date();
+    const expiresAt = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+    const isWelcomeBonusActive = profile.welcome_bonus_claimed && expiresAt && now < expiresAt;
+    
+    // Calculate time remaining for welcome bonus
+    const timeRemaining = isWelcomeBonusActive && expiresAt ? 
+      Math.max(0, expiresAt.getTime() - now.getTime()) : 0;
+    
+    const hoursRemaining = Math.floor(timeRemaining / (1000 * 60 * 60));
+    const minutesRemaining = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+
+    // Determine pick allowance
+    let dailyPickLimit = 2; // Default free tier
+    let bonusType = null;
+    
+    if (profile.subscription_tier === 'pro') {
+      dailyPickLimit = 10; // Pro tier
+      bonusType = 'pro_unlimited';
+    } else if (isWelcomeBonusActive) {
+      dailyPickLimit = 5; // Welcome bonus
+      bonusType = 'welcome_bonus';
+    }
+
+    const status = {
+      user_id: userId,
+      subscription_tier: profile.subscription_tier,
+      welcome_bonus_claimed: profile.welcome_bonus_claimed,
+      welcome_bonus_active: isWelcomeBonusActive,
+      welcome_bonus_expires_at: profile.welcome_bonus_expires_at,
+      daily_pick_limit: dailyPickLimit,
+      bonus_type: bonusType,
+      time_remaining: {
+        total_ms: timeRemaining,
+        hours: hoursRemaining,
+        minutes: minutesRemaining,
+        display: isWelcomeBonusActive ? 
+          `${hoursRemaining}h ${minutesRemaining}m remaining` : 
+          null
+      },
+      created_at: profile.created_at
+    };
+
+    logger.info(`🎁 Welcome bonus status: ${JSON.stringify(status)}`);
+
+    res.json({
+      success: true,
+      status
+    });
+
+  } catch (error) {
+    logger.error(`💥 Error checking welcome bonus status: ${error instanceof Error ? error.message : String(error)}`);
+    res.status(500).json({
+      error: 'Failed to check welcome bonus status',
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 });

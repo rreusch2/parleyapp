@@ -3,6 +3,8 @@ description:
 globs: 
 alwaysApply: true
 ---
-- Important Files for you to go by --- /home/reid/Desktop/parleyapp/parleyapp_comprehensive_analysis.md  and   /home/reid/Desktop/parleyapp/parleyapp_implementation_plan.md
-
-- As we go through our implementation plan, as you complete different phases, please add in updates in a dedicated section below each phase to /home/reid/Desktop/parleyapp/parleyapp_implementation_plan.md of what all you completed and just any other important information.
+- We are building an AI powered Sport Betting picks app that uses our deepseek orchestrator that we have set up and working to generate its 10 best picks for upcoming games and a bunch of other features.
+- We have built the AI system pretty much and have a great start on the frontend but now we want to integrate everything.
+- You have access to the Supabase MCP to use any time
+- In our database we have an ai_predictions table that we use to store our picks and we have a sports_events table to see our upcoming games
+- When you are done with your work, absolutely never attempt to run my frontend or backend servers. I will start them manually so just await me to restart my servers and run through and test and ill get back with you.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ParleyApp Sports Betting Prediction API
-Provides player props, over/under, and parlay predictions
+ParleyApp Sports Betting Prediction API - Phase 2 Enhanced
+Provides player props, spread, over/under, and parlay predictions using enhanced ML models
 """
 
 import os
@@ -21,6 +21,15 @@ sys.path.insert(0, '../sports-betting/src')
 
 from sportsbet.evaluation._player_props import PlayerPropsBettor, MultiPropBettor, create_sample_player_data
 
+# Import enhanced prediction models (Phase 2)
+from enhanced_predictors import (
+    EnhancedPlayerPropsPredictor, 
+    EnhancedSpreadPredictor, 
+    EnhancedOverUnderPredictor,
+    ModelTrainingFramework,
+    create_enhanced_predictor
+)
+
 # Import real data integration
 from real_data_integration import RealDataManager, setup_real_data_integration
 
@@ -36,13 +45,30 @@ CORS(app)
 MODELS = {}
 PLAYER_DATA_CACHE = {}
 
+# Initialize Enhanced Model Framework (Phase 2)
+enhanced_framework = None
+
+def initialize_enhanced_framework():
+    """Initialize the enhanced prediction framework"""
+    global enhanced_framework
+    try:
+        enhanced_framework = ModelTrainingFramework()
+        logger.info("✅ Enhanced prediction framework initialized")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize enhanced framework: {e}")
+        return False
+
+# Initialize enhanced framework on startup
+initialize_enhanced_framework()
 
 class ParlayPredictor:
-    """Main prediction service for parlays and props."""
+    """Main prediction service for parlays and props - Enhanced for Phase 2."""
     
     def __init__(self):
         self.prop_models = {}
         self.over_under_models = {}
+        self.enhanced_models = {}  # Phase 2 enhanced models
         
         # Initialize real data manager
         try:
@@ -54,8 +80,31 @@ class ParlayPredictor:
             self.real_data_manager = None
             self.use_real_data = False
         
+        # Load enhanced models if available
+        self.load_enhanced_models()
+        
+    def load_enhanced_models(self):
+        """Load Phase 2 enhanced models"""
+        global enhanced_framework
+        
+        if enhanced_framework:
+            try:
+                # Train models for all sports
+                logger.info("🚀 Loading Phase 2 enhanced models...")
+                training_results = enhanced_framework.train_all_models(['NBA', 'NFL', 'MLB', 'NHL'])
+                
+                # Store reference to enhanced models
+                self.enhanced_models = enhanced_framework.models
+                
+                logger.info(f"✅ Enhanced models loaded: {training_results['success_rate']} success rate")
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to load enhanced models: {e}")
+        else:
+            logger.warning("⚠️ Enhanced framework not available, falling back to legacy models")
+    
     def load_models(self):
-        """Load or initialize prediction models."""
+        """Load or initialize prediction models (Legacy + Enhanced)."""
         logger.info("Loading prediction models...")
         
         # Initialize player props models for different sports/prop types
@@ -107,6 +156,50 @@ class ParlayPredictor:
         
         logger.info("All models loaded successfully")
     
+    def predict_player_prop_enhanced(
+        self, 
+        sport: str, 
+        prop_type: str, 
+        player_id: str,
+        game_context: Dict,
+        line_value: float
+    ) -> Dict[str, Any]:
+        """Enhanced player prop prediction using Phase 2 models"""
+        
+        try:
+            # Try to use enhanced model first
+            model_key = f'{sport.upper()}_{prop_type.lower()}'
+            
+            if model_key in self.enhanced_models:
+                enhanced_model = self.enhanced_models[model_key]
+                
+                # Make enhanced prediction
+                prediction_result = enhanced_model.predict(player_id, game_context, line_value)
+                
+                return {
+                    'success': True,
+                    'sport': sport,
+                    'prop_type': prop_type,
+                    'player_id': player_id,
+                    'line': line_value,
+                    'prediction': prediction_result.prediction,
+                    'confidence': prediction_result.confidence,
+                    'value_percentage': prediction_result.value_percentage,
+                    'recommendation': 'Over' if prediction_result.prediction > line_value else 'Under',
+                    'model_version': prediction_result.model_version,
+                    'enhanced': True,
+                    'features_used': prediction_result.features_used,
+                    'timestamp': prediction_result.timestamp.isoformat()
+                }
+            else:
+                # Fallback to legacy prediction
+                logger.warning(f"Enhanced model not found for {sport} {prop_type}, using legacy")
+                return self.predict_player_prop(sport, prop_type, {'player_id': player_id}, line_value)
+                
+        except Exception as e:
+            logger.error(f"Enhanced prediction failed: {e}")
+            return {'error': str(e), 'enhanced': False}
+    
     def predict_player_prop(
         self, 
         sport: str, 
@@ -114,7 +207,7 @@ class ParlayPredictor:
         player_stats: Dict, 
         line_value: float
     ) -> Dict[str, Any]:
-        """Predict a single player prop."""
+        """Predict a single player prop (Legacy method)."""
         try:
             if sport not in self.prop_models or prop_type not in self.prop_models[sport]:
                 return {
@@ -135,6 +228,7 @@ class ParlayPredictor:
                 'sport': sport,
                 'prop_type': prop_type,
                 'prediction': prediction,
+                'enhanced': False,
                 'timestamp': datetime.now().isoformat()
             }
             
@@ -142,13 +236,90 @@ class ParlayPredictor:
             logger.error(f"Error predicting {sport} {prop_type}: {str(e)}")
             return {'error': str(e)}
     
+    def predict_spread_enhanced(
+        self,
+        sport: str,
+        game_id: str,
+        spread_line: float
+    ) -> Dict[str, Any]:
+        """Enhanced spread prediction using Phase 2 models"""
+        
+        try:
+            model_key = f'{sport.upper()}_spread'
+            
+            if model_key in self.enhanced_models:
+                enhanced_model = self.enhanced_models[model_key]
+                
+                prediction_result = enhanced_model.predict(game_id, spread_line)
+                
+                return {
+                    'success': True,
+                    'sport': sport,
+                    'game_id': game_id,
+                    'spread_line': spread_line,
+                    'prediction': prediction_result.prediction,
+                    'confidence': prediction_result.confidence,
+                    'value_percentage': prediction_result.value_percentage,
+                    'recommendation': 'Cover' if prediction_result.prediction > spread_line else 'Don\'t Cover',
+                    'model_version': prediction_result.model_version,
+                    'enhanced': True,
+                    'features_used': prediction_result.features_used,
+                    'timestamp': prediction_result.timestamp.isoformat()
+                }
+            else:
+                logger.warning(f"Enhanced spread model not found for {sport}")
+                return {'error': f'Enhanced spread model not available for {sport}', 'enhanced': False}
+                
+        except Exception as e:
+            logger.error(f"Enhanced spread prediction failed: {e}")
+            return {'error': str(e), 'enhanced': False}
+    
+    def predict_over_under_enhanced(
+        self, 
+        sport: str, 
+        game_id: str,
+        total_line: float
+    ) -> Dict[str, Any]:
+        """Enhanced over/under prediction using Phase 2 models"""
+        
+        try:
+            model_key = f'{sport.upper()}_total'
+            
+            if model_key in self.enhanced_models:
+                enhanced_model = self.enhanced_models[model_key]
+                
+                prediction_result = enhanced_model.predict(game_id, total_line)
+                
+                return {
+                    'success': True,
+                    'sport': sport,
+                    'game_id': game_id,
+                    'total_line': total_line,
+                    'prediction': prediction_result.prediction,
+                    'confidence': prediction_result.confidence,
+                    'value_percentage': prediction_result.value_percentage,
+                    'recommendation': 'Over' if prediction_result.prediction > total_line else 'Under',
+                    'model_version': prediction_result.model_version,
+                    'enhanced': True,
+                    'features_used': prediction_result.features_used,
+                    'timestamp': prediction_result.timestamp.isoformat()
+                }
+            else:
+                # Fallback to legacy over/under
+                logger.warning(f"Enhanced total model not found for {sport}, using legacy")
+                return self.predict_over_under(sport, {'game_id': game_id}, total_line)
+                
+        except Exception as e:
+            logger.error(f"Enhanced over/under prediction failed: {e}")
+            return {'error': str(e), 'enhanced': False}
+    
     def predict_over_under(
         self, 
         sport: str, 
         game_data: Dict, 
         total_line: float
     ) -> Dict[str, Any]:
-        """Predict over/under for game totals."""
+        """Predict over/under for game totals (Legacy method)."""
         try:
             # Simple over/under prediction logic (replace with ML model)
             home_avg = game_data.get('home_avg_points', 100)
@@ -187,6 +358,7 @@ class ParlayPredictor:
                 'recommendation': recommendation,
                 'confidence': min(confidence, 95),
                 'value_percentage': round(value_percentage, 2),
+                'enhanced': False,
                 'factors': {
                     'home_avg': home_avg,
                     'away_avg': away_avg,
@@ -199,75 +371,6 @@ class ParlayPredictor:
         except Exception as e:
             logger.error(f"Error predicting over/under: {str(e)}")
             return {'error': str(e)}
-    
-    def analyze_parlay(self, legs: List[Dict]) -> Dict[str, Any]:
-        """Analyze a parlay and calculate combined odds/recommendations."""
-        try:
-            if len(legs) < 2:
-                return {'error': 'Parlay must have at least 2 legs'}
-            
-            total_confidence = 1.0
-            expected_values = []
-            leg_results = []
-            
-            for i, leg in enumerate(legs):
-                leg_type = leg.get('type')
-                
-                if leg_type == 'player_prop':
-                    result = self.predict_player_prop(
-                        leg['sport'],
-                        leg['prop_type'],
-                        leg['player_stats'],
-                        leg['line_value']
-                    )
-                elif leg_type == 'over_under':
-                    result = self.predict_over_under(
-                        leg['sport'],
-                        leg['game_data'],
-                        leg['total_line']
-                    )
-                else:
-                    result = {'error': f'Unknown leg type: {leg_type}'}
-                
-                if 'error' not in result:
-                    confidence = result.get('prediction', result).get('confidence', 50) / 100
-                    total_confidence *= confidence
-                    expected_values.append(result.get('prediction', result).get('value_percentage', 0))
-                    leg_results.append(result)
-                else:
-                    return {'error': f'Error in leg {i+1}: {result["error"]}'}
-            
-            # Calculate parlay metrics
-            avg_confidence = total_confidence ** (1/len(legs)) * 100
-            avg_value = sum(expected_values) / len(expected_values)
-            
-            # Simple Kelly Criterion for parlay sizing
-            parlay_odds = 1.91 ** len(legs)  # Assuming -110 for each leg
-            kelly_fraction = 0
-            
-            if total_confidence > (1 / parlay_odds):
-                kelly_fraction = (total_confidence * parlay_odds - 1) / (parlay_odds - 1)
-            
-            recommended_stake = max(kelly_fraction * 100, 0)  # As percentage of bankroll
-            
-            return {
-                'success': True,
-                'parlay_analysis': {
-                    'total_legs': len(legs),
-                    'combined_confidence': round(avg_confidence, 1),
-                    'average_value': round(avg_value, 2),
-                    'estimated_payout': round(parlay_odds, 2),
-                    'recommended_stake_percentage': round(min(recommended_stake, 10), 2),  # Cap at 10%
-                    'kelly_fraction': round(kelly_fraction, 4),
-                    'risk_level': 'Low' if len(legs) <= 3 else 'Medium' if len(legs) <= 6 else 'High'
-                },
-                'individual_legs': leg_results,
-                'timestamp': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error analyzing parlay: {str(e)}")
-            return {'error': str(e)}
 
 
 # Initialize predictor
@@ -276,26 +379,308 @@ predictor = ParlayPredictor()
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint."""
+    """Health check endpoint"""
+    global enhanced_framework
+    
+    enhanced_status = enhanced_framework is not None
+    
     return jsonify({
         'status': 'healthy',
-        'service': 'parley-predictor',
         'timestamp': datetime.now().isoformat(),
-        'models_loaded': len(predictor.prop_models)
+        'enhanced_models': enhanced_status,
+        'version': 'Phase2_Enhanced'
     })
 
 
-@app.route('/api/predict/player-prop', methods=['POST'])
-def predict_player_prop():
-    """Predict a player prop."""
+@app.route('/api/v2/predict/player-prop', methods=['POST'])
+def predict_player_prop_enhanced():
+    """Enhanced player prop prediction endpoint"""
     try:
         data = request.get_json()
         
-        required_fields = ['sport', 'prop_type', 'line_value', 'player_stats']
+        # Validate required fields
+        required_fields = ['sport', 'prop_type', 'player_id', 'line']
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
+        # Extract game context
+        game_context = data.get('game_context', {})
+        
+        # Initialize predictor
+        if 'predictor' not in MODELS:
+            MODELS['predictor'] = ParlayPredictor()
+        
+        predictor = MODELS['predictor']
+        
+        # Make enhanced prediction
+        result = predictor.predict_player_prop_enhanced(
+            sport=data['sport'],
+            prop_type=data['prop_type'],
+            player_id=data['player_id'],
+            game_context=game_context,
+            line_value=data['line']
+        )
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Enhanced player prop prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v2/predict/spread', methods=['POST'])
+def predict_spread_enhanced():
+    """Enhanced spread prediction endpoint"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['sport', 'game_id', 'spread_line']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Initialize predictor
+        if 'predictor' not in MODELS:
+            MODELS['predictor'] = ParlayPredictor()
+        
+        predictor = MODELS['predictor']
+        
+        # Make enhanced prediction
+        result = predictor.predict_spread_enhanced(
+            sport=data['sport'],
+            game_id=data['game_id'],
+            spread_line=data['spread_line']
+        )
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Enhanced spread prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v2/predict/total', methods=['POST'])
+def predict_total_enhanced():
+    """Enhanced over/under total prediction endpoint"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['sport', 'game_id', 'total_line']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        # Initialize predictor
+        if 'predictor' not in MODELS:
+            MODELS['predictor'] = ParlayPredictor()
+        
+        predictor = MODELS['predictor']
+        
+        # Make enhanced prediction
+        result = predictor.predict_over_under_enhanced(
+            sport=data['sport'],
+            game_id=data['game_id'],
+            total_line=data['total_line']
+        )
+        
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Enhanced total prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v2/analyze/parlay-enhanced', methods=['POST'])
+def analyze_parlay_enhanced():
+    """Enhanced parlay analysis using Phase 2 models"""
+    try:
+        data = request.get_json()
+        
+        if 'legs' not in data or len(data['legs']) < 2:
+            return jsonify({'error': 'Parlay must have at least 2 legs'}), 400
+        
+        # Initialize predictor
+        if 'predictor' not in MODELS:
+            MODELS['predictor'] = ParlayPredictor()
+        
+        predictor = MODELS['predictor']
+        
+        legs = data['legs']
+        leg_results = []
+        total_confidence = 1.0
+        expected_values = []
+        
+        # Process each leg with enhanced models
+        for i, leg in enumerate(legs):
+            leg_type = leg.get('type')
+            
+            try:
+                if leg_type == 'player_prop':
+                    result = predictor.predict_player_prop_enhanced(
+                        sport=leg['sport'],
+                        prop_type=leg['prop_type'],
+                        player_id=leg['player_id'],
+                        game_context=leg.get('game_context', {}),
+                        line_value=leg['line']
+                    )
+                elif leg_type == 'spread':
+                    result = predictor.predict_spread_enhanced(
+                        sport=leg['sport'],
+                        game_id=leg['game_id'],
+                        spread_line=leg['spread_line']
+                    )
+                elif leg_type == 'total':
+                    result = predictor.predict_over_under_enhanced(
+                        sport=leg['sport'],
+                        game_id=leg['game_id'],
+                        total_line=leg['total_line']
+                    )
+                else:
+                    result = {'error': f'Unknown leg type: {leg_type}'}
+                
+                if 'error' not in result:
+                    confidence = result.get('confidence', 0.5)
+                    value_percentage = result.get('value_percentage', 0)
+                    
+                    total_confidence *= confidence
+                    expected_values.append(value_percentage)
+                    leg_results.append(result)
+                else:
+                    return jsonify({'error': f'Error in leg {i+1}: {result["error"]}'}), 400
+                    
+            except Exception as e:
+                return jsonify({'error': f'Error processing leg {i+1}: {str(e)}'}), 400
+        
+        # Calculate enhanced parlay metrics
+        num_legs = len(legs)
+        avg_confidence = total_confidence ** (1/num_legs)
+        avg_value = sum(expected_values) / num_legs if expected_values else 0
+        
+        # Enhanced Kelly Criterion calculation
+        parlay_odds = 1.91 ** num_legs  # Assuming -110 for each leg
+        implied_prob = 1 / parlay_odds
+        
+        kelly_fraction = 0
+        if avg_confidence > implied_prob:
+            kelly_fraction = (avg_confidence * parlay_odds - 1) / (parlay_odds - 1)
+        
+        # Recommended stake with risk management
+        recommended_stake = max(kelly_fraction * 100, 0)
+        recommended_stake = min(recommended_stake, 8)  # Cap at 8% of bankroll
+        
+        # Risk assessment
+        risk_level = 'Low'
+        if num_legs > 6 or avg_confidence < 0.6:
+            risk_level = 'High'
+        elif num_legs > 4 or avg_confidence < 0.7:
+            risk_level = 'Medium'
+        
+        return jsonify({
+            'success': True,
+            'enhanced': True,
+            'parlay_analysis': {
+                'total_legs': num_legs,
+                'combined_confidence': round(avg_confidence, 3),
+                'average_value_percentage': round(avg_value, 2),
+                'estimated_payout': round(parlay_odds, 2),
+                'recommended_stake_percentage': round(recommended_stake, 2),
+                'kelly_fraction': round(kelly_fraction, 4),
+                'risk_level': risk_level,
+                'enhanced_features': True
+            },
+            'individual_legs': leg_results,
+            'model_versions': [leg.get('model_version', 'legacy') for leg in leg_results],
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Enhanced parlay analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v2/models/status', methods=['GET'])
+def get_enhanced_models_status():
+    """Get status of all enhanced models"""
+    global enhanced_framework
+    
+    try:
+        if enhanced_framework:
+            summary = enhanced_framework.get_training_summary()
+            return jsonify({
+                'enhanced_framework_available': True,
+                'framework_summary': summary,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'enhanced_framework_available': False,
+                'message': 'Enhanced framework not initialized',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting enhanced models status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v2/models/retrain', methods=['POST'])
+def retrain_enhanced_models():
+    """Retrain enhanced models"""
+    global enhanced_framework
+    
+    try:
+        data = request.get_json() or {}
+        sports = data.get('sports', ['NBA', 'NFL', 'MLB', 'NHL'])
+        
+        if not enhanced_framework:
+            return jsonify({'error': 'Enhanced framework not available'}), 400
+        
+        # Retrain models
+        training_results = enhanced_framework.train_all_models(sports)
+        
+        # Update predictor models if it exists
+        if 'predictor' in MODELS:
+            MODELS['predictor'].enhanced_models = enhanced_framework.models
+        
+        return jsonify({
+            'success': True,
+            'retraining_complete': True,
+            'training_results': training_results,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retraining enhanced models: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/predict/player-prop', methods=['POST'])
+def predict_player_prop():
+    """Legacy player prop prediction endpoint"""
+    try:
+        data = request.get_json()
+        
+        required_fields = ['sport', 'prop_type', 'player_stats', 'line_value']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        
+        if 'predictor' not in MODELS:
+            MODELS['predictor'] = ParlayPredictor()
+        
+        predictor = MODELS['predictor']
         result = predictor.predict_player_prop(
             data['sport'],
             data['prop_type'],
@@ -303,11 +688,13 @@ def predict_player_prop():
             data['line_value']
         )
         
-        status_code = 200 if 'error' not in result else 400
-        return jsonify(result), status_code
+        if 'error' in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
         
     except Exception as e:
-        logger.error(f"Error in predict_player_prop: {str(e)}")
+        logger.error(f"Player prop prediction error: {e}")
         return jsonify({'error': str(e)}), 500
 
 

@@ -710,23 +710,59 @@ router.get('/picks', async (req, res) => {
 
     logger.info(`👤 User ${userId}: tier=${userTier}, totalPredictions=${totalPredictions}, isNewUser=${isNewUser}`);
 
-    // If new user, don't auto-generate here - let them use the welcome flow
-    if (isNewUser) {
-      logger.info(`🆕 New user detected! Returning empty picks - they should use welcome flow`);
+    // Check if user has welcome bonus active (for new users who completed welcome flow)
+    if (isNewUser && userTier === 'free') {
+      // For new free users, check if they might have welcome bonus active
+      // Get recent system predictions to show them
+      logger.info(`🎁 New free user - checking for system predictions to show as welcome bonus`);
       
-      return res.json({
-        success: true,
-        predictions: [],
-        metadata: {
-          userId,
-          userTier,
-          isNewUser: true,
-          generatedCount: 0,
-          date: new Date().toISOString().split('T')[0],
-          fetched_at: new Date().toISOString(),
-          message: 'New user detected. Please use the welcome flow to get starter picks.'
-        }
-      });
+      let query = supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('user_id', '00000000-0000-0000-0000-000000000000') // System predictions
+        .order('created_at', { ascending: false });
+
+      // Free tier with potential welcome bonus gets 5 picks, otherwise 2
+      const pickLimit = 5; // Assume welcome bonus is active for now
+      query = query.limit(pickLimit);
+      
+      const { data: systemPredictions, error: systemError } = await query;
+      
+      if (systemError) {
+        logger.error(`❌ Error fetching system predictions: ${systemError.message}`);
+      }
+      
+      if (systemPredictions && systemPredictions.length > 0) {
+        logger.info(`🎁 Returning ${systemPredictions.length} system predictions for new user (welcome bonus)`);
+        
+        return res.json({
+          success: true,
+          predictions: systemPredictions,
+          metadata: {
+            source: 'system_predictions',
+            welcomeBonusActive: true,
+            pickCount: systemPredictions.length,
+            userTier,
+            isNewUser: true
+          }
+        });
+      } else {
+        logger.info(`🆕 No system predictions available - returning empty picks`);
+        
+        return res.json({
+          success: true,
+          predictions: [],
+          metadata: {
+            userId,
+            userTier,
+            isNewUser: true,
+            generatedCount: 0,
+            date: new Date().toISOString().split('T')[0],
+            fetched_at: new Date().toISOString(),
+            message: 'New user detected. Please use the welcome flow to get starter picks.'
+          }
+        });
+      }
     }
 
     // Existing user logic - fetch their predictions with tier limits
@@ -762,10 +798,36 @@ router.get('/picks', async (req, res) => {
       query = query.eq('sport', sport);
     }
 
-    // Apply tier limits
+    // Apply tier limits with welcome bonus logic
     if (userTier === 'free') {
-      query = query.limit(2); // Free tier gets 2 picks
-      logger.info(`🔒 Applying free tier limit: 2 picks for user ${userId}`);
+      // Check if user has active welcome bonus
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('welcome_bonus_claimed, welcome_bonus_expires_at')
+        .eq('id', userId)
+        .single();
+
+      let pickLimit = 2; // Default free tier limit
+      
+      if (!profileError && profile) {
+        const now = new Date();
+        const expiresAt = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+        
+        // Check if welcome bonus is active (claimed and not expired)
+        if (profile.welcome_bonus_claimed && expiresAt && now < expiresAt) {
+          pickLimit = 5; // Welcome bonus: 5 picks
+          logger.info(`🎁 Applying welcome bonus: 5 picks for user ${userId} (expires ${expiresAt.toISOString()})`);
+        } else if (profile.welcome_bonus_claimed && expiresAt && now >= expiresAt) {
+          logger.info(`⏰ Welcome bonus expired for user ${userId} at ${expiresAt.toISOString()}`);
+          logger.info(`🔒 Applying free tier limit: 2 picks for user ${userId}`);
+        } else {
+          logger.info(`🔒 Applying free tier limit: 2 picks for user ${userId}`);
+        }
+      } else {
+        logger.warn(`⚠️ Could not fetch profile for user ${userId}, defaulting to 2 picks`);
+      }
+      
+      query = query.limit(pickLimit);
     } else if (userTier === 'pro') {
       // Pro tier gets unlimited picks (no limit)
       logger.info(`🌟 Pro tier user ${userId}: unlimited picks`);
@@ -1164,76 +1226,138 @@ router.delete('/daily-insights/cleanup', async (req, res) => {
 
 /**
  * @route POST /api/ai/chat
- * @desc AI Analyst Chat with streaming responses
- * @access Private
+ * @desc Enhanced Grok-3 chatbot with real data access and tools (non-streaming)
+ * @access Pro users only
  */
 router.post('/chat', async (req, res) => {
   try {
-    const { message, userId, context } = req.body;
+    const { message, userId, context, conversationHistory } = req.body;
     
     if (!message || !userId) {
       return res.status(400).json({ 
-        success: false, 
         error: 'Message and userId are required' 
       });
     }
 
-    logger.info(`🤖 PRO AI Chat request from user ${userId}: "${message}"`);
+    logger.info(`🤖 Grok Chat Request from user ${userId}: "${message}"`);
 
-    // Set up Server-Sent Events for streaming
+    // Import the new ChatbotOrchestrator
+    const { ChatbotOrchestrator } = require('../../ai/orchestrator/claudeChatbotOrchestrator');
+    const chatbot = new ChatbotOrchestrator();
+
+    // Process the message with Grok + tools
+    const response = await chatbot.processMessage({
+      message,
+      userId,
+      context: context || {},
+      conversationHistory: conversationHistory || []
+    });
+
+    return res.json({
+      success: true,
+      response: response.message,
+      toolsUsed: response.toolsUsed,
+      metadata: {
+        processingTime: response.processingTime,
+        model: 'grok-3-latest',
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    logger.error(`❌ Error in Grok chat: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process chat message'
+    });
+  }
+});
+
+/**
+ * @route POST /api/ai/chat/stream
+ * @desc Enhanced Grok-3 chatbot with streaming support
+ * @access Pro users only
+ */
+router.post('/chat/stream', async (req, res) => {
+  try {
+    const { message, userId, context, conversationHistory } = req.body;
+    
+    if (!message || !userId) {
+      return res.status(400).json({ 
+        error: 'Message and userId are required' 
+      });
+    }
+
+    logger.info(`🎯 Grok Streaming Chat Request from user ${userId}: "${message}"`);
+
+    // Set up Server-Sent Events streaming
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
 
-    // Helper function to send streaming data
     const sendStreamData = (data: any) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
-    try {
-      // 🔥 USE THE NEW PRO CHAT ORCHESTRATOR
-      const { generateProChatResponse } = require('../../ai/orchestrator/deepseekProChatOrchestrator');
-      
-      const chatRequest = {
-        userId,
+    // Send initial status
+    sendStreamData({ 
+      type: 'start', 
+      message: 'Professor Lock is analyzing...' 
+    });
+
+    // Import the new ChatbotOrchestrator
+    const { ChatbotOrchestrator } = require('../../ai/orchestrator/claudeChatbotOrchestrator');
+    const chatbot = new ChatbotOrchestrator();
+
+    // Process the message with streaming
+    const response = await chatbot.processMessageStream(
+      {
         message,
-        context: {
-          ...context,
-          isProUser: true,
-          platform: 'web'
-        }
-      };
+        userId,
+        context: context || {},
+        conversationHistory: conversationHistory || []
+      },
+      (chunk: string) => {
+        // Send each chunk as it arrives
+        sendStreamData({
+          type: 'chunk',
+          content: chunk
+        });
+      },
+      (event: any) => {
+        // Send web search and other events
+        sendStreamData(event);
+      }
+    );
 
-      // Use the intelligent Pro orchestrator with real tools
-      await generateProChatResponse(chatRequest, (streamData) => {
-        sendStreamData(streamData);
-      });
+    // Send completion signal
+    sendStreamData({
+      type: 'complete',
+      toolsUsed: response.toolsUsed,
+      metadata: {
+        processingTime: response.processingTime,
+        model: 'grok-3-latest',
+        timestamp: new Date().toISOString()
+      }
+    });
 
-      // Send completion
-      sendStreamData({
-        type: 'complete',
-        message: 'Analysis complete!'
-      });
-
-      logger.info(`✅ PRO AI Chat completed for user ${userId}`);
-      res.end();
-
-    } catch (error) {
-      logger.error(`Error in PRO AI chat: ${error instanceof Error ? error.message : String(error)}`);
-      sendStreamData({
-        type: 'error',
-        message: 'Sorry brotha, I encountered an issue. Please try again in a moment!'
-      });
-      res.end();
-    }
+    res.end();
 
   } catch (error) {
-    logger.error(`Error setting up PRO AI chat: ${error instanceof Error ? error.message : String(error)}`);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'Failed to initialize PRO AI chat' 
+    logger.error(`❌ Error in Grok streaming chat: ${error instanceof Error ? error.message : String(error)}`);
+    
+    const sendStreamData = (data: any) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    sendStreamData({
+      type: 'error',
+      content: "I'm experiencing some technical difficulties right now. Please try again in a moment! 🔧"
     });
+
+    res.end();
   }
 });
 
@@ -2015,6 +2139,73 @@ router.post('/test-database-games', async (req, res) => {
     return res.status(500).json({ 
       success: false, 
       error: 'Failed to test database games',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+
+
+/**
+ * @route GET /api/ai/predictions/latest
+ * @desc Get latest AI predictions from database (regardless of user)
+ * @access Public
+ */
+router.get('/predictions/latest', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    
+    logger.info(`📚 Fetching latest ${limit} predictions from database`);
+    
+    const { data: predictions, error } = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit as string));
+
+    if (error) {
+      logger.error(`❌ Error fetching latest predictions: ${error.message}`);
+      return res.status(500).json({ error: 'Failed to fetch predictions' });
+    }
+
+    // Transform database format to frontend format
+    const formattedPredictions = predictions.map(prediction => ({
+      id: prediction.id,
+      match: prediction.match_teams,
+      pick: prediction.pick,
+      odds: prediction.odds,
+      confidence: prediction.confidence,
+      sport: prediction.sport,
+      eventTime: new Date(prediction.event_time).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/New_York',
+        timeZoneName: 'short'
+      }),
+      reasoning: prediction.reasoning,
+      value: prediction.value_percentage,
+      roi_estimate: prediction.roi_estimate,
+      status: prediction.status,
+      created_at: prediction.created_at,
+      orchestrator_data: prediction.metadata?.orchestrator_data
+    }));
+
+    logger.info(`📚 Found ${formattedPredictions.length} latest predictions`);
+
+    return res.json({
+      success: true,
+      predictions: formattedPredictions,
+      metadata: {
+        count: formattedPredictions.length,
+        limit: parseInt(limit as string),
+        fetched_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    logger.error(`💥 Error fetching latest predictions: ${error instanceof Error ? error.message : String(error)}`);
+    res.status(500).json({
+      error: 'Failed to fetch latest predictions',
       details: error instanceof Error ? error.message : String(error)
     });
   }

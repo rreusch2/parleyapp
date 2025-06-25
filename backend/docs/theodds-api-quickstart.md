@@ -1,127 +1,120 @@
-# The Odds API Quick Start Guide
+# The Odds API - Quick Start Guide
 
-## 1. Get Your API Key
+## ✅ Current Status
+- **API Key**: Active (19,994 requests remaining)
+- **Games in DB**: 435 total
+- **Today's Games**: 10 games
+- **Data Updates**: Every 15-30 minutes
 
-1. Go to https://the-odds-api.com
-2. Click "Get API Key" 
-3. Sign up for free account (500 requests/month free)
-4. Copy your API key from the dashboard
+## 🔧 Backend Configuration
 
-## 2. Run Database Migration
-
-1. Go to your Supabase dashboard
-2. Navigate to SQL Editor
-3. Copy and paste the entire contents of `/supabase-phase1-migration.sql`
-4. Click "Run" 
-5. You should see success messages - the script is safe to run multiple times
-
-## 3. Configure Environment Variables
-
-Create or update your `.env` file in the backend directory:
-
-```bash
-# API Configuration
+### 1. Environment Variables
+Add to your backend `.env`:
+```env
+THEODDS_API_KEY=64dace9c079fb6c2cd6622af483a07cd
+SPORTS_API_KEY=64dace9c079fb6c2cd6622af483a07cd
 API_PROVIDER=theodds
-SPORTS_API_KEY=your_the_odds_api_key_here
-
-# Supabase Configuration (you should already have these)
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-
-# Database (for Python service)
-DB_HOST=db.your-project.supabase.co
-DB_PORT=5432
-DB_NAME=postgres
-DB_USER=postgres
-DB_PASSWORD=your_db_password
-
-# Optional: Redis for caching
-REDIS_URL=redis://localhost:6379
 ```
 
-## 4. Test The Odds API Connection
+### 2. Update AI Tools
+The AI orchestrator needs to know about the real data:
+- `backend/src/ai/tools/oddsApi.ts` - Already configured
+- `backend/src/ai/tools/theoddsIntegration.ts` - Uses real DB data
 
-Create a quick test script to verify your API key works:
+### 3. Test Real Data
+```bash
+cd backend
+npm run dev
 
-```python
-# test_theodds_api.py
-import httpx
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-API_KEY = os.getenv('SPORTS_API_KEY')
-BASE_URL = "https://api.the-odds-api.com/v4"
-
-async def test_api():
-    async with httpx.AsyncClient() as client:
-        # Test 1: Get sports list
-        response = await client.get(
-            f"{BASE_URL}/sports",
-            params={"apiKey": API_KEY}
-        )
-        print(f"Status: {response.status_code}")
-        sports = response.json()
-        print(f"Available sports: {len(sports)}")
-        
-        # Test 2: Get odds for NBA
-        response = await client.get(
-            f"{BASE_URL}/sports/basketball_nba/odds",
-            params={
-                "apiKey": API_KEY,
-                "regions": "us",
-                "markets": "h2h,spreads,totals"
-            }
-        )
-        games = response.json()
-        print(f"NBA games with odds: {len(games)}")
-        
-        # Check remaining quota
-        print(f"Requests remaining: {response.headers.get('x-requests-remaining')}")
-        print(f"Requests used: {response.headers.get('x-requests-used')}")
-
-import asyncio
-asyncio.run(test_api())
+# In another terminal:
+curl http://localhost:3001/api/sports/today
 ```
 
-## 5. Start Data Ingestion Service
+## 📊 Available Data
 
+### Sports Coverage
+- **NFL**: 273 games (Aug 2025 - Jan 2026)
+- **NCAAF**: 113 games (Aug - Dec 2025)
+- **MLB**: 45 games (Current season)
+- **NBA**: 3 games (Finals)
+- **NHL**: 1 game (Playoffs)
+
+### Data Types
+1. **Game Schedules**: Team names, dates, times
+2. **Live Odds**: Spreads, totals, moneylines
+3. **Player Props**: Points, rebounds, assists
+4. **Bookmaker Data**: FanDuel, DraftKings, Bovada, etc.
+
+## 🚀 Using in Your App
+
+### Get Today's Games
+```typescript
+// In your React Native app
+const response = await fetch(`${API_URL}/api/sports/today`);
+const games = await response.json();
+```
+
+### Get AI Predictions
+```typescript
+// AI-powered predictions with real odds
+const response = await fetch(`${API_URL}/api/ai/enhanced-predictions`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${userToken}`
+  },
+  body: JSON.stringify({
+    prompt: "Give me the best bets for today's NBA games",
+    includeAnalysis: true
+  })
+});
+```
+
+## 📱 Frontend Updates Needed
+
+1. **Remove Mock Data**: Delete any hardcoded games
+2. **Update API Calls**: Point to real endpoints
+3. **Add Loading States**: Real API calls take 1-2 seconds
+4. **Handle Empty States**: Some sports are off-season
+
+## 🔍 Monitoring
+
+Check ingestion logs:
 ```bash
 cd python-services/data-ingestion
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python data_ingestor.py
+tail -f ingestion.log
 ```
 
-## 6. Verify Data is Flowing
-
-Check your Supabase tables:
-
+Check database:
 ```sql
--- Check for games
-SELECT COUNT(*) FROM sports_events WHERE created_at > NOW() - INTERVAL '1 hour';
-
--- Check for odds
-SELECT COUNT(*) FROM odds_data WHERE created_at > NOW() - INTERVAL '1 hour';
-
--- See latest odds
+-- Today's games with odds
 SELECT 
+    se.sport,
     se.home_team,
     se.away_team,
-    b.bookmaker_name,
-    mt.market_name,
-    od.outcome_name,
-    od.outcome_price,
-    od.outcome_point
-FROM odds_data od
-JOIN sports_events se ON od.event_id = se.id
-JOIN bookmakers b ON od.bookmaker_id = b.id
-JOIN market_types mt ON od.market_type_id = mt.id
-ORDER BY od.created_at DESC
-LIMIT 10;
+    se.start_time,
+    COUNT(DISTINCT od.bookmaker) as bookmaker_count
+FROM sports_events se
+LEFT JOIN odds_data od ON se.id = od.event_id
+WHERE DATE(se.start_time) = CURRENT_DATE
+GROUP BY se.id, se.sport, se.home_team, se.away_team, se.start_time
+ORDER BY se.start_time;
 ```
+
+## ⚡ Performance Tips
+
+1. **Cache frequently accessed data** (Redis recommended)
+2. **Use database indexes** (already created)
+3. **Implement pagination** for large result sets
+4. **Add request throttling** to stay within API limits
+
+## 🎯 Next Steps
+
+1. ✅ Data ingestion running
+2. ⏳ Update backend endpoints to use real data
+3. ⏳ Test AI predictions with real odds
+4. ⏳ Update frontend to display real games
+5. ⏳ Add real-time odds updates via WebSocket
 
 ## API Usage Limits
 

@@ -1,0 +1,400 @@
+{
+  "id": "3b07d9bf015f15e3605aa2f8001dc0a6",
+  "sport_key": "baseball_mlb",
+  "sport_title": "MLB",
+  "commence_time": "2025-06-21T20:11:00Z",
+  "home_team": "Miami Marlins",
+  "away_team": "Atlanta Braves",
+  "bookmakers": [
+    {
+      "key": "fanduel",
+      "title": "FanDuel",
+      "markets": [
+        {
+          "key": "batter_hits",
+          "last_update": "2025-06-21T20:06:24Z",
+          "outcomes": [
+            {
+              "name": "Over",
+              "description": "Ronald Acuna Jr.",
+              "price": 650,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Austin Riley",
+              "price": 950,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Xavier Edwards",
+              "price": 1100,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Matt Olson",
+              "price": 1200,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Jesus Sanchez",
+              "price": 1300,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Drake Baldwin",
+              "price": 1300,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Michael Harris II",
+              "price": 1300,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Otto Lopez",
+              "price": 1300,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Marcell Ozuna",
+              "price": 1500,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Ozzie Albies",
+              "price": 1500,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Agust\u00edn Ram\u00edrez",
+              "price": 1600,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Alex Verdugo",
+              "price": 1700,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Eric Wagaman",
+              "price": 1800,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Liam Hicks",
+              "price": 2000,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Kyle Stowers",
+              "price": 2000,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Nick Allen",
+              "price": 2500,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Dane Myers",
+              "price": 2800,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Connor Norby",
+              "price": 2800,
+              "point": 2.5
+            },
+            {
+              "name": "Over",
+              "description": "Ronald Acuna Jr.",
+              "price": -340,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Xavier Edwards",
+              "price": -270,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Austin Riley",
+              "price": -260,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Michael Harris II",
+              "price": -230,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Matt Olson",
+              "price": -230,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Otto Lopez",
+              "price": -230,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Drake Baldwin",
+              "price": -220,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Jesus Sanchez",
+              "price": -220,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Ozzie Albies",
+              "price": -210,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Agust\u00edn Ram\u00edrez",
+              "price": -210,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Marcell Ozuna",
+              "price": -210,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Alex Verdugo",
+              "price": -190,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Eric Wagaman",
+              "price": -185,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Liam Hicks",
+              "price": -180,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Kyle Stowers",
+              "price": -175,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Connor Norby",
+              "price": -150,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Dane Myers",
+              "price": -150,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Nick Allen",
+              "price": -150,
+              "point": 0.5
+            },
+            {
+              "name": "Over",
+              "description": "Ronald Acuna Jr.",
+              "price": 155,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Austin Riley",
+              "price": 200,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Xavier Edwards",
+              "price": 200,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Matt Olson",
+              "price": 230,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Otto Lopez",
+              "price": 240,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Drake Baldwin",
+              "price": 250,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Michael Harris II",
+              "price": 250,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Marcell Ozuna",
+              "price": 260,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Jesus Sanchez",
+              "price": 260,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Agust\u00edn Ram\u00edrez",
+              "price": 280,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Ozzie Albies",
+              "price": 280,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Eric Wagaman",
+              "price": 310,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Alex Verdugo",
+              "price": 310,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Liam Hicks",
+              "price": 320,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Kyle Stowers",
+              "price": 350,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Nick Allen",
+              "price": 400,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Connor Norby",
+              "price": 410,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Dane Myers",
+              "price": 440,
+              "point": 1.5
+            },
+            {
+              "name": "Over",
+              "description": "Ronald Acuna Jr.",
+              "price": 3600,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Austin Riley",
+              "price": 5000,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Xavier Edwards",
+              "price": 6000,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Matt Olson",
+              "price": 6500,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Jesus Sanchez",
+              "price": 8000,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Marcell Ozuna",
+              "price": 8500,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Michael Harris II",
+              "price": 8500,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Ozzie Albies",
+              "price": 8500,
+              "point": 3.5
+            },
+            {
+              "name": "Over",
+              "description": "Drake Baldwin",
+              "price": 9000,
+              "point": 3.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

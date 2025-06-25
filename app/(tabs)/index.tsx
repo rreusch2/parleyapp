@@ -23,7 +23,6 @@ import {
   Timer,
   Award,
   ArrowRight,
-  RefreshCw,
   Clock,
   Trophy,
   Flame,
@@ -40,10 +39,23 @@ import {
   BarChart,
   Shield,
   DollarSign,
-  Gift
+  Gift,
+  Crown,
+  Lock,
+  ChevronRight,
+  Bell
 } from 'lucide-react-native';
 import { aiService, AIPrediction, AIInsight, UserStats, DailyInsight } from '@/app/services/api/aiService';
-import NewUserWelcome from '@/app/components/NewUserWelcome';
+import { supabase } from '@/app/services/api/supabaseClient';
+import { router } from 'expo-router';
+
+import { useSubscription } from '@/app/services/subscriptionContext';
+import EnhancedPredictionCard from '@/app/components/EnhancedPredictionCard';
+import ProAIPicksDisplay from '@/app/components/ProAIPicksDisplay';
+import NewsFeed from '@/app/components/NewsFeed';
+import RecurringTrends from '@/app/components/RecurringTrends';
+import InjuryReportsSection from '@/app/components/InjuryReportsSection';
+import { useAIChat } from '@/app/services/aiChatContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -74,7 +86,43 @@ interface DeepSeekAnalysis {
 // Use DailyInsight from service instead of custom interface
 type EnhancedAIInsight = DailyInsight;
 
+// Helper function to create consistent random picks for free users
+const getConsistentRandomPicks = (picks: AIPrediction[], userId: string = 'anonymous', count: number = 2) => {
+  if (picks.length <= count) return picks;
+  
+  // Create a seed based on today's date and user ID for consistency
+  const today = new Date().toDateString();
+  const seedString = `${userId}_${today}`;
+  
+  // Simple hash function to create a seed
+  let hash = 0;
+  for (let i = 0; i < seedString.length; i++) {
+    const char = seedString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Use the hash as a seed for consistent randomization
+  const seededRandom = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  // Create array of indices and shuffle using seeded random
+  const indices = Array.from({ length: picks.length }, (_, i) => i);
+  
+  // Fisher-Yates shuffle with seeded randomization
+  for (let i = indices.length - 1; i > 0; i--) {
+    const randomIndex = Math.floor(seededRandom(hash + i) * (i + 1));
+    [indices[i], indices[randomIndex]] = [indices[randomIndex], indices[i]];
+  }
+  
+  // Return the first 'count' picks from the shuffled indices
+  return indices.slice(0, count).map(index => picks[index]);
+};
+
 export default function HomeScreen() {
+  const { isPro, proFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [aiInsights, setAIInsights] = useState<EnhancedAIInsight[]>([]);
@@ -88,16 +136,17 @@ export default function HomeScreen() {
     profitLoss: '$0'
   });
   const [featuredInsight, setFeaturedInsight] = useState<EnhancedAIInsight | null>(null);
-  const [isLoadingPicks, setIsLoadingPicks] = useState(false);
+
   const [sparkleAnimation] = useState(new Animated.Value(0));
   const [selectedAnalysis, setSelectedAnalysis] = useState<DeepSeekAnalysis | null>(null);
   const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [deepSeekInsights, setDeepSeekInsights] = useState<EnhancedAIInsight[]>([]);
+  const { openChatWithContext, setSelectedPick: setGlobalSelectedPick } = useAIChat();
   
   // New user state
   const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [isGettingStarterPicks, setIsGettingStarterPicks] = useState(false);
+
+  
 
   useEffect(() => {
     loadInitialData();
@@ -129,22 +178,12 @@ export default function HomeScreen() {
       const newUserStatus = await aiService.isNewUser();
       setIsNewUser(newUserStatus);
       
-      if (newUserStatus) {
-        // New user - show welcome modal
-        setShowWelcome(true);
-        // Just load insights and stats, picks will be handled by welcome flow
-        await Promise.all([
-          fetchAIInsights(),
-          fetchUserStats()
-        ]);
-      } else {
-        // Existing user - load everything normally
-        await Promise.all([
-          fetchAIInsights(),
-          fetchTodaysPicks(),
-          fetchUserStats()
-        ]);
-      }
+      // Load all data regardless of user status
+      await Promise.all([
+        fetchAIInsights(),
+        fetchTodaysPicks(),
+        fetchUserStats()
+      ]);
     } catch (error) {
       console.error('Error loading initial data:', error);
     } finally {
@@ -154,10 +193,12 @@ export default function HomeScreen() {
 
   const fetchAIInsights = async () => {
     try {
-      const insights = await aiService.getAIInsights();
-      setAIInsights(insights.slice(0, 5));
-      if (insights.length > 0) {
-        setFeaturedInsight(insights[0]);
+      const insights = await aiService.getDailyInsights('f08b56d3-d4ec-4815-b502-6647d723d2a6');
+      // Free users get limited insights
+      const limitedInsights = isPro ? insights : insights.slice(0, 3);
+      setAIInsights(limitedInsights);
+      if (limitedInsights.length > 0) {
+        setFeaturedInsight(limitedInsights[0]);
       }
     } catch (error) {
       console.error('Error fetching AI insights:', error);
@@ -166,8 +207,14 @@ export default function HomeScreen() {
 
   const fetchTodaysPicks = async () => {
     try {
-      const picks = await aiService.getTodaysPicks();
-      setTodaysPicks(picks.slice(0, 5));
+      // Pass user context to get picks with welcome bonus logic
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
+      const currentUserTier = isPro ? 'pro' : 'free';
+      
+      const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+      // Backend now handles pick limits including welcome bonus logic
+      setTodaysPicks(picks);
     } catch (error) {
       console.error('Error fetching today\'s picks:', error);
     }
@@ -182,19 +229,7 @@ export default function HomeScreen() {
     }
   };
 
-  const generateNewPicks = async () => {
-    setIsLoadingPicks(true);
-    try {
-      const newPicks = await aiService.generateNewPicks();
-      setTodaysPicks(newPicks);
-      Alert.alert('Success!', 'New AI picks generated successfully');
-    } catch (error) {
-      console.error('Error generating picks:', error);
-      Alert.alert('Service Update', 'AI pick generation is being enhanced. Using cached recommendations.');
-    } finally {
-      setIsLoadingPicks(false);
-    }
-  };
+
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -202,96 +237,55 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  // New user welcome handlers
-  const handleGetStarterPicks = async () => {
-    setIsGettingStarterPicks(true);
-    try {
-      console.log('🎁 Getting starter picks for new user...');
-      
-      // Use the new instant starter picks method
-      const starterPicks = await aiService.getStarterPicks();
-      
-      if (starterPicks.length > 0) {
-        setTodaysPicks(starterPicks);
-        setShowWelcome(false);
-        setIsNewUser(false);
-        
-        // Show success message based on pick source
-        const successMessage = starterPicks[0]?.isStarter 
-          ? `Welcome! You've received ${starterPicks.length} carefully selected AI picks to get you started! 🎁`
-          : `You've received ${starterPicks.length} of today's top AI picks! 📈`;
-        
-        Alert.alert(
-          'Welcome to ParleyApp! 🚀',
-          `${successMessage}\n\nStarting tomorrow, you'll get 2 fresh picks every morning at 8 AM.`,
-          [{ text: 'Let\'s Go!', style: 'default' }]
-        );
-      } else {
-        // Fallback to generating picks if no starter picks available
-        console.log('⚠️ No starter picks available, generating personalized picks...');
-        await handleGeneratePersonalized();
-      }
-    } catch (error) {
-      console.error('Error getting starter picks:', error);
-      
-      // Show user-friendly error with options
+
+
+  const handlePickAnalyze = (pick: AIPrediction) => {
+    setGlobalSelectedPick(pick);
+    
+    // Create a custom prompt for this specific pick
+    const customPrompt = `Analyze this AI prediction in detail:
+
+🏟️ Match: ${pick.match}
+🏈 Sport: ${pick.sport}
+🎯 Pick: ${pick.pick}
+📊 Odds: ${pick.odds}
+🔥 Confidence: ${pick.confidence}%
+${pick.value ? `💰 Edge: +${pick.value}%` : ''}
+
+💭 AI Reasoning: ${pick.reasoning}
+
+Please provide deeper analysis on:
+- Why this pick has potential
+- Key factors that could affect the outcome
+- Risk assessment and betting strategy
+- Any additional insights you can provide
+
+What are your thoughts on this prediction?`;
+    
+    openChatWithContext({ 
+      screen: 'home', 
+      selectedPick: pick,
+      customPrompt: customPrompt
+    }, pick);
+  };
+
+  const handlePickTrack = (pick: AIPrediction) => {
+    if (!isPro) {
       Alert.alert(
-        'Welcome Setup',
-        'We\'re setting up your personalized experience. Would you like us to generate fresh picks for you?',
+        'Pro Feature 🌟',
+        'Track your bets and build a betting portfolio with Pro!',
         [
+          { text: 'Maybe Later', style: 'cancel' },
           { 
-            text: 'Generate My Picks', 
-            onPress: handleGeneratePersonalized,
-            style: 'default' 
-          },
-          { 
-            text: 'Try Again', 
-            onPress: handleGetStarterPicks,
-            style: 'cancel' 
+            text: 'Upgrade to Pro', 
+            onPress: openSubscriptionModal,
+            style: 'default'
           }
         ]
       );
-    } finally {
-      setIsGettingStarterPicks(false);
+      return;
     }
-  };
-
-  const handleGeneratePersonalized = async () => {
-    setIsGettingStarterPicks(true);
-    try {
-      console.log('⚡ Generating personalized picks for new user...');
-      const newPicks = await aiService.generateFirstPicks();
-      
-      if (newPicks.length > 0) {
-        setTodaysPicks(newPicks);
-        setShowWelcome(false);
-        setIsNewUser(false);
-        Alert.alert(
-          'Your Personalized Picks! ⚡',
-          `Generated ${newPicks.length} personalized AI picks just for you! Starting tomorrow, you'll get 2 fresh picks every morning at 8 AM.`,
-          [{ text: 'Amazing!', style: 'default' }]
-        );
-      } else {
-        throw new Error('No picks generated');
-      }
-    } catch (error) {
-      console.error('Error generating personalized picks:', error);
-      Alert.alert(
-        'Generation Taking Longer',
-        'AI pick generation is busy. Would you like to get 2 of today\'s best picks instead?',
-        [
-          { text: 'Yes, Get Best Picks', onPress: handleGetStarterPicks },
-          { text: 'Try Again Later', style: 'cancel' }
-        ]
-      );
-    } finally {
-      setIsGettingStarterPicks(false);
-    }
-  };
-
-  const handleCloseWelcome = () => {
-    setShowWelcome(false);
-    // Don't set isNewUser to false here - they can still access welcome later
+    Alert.alert('Track Bet', 'Bet tracking coming soon!');
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -334,85 +328,46 @@ export default function HomeScreen() {
         insights = await aiService.getDailyInsights(userId);
       }
       
-      setDeepSeekInsights(insights);
+      // Limit insights for free users
+      const limitedInsights = isPro ? insights : insights.slice(0, 3);
+      setDeepSeekInsights(limitedInsights);
       
-      // Set the first one as featured
-      if (insights.length > 0) {
-        setFeaturedInsight(insights[0]);
+      // Set the first one as featured (with validation)
+      if (limitedInsights.length > 0) {
+        const validatedInsight = {
+          ...limitedInsights[0],
+          category: limitedInsights[0].category || 'analysis',
+          impact: limitedInsights[0].impact || 'medium',
+          title: limitedInsights[0].title || 'AI Insight',
+          description: limitedInsights[0].description || 'Loading insight details...'
+        };
+        setFeaturedInsight(validatedInsight);
       }
     } catch (error) {
       console.error('Error loading daily insights:', error);
       // Fallback to mock data if service fails
       const fallbackInsights = await aiService.getDailyInsights('fallback');
-      setDeepSeekInsights(fallbackInsights);
-      if (fallbackInsights.length > 0) {
-        setFeaturedInsight(fallbackInsights[0]);
+      const limitedFallback = isPro ? fallbackInsights : fallbackInsights.slice(0, 3);
+      setDeepSeekInsights(limitedFallback);
+      if (limitedFallback.length > 0) {
+        const validatedInsight = {
+          ...limitedFallback[0],
+          category: limitedFallback[0].category || 'analysis',
+          impact: limitedFallback[0].impact || 'medium',
+          title: limitedFallback[0].title || 'AI Insight',
+          description: limitedFallback[0].description || 'Loading insight details...'
+        };
+        setFeaturedInsight(validatedInsight);
       }
-    }
-  };
-
-  const handleAnalyzeClick = async (pick: AIPrediction) => {
-    // Create mock DeepSeek analysis showcase
-    const mockAnalysis: DeepSeekAnalysis = {
-      id: `analysis_${pick.id}`,
-      gameId: pick.id,
-      pick: pick.pick,
-      confidence: pick.confidence > 80 ? 'High' : pick.confidence > 60 ? 'Medium' : 'Low',
-      reasoning: `Multi-source analysis reveals significant value opportunity. Statistical models indicate ${pick.confidence}% win probability versus implied ${(100 / parseFloat(pick.odds.replace('+', '').replace('-', '')) * 100).toFixed(1)}% from odds. Real-time intelligence confirms no adverse factors.`,
-      factors: {
-        predictiveAnalytics: `Win probability: ${pick.confidence}% | Kelly stake: ${pick.value ? (parseFloat(pick.value) * 0.25).toFixed(2) : '2.5'}% | Expected value: +${pick.value || '8.2'}% | Model accuracy: 59.3%`,
-        recentNews: `Real-time search: "No relevant injuries found for teams in past 24h" | ESPN API: "Favorable weather conditions" | Line movement: "Sharp money detected"`,
-        userContext: `Risk tolerance: Medium | Preferred bet types: Moneyline | Bankroll management: Conservative | Favorite teams: None conflicted`,
-        valueAssessment: `Positive expected value (+${pick.value || '8.2'}%) with ${pick.confidence > 80 ? 'high' : 'medium'} confidence. Kelly Criterion suggests ${pick.value ? (parseFloat(pick.value) * 0.25).toFixed(2) : '2.5'}% stake for optimal growth.`
-      },
-      metadata: {
-        toolsUsed: ['sportsDataIO_getGamePrediction', 'userData_getUserPreferences', 'webSearch_performSearch', 'freeData_getTeamNews'],
-        processingTime: Math.floor(Math.random() * 5000) + 25000, // 25-30 seconds
-        modelVersion: 'advanced-ai'
-      },
-      kellyStake: pick.value ? parseFloat(pick.value) * 0.25 : 2.5,
-      expectedValue: pick.value ? parseFloat(pick.value) : 8.2,
-      winProbability: pick.confidence,
-      confidenceInterval: [pick.confidence - 8, pick.confidence + 7] as [number, number]
-    };
-    
-    setSelectedAnalysis(mockAnalysis);
-    setShowAnalysisModal(true);
-  };
-
-  const getToolIcon = (toolName: string) => {
-    switch (toolName) {
-      case 'sportsDataIO_getGamePrediction': return Database;
-      case 'userData_getUserPreferences': return Users;
-      case 'webSearch_performSearch': return Globe;
-      case 'freeData_getTeamNews': return Search;
-      case 'freeData_getInjuryReports': return AlertTriangle;
-      case 'sportsBetting_backtestStrategy': return BarChart;
-      case 'sportsBetting_getOptimalConfiguration': return Shield;
-      default: return Activity;
-    }
-  };
-
-  const getToolColor = (toolName: string) => {
-    switch (toolName) {
-      case 'sportsDataIO_getGamePrediction': return '#00E5FF';
-      case 'userData_getUserPreferences': return '#8B5CF6';
-      case 'webSearch_performSearch': return '#10B981';
-      case 'freeData_getTeamNews': return '#F59E0B';
-      case 'freeData_getInjuryReports': return '#EF4444';
-      case 'sportsBetting_backtestStrategy': return '#06B6D4';
-      case 'sportsBetting_getOptimalConfiguration': return '#84CC16';
-      default: return '#64748B';
     }
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'analysis': return BarChart3; // 📊 Multi-tool analysis with cyan color
-      case 'news': return Globe; // 🌐 Real-time intelligence with green color  
-      case 'performance': return TrendingUp; // 📈 Performance validation with orange color
-      case 'calculator': return Target; // 🎯 Smart stake calculator with purple color
-      case 'injury': return AlertTriangle;
+      case 'analysis': return BarChart3;
+      case 'news': return Globe;
+      case 'performance': return TrendingUp;
+      case 'calculator': return Target;
       case 'weather': return Activity;
       case 'line_movement': return TrendingUp;
       default: return Sparkles;
@@ -421,11 +376,10 @@ export default function HomeScreen() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'analysis': return '#00E5FF'; // Bright cyan for multi-tool analysis
-      case 'news': return '#10B981'; // Green for real-time intelligence
-      case 'performance': return '#F59E0B'; // Orange for performance validation
-      case 'calculator': return '#8B5CF6'; // Purple for smart stake calculator
-      case 'injury': return '#EF4444';
+      case 'analysis': return '#00E5FF';
+      case 'news': return '#10B981';
+      case 'performance': return '#F59E0B';
+      case 'calculator': return '#8B5CF6';
       case 'weather': return '#64748B'; 
       case 'line_movement': return '#F59E0B';
       default: return '#64748B';
@@ -443,490 +397,396 @@ export default function HomeScreen() {
     );
   }
 
+  // Backend now handles pick limits with welcome bonus logic
+  // Display all picks returned by backend (could be 2, 5, or 10 depending on user tier/bonus)
+  const displayPicks = todaysPicks;
+  const additionalPicksCount = isPro ? 0 : Math.max(0, 10 - displayPicks.length);
+
+  // Debug logging for pick display
+  if (!isPro) {
+    if (displayPicks.length === 5) {
+      console.log(`🎁 Welcome bonus active: showing ${displayPicks.length} picks instead of usual 2`);
+    } else {
+      console.log(`🎲 Free user: showing ${displayPicks.length} picks`);
+    }
+    console.log(`📊 Pick IDs: ${displayPicks.map(p => p.id).join(', ')}`);
+  }
+
   return (
-    <ScrollView 
-      style={styles.container} 
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#00E5FF"
-          colors={['#00E5FF']}
-        />
-      }
-    >
-      {/* Header */}
-      <LinearGradient
-        colors={['#1E40AF', '#7C3AED']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+    <View style={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#00E5FF"
+            colors={['#00E5FF']}
+          />
+        }
       >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.welcomeText}>Welcome back!</Text>
-              <Text style={styles.headerTitle}>Predictive Picks</Text>
+        {/* Header */}
+        <LinearGradient
+          colors={isPro ? ['#1E40AF', '#7C3AED'] : ['#1E293B', '#334155']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          {isPro && (
+            <View style={styles.proBadge}>
+              <Crown size={16} color="#F59E0B" />
+              <Text style={styles.proBadgeText}>PRO MEMBER</Text>
             </View>
+          )}
+
+          <View style={styles.headerContent}>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.welcomeText}>Welcome back!</Text>
+                <Text style={styles.headerTitle}>
+                  {isPro ? 'Pro Dashboard' : 'Predictive Picks'}
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {isPro ? todaysPicks.length : todaysPicks.length}
+                </Text>
+                <Text style={styles.statLabel}>
+                  {isPro ? 'Total Picks' : 'Daily Picks'}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {isPro ? userStats.winRate : '?'}
+                </Text>
+                <Text style={styles.statLabel}>Win Rate</Text>
+                {!isPro && (
+                  <View style={styles.lockOverlay}>
+                    <Lock size={14} color="#64748B" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }]}>
+                  {isPro ? userStats.roi : '?'}
+                </Text>
+                <Text style={styles.statLabel}>ROI</Text>
+                {!isPro && (
+                  <View style={styles.lockOverlay}>
+                    <Lock size={14} color="#64748B" />
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {!isPro && (
             <TouchableOpacity 
-              style={styles.generateButton}
-              onPress={generateNewPicks}
-              disabled={isLoadingPicks}
+              style={styles.upgradePrompt}
+              onPress={openSubscriptionModal}
             >
-              <RefreshCw 
-                size={20} 
-                color="#FFFFFF" 
-                style={{ transform: [{ rotate: isLoadingPicks ? '360deg' : '0deg' }] }} 
-              />
+              <LinearGradient
+                colors={['#00E5FF', '#0891B2']}
+                style={styles.upgradeGradient}
+              >
+                <Crown size={16} color="#FFFFFF" />
+                <Text style={styles.upgradeText}>
+                  Unlock unlimited picks & advanced analytics
+                </Text>
+                <ChevronRight size={16} color="#FFFFFF" />
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
-          
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userStats.todayPicks}</Text>
-              <Text style={styles.statLabel}>Today's Picks</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{userStats.winRate}</Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: '#10B981' }]}>{userStats.roi}</Text>
-              <Text style={styles.statLabel}>ROI</Text>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
+          )}
+        </LinearGradient>
 
-      {/* Enhanced Featured AI Insight */}
-      {featuredInsight && (
-        <View style={styles.featuredInsightCard}>
-          <LinearGradient
-            colors={['rgba(0, 229, 255, 0.1)', 'rgba(124, 58, 237, 0.1)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.featuredInsightGradient}
-          >
-            <View style={styles.featuredInsightHeader}>
-              <View style={styles.insightIconContainer}>
-                <Brain size={24} color="#00E5FF" />
-              </View>
-              <View style={styles.featuredInsightInfo}>
-                <Text style={styles.featuredInsightBadge}>🚀 ADVANCED AI ORCHESTRATOR</Text>
-                <Text style={styles.featuredInsightTitle}>{featuredInsight.title}</Text>
-              </View>
-            </View>
-            <Text style={styles.featuredInsightDescription}>
-              {featuredInsight.description}
+        {/* Featured Insight Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {isPro ? 'AI-Powered Insights' : 'Today\'s Insight'}
             </Text>
-            
-            {/* Tools Used Indicator */}
-            {featuredInsight.toolsUsed && (
-              <View style={styles.toolsUsedContainer}>
-                <Text style={styles.toolsUsedLabel}>Analysis Sources:</Text>
-                <View style={styles.toolsRow}>
-                  {featuredInsight.toolsUsed.slice(0, 3).map((tool, index) => {
-                    const IconComponent = getToolIcon(tool);
-                    return (
-                      <View key={index} style={[styles.toolBadge, { backgroundColor: `${getToolColor(tool)}20` }]}>
-                        <IconComponent size={12} color={getToolColor(tool)} />
-                        <Text style={[styles.toolBadgeText, { color: getToolColor(tool) }]}>
-                          {tool.includes('sports') ? 'Stats' : 
-                           tool.includes('user') ? 'User' :
-                           tool.includes('web') ? 'News' : 'Data'}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                  {featuredInsight.toolsUsed.length > 3 && (
-                    <Text style={styles.moreToolsText}>+{featuredInsight.toolsUsed.length - 3} more</Text>
-                  )}
-                </View>
-              </View>
-            )}
-            
-            <TouchableOpacity style={styles.viewInsightButton}>
-              <Text style={styles.viewInsightText}>View Full Analysis</Text>
-              <ArrowRight size={16} color="#00E5FF" />
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      )}
-
-      {/* Today's Top AI Picks */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Flame size={24} color="#F59E0B" />
-            <Text style={styles.sectionTitle}>Today's Top AI Picks</Text>
           </View>
-          <TouchableOpacity style={styles.viewAllButton}>
-            <Text style={styles.viewAllText}>View All</Text>
-            <ArrowRight size={16} color="#00E5FF" />
-          </TouchableOpacity>
+
+          {featuredInsight && (
+            <TouchableOpacity 
+              style={styles.featuredInsightCard}
+              activeOpacity={isPro ? 0.8 : 1}
+              onPress={() => {
+                if (!isPro) {
+                  Alert.alert(
+                    'Pro Feature 🌟',
+                    'Get unlimited AI-powered insights with detailed analysis!',
+                    [
+                              { text: 'Maybe Later', style: 'cancel' },
+        { 
+          text: 'Upgrade to Pro', 
+          onPress: openSubscriptionModal,
+          style: 'default'
+        }
+                    ]
+                  );
+                }
+              }}
+            >
+              <LinearGradient
+                colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#334155']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.featuredGradient}
+              >
+                <View style={styles.insightHeader}>
+                  <View style={[
+                    styles.categoryBadge, 
+                    { backgroundColor: getCategoryColor(featuredInsight.category || 'analysis') + '20' }
+                  ]}>
+                    {React.createElement(getCategoryIcon(featuredInsight.category || 'analysis'), {
+                      size: 16,
+                      color: getCategoryColor(featuredInsight.category || 'analysis')
+                    })}
+                    <Text style={[
+                      styles.categoryText,
+                      { color: getCategoryColor(featuredInsight.category || 'analysis') }
+                    ]}>
+                      {(featuredInsight.category || 'analysis').charAt(0).toUpperCase() + (featuredInsight.category || 'analysis').slice(1)}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.impactBadge,
+                    { backgroundColor: (featuredInsight.impact || 'medium') === 'high' ? '#EF444420' : '#F59E0B20' }
+                  ]}>
+                    <Text style={[
+                      styles.impactText,
+                      { color: (featuredInsight.impact || 'medium') === 'high' ? '#EF4444' : '#F59E0B' }
+                    ]}>
+                      {(featuredInsight.impact || 'medium').toUpperCase()} IMPACT
+                    </Text>
+                  </View>
+                </View>
+                
+                <Text style={styles.insightTitle}>{featuredInsight.title}</Text>
+                <Text style={styles.insightDescription} numberOfLines={isPro ? undefined : 2}>
+                  {featuredInsight.description}
+                </Text>
+                
+                {isPro && featuredInsight.tools_used && featuredInsight.tools_used.length > 0 && (
+                  <View style={styles.toolsUsed}>
+                    <Zap size={14} color="#00E5FF" />
+                    <Text style={styles.toolsText}>
+                      {featuredInsight.tools_used.length} AI tools analyzed
+                    </Text>
+                  </View>
+                )}
+
+                {!isPro && (
+                  <View style={styles.lockSection}>
+                    <Lock size={14} color="#64748B" />
+                    <Text style={styles.lockText}>Full analysis available with Pro</Text>
+                  </View>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.picksContainer}>
-          {todaysPicks.length > 0 ? (
-            todaysPicks.map((pick, index) => (
-              <TouchableOpacity key={pick.id} style={styles.pickCard}>
-                <LinearGradient
-                  colors={['#1E293B', '#334155']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.pickGradient}
-                >
-                  <View style={styles.pickHeader}>
-                    <View>
-                      <Text style={styles.pickMatch}>{pick.match}</Text>
-                      <Text style={styles.pickSport}>{pick.sport} • {pick.eventTime}</Text>
-                    </View>
-                    <View style={[styles.confidenceBadge, { backgroundColor: `${getConfidenceColor(pick.confidence)}20` }]}>
-                      <Text style={[styles.confidenceText, { color: getConfidenceColor(pick.confidence) }]}>
-                        {pick.confidence}%
-                      </Text>
-                    </View>
-                  </View>
+        {/* AI Picks Section - Pro vs Free */}
+        {isPro ? (
+          <View style={styles.section}>
+            <ProAIPicksDisplay 
+              limit={3}
+              showViewAllButton={true}
+              onViewAllPress={() => {
+                // Navigate to predictions tab
+                router.push('/(tabs)/predictions');
+              }}
+              onPickPress={(pick) => {
+                // Transform the pick to match expected interface
+                const transformedPick: AIPrediction = {
+                  id: pick.id,
+                  match: pick.match_teams || '',
+                  sport: pick.league || '',
+                  eventTime: pick.created_at || new Date().toISOString(),
+                  pick: pick.pick,
+                  odds: pick.odds,
+                  confidence: pick.confidence,
+                  reasoning: pick.reasoning || ''
+                };
+                setGlobalSelectedPick(transformedPick);
+                openChatWithContext({ 
+                  screen: 'home', 
+                  selectedPick: transformedPick 
+                }, transformedPick);
+              }}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+            />
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Your Daily Picks</Text>
+              <TouchableOpacity 
+                style={styles.viewAllButton}
+                onPress={() => {
+                  // Navigate to predictions tab
+                  router.push('/(tabs)/predictions');
+                }}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+                <ArrowRight size={16} color="#00E5FF" />
+              </TouchableOpacity>
+            </View>
 
-                  <View style={styles.pickContent}>
-                    <View style={styles.pickDetails}>
-                      <Text style={styles.pickType}>{pick.pick}</Text>
-                      <Text style={styles.pickOdds}>Odds: {pick.odds}</Text>
-                    </View>
-                    
-                    {pick.value && (
-                      <View style={styles.valueContainer}>
-                        <Target size={16} color="#10B981" />
-                        <Text style={styles.valueText}>+{Math.round(parseFloat(pick.value))}% Value</Text>
-                      </View>
-                    )}
-                  </View>
+            {displayPicks.length === 0 && !isNewUser ? (
+              <TouchableOpacity 
+                style={styles.emptyPicksCard}
+                onPress={onRefresh}
+              >
+                <Trophy size={40} color="#64748B" />
+                <Text style={styles.emptyPicksTitle}>No picks yet today</Text>
+                <Text style={styles.emptyPicksText}>
+                  Generate your free picks to get started
+                </Text>
+                <View style={styles.generatePicksButton}>
+                  <Zap size={16} color="#FFFFFF" />
+                  <Text style={styles.generatePicksText}>Generate Picks</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <>
+                {displayPicks.map((pick, index) => (
+                  <EnhancedPredictionCard
+                    key={pick.id}
+                    prediction={pick}
+                    index={index}
+                    onAnalyze={() => handlePickAnalyze(pick)}
+                  />
+                ))}
 
-                  <Text style={styles.pickReasoning} numberOfLines={2}>
-                    {pick.reasoning}
-                  </Text>
-
-                  <View style={styles.pickFooter}>
-                    <View style={styles.roiContainer}>
-                      <TrendingUp size={14} color="#00E5FF" />
-                      <Text style={styles.roiText}>Est. ROI: +{Math.round(parseFloat(pick.roi_estimate))}%</Text>
-                    </View>
-                    <TouchableOpacity 
-                      style={styles.viewPickButton}
-                      onPress={() => handleAnalyzeClick(pick)}
+                {/* Show locked picks for free users */}
+                {additionalPicksCount > 0 && (
+                  <View style={styles.proUpgradeCard}>
+                    <LinearGradient
+                      colors={['#1a1a2e', '#16213e']}
+                      style={styles.upgradeCard}
                     >
-                      <Eye size={16} color="#00E5FF" />
-                      <Text style={styles.viewPickText}>Analyze</Text>
+                      <View style={styles.upgradeContent}>
+                        <View style={styles.upgradeIcon}>
+                          <Lock size={32} color="#00E5FF" />
+                        </View>
+                        <Text style={styles.upgradeTitle}>
+                          {additionalPicksCount} More Picks Available
+                        </Text>
+                        <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
+                        <Text style={styles.upgradeDescription}>
+                          Unlock unlimited AI-powered predictions with advanced analytics, 
+                          confidence scoring, and detailed reasoning behind every pick.
+                        </Text>
+                        <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
+                          <LinearGradient
+                            colors={['#00E5FF', '#0891B2']}
+                            style={styles.upgradeButtonGradient}
+                          >
+                            <Crown size={16} color="#0F172A" />
+                            <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                            <ChevronRight size={16} color="#0F172A" />
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      </View>
+                    </LinearGradient>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Live News Feed Section */}
+        <View style={styles.section}>
+          <View style={styles.newsSection}>
+            <NewsFeed 
+              limit={isPro ? 15 : 5}
+              showHeader={false}
+              onNewsClick={(news) => {
+                if (news.sourceUrl) {
+                  Alert.alert(
+                    'Open News Article',
+                    `Open "${news.title}" in browser?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Open', 
+                        onPress: () => {
+                          if (news.sourceUrl) {
+                            require('react-native').Linking.openURL(news.sourceUrl);
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }
+              }}
+            />
+            
+            {!isPro && (
+              <View style={styles.proUpgradeCard}>
+                <LinearGradient
+                  colors={['#1a1a2e', '#16213e']}
+                  style={styles.upgradeCard}
+                >
+                  <View style={styles.upgradeContent}>
+                    <View style={styles.upgradeIcon}>
+                      <Activity size={32} color="#00E5FF" />
+                    </View>
+                    <Text style={styles.upgradeTitle}>Full News Access</Text>
+                    <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
+                    <Text style={styles.upgradeDescription}>
+                      Get unlimited breaking news, real-time injury updates, trade alerts, 
+                      and personalized news feeds tailored to your teams.
+                    </Text>
+                    <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
+                      <LinearGradient
+                        colors={['#00E5FF', '#0891B2']}
+                        style={styles.upgradeButtonGradient}
+                      >
+                        <Crown size={16} color="#0F172A" />
+                        <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+                        <ChevronRight size={16} color="#0F172A" />
+                      </LinearGradient>
                     </TouchableOpacity>
                   </View>
                 </LinearGradient>
-              </TouchableOpacity>
-            ))
-          ) : isNewUser ? (
-            // New user empty state
-            <View style={styles.emptyPicksContainer}>
-              <LinearGradient
-                colors={['#1e1b4b', '#312e81']}
-                style={styles.emptyPicksGradient}
-              >
-                <View style={styles.emptyPicksContent}>
-                  <Sparkles size={48} color="#fbbf24" />
-                  <Text style={styles.emptyPicksTitle}>Welcome to ParleyApp!</Text>
-                  <Text style={styles.emptyPicksDescription}>
-                    Get started with your first 2 AI-powered picks
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.getStartedButton}
-                    onPress={() => setShowWelcome(true)}
-                  >
-                    <LinearGradient
-                      colors={['#10b981', '#059669']}
-                      style={styles.getStartedGradient}
-                    >
-                      <Gift size={20} color="#fff" />
-                      <Text style={styles.getStartedText}>Get Started</Text>
-                      <ArrowRight size={20} color="#fff" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </View>
-          ) : (
-            // Existing user empty state
-            <View style={styles.emptyPicksContainer}>
-              <LinearGradient
-                colors={['#1E293B', '#334155']}
-                style={styles.emptyPicksGradient}
-              >
-                <View style={styles.emptyPicksContent}>
-                  <Clock size={48} color="#94A3B8" />
-                  <Text style={styles.emptyPicksTitle}>No picks available</Text>
-                  <Text style={styles.emptyPicksDescription}>
-                    Fresh AI picks are generated daily at 8 AM
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    onPress={generateNewPicks}
-                    disabled={isLoadingPicks}
-                  >
-                    <RefreshCw size={20} color="#00E5FF" />
-                    <Text style={styles.refreshText}>
-                      {isLoadingPicks ? 'Generating...' : 'Try Generate New'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Enhanced AI Market Intelligence with Real DeepSeek Analysis */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Brain size={24} color="#8B5CF6" />
-            <Text style={styles.sectionTitle}>AI Market Intelligence</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.insightsGrid}>
-          {deepSeekInsights.map((insight) => {
-            const IconComponent = getCategoryIcon(insight.category);
-            return (
-              <TouchableOpacity key={insight.id} style={styles.enhancedInsightCard}>
-                <LinearGradient
-                  colors={['#1E293B', '#334155']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.insightCardGradient}
-                >
-                  <View style={styles.insightHeader}>
-                    <View style={[styles.insightIcon, { backgroundColor: `${getCategoryColor(insight.category)}20` }]}>
-                      <IconComponent size={20} color={getCategoryColor(insight.category)} />
-                    </View>
-                    <View style={[styles.impactBadge, { backgroundColor: insight.impact === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)' }]}>
-                      <Text style={[styles.impactText, { color: insight.impact === 'high' ? '#EF4444' : '#F59E0B' }]}>
-                        {insight.impact.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.insightTitle}>{insight.title}</Text>
-                  <Text style={styles.insightDescription} numberOfLines={3}>
-                    {insight.description}
-                  </Text>
-                  
-                  {/* Tools indicator */}
-                  {insight.toolsUsed && (
-                    <View style={styles.smallToolsContainer}>
-                      {insight.toolsUsed.slice(0, 2).map((tool, index) => {
-                        const IconComponent = getToolIcon(tool);
-                        return (
-                          <View key={index} style={[styles.smallToolBadge, { backgroundColor: `${getToolColor(tool)}15` }]}>
-                            <IconComponent size={10} color={getToolColor(tool)} />
-                          </View>
-                        );
-                      })}
-                      {insight.toolsUsed.length > 2 && (
-                        <Text style={styles.smallMoreTools}>+{insight.toolsUsed.length - 2}</Text>
-                      )}
-                    </View>
-                  )}
-                  
-                  <View style={styles.insightFooter}>
-                    <Clock size={12} color="#64748B" />
-                    <Text style={styles.insightTime}>
-                      {new Date(insight.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    {insight.impact_score && (
-                      <View style={styles.scoreContainer}>
-                        <Text style={styles.scoreText}>{insight.impact_score}/10</Text>
-                      </View>
-                    )}
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Injury Reports Section - Pro Only */}
+        <View style={styles.section}>
+          <InjuryReportsSection isPro={isPro} />
         </View>
-      </View>
 
-      {/* Quick Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.quickActionCard}>
-            <LinearGradient
-              colors={['rgba(16, 185, 129, 0.1)', 'rgba(16, 185, 129, 0.05)']}
-              style={styles.quickActionGradient}
-            >
-              <BarChart3 size={24} color="#10B981" />
-              <Text style={styles.quickActionTitle}>Betting History</Text>
-              <Text style={styles.quickActionSubtitle}>Track performance</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.quickActionCard}>
-            <LinearGradient
-              colors={['rgba(139, 92, 246, 0.1)', 'rgba(139, 92, 246, 0.05)']}
-              style={styles.quickActionGradient}
-            >
-              <Trophy size={24} color="#8B5CF6" />
-              <Text style={styles.quickActionTitle}>Leaderboard</Text>
-              <Text style={styles.quickActionSubtitle}>See rankings</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+        {/* Recurring Trends Section - Pro Only */}
+        <View style={styles.section}>
+          <RecurringTrends sport="MLB" />
         </View>
-      </View>
 
-      {/* Enhanced Analysis Modal */}
-             <Modal
-         visible={showAnalysisModal}
-         animationType="slide" 
-         presentationStyle="pageSheet"
-         onRequestClose={() => setShowAnalysisModal(false)}
-       >
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={['#0F172A', '#1E293B']}
-            style={styles.modalGradient}
-          >
-            <View style={styles.modalHeader}>
-              <View>
-                                 <Text style={styles.modalTitle}>🧠 AI Analysis</Text>
-                <Text style={styles.modalSubtitle}>Multi-Source Intelligence Report</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.modalCloseButton}
-                onPress={() => setShowAnalysisModal(false)}
-              >
-                <X size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            
-            {selectedAnalysis && (
-              <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-                {/* Analysis Summary */}
-                <View style={styles.analysisSummaryCard}>
-                  <LinearGradient
-                    colors={['rgba(0, 229, 255, 0.1)', 'rgba(124, 58, 237, 0.1)']}
-                    style={styles.summaryGradient}
-                  >
-                    <Text style={styles.summaryTitle}>Recommendation</Text>
-                    <Text style={styles.summaryPick}>{selectedAnalysis.pick}</Text>
-                    <View style={styles.summaryMetrics}>
-                      <View style={styles.metricItem}>
-                        <Text style={styles.metricLabel}>Confidence</Text>
-                        <Text style={[styles.metricValue, { color: selectedAnalysis.confidence === 'High' ? '#10B981' : '#F59E0B' }]}>
-                          {selectedAnalysis.confidence}
-                        </Text>
-                      </View>
-                      <View style={styles.metricItem}>
-                        <Text style={styles.metricLabel}>Expected Value</Text>
-                        <Text style={[styles.metricValue, { color: '#10B981' }]}>
-                          +{selectedAnalysis.expectedValue?.toFixed(2)}%
-                        </Text>
-                      </View>
-                      <View style={styles.metricItem}>
-                        <Text style={styles.metricLabel}>Kelly Stake</Text>
-                        <Text style={styles.metricValue}>
-                          {selectedAnalysis.kellyStake?.toFixed(2)}%
-                        </Text>
-                      </View>
-                    </View>
-                  </LinearGradient>
-                </View>
-                
-                {/* Tools Used */}
-                <View style={styles.toolsSection}>
-                  <Text style={styles.sectionLabel}>🛠️ Analysis Sources ({selectedAnalysis.metadata.toolsUsed.length})</Text>
-                  <View style={styles.toolsGrid}>
-                    {selectedAnalysis.metadata.toolsUsed.map((tool, index) => {
-                      const IconComponent = getToolIcon(tool);
-                      return (
-                        <View key={index} style={styles.toolCard}>
-                          <IconComponent size={20} color={getToolColor(tool)} />
-                          <Text style={styles.toolName}>
-                            {tool.includes('sports') ? 'Statistical Analysis' :
-                             tool.includes('user') ? 'User Context' :
-                             tool.includes('web') ? 'Real-Time News' :
-                             tool.includes('freeData') ? 'Team Intelligence' :
-                             tool.includes('backtest') ? 'Historical Validation' :
-                             'Data Analysis'}
-                          </Text>
-                          <View style={[styles.toolStatus, { backgroundColor: `${getToolColor(tool)}20` }]}>
-                            <CheckCircle size={12} color={getToolColor(tool)} />
-                            <Text style={[styles.toolStatusText, { color: getToolColor(tool) }]}>Complete</Text>
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-                
-                {/* Detailed Analysis */}
-                <View style={styles.factorsSection}>
-                  <Text style={styles.sectionLabel}>📊 Detailed Analysis</Text>
-                  
-                  {Object.entries(selectedAnalysis.factors).map(([key, value]) => (
-                    <View key={key} style={styles.factorCard}>
-                      <Text style={styles.factorTitle}>
-                        {key === 'predictiveAnalytics' ? '📈 Statistical Predictions' :
-                         key === 'recentNews' ? '📰 Real-Time Intelligence' :
-                         key === 'userContext' ? '👤 Personalization' :
-                         '💰 Value Assessment'}
-                      </Text>
-                      <Text style={styles.factorContent}>{value}</Text>
-                    </View>
-                  ))}
-                </View>
-                
-                {/* Processing Metadata */}
-                <View style={styles.metadataSection}>
-                  <Text style={styles.sectionLabel}>⚡ Processing Details</Text>
-                  <View style={styles.metadataGrid}>
-                    <View style={styles.metadataItem}>
-                      <Timer size={16} color="#00E5FF" />
-                      <Text style={styles.metadataLabel}>Processing Time</Text>
-                      <Text style={styles.metadataValue}>{(selectedAnalysis.metadata.processingTime / 1000).toFixed(1)}s</Text>
-                    </View>
-                    <View style={styles.metadataItem}>
-                      <Brain size={16} color="#8B5CF6" />
-                      <Text style={styles.metadataLabel}>AI Model</Text>
-                      <Text style={styles.metadataValue}>{selectedAnalysis.metadata.modelVersion}</Text>
-                    </View>
-                    <View style={styles.metadataItem}>
-                      <BarChart size={16} color="#10B981" />
-                      <Text style={styles.metadataLabel}>Confidence Range</Text>
-                      <Text style={styles.metadataValue}>
-                        {selectedAnalysis.confidenceInterval?.[0].toFixed(1)}% - {selectedAnalysis.confidenceInterval?.[1].toFixed(1)}%
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </ScrollView>
-            )}
-          </LinearGradient>
+
+
+        {/* AI Disclaimer */}
+        <View style={styles.disclaimerContainer}>
+          <View style={styles.disclaimerContent}>
+            <Shield size={12} color="#64748B" />
+            <Text style={styles.disclaimerText}>
+              AI can make mistakes. Verify important info and bet responsibly.
+            </Text>
+          </View>
         </View>
-      </Modal>
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          AI predictions are for entertainment purposes. Please gamble responsibly.
-        </Text>
-      </View>
-
-      {/* New User Welcome Modal */}
-      <NewUserWelcome
-        visible={showWelcome}
-        onClose={handleCloseWelcome}
-        onGetStarterPicks={handleGetStarterPicks}
-        onGeneratePersonalized={handleGeneratePersonalized}
-        isLoading={isGettingStarterPicks}
-      />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -943,27 +803,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#94A3B8',
     fontSize: 16,
+    color: '#94A3B8',
     marginTop: 16,
   },
   header: {
-    paddingTop: 40,
-    paddingBottom: 30,
-    paddingHorizontal: 16,
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    position: 'relative',
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 20,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  proBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginLeft: 6,
+    letterSpacing: 0.5,
   },
   headerContent: {
-    
+    marginTop: 20,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   welcomeText: {
-    fontSize: 16,
-    color: '#E2E8F0',
+    fontSize: 14,
+    color: '#CBD5E1',
     marginBottom: 4,
   },
   headerTitle: {
@@ -972,12 +850,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   generateButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
   },
   statsRow: {
     flexDirection: 'row',
@@ -985,6 +860,8 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
+    position: 'relative',
   },
   statValue: {
     fontSize: 24,
@@ -994,76 +871,40 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#E2E8F0',
+    color: '#CBD5E1',
   },
-  featuredInsightCard: {
-    margin: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#1E293B',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  featuredInsightGradient: {
-    padding: 20,
-  },
-  featuredInsightHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  insightIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+  lockOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    borderRadius: 8,
   },
-  featuredInsightInfo: {
-    flex: 1,
+  upgradePrompt: {
+    marginTop: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
-  featuredInsightBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00E5FF',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  featuredInsightTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  featuredInsightDescription: {
-    fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  viewInsightButton: {
+  upgradeGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  viewInsightText: {
-    color: '#00E5FF',
+  upgradeText: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-    marginRight: 4,
+    marginHorizontal: 8,
   },
   section: {
-    margin: 16,
-    marginTop: 0,
+    paddingHorizontal: 16,
+    marginTop: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1071,542 +912,265 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 8,
+  },
+  aiPoweredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  aiPoweredText: {
+    fontSize: 11,
+    color: '#00E5FF',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  limitedText: {
+    fontSize: 12,
+    color: '#64748B',
   },
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   viewAllText: {
-    color: '#00E5FF',
     fontSize: 14,
+    color: '#00E5FF',
+    fontWeight: '600',
     marginRight: 4,
   },
-  picksContainer: {
-    
-  },
-  pickCard: {
-    marginBottom: 16,
-    borderRadius: 12,
+  featuredInsightCard: {
+    borderRadius: 16,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
-  pickGradient: {
-    padding: 16,
-  },
-  pickHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  pickMatch: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  pickSport: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  confidenceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  pickContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  pickDetails: {
-    
-  },
-  pickType: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  pickOdds: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  valueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  valueText: {
-    color: '#10B981',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  pickReasoning: {
-    fontSize: 14,
-    color: '#94A3B8',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  pickFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  roiContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  roiText: {
-    color: '#00E5FF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  viewPickButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  viewPickText: {
-    color: '#00E5FF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  insightsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  enhancedInsightCard: {
-    width: '48%',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  insightCardGradient: {
-    padding: 16,
+  featuredGradient: {
+    padding: 20,
   },
   insightHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  insightIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
+  categoryBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   impactBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   impactText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   insightTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  insightDescription: {
-    fontSize: 12,
-    color: '#94A3B8',
-    lineHeight: 16,
-    marginBottom: 12,
-  },
-  insightFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  insightTime: {
-    fontSize: 11,
-    color: '#64748B',
-    marginLeft: 4,
-  },
-  scoreContainer: {
-    padding: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-  },
-  scoreText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#00E5FF',
-  },
-  toolsUsedContainer: {
-    marginBottom: 12,
-  },
-  toolsUsedLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  toolsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  toolBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 4,
-    borderRadius: 8,
-    marginRight: 6,
-  },
-  toolBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  moreToolsText: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  smallToolsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  smallToolBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  smallMoreTools: {
-    fontSize: 10,
-    color: '#64748B',
-    marginLeft: 4,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickActionCard: {
-    width: '48%',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  quickActionGradient: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  quickActionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  quickActionSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  footer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  modalGradient: {
-    flex: 1,
-  },
-  modalHeader: {
-    padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  modalCloseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    padding: 16,
-  },
-  analysisSummaryCard: {
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  summaryGradient: {
-    padding: 20,
-  },
-  summaryTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 8,
   },
-  summaryPick: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 16,
+  insightDescription: {
+    fontSize: 14,
+    color: '#CBD5E1',
+    lineHeight: 20,
   },
-  summaryMetrics: {
+  toolsUsed: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
   },
-  metricItem: {
+  toolsText: {
+    fontSize: 12,
+    color: '#00E5FF',
+    marginLeft: 6,
+  },
+  lockSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  lockText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginLeft: 6,
+  },
+  emptyPicksCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  emptyPicksTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyPicksText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  generatePicksButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E5FF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  generatePicksText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  lockedPicksCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  lockedGradient: {
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#334155',
+    borderRadius: 16,
+  },
+  lockedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#E2E8F0',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  lockedSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  unlockButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  unlockButtonText: {
+    color: '#F59E0B',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+
+  // News Section Styles
+  newsSection: {
+    flex: 1,
+  },
+  
+  // Pro Upgrade Card Styles (consistent with RecurringTrends)
+  proUpgradeCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  upgradeCard: {
+    padding: 24,
+  },
+  upgradeContent: {
     alignItems: 'center',
   },
-  metricLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-  },
-  metricValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  toolsSection: {
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  toolsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  toolCard: {
-    width: '48%',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  toolName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  toolStatus: {
-    padding: 4,
-    borderRadius: 8,
+  upgradeIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  toolStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#00E5FF',
-  },
-  factorsSection: {
-    marginBottom: 16,
-  },
-  factorCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  factorTitle: {
-    fontSize: 14,
+  upgradeTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 4,
   },
-  factorContent: {
-    fontSize: 13,
-    color: '#94A3B8',
-    lineHeight: 18,
-  },
-  metadataSection: {
-    marginBottom: 16,
-  },
-  metadataGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metadataItem: {
-    alignItems: 'center',
-  },
-  metadataLabel: {
+  upgradeSubtitle: {
     fontSize: 12,
-    color: '#94A3B8',
-  },
-  metadataValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  // Empty picks states
-  emptyPicksContainer: {
-    marginBottom: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  emptyPicksGradient: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyPicksContent: {
-    alignItems: 'center',
-  },
-  emptyPicksTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 16,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyPicksDescription: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  getStartedButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    minWidth: 200,
-  },
-  getStartedGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 8,
-  },
-  getStartedText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    flex: 1,
-    textAlign: 'center',
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-  },
-  refreshText: {
-    fontSize: 14,
-    fontWeight: '500',
     color: '#00E5FF',
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  upgradeDescription: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  upgradeButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  upgradeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginHorizontal: 8,
+  },
+
+  // AI Disclaimer Styles
+  disclaimerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    backgroundColor: '#0F172A',
+  },
+  disclaimerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(100, 116, 139, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  disclaimerText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginLeft: 6,
+    fontWeight: '400',
+    textAlign: 'center',
   },
 });
