@@ -3991,3 +3991,21 @@
 {"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:21"}
 {"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:22"}
 {"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-06-25 04:25:22"}
+{"level":"info","message":"🚀 Initializing DeepSeek model: deepseek-chat","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:28"}
+{"level":"info","message":"✅ DeepSeek deepseek-chat initialized successfully","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:28"}
+{"level":"info","message":"🎯 DEEPSEEK ORCHESTRATOR STARTING: MLB game daily_analysis, bet type: moneyline","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📋 Request details: {\n  \"userId\": \"f08b56d3-d4ec-4815-b502-6647d723d2a6\",\n  \"gameId\": \"daily_analysis\",\n  \"betType\": \"moneyline\",\n  \"sport\": \"MLB\",\n  \"odds\": {\n    \"homeOdds\": -110,\n    \"awayOdds\": 105\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🧠 System prompt created (3086 characters)","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"💬 Starting DeepSeek chat with 8 available tools","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🚀 Sending analysis request to DeepSeek AI...","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📨 DeepSeek response received","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"🔧 Processing 3 tool calls...","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"🔧 TOOL EXECUTION: sportsDataIO_getGamePrediction","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"📊 SportsDB prediction data sent to DeepSeek: {\n  \"gameId\": \"daily_analysis\",\n  \"homeTeamPrediction\": {\n    \"teamId\": \"home-id\",\n    \"name\": \"Home Team\",\n    \"winProbability\": 0.5456429842811079,\n    \"predictedScore\": 7\n  },\n  \"awayTeamPrediction\": {\n    \"teamId\": \"away-id\",\n    \"name\": \"Away Team\",\n    \"winProbability\": 0.4543570157188921,\n    \"predictedScore\": 5\n  },\n  \"confidence\": \"Low\",\n  \"bestBets\": [\n    {\n      \"betType\": \"moneyline\",\n      \"recommendation\": \"Home Team ML\",\n      \"expectedValue\": 4.168206090029687,\n      \"confidence\": \"Low\",\n      \"reasoning\": \"Home Team 49% vs Away Team 51% strength. Home advantage detected.\"\n    }\n  ],\n  \"valueAnalysis\": {\n    \"expectedValue\": 4.168206090029687,\n    \"expectedROI\": 4.168206090029687,\n    \"riskAssessment\": \"High\"\n  },\n  \"modelMetrics\": {\n    \"predictionAccuracy\": 0.62,\n    \"historicalPerformance\": \"Good\",\n    \"dataSource\": \"The-Sports-DB + Mathematical Model\"\n  }\n}","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"🔧 TOOL EXECUTION: userData_getUserPreferences","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"🔧 TOOL EXECUTION: webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"🤔 Requesting final recommendation from DeepSeek after tool analysis...","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:07"}
+{"level":"info","message":"✅ Final recommendation received from DeepSeek","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"⏱️ Total orchestration time: 27326ms","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"🛠️ Tools used: sportsDataIO_getGamePrediction, userData_getUserPreferences, webSearch_performSearch","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"✅ DEEPSEEK ORCHESTRATOR COMPLETE: Final recommendation generated","service":"deepseekOrchestrator","timestamp":"2025-07-03 14:34:19"}

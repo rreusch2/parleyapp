@@ -180,3 +180,5 @@
 {"level":"info","message":"Performing web search for: \"latest MLB news today\"","service":"webSearch","timestamp":"2025-06-24 23:20:20"}
 {"level":"info","message":"Performing web search for: \"latest sports news today\"","service":"webSearch","timestamp":"2025-06-24 23:43:31"}
 {"level":"info","message":"Performing web search for: \"latest sports news today MLB NBA NFL NHL\"","service":"webSearch","timestamp":"2025-06-25 00:56:56"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"Performing web search for: \"latest sports news today\"","service":"webSearch","timestamp":"2025-07-03 14:37:37"}

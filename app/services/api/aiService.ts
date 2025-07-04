@@ -1,7 +1,19 @@
 import { supabase } from './supabaseClient';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001'; // Your Node.js backend
-const PYTHON_API_URL = process.env.EXPO_PUBLIC_PYTHON_API_URL || 'http://localhost:8001'; // Your Python sports betting API
+// Use proper environment variables with better fallback logic
+const BACKEND_URL = (() => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.parleyapp.com';
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+})();
+
+const PYTHON_API_URL = (() => {
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'https://python-api.parleyapp.com';
+  }
+  return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'http://localhost:8001';
+})();
 
 export interface AIPrediction {
   id: string;
@@ -467,34 +479,34 @@ class AIService {
     }
   }
 
-     /**
-    * Get daily insights for a user (from database or cache)
-    */
-   async getDailyInsights(userId: string, date?: string): Promise<DailyInsight[]> {
-     try {
-       const dateParam = date || new Date().toISOString().split('T')[0];
-       const response = await fetch(`${BACKEND_URL}/api/ai/daily-insights?userId=${userId}&date=${dateParam}`);
+  /**
+   * Get daily insights for a user (from database or cache)
+   */
+  async getDailyInsights(userId: string, date?: string): Promise<DailyInsight[]> {
+    try {
+      const dateParam = date || new Date().toISOString().split('T')[0];
+      const response = await fetch(`${BACKEND_URL}/api/ai/daily-insights?userId=${userId}&date=${dateParam}`);
 
-       if (!response.ok) {
-         throw new Error(`HTTP error! status: ${response.status}`);
-       }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-       const data = await response.json();
-       const insights = data.insights || [];
-       
-       // Transform database format to frontend format for compatibility
-       return insights.map((insight: any) => ({
-         ...insight,
-         userId: insight.user_id, // Legacy field
-         timestamp: insight.created_at || new Date().toISOString(), // Legacy field
-         toolsUsed: insight.tools_used // Legacy field
-       }));
-     } catch (error) {
-       console.error('Error fetching daily insights:', error);
-       // Return mock data for development
-       return this.getMockDailyInsights(userId);
-     }
-   }
+      const data = await response.json();
+      const insights = data.insights || [];
+      
+      // Transform database format to frontend format for compatibility
+      return insights.map((insight: any) => ({
+        ...insight,
+        userId: insight.user_id, // Legacy field
+        timestamp: insight.created_at || new Date().toISOString(), // Legacy field
+        toolsUsed: insight.tools_used // Legacy field
+      }));
+    } catch (error) {
+      console.error('Error fetching daily insights:', error);
+      // Return mock data for development
+      return this.getMockDailyInsights(userId);
+    }
+  }
 
   /**
    * Check if daily insights need to be regenerated
@@ -522,77 +534,77 @@ class AIService {
     const today = new Date().toISOString().split('T')[0];
     const now = new Date().toISOString();
     
-         return [
-       {
-         id: `daily_${userId}_1`,
-         user_id: userId,
-         userId, // Legacy field
-         title: 'Multi-Tool Analysis Complete',
-         description: '3-source intelligence: Statistical models show 59.3% win probability vs 52.4% implied odds. Real-time data confirms no injuries. User profile matches medium risk tolerance.',
-         type: 'analysis',
-         category: 'analysis',
-         source: 'AI Orchestrator',
-         impact: 'high',
-         timestamp: now,
-         date: today,
-         tools_used: ['sportsDataIO_getGamePrediction', 'webSearch_performSearch', 'userData_getUserPreferences'],
-         toolsUsed: ['sportsDataIO_getGamePrediction', 'webSearch_performSearch', 'userData_getUserPreferences'], // Legacy field
-         impact_score: 8.7,
-         metadata: {
-           processingTime: 27000,
-           confidence: 85
-         }
-       },
-             {
-         id: `daily_${userId}_2`,
-         user_id: userId,
-         userId, // Legacy field
-         title: 'Real-Time Intelligence Alert',
-         description: 'Live intelligence detected: No relevant injuries for today\'s games. Weather conditions favor offensive play. Line movement suggests sharp money on home teams.',
-         type: 'alert',
-         category: 'news',
-         source: 'Web Search + ESPN API',
-         impact: 'medium',
-         timestamp: new Date(Date.now() - 1800000).toISOString(),
-         date: today,
-         tools_used: ['webSearch_performSearch', 'freeData_getTeamNews'],
-         toolsUsed: ['webSearch_performSearch', 'freeData_getTeamNews'], // Legacy field
-         impact_score: 7.2
-       },
-       {
-         id: `daily_${userId}_3`,
-         user_id: userId,
-         userId, // Legacy field
-         title: 'Smart Stake Calculator',
-         description: 'Optimal bankroll management calculated: Average 2.8% of bankroll recommended. Expected values range 8-12%. Model confidence intervals tightened. Risk-adjusted recommendations active.',
-         type: 'value',
-         category: 'calculator',
-         source: 'Statistical Analyzer',
-         impact: 'high',
-         timestamp: new Date(Date.now() - 600000).toISOString(),
-         date: today,
-         tools_used: ['sportsDataIO_getGamePrediction', 'sportsBetting_getOptimalConfiguration'],
-         toolsUsed: ['sportsDataIO_getGamePrediction', 'sportsBetting_getOptimalConfiguration'], // Legacy field
-         impact_score: 9.1
-       },
-       {
-         id: `daily_${userId}_4`,
-         user_id: userId,
-         userId, // Legacy field
-         title: 'Performance Validation',
-         description: 'Backtesting complete: Current strategies show 58.3% win rate over 312 similar games. Average ROI: +11.8%. Model accuracy trending upward.',
-         type: 'trend',
-         category: 'performance',
-         source: 'Historical Data',
-         impact: 'medium',
-         timestamp: new Date(Date.now() - 900000).toISOString(),
-         date: today,
-         tools_used: ['sportsBetting_backtestStrategy'],
-         toolsUsed: ['sportsBetting_backtestStrategy'], // Legacy field
-         impact_score: 8.0
-       }
+    return [
+      {
+        id: `daily_${userId}_1`,
+        user_id: userId,
+        userId, // Legacy field
+        title: 'Multi-Tool Analysis Complete',
+        description: '3-source intelligence: Statistical models show 59.3% win probability vs 52.4% implied odds. Real-time data confirms no injuries. User profile matches medium risk tolerance.',
+        type: 'analysis',
+        category: 'analysis',
+        source: 'AI Orchestrator',
+        impact: 'high',
+        timestamp: now,
+        date: today,
+        tools_used: ['sportsDataIO_getGamePrediction', 'webSearch_performSearch', 'userData_getUserPreferences'],
+        toolsUsed: ['sportsDataIO_getGamePrediction', 'webSearch_performSearch', 'userData_getUserPreferences'], // Legacy field
+        impact_score: 8.7,
+        metadata: {
+          processingTime: 27000,
+          confidence: 85
+        }
+      },
+      {
+        id: `daily_${userId}_2`,
+        user_id: userId,
+        userId, // Legacy field
+        title: 'Real-Time Intelligence Alert',
+        description: 'Live intelligence detected: No relevant injuries for today\'s games. Weather conditions favor offensive play. Line movement suggests sharp money on home teams.',
+        type: 'alert',
+        category: 'news',
+        source: 'Web Search + ESPN API',
+        impact: 'medium',
+        timestamp: new Date(Date.now() - 1800000).toISOString(),
+        date: today,
+        tools_used: ['webSearch_performSearch', 'freeData_getTeamNews'],
+        toolsUsed: ['webSearch_performSearch', 'freeData_getTeamNews'], // Legacy field
+        impact_score: 7.2
+      },
+      {
+        id: `daily_${userId}_3`,
+        user_id: userId,
+        userId, // Legacy field
+        title: 'Smart Stake Calculator',
+        description: 'Optimal bankroll management calculated: Average 2.8% of bankroll recommended. Expected values range 8-12%. Model confidence intervals tightened. Risk-adjusted recommendations active.',
+        type: 'value',
+        category: 'calculator',
+        source: 'Statistical Analyzer',
+        impact: 'high',
+        timestamp: new Date(Date.now() - 600000).toISOString(),
+        date: today,
+        tools_used: ['sportsDataIO_getGamePrediction', 'sportsBetting_getOptimalConfiguration'],
+        toolsUsed: ['sportsDataIO_getGamePrediction', 'sportsBetting_getOptimalConfiguration'], // Legacy field
+        impact_score: 9.1
+      },
+      {
+        id: `daily_${userId}_4`,
+        user_id: userId,
+        userId, // Legacy field
+        title: 'Performance Validation',
+        description: 'Backtesting complete: Current strategies show 58.3% win rate over 312 similar games. Average ROI: +11.8%. Model accuracy trending upward.',
+        type: 'trend',
+        category: 'performance',
+        source: 'Historical Data',
+        impact: 'medium',
+        timestamp: new Date(Date.now() - 900000).toISOString(),
+        date: today,
+        tools_used: ['sportsBetting_backtestStrategy'],
+        toolsUsed: ['sportsBetting_backtestStrategy'], // Legacy field
+        impact_score: 8.0
+      }
     ];
   }
 }
 
-export const aiService = new AIService(); 
+export const aiService = new AIService();

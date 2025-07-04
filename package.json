@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "cross-env EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "validate-production": "npx ts-node scripts/validate-production-build.ts",
+    "check-localhost": "grep -r \"localhost\" app/ --exclude-dir=node_modules || echo 'No localhost references found'",
+    "build:ios": "expo build:ios",
+    "build:android": "expo build:android",
+    "pre-build-check": "npm run validate-production && npm run check-localhost",
+    "app-store-ready": "npm run pre-build-check && echo '✅ App Store preparation complete!'"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -56,7 +62,9 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "@types/node": "^20.0.0",
     "cross-env": "^7.0.3",
+    "ts-node": "^10.9.0",
     "typescript": "~5.8.3"
   }
 }

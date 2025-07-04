@@ -868,3 +868,17 @@
 {"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-06-25","service":"dailyInsightsService","timestamp":"2025-06-25 04:26:35"}
 {"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-06-25","service":"dailyInsightsService","timestamp":"2025-06-25 04:26:35"}
 {"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-06-25","service":"dailyInsightsService","timestamp":"2025-06-25 04:26:35"}
+{"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📊 Found 0 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🗑️ Deleting existing insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"✅ Successfully deleted insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"💾 Storing 4 daily insights to Supabase","service":"dailyInsightsService","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"✅ Successfully stored 4 daily insights","service":"dailyInsightsService","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:36:36"}
+{"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:37:10"}
+{"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📥 Fetching daily insights for user f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📊 Found 4 daily insights for f08b56d3-d4ec-4815-b502-6647d723d2a6 on 2025-07-03","service":"dailyInsightsService","timestamp":"2025-07-03 14:37:11"}

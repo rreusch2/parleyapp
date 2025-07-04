@@ -637,3 +637,11 @@
 {"level":"warn","message":"⚠️ No team found for: Home Team","service":"sportsDB","timestamp":"2025-06-24 19:39:52"}
 {"level":"info","message":"✅ Prediction complete: Home Team ML (2.9% EV, Low confidence)","service":"sportsDB","timestamp":"2025-06-24 19:39:52"}
 {"level":"info","message":"✅ SportsDB prediction complete: Home Team ML","service":"sportsDB","timestamp":"2025-06-24 19:39:52"}
+{"level":"info","message":"📊 SportsDB Tool: Analyzing MLB game - Away Team @ Home Team","service":"sportsDB","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"🎯 Generating prediction: Away Team @ Home Team (MLB)","service":"sportsDB","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"🔍 Searching for team: Home Team (MLB)","service":"sportsDB","timestamp":"2025-07-03 14:34:01"}
+{"level":"info","message":"🔍 Searching for team: Away Team (MLB)","service":"sportsDB","timestamp":"2025-07-03 14:34:01"}
+{"level":"warn","message":"⚠️ No team found for: Away Team","service":"sportsDB","timestamp":"2025-07-03 14:34:02"}
+{"level":"warn","message":"⚠️ No team found for: Home Team","service":"sportsDB","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"✅ Prediction complete: Home Team ML (4.2% EV, Low confidence)","service":"sportsDB","timestamp":"2025-07-03 14:34:02"}
+{"level":"info","message":"✅ SportsDB prediction complete: Home Team ML","service":"sportsDB","timestamp":"2025-07-03 14:34:02"}

@@ -3224,3 +3224,39 @@
 {"level":"info","message":"👤 User 1fb237ae-dea3-4daf-ae77-951785504531: tier=free, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-06-25 04:26:36"}
 {"level":"info","message":"🎁 New free user - checking for system predictions to show as welcome bonus","service":"aiRoutes","timestamp":"2025-06-25 04:26:36"}
 {"level":"info","message":"🎁 Returning 5 system predictions for new user (welcome bonus)","service":"aiRoutes","timestamp":"2025-06-25 04:26:36"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🔄 Generating daily insights for user: f08b56d3-d4ec-4815-b502-6647d723d2a6","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🏈 Sports currently in season: MLB, NBA, MLS","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"👤 User 881aef18-d471-4203-8a01-10dc95d81ffb: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🌟 Pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb: unlimited picks","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"👤 User 881aef18-d471-4203-8a01-10dc95d81ffb: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"🌟 Pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb: unlimited picks","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📚 Fetching latest 10 predictions from database","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"📚 Found 10 latest predictions","service":"aiRoutes","timestamp":"2025-07-03 14:33:52"}
+{"level":"info","message":"✅ Generated and stored 4 daily insights in 27699ms","service":"aiRoutes","timestamp":"2025-07-03 14:34:19"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 8dc32080-898d-4ac1-be4f-2e98a5f5673a","service":"aiRoutes","timestamp":"2025-07-03 14:36:36"}
+{"level":"info","message":"👤 User 8dc32080-898d-4ac1-be4f-2e98a5f5673a: tier=free, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"🎁 New free user - checking for system predictions to show as welcome bonus","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"🎁 Returning 5 system predictions for new user (welcome bonus)","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 8dc32080-898d-4ac1-be4f-2e98a5f5673a","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"👤 User 8dc32080-898d-4ac1-be4f-2e98a5f5673a: tier=free, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"🎁 New free user - checking for system predictions to show as welcome bonus","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"🎁 Returning 5 system predictions for new user (welcome bonus)","service":"aiRoutes","timestamp":"2025-07-03 14:36:37"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:37:10"}
+{"level":"info","message":"👤 User 881aef18-d471-4203-8a01-10dc95d81ffb: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"🌟 Pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb: unlimited picks","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"👤 User 881aef18-d471-4203-8a01-10dc95d81ffb: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"🌟 Pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb: unlimited picks","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📚 Fetching latest 10 predictions from database","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"📚 Found 10 latest predictions","service":"aiRoutes","timestamp":"2025-07-03 14:37:11"}
+{"level":"info","message":"🎯 Grok Streaming Chat Request from user f08b56d3-d4ec-4815-b502-6647d723d2a6: \"What's the latest news in sports?\"","service":"aiRoutes","timestamp":"2025-07-03 14:37:34"}
+{"level":"info","message":"📚 Fetching saved predictions for user: 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:37:59"}
+{"level":"info","message":"👤 User 881aef18-d471-4203-8a01-10dc95d81ffb: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-03 14:38:00"}
+{"level":"info","message":"🌟 Pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb: unlimited picks","service":"aiRoutes","timestamp":"2025-07-03 14:38:00"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user 881aef18-d471-4203-8a01-10dc95d81ffb","service":"aiRoutes","timestamp":"2025-07-03 14:38:00"}

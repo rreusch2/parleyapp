@@ -170,27 +170,8 @@ export default function SettingsScreen() {
         }
       };
       
-      // Get token from Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('You must be logged in to save preferences');
-      }
-      
-      // Send to backend API
-      const response = await fetch('http://localhost:3000/api/user-preferences', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(preferences)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save preferences');
-      }
+      // Use the aiService to save preferences with proper URL handling
+      await aiService.saveUserPreferences(preferences);
       
       Alert.alert('Success', 'Preferences saved successfully!');
     } catch (error: any) {
