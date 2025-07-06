@@ -1,17 +1,17 @@
-# Ignore React Native app files for Python API deployment
+# Ignore unnecessary files for backend deployment
 app/
-node_modules/
-package.json
-package-lock.json
-yarn.lock
-ios/
-android/
+*.md
+logs/
+data/
+scripts/
+venv/
+__pycache__/
 .expo/
-.gitignore
-README.md
-
-# Only deploy Python API files
-!statmuse_api_server.py
-!simple_statmuse_client.py
-!statmuse-requirements.txt
-!railway.toml
+assets/
+hooks/
+types/
+*.sql
+*.log
+*.py
+*.txt
+!backend/
