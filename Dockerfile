@@ -9,9 +9,8 @@ COPY backend/tsconfig.json ./backend/
 # Install dependencies
 RUN cd backend && npm install
 
-# Copy backend source code and other necessary files
+# Copy backend source code
 COPY backend/src ./backend/src
-COPY backend/.env ./backend/.env
 
 # Build TypeScript
 RUN cd backend && npm run build
