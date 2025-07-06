@@ -1,11 +1,11 @@
 module.exports = {
   expo: {
-    name: "Predictive Play",
-    slug: "Predictive Play",
+    name: "Parley App",
+    slug: "parleyapp",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "Predictive Play",
+    scheme: "parleyapp",
     userInterfaceStyle: "automatic",
     updates: {
       fallbackToCacheTimeout: 0
@@ -15,12 +15,12 @@ module.exports = {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.Predictive Play.mobile",
+      bundleIdentifier: "com.parleyapp.mobile",
       infoPlist: {
-        NSCameraUsageDescription: "Predictive Play needs camera access to scan betting slips and QR codes for enhanced features.",
-        NSPhotoLibraryUsageDescription: "Predictive Play needs photo library access to save and share your winning picks and analysis.",
-        NSLocationWhenInUseUsageDescription: "Predictive Play uses your location to provide region-specific odds and legal sports betting information.",
-        NSUserTrackingUsageDescription: "Predictive Play uses tracking to provide personalized sports betting recommendations and improve your experience.",
+        NSCameraUsageDescription: "Parley App needs camera access to scan betting slips and QR codes for enhanced features.",
+        NSPhotoLibraryUsageDescription: "Parley App needs photo library access to save and share your winning picks and analysis.",
+        NSLocationWhenInUseUsageDescription: "Parley App uses your location to provide region-specific odds and legal sports betting information.",
+        NSUserTrackingUsageDescription: "Parley App uses tracking to provide personalized sports betting recommendations and improve your experience.",
 
       }
     },
@@ -29,7 +29,7 @@ module.exports = {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#111827"
       },
-      package: "com.Predictive Play.mobile",
+      package: "com.parleyapp.mobile",
       permissions: [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -53,7 +53,7 @@ module.exports = {
       // VAPID keys for web push notifications
       vapidPublicKey: "BECJqbsZfUznpo_xM6Rqz34r6gfXgNkDpTc8OQ7ovWO1KdSRKHn5NsrPWOFzEJy4WZq6vn039fpAnAz0uWWdS4s"
     },
-    plugins: ["expo-router", "expo-font", "expo-web-browser", "expo-notifications"],
+    plugins: ["expo-router", "expo-font", "expo-web-browser", "expo-notifications", "react-native-iap"],
     experiments: {
       typedRoutes: true
     },

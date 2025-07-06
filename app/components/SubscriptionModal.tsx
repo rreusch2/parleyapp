@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import inAppPurchaseService from '../services/inAppPurchases';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   X,
@@ -36,7 +37,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface SubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe: (planId: 'monthly' | 'yearly' | 'lifetime') => Promise<void>;
+  onSubscribe?: (planId: 'monthly' | 'yearly' | 'lifetime') => Promise<void>;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
@@ -46,18 +47,71 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly'); // Default to yearly (best value)
   const [loading, setLoading] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+
+  // Initialize IAP service when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      initializeIAP();
+    }
+  }, [visible]);
+
+  const initializeIAP = async () => {
+    try {
+      await inAppPurchaseService.initialize();
+      const subs = inAppPurchaseService.getAllSubscriptions();
+      setSubscriptions(subs);
+      console.log('📱 IAP initialized, loaded subscriptions:', subs.length);
+    } catch (error) {
+      console.error('❌ Failed to initialize IAP:', error);
+      Alert.alert('Error', 'Unable to load subscription options. Please try again.');
+    }
+  };
 
   const handleSubscribe = async () => {
     try {
       setLoading(true);
-      await onSubscribe(selectedPlan);
-      // Modal will close automatically on successful subscription
+      
+      // Get the product ID based on selected plan
+      const productId = getProductId(selectedPlan);
+      
+      if (!productId) {
+        throw new Error('Product not available');
+      }
+
+      // Use IAP service to purchase
+      await inAppPurchaseService.purchaseSubscription(productId);
+      
+      // Call the optional callback if provided
+      if (onSubscribe) {
+        await onSubscribe(selectedPlan);
+      }
+      
+      // Close modal on success
+      onClose();
     } catch (error) {
       console.error('Subscription error:', error);
       Alert.alert('Error', 'Failed to process subscription. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const getProductId = (plan: 'monthly' | 'yearly' | 'lifetime'): string | null => {
+    const productIds = {
+      monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
+      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premium_yearly' : 'premium_yearly',
+      lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
+    };
+    return productIds[plan];
+  };
+
+  const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
+    const productId = getProductId(plan);
+    if (!productId) return '$9.99'; // fallback
+    
+    const subscription = subscriptions.find(sub => sub.productId === productId);
+    return subscription?.localizedPrice || '$9.99'; // fallback
   };
 
   const features = [
@@ -165,7 +219,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           </View>
                         )}
                       </View>
-                      <Text style={styles.planPrice}>$0.89</Text>
+                      <Text style={styles.planPrice}>$26.70</Text>
                       <Text style={styles.planPeriod}>per day</Text>
                     </View>
                     <View style={styles.planBilling}>
