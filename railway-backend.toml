@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+
+[deploy]  
+startCommand = "cd backend && npm start"
+healthcheckPath = "/api/health"
+
+[nixpacks]
+aptPkgs = ["nodejs", "npm"]
+installPhase = "cd backend && npm install"

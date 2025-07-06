@@ -1,10 +1,13 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "backend/Dockerfile"
+builder = "nixpacks"
 
 [deploy]
-healthcheckPath = "/api/health"
-startCommand = "npm start"
+startCommand = "gunicorn statmuse_api_server:app --bind 0.0.0.0:$PORT"
+healthcheckPath = "/health"
+
+[nixpacks]
+aptPkgs = ["python3", "python3-pip"]
+installPhase = "pip install -r statmuse-requirements.txt"
 
 # Environment variables template (set these in Railway dashboard)
 # THEODDS_API_KEY=your_theodds_api_key
