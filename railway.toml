@@ -2,24 +2,9 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "gunicorn statmuse_api_server:app --bind 0.0.0.0:$PORT"
+startCommand = "cd python-services/sports-betting-api && gunicorn ml_prediction_server:app --bind 0.0.0.0:$PORT"
 healthcheckPath = "/health"
 
 [nixpacks]
-providers = ["python"]
-installPhase = "pip install -r statmuse-requirements.txt"
-
-# Environment variables template (set these in Railway dashboard)
-# THEODDS_API_KEY=your_theodds_api_key
-# SUPABASE_URL=your_supabase_url  
-# SUPABASE_SERVICE_KEY=your_supabase_service_key
-# DEEPSEEK_API_KEY=your_deepseek_key
-# XAI_API_KEY=your_grok_key
-# AUTOMATION_SECRET=your_secure_automation_token
-# NODE_ENV=production
-
-# Daily automation cron job
-[[crons]]
-name = "daily-automation"
-schedule = "0 2 * * *"  # 2:00 AM daily
-command = "curl -X POST https://$RAILWAY_STATIC_URL/api/automation/daily -H 'Authorization: Bearer $AUTOMATION_SECRET' -H 'Content-Type: application/json'" 
+aptPkgs = ["python3", "python3-pip"]
+installPhase = "pip install -r ml-requirements.txt"
