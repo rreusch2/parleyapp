@@ -1909,29 +1909,7 @@ Respond ONLY with valid JSON, no other text.`;
     return true;
   }
 
-  /**
-   * Get count of player props for a specific game
-   */
-  private async getPlayerPropsCount(gameId: string): Promise<number> {
-    try {
-      const { count, error } = await supabase
-        .from('player_props_odds')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', gameId)
-        .not('over_odds', 'is', null)
-        .gt('line', 0);
-
-      if (error) {
-        logger.error(`❌ Error counting player props: ${error.message}`);
-        return 0;
-      }
-
-      return count || 0;
-    } catch (error) {
-      logger.error(`❌ Error counting player props for game ${gameId}: ${error}`);
-      return 0;
-    }
-  }
+  // Player props count method removed - handled by separate intelligent agent system
 
   /**
    * Generate ONLY team-based picks (ML, spreads, totals) - Tab 1
@@ -2003,58 +1981,13 @@ Respond ONLY with valid JSON, no other text.`;
       // Get today's games
       const todaysGames = await this.getTodaysGamesFromDatabase();
       
-      // Filter to ONLY games that have player props data
-      const gamesWithProps = [];
+      // Player props are now handled by separate intelligent agent system
+      logger.info(`🎯 Player props generation skipped - handled by separate intelligent agent system`);
       
-      for (const game of todaysGames) {
-        const propsCount = await this.getPlayerPropsCount(game.id);
-        if (propsCount > 0) {
-          gamesWithProps.push({ ...game, propsCount });
-        }
-      }
-      
-      // Sort by props count (most props first for better picks)
-      gamesWithProps.sort((a, b) => b.propsCount - a.propsCount);
-      
-      logger.info(`🎯 Found ${gamesWithProps.length} games with player props data (${gamesWithProps.map(g => `${g.away_team}@${g.home_team}(${g.propsCount})`).join(', ')})`);
-
-      if (gamesWithProps.length === 0) {
-        logger.warn('⚠️ No games with player props data found');
-        return [];
-      }
-
-      const allPlayerPropsPicks: BestPick[] = [];
-
-      // Process ONLY games with props data
-      for (const game of gamesWithProps) {
-        logger.info(`⚾ Analyzing PLAYER PROPS for: ${game.away_team} @ ${game.home_team} (${game.propsCount} props)`);
-        
-        // Player props picks are now handled by separate intelligent agent system
-        // const playerPropsPicks = await this.generateEnhancedPlayerPropsPicks(game, userId);
-        // allPlayerPropsPicks.push(...playerPropsPicks);
-        
-        logger.info(`✅ Generated ${playerPropsPicks.length} player props picks for this game`);
-      }
-
-      logger.info(`🎲 Generated ${allPlayerPropsPicks.length} total PLAYER PROPS picks`);
-
-      if (allPlayerPropsPicks.length === 0) {
-        logger.warn('⚠️ No player props picks generated - check data quality or prediction models');
-        return [];
-      }
-
-      // Use AI to select best player props picks
-      const bestPlayerPropsPicks = await this.selectBestPicks(allPlayerPropsPicks, maxPicks, userId);
-      
-      if (!isTestMode) {
-        await this.storeBestPicksInDatabase(bestPlayerPropsPicks);
-      }
-
       const elapsed = Date.now() - startTime;
-      logger.info(`✅ Player props generation completed in ${elapsed}ms`);
-      logger.info(`🏆 Selected ${bestPlayerPropsPicks.length} best PLAYER PROPS picks`);
+      logger.info(`✅ Player props generation completed in ${elapsed}ms (skipped - separate system)`);
       
-      return bestPlayerPropsPicks;
+      return []; // Empty array - player props handled elsewhere
 
     } catch (error) {
       logger.error(`❌ Player props generation failed: ${error}`);
@@ -2063,25 +1996,23 @@ Respond ONLY with valid JSON, no other text.`;
   }
 
   /**
-   * NEW METHOD: Generate combined daily picks (10 team + 10 player props = 20 total)
-   * This is what your UI expects for the 2-tab system
+   * NEW METHOD: Generate combined daily picks (10 team picks only)
+   * Player props are handled by separate intelligent agent system
    */
   async generateCombinedDailyPicks(userId: string = 'system', isTestMode: boolean = false): Promise<{ team_picks: BestPick[]; player_props_picks: BestPick[]; total_picks: number }> {
     const startTime = Date.now();
     logger.info(`🏆 COMBINED DAILY PICKS GENERATOR ${isTestMode ? 'TEST MODE' : 'STARTING'} for user: ${userId}`);
     
     try {
-      // Generate both types of picks in parallel
-      const [teamPicks, playerPropsPicks] = await Promise.all([
-        this.generateTeamPicks(userId, 10, isTestMode),
-        this.generatePlayerPropsPicks(userId, 10, isTestMode)
-      ]);
+      // Generate only team picks - player props handled by separate intelligent agent
+      const teamPicks = await this.generateTeamPicks(userId, 10, isTestMode);
+      const playerPropsPicks: BestPick[] = []; // Empty - handled by separate system
 
-      const totalPicks = teamPicks.length + playerPropsPicks.length;
+      const totalPicks = teamPicks.length;
       const elapsed = Date.now() - startTime;
       
       logger.info(`✅ Combined generation completed in ${elapsed}ms`);
-      logger.info(`🏆 Total picks: ${totalPicks} (${teamPicks.length} team + ${playerPropsPicks.length} player props)`);
+      logger.info(`🏆 Total picks: ${totalPicks} (${teamPicks.length} team picks only - player props handled separately)`);
       
       return {
         team_picks: teamPicks,
