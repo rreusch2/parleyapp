@@ -8301,3 +8301,26 @@
 {"level":"error","message":"SerpAPI search failed: Request failed with status code 429","service":"webSearch","timestamp":"2025-07-06 03:16:27"}
 {"level":"error","message":"Error with tools: AxiosError: Request failed with status code 429","service":"grokChatbot","timestamp":"2025-07-06 03:16:27"}
 {"level":"error","message":"Error performing web search: Request failed with status code 429","service":"webSearch","timestamp":"2025-07-06 03:16:27"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:17"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:18"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:18"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:18"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:18"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:19"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Database error fetching player props: column players_1.full_name does not exist","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:20"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 06:56:20"}

@@ -71,7 +71,7 @@ export interface BestPick {
   reasoning: string;
   value_percentage: number;
   roi_estimate: number;
-  bet_type: 'moneyline' | 'spread' | 'total' | 'player_prop';
+  bet_type: 'moneyline' | 'spread' | 'total';
   status: 'pending';
   created_at?: string; // Added created_at
   metadata: {
@@ -144,30 +144,10 @@ class EnhancedDeepSeekOrchestratorService {
       // Step 2: Generate all possible picks for each game using enhanced models
       const allPossiblePicks: BestPick[] = [];
       // Track games with missing player props data
-      const gamesWithMissingPlayerProps: string[] = [];
+      // Player props now handled by separate system
 
-      // PRIORITIZE games with player props data for better success rate
-      const gamesWithPropsData = [];
-      const gamesWithoutPropsData = [];
-      
+      // Process all games for team predictions only
       for (const game of todaysGames) {
-        const propsCount = await this.getPlayerPropsCount(game.id);
-        if (propsCount > 0) {
-          gamesWithPropsData.push({ ...game, propsCount });
-        } else {
-          gamesWithoutPropsData.push(game);
-        }
-      }
-      
-      // Sort games with props by count (highest first)
-      gamesWithPropsData.sort((a, b) => b.propsCount - a.propsCount);
-      
-      // Process games with props first, then games without
-      const orderedGames = [...gamesWithPropsData, ...gamesWithoutPropsData];
-      
-      logger.info(`🎯 Game processing order: ${gamesWithPropsData.length} games WITH props (${gamesWithPropsData.map(g => `${g.away_team}@${g.home_team}(${g.propsCount})`).join(', ')}), ${gamesWithoutPropsData.length} without props`);
-
-      for (const game of orderedGames) {
         logger.info(`🔍 Analyzing game: ${game.away_team} @ ${game.home_team} (${game.sport})`);
         
         // Generate ML predictions (legacy + enhanced)
@@ -182,23 +162,10 @@ class EnhancedDeepSeekOrchestratorService {
         const totalsPicks = await this.generateTotalsPicks(game, userId);
         allPossiblePicks.push(...totalsPicks);
 
-        // Generate enhanced player props picks
-        const playerPropsPicks = await this.generateEnhancedPlayerPropsPicks(game, userId);
-        
-        // Check if player props were found
-        if (playerPropsPicks.length === 0) {
-          gamesWithMissingPlayerProps.push(`${game.away_team} @ ${game.home_team}`);
-        }
-        
-        allPossiblePicks.push(...playerPropsPicks);
+        // Player props are handled by separate intelligent agent - skip here
       }
       
-      // Log warning about games with missing player props
-      if (gamesWithMissingPlayerProps.length > 0) {
-        logger.warn(`⚠️ ${gamesWithMissingPlayerProps.length}/${todaysGames.length} games have NO player props data in database`);
-        logger.warn(`⚠️ Games missing player props: ${gamesWithMissingPlayerProps.join(', ')}`);
-        logger.warn(`⚠️ Check player_props table in database or verify data scraping pipeline`);
-      }
+      // Player props handled by separate system
 
       logger.info(`🎲 Generated ${allPossiblePicks.length} total possible picks (enhanced mode)`);
 
@@ -543,202 +510,7 @@ class EnhancedDeepSeekOrchestratorService {
     }
   }
 
-  /**
-   * Generate enhanced player props predictions using Phase 2 models
-   * NOW USES REAL SPORTSBOOK LINES FROM DATABASE!
-   */
-  private async generateEnhancedPlayerPropsPicks(game: DatabaseGame, userId: string): Promise<BestPick[]> {
-    try {
-      logger.info(`🎯 Generating enhanced player props for ${game.away_team} @ ${game.home_team}`);
-      
-      const picks: BestPick[] = [];
-      let suspiciousPatternCount = 0;
-      
-      // Get REAL player prop odds from database
-      const realPlayerProps = await this.getRealPlayerPropOdds(game.id);
-      
-      if (realPlayerProps.length === 0) {
-        logger.warn(`❌ No real player prop odds found for ${game.away_team} @ ${game.home_team}`);
-        return [];
-      }
-
-      logger.info(`✅ Found ${realPlayerProps.length} real player prop markets`);
-      
-      // Track "undefined" player prop IDs for debugging
-      const undefinedPropIds = [];
-
-      // Filter to only use complete props with both over AND under odds
-      const completePlayerProps = realPlayerProps.filter(prop => {
-        const hasCompleteOdds = prop.over_odds !== null && prop.under_odds !== null;
-        if (!hasCompleteOdds) {
-          console.log(`⚠️ Skipping incomplete prop: ${prop.players?.name} ${prop.player_prop_types?.prop_name} (missing ${prop.over_odds === null ? 'over' : 'under'} odds)`);
-        }
-        return hasCompleteOdds;
-      });
-
-      console.log(`✅ Found ${completePlayerProps.length} complete player prop markets (filtered from ${realPlayerProps.length})`);
-
-      for (const propMarket of completePlayerProps) {
-        try {
-          // Updated validation to be more flexible - require either over_odds OR under_odds
-          if (!propMarket.player_id || !propMarket.line || 
-              (propMarket.over_odds === undefined && propMarket.under_odds === undefined)) {
-            
-            // Log detailed diagnostic information about the broken prop
-            const missingFields = [];
-            if (!propMarket.player_id) missingFields.push('player_id');
-            if (!propMarket.line) missingFields.push('line');
-            if (propMarket.over_odds === undefined && propMarket.under_odds === undefined) {
-              missingFields.push('both_over_and_under_odds');
-            }
-            
-            undefinedPropIds.push({
-              id: propMarket.id || 'unknown',
-              player: propMarket.player_name || 'unknown',
-              prop_type: propMarket.prop_type || 'unknown',
-              missing: missingFields.join(', ')
-            });
-            
-            logger.warn(`⚠️ Skipping invalid prop market - Missing: ${missingFields.join(', ')} for ${propMarket.player_name || 'Unknown player'}`);
-            continue;
-          }
-
-          // Use real sportsbook line and odds (now more flexible)
-          const realLine = propMarket.line;
-          const realOverOdds = propMarket.over_odds;
-          const realUnderOdds = propMarket.under_odds;
-          
-          // Add warning if using calculated odds
-          if (!propMarket.has_both_odds) {
-            logger.info(`📊 Using calculated odds for ${propMarket.player_name} ${propMarket.prop_type} (original: ${propMarket.original_over_odds || 'null'} / ${propMarket.original_under_odds || 'null'})`);
-          }
-
-          // SKIP historical stats lookup for now - use odds-based analysis instead
-          logger.info(`📊 Generating odds-based prediction for ${propMarket.player_name} ${propMarket.prop_type}`);
-          
-          // Use a simple model based on sportsbook odds and line value
-          const historicalStats = this.generateOddsBasedPrediction(propMarket, realLine, realOverOdds, realUnderOdds);
-          
-          if (!historicalStats) {
-            logger.warn(`⚠️ Could not generate prediction for ${propMarket.player_name} ${propMarket.prop_type}`);
-            continue;
-          }
-          
-          logger.info(`📊 ${propMarket.player_name}: Using odds-based analysis for ${propMarket.prop_type}`);
-          
-          // Calculate prediction using odds-based analysis
-          const prediction = this.calculateOddsBasedPropPrediction(historicalStats, realLine, realOverOdds, realUnderOdds);
-          
-          // Create enhanced result matching expected format
-          const enhancedResult = {
-            prediction: prediction.prediction,
-            confidence: prediction.confidence,
-            reasoning: `Historical analysis: ${prediction.factors.join(', ')}`,
-            model_version: 'HistoricalStats-v1.0',
-            enhanced: true,
-            features_used: ['HistoricalStats', 'RecentForm', 'HomeAwaySplits', 'OpponentHistory'],
-            timestamp: new Date().toISOString(),
-            factors: prediction.factors,
-            over_probability: prediction.overProbability,
-            under_probability: prediction.underProbability
-          };
-
-          if (!enhancedResult || enhancedResult.prediction === undefined) {
-            logger.warn(`⚠️ Player prop model returned undefined prediction for ${propMarket.player_name} ${propMarket.prop_type}`);
-            continue;
-          }
-
-          if (enhancedResult.confidence >= 0.55) { // Historical data confidence threshold
-            // Calculate REAL expected value vs sportsbook odds
-            const modelPrediction = enhancedResult.prediction;
-            const realEdge = this.calculateRealPlayerPropEdge(
-              modelPrediction, 
-              realLine, 
-              realOverOdds, 
-              realUnderOdds
-            );
-            
-            // Add validation for reasonable predictions
-            if (modelPrediction < 0 || modelPrediction > 20) {
-              logger.warn(`⚠️ Unrealistic prediction detected: ${modelPrediction} for ${propMarket.player_name} ${propMarket.prop_type} - skipping`);
-              continue;
-            }
-            
-            // CRITICAL: Validate edge calculation isn't broken
-            const isValidPick = this.validatePlayerPropPick(realEdge, enhancedResult, propMarket);
-            
-            // Additional validation for estimated stats
-            if (!propMarket.has_both_odds && Math.abs(realEdge.edgePercentage) > 10) {
-              logger.warn(`⚠️ High edge (${realEdge.edgePercentage.toFixed(1)}%) detected with calculated odds - reducing confidence`);
-              enhancedResult.confidence = Math.min(enhancedResult.confidence, 0.65);
-            }
-            
-            // Track suspicious patterns
-            if (!isValidPick) {
-              suspiciousPatternCount++;
-              // If too many suspicious patterns, abort player props for THIS GAME ONLY
-              if (suspiciousPatternCount >= 3) {
-                logger.warn(`🚫 ABORTING PLAYER PROPS FOR ${game.away_team} @ ${game.home_team}: Too many suspicious patterns detected (${suspiciousPatternCount}) - ML server likely broken for this game`);
-                break; // Break out of prop loop for this game, but continue with other games
-              }
-            }
-            
-            if (realEdge.hasValue && realEdge.edgePercentage >= 5 && isValidPick) { // Reasonable 5% minimum edge for historical data
-              logger.info(`🎯 REAL VALUE FOUND: ${propMarket.player_name} ${propMarket.prop_type} - Edge: ${realEdge.edgePercentage.toFixed(1)}%`);
-              
-              // Validate pick before creating
-              if (!propMarket.player_name || !propMarket.prop_type || !realEdge.recommendedBet) {
-                logger.warn(`⚠️ Skipping pick with incomplete data: ${JSON.stringify({
-                  player: propMarket.player_name,
-                  prop_type: propMarket.prop_type,
-                  recommended_bet: realEdge.recommendedBet,
-                  odds: realEdge.recommendedBet === 'over' ? realOverOdds : realUnderOdds
-                })}`);
-                continue;
-              }
-              
-              picks.push(this.createRealPlayerPropPick(game, propMarket, enhancedResult, realEdge, userId));
-              logger.info(`✅ Added player prop pick for ${propMarket.player_name} ${propMarket.prop_type}`);
-            } else {
-              const reason = !realEdge.hasValue ? 'no edge detected' : 
-                           realEdge.edgePercentage < 5 ? `edge too low (${realEdge.edgePercentage.toFixed(1)}%)` :
-                           'failed validation checks';
-              logger.info(`❌ Skipped ${propMarket.player_name} ${propMarket.prop_type}: ${reason}`);
-            }
-          }
-
-        } catch (error) {
-          // More detailed error logging
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          const propInfo = propMarket.player_name ? 
-            `${propMarket.player_name} (ID: ${propMarket.player_id || 'unknown'}) ${propMarket.prop_type || 'unknown prop'}` : 
-            'Unknown player prop';
-            
-          logger.warn(`⚠️ Enhanced prop prediction failed for ${propInfo}: ${errorMsg}`);
-          
-          undefinedPropIds.push({
-            id: propMarket.player_id || 'unknown',
-            player: propMarket.player_name || 'unknown',
-            prop_type: propMarket.prop_type || 'unknown',
-            error: errorMsg
-          });
-        }
-      }
-
-      // Log summary of undefined props if any
-      if (undefinedPropIds.length > 0) {
-        logger.warn(`⚠️ Found ${undefinedPropIds.length} problematic player props (out of ${realPlayerProps.length})`);
-        logger.warn(`⚠️ Undefined prop IDs details: ${JSON.stringify(undefinedPropIds)}`);
-      }
-
-      logger.info(`💎 Generated ${picks.length} real player prop value picks`);
-      return picks;
-
-    } catch (error) {
-      logger.warn(`⚠️ Enhanced player props failed for ${game.away_team} @ ${game.home_team}: ${error}`);
-      return [];
-    }
-  }
+  // Player props generation completely removed - handled by separate intelligent agent system
 
   /**
    * Get ML prediction from Python server - UPDATED FOR REAL MODELS
@@ -1100,109 +872,7 @@ class EnhancedDeepSeekOrchestratorService {
     };
   }
 
-  /**
-   * Get REAL player prop odds from database 
-   */
-  private async getRealPlayerPropOdds(gameId: string): Promise<any[]> {
-    try {
-      // Get player prop odds with all related data using Supabase client
-      const { data: playerProps, error } = await supabase
-        .from('player_props_odds')
-        .select(`
-          id,
-          line,
-          over_odds,
-          under_odds,
-          last_update,
-          players (
-            id,
-            name,
-            full_name,
-            first_name,
-            last_name,
-            team
-          ),
-          player_prop_types (
-            prop_key,
-            prop_name
-          ),
-          bookmakers (
-            bookmaker_name
-          )
-        `)
-        .eq('event_id', gameId)
-        .not('over_odds', 'is', null) // Require both over AND under odds to be present
-        .not('under_odds', 'is', null)
-        .gt('line', 0)
-        .order('last_update', { ascending: false });
-
-      if (error) {
-        logger.error(`❌ Database error fetching player props: ${error.message}`);
-        return [];
-      }
-
-      // Filter out invalid joins and transform the data
-      const validProps = (playerProps || []).filter((prop: any) => 
-        prop.players && prop.player_prop_types && prop.bookmakers
-      );
-
-      // Get game info for home team check
-      const { data: gameInfo } = await supabase
-        .from('sports_events')
-        .select('home_team, away_team')
-        .eq('id', gameId)
-        .single();
-
-      // Transform the data to match expected format
-      const transformedData = validProps.map((prop: any) => {
-        // Validate odds to ensure they're realistic numbers
-        const overOdds = parseFloat(prop.over_odds);
-        const underOdds = parseFloat(prop.under_odds);
-        
-        // Apply validation to odds to ensure they're realistic
-        let validOverOdds = overOdds;
-        let validUnderOdds = underOdds;
-        
-        // Log any suspicious odds values
-        if (isNaN(overOdds) || overOdds > 500 || overOdds < -500 || Math.abs(overOdds) < 100) {
-          logger.warn(`⚠️ Suspicious over odds: ${prop.over_odds} for ${prop.players.name} ${prop.player_prop_types.prop_name}`);
-          validOverOdds = -110;
-        }
-        
-        if (isNaN(underOdds) || underOdds > 500 || underOdds < -500 || Math.abs(underOdds) < 100) {
-          logger.warn(`⚠️ Suspicious under odds: ${prop.under_odds} for ${prop.players.name} ${prop.player_prop_types.prop_name}`);
-          validUnderOdds = -110;
-        }
-        
-        return {
-          id: prop.id,
-          line: parseFloat(prop.line),
-          over_odds: validOverOdds, // Use validated odds
-          under_odds: validUnderOdds, // Use validated odds
-          original_over_odds: overOdds, // Keep original for reference
-          original_under_odds: underOdds, // Keep original for reference
-          player_id: prop.players.id,
-          player_name: prop.players.full_name || `${prop.players.first_name || ''} ${prop.players.last_name || ''}`.trim() || prop.players.name,
-          team: prop.players.team || '', // Ensure team is at least an empty string
-          prop_type: prop.player_prop_types.prop_key,
-          prop_name: prop.player_prop_types.prop_name,
-          bookmaker_name: prop.bookmakers.bookmaker_name,
-          last_update: prop.last_update,
-          is_home: gameInfo && prop.players.team === gameInfo.home_team,
-          has_both_odds: true // We've now filtered to only props with both sides
-        };
-      });
-      
-      logger.info(`✅ Retrieved and validated ${transformedData.length} complete player prop markets (with both over/under odds)`);
-
-      logger.info(`✅ Retrieved ${transformedData.length} real player prop markets from database`);
-      return transformedData;
-
-    } catch (error) {
-      logger.error(`❌ Error fetching real player prop odds: ${error}`);
-      return [];
-    }
-  }
+  // Player props odds fetching removed - handled by separate intelligent agent system
 
   /**
    * Calculate implied odds for the opposite side when only one side is available
@@ -1315,100 +985,7 @@ class EnhancedDeepSeekOrchestratorService {
     };
   }
 
-  /**
-   * Create REAL player prop pick with actual sportsbook odds
-   */
-  private createRealPlayerPropPick(
-    game: DatabaseGame, 
-    propMarket: any, 
-    enhancedResult: any, 
-    realEdge: any, 
-    userId: string
-  ): BestPick {
-    const uuid = require('crypto').randomUUID();
-    
-    // Cap edge percentage to safe database values
-    const cappedEdge = Math.max(-50, Math.min(50, isNaN(realEdge.edgePercentage) ? 0 : realEdge.edgePercentage));
-    
-    const side = realEdge.recommendedBet?.toUpperCase() || 'OVER';
-    const odds = realEdge.recommendedBet === 'over' ? propMarket.over_odds : propMarket.under_odds;
-    
-    // Validate required fields
-    if (!propMarket.player_name || !propMarket.prop_name || !odds) {
-      throw new Error(`Missing required data for pick creation: player=${propMarket.player_name}, prop=${propMarket.prop_name}, odds=${odds}`);
-    }
-    
-    // Ensure confidence is reasonable and numeric
-    const confidence = Math.max(50, Math.min(95, Math.round(enhancedResult.confidence * 100)));
-    
-    // Format the pick description properly with team information
-    // Use full player name with team in parentheses if available
-    const teamInfo = propMarket.team ? ` (${propMarket.team})` : '';
-    const pickDescription = `${propMarket.player_name}${teamInfo} ${side} ${propMarket.line} ${propMarket.prop_name}`;
-    
-    // Convert odds to string with stricter validation for realistic odds
-    let validOdds = typeof odds === 'number' ? odds : parseFloat(odds);
-    
-    // Much stricter validation for realistic player prop odds
-    // American odds for player props are typically between -300 and +300
-    if (isNaN(validOdds) || validOdds > 500 || validOdds < -500 || 
-        Math.abs(validOdds) < 100) { // Also catch unrealistically low odds
-      logger.warn(`⚠️ Invalid odds detected for ${propMarket.player_name} prop: ${odds}, using default -110`);
-      validOdds = -110; // Default to standard odds if invalid
-    }
-    
-    const oddsString = validOdds.toString();
-    
-    // Ensure user_id is a valid UUID
-    let validUserId = userId;
-    if (userId === 'system' || !userId || userId.length !== 36) {
-      validUserId = '00000000-0000-0000-0000-000000000000'; // Use null UUID for system
-    }
-    
-    // Cap ROI estimate to safe values
-    const roiEstimate = Math.max(-50, Math.min(200, isNaN(realEdge.expectedValue) ? 0 : realEdge.expectedValue * 100));
-    
-    return {
-      id: uuid,
-      game_id: game.id,
-      user_id: validUserId,
-      match_teams: `${game.away_team} @ ${game.home_team}`,
-      pick: pickDescription,
-      odds: oddsString,
-      confidence: confidence,
-      sport: game.sport,
-      event_time: game.start_time,
-      reasoning: `REAL ML model predicts ${enhancedResult.prediction.toFixed(2)} vs sportsbook line ${propMarket.line}. ${cappedEdge.toFixed(1)}% edge vs ${propMarket.bookmaker_name} odds. Model confidence: ${(enhancedResult.confidence * 100).toFixed(1)}%`,
-      value_percentage: cappedEdge,
-      roi_estimate: roiEstimate,
-      bet_type: 'player_prop',
-      status: 'pending',
-      metadata: {
-        player_info: {
-          id: propMarket.player_id,
-          name: propMarket.player_name,
-          team: propMarket.team
-        },
-        prop_type: propMarket.prop_type,
-        sportsbook: propMarket.bookmaker_name,
-        real_line: propMarket.line,
-        real_over_odds: propMarket.over_odds,
-        real_under_odds: propMarket.under_odds,
-        model_prediction: enhancedResult.prediction,
-        enhanced_prediction: enhancedResult,
-        tools_used: ['RealMLModels', 'RealSportsbookOdds', 'EnhancedPlayerPropsPredictor'],
-        processing_time: 0,
-        model_version: enhancedResult.model_version || 'v1.0',
-        odds_source: 'TheOdds API Premium',
-        value_analysis: {
-          expected_value: isNaN(realEdge.expectedValue) ? 0 : realEdge.expectedValue,
-          implied_probability: validOdds > 0 ? 100 / (validOdds + 100) : Math.abs(validOdds) / (Math.abs(validOdds) + 100),
-          fair_odds: validOdds,
-          edge_percentage: cappedEdge
-        }
-      }
-    };
-  }
+  // Player prop pick creation removed - handled by separate intelligent agent system
 
   /**
    * Create enhanced spread pick
@@ -1495,50 +1072,7 @@ class EnhancedDeepSeekOrchestratorService {
     };
   }
 
-  /**
-   * Create enhanced player prop pick
-   */
-  private createEnhancedPlayerPropPick(game: DatabaseGame, player: any, propType: string, enhancedResult: any, edge: number, userId: string): BestPick {
-    const line = enhancedResult.prediction;
-    const direction = enhancedResult.prediction > line ? 'OVER' : 'UNDER';
-    
-    // Generate proper UUID and cap edge values
-    const uuid = require('crypto').randomUUID();
-    const cappedEdge = Math.max(-50, Math.min(50, edge));
-    const cappedValuePercentage = Math.max(-50, Math.min(50, enhancedResult.value_percentage));
-    
-    return {
-      id: uuid, // Use proper UUID
-      game_id: game.id,
-      user_id: userId,
-      match_teams: `${game.away_team} @ ${game.home_team}`,
-      pick: `${player.name} ${direction} ${line} ${propType}`,
-      odds: '-110', // Default prop odds
-      confidence: Math.round(enhancedResult.confidence * 100), // Ensure integer
-      sport: game.sport,
-      event_time: game.start_time,
-      reasoning: `Enhanced player props model predicts ${player.name} ${direction} ${line} ${propType} with ${(enhancedResult.confidence * 100).toFixed(1)}% confidence. Model: ${enhancedResult.model_version}`,
-      value_percentage: cappedValuePercentage,
-      roi_estimate: cappedEdge,
-      bet_type: 'player_prop',
-      status: 'pending',
-      metadata: {
-        player_info: player,
-        prop_type: propType,
-        enhanced_prediction: enhancedResult,
-        tools_used: ['enhancedPlayerPropsPredictor'],
-        processing_time: 0,
-        model_version: enhancedResult.model_version,
-        odds_source: 'Database',
-        value_analysis: {
-          expected_value: cappedEdge / 100,
-          implied_probability: 0.524, // -110 odds
-          fair_odds: -110,
-          edge_percentage: cappedEdge
-        }
-      }
-    };
-  }
+  // Enhanced player prop pick creation removed - handled by separate intelligent agent system
 
   private createTotalsPick(game: DatabaseGame, side: 'over' | 'under', expectedTotal: number, lineTotal: number, userId: string, realOdds?: number): BestPick {
     const diff = side === 'over' ? expectedTotal - lineTotal : lineTotal - expectedTotal;
@@ -2495,9 +2029,9 @@ Respond ONLY with valid JSON, no other text.`;
       for (const game of gamesWithProps) {
         logger.info(`⚾ Analyzing PLAYER PROPS for: ${game.away_team} @ ${game.home_team} (${game.propsCount} props)`);
         
-        // Generate ONLY player props picks
-        const playerPropsPicks = await this.generateEnhancedPlayerPropsPicks(game, userId);
-        allPlayerPropsPicks.push(...playerPropsPicks);
+        // Player props picks are now handled by separate intelligent agent system
+        // const playerPropsPicks = await this.generateEnhancedPlayerPropsPicks(game, userId);
+        // allPlayerPropsPicks.push(...playerPropsPicks);
         
         logger.info(`✅ Generated ${playerPropsPicks.length} player props picks for this game`);
       }

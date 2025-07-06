@@ -219,12 +219,12 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           </View>
                         )}
                       </View>
-                      <Text style={styles.planPrice}>$26.70</Text>
+                      <Text style={styles.planPrice}>$0.82</Text>
                       <Text style={styles.planPeriod}>per day</Text>
                     </View>
                     <View style={styles.planBilling}>
                       <Text style={styles.billingText}>Billed Monthly</Text>
-                      <Text style={styles.billingAmount}>$26.70/month</Text>
+                      <Text style={styles.billingAmount}>$24.99/month</Text>
                     </View>
                   </View>
                 </LinearGradient>

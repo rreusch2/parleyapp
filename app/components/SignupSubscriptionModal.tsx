@@ -112,7 +112,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
 
   const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
     const prices = {
-      monthly: '$26.70',
+      monthly: '$24.99',
       yearly: '$149.99',
       lifetime: '$349.99'
     };
