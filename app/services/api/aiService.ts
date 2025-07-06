@@ -3,14 +3,14 @@ import { supabase } from './supabaseClient';
 // Use proper environment variables with better fallback logic
 const BACKEND_URL = (() => {
   if (process.env.NODE_ENV === 'production') {
-    return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.parleyapp.com';
+    return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com';
   }
   return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 })();
 
 const PYTHON_API_URL = (() => {
   if (process.env.NODE_ENV === 'production') {
-    return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'https://python-api.parleyapp.com';
+    return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'https://python-api.Predictive Play.com';
   }
   return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'http://localhost:8001';
 })();

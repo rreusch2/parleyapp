@@ -39,10 +39,10 @@ export interface PaymentResult {
 
 // Apple App Store Product IDs (these need to be configured in App Store Connect)
 const PRODUCT_IDS = {
-  weekly: 'com.parleyapp.weekly_trial', 
-  monthly: 'com.parleyapp.monthly_pro',
-  yearly: 'com.parleyapp.yearly_pro', 
-  lifetime: 'com.parleyapp.lifetime_pro'
+  weekly: 'com.Predictive Play.weekly_trial', 
+  monthly: 'com.Predictive Play.monthly_pro',
+  yearly: 'com.Predictive Play.yearly_pro', 
+  lifetime: 'com.Predictive Play.lifetime_pro'
 };
 
 class ApplePaymentService {
@@ -193,7 +193,7 @@ class ApplePaymentService {
         
         Alert.alert(
           '🎉 Purchase Successful!',
-          'Welcome to ParleyApp Pro! Your subscription is now active.',
+          'Welcome to Predictive Play Pro! Your subscription is now active.',
           [{ text: 'Awesome!', style: 'default' }]
         );
       } else {

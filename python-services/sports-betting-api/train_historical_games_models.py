@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Historical Games Model Training Script for ParleyApp
+Historical Games Model Training Script for Predictive Play
 Trains moneyline, spread, and over/under models using historical_games table with 25,000+ MLB records
 """
 

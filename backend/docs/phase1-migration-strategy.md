@@ -21,13 +21,13 @@
 ### Step 1: Database Migration (Week 1-2)
 ```bash
 # 1. Backup existing database
-pg_dump -U postgres -d parleyapp > backup_$(date +%Y%m%d).sql
+pg_dump -U postgres -d Predictive Play > backup_$(date +%Y%m%d).sql
 
 # 2. Apply enhanced schema (non-destructive)
-psql -U postgres -d parleyapp < backend/src/db/enhanced_schema.sql
+psql -U postgres -d Predictive Play < backend/src/db/enhanced_schema.sql
 
 # 3. Migrate existing data to new structure
-psql -U postgres -d parleyapp < backend/src/db/migrate_existing_data.sql
+psql -U postgres -d Predictive Play < backend/src/db/migrate_existing_data.sql
 ```
 
 ### Step 2: API Integration Setup (Week 1)
@@ -42,7 +42,7 @@ psql -U postgres -d parleyapp < backend/src/db/migrate_existing_data.sql
    API_PROVIDER=oddsjam
    SPORTS_API_KEY=your_oddsjam_api_key
    DB_HOST=localhost
-   DB_NAME=parleyapp
+   DB_NAME=Predictive Play
    DB_USER=postgres
    DB_PASSWORD=your_password
    REDIS_URL=redis://localhost:6379
@@ -72,7 +72,7 @@ psql -U postgres -d parleyapp < backend/src/db/migrate_existing_data.sql
    python data_ingestor.py
    
    # Production mode (with supervisor/systemd)
-   sudo systemctl start parleyapp-ingestor
+   sudo systemctl start Predictive Play-ingestor
    ```
 
 ### Step 4: Data Validation & Quality Checks (Week 3-4)
@@ -117,7 +117,7 @@ If issues arise during migration:
 1. **Database Rollback**
    ```bash
    # Restore from backup
-   psql -U postgres -d parleyapp < backup_YYYYMMDD.sql
+   psql -U postgres -d Predictive Play < backup_YYYYMMDD.sql
    ```
 
 2. **Service Rollback**

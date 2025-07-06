@@ -13,7 +13,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
-import { UserPlus, Mail, Lock, User, Square, CheckSquare, FileText } from 'lucide-react-native';
+import { Mail, Lock, User, CheckSquare, Square, UserPlus } from 'lucide-react-native';
 import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
@@ -38,19 +38,18 @@ export default function SignupScreen() {
       const { data: userData } = await supabase.auth.getUser();
       
       if (userData.user) {
-        // Calculate expiration time (midnight of current day)
+        // Calculate expiration time (24 hours from now for fair trial period)
         const now = new Date();
-        const midnight = new Date(now);
-        midnight.setHours(23, 59, 59, 999); // End of today
+        const expiration = new Date(now.getTime() + (24 * 60 * 60 * 1000)); // 24 hours from now
         
-        console.log(`🕛 Setting welcome bonus to expire at: ${midnight.toISOString()}`);
+        console.log(`🕛 Setting welcome bonus to expire at: ${expiration.toISOString()} (24 hours from signup)`);
         
         // Update user profile to activate welcome bonus
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
             welcome_bonus_claimed: true,
-            welcome_bonus_expires_at: midnight.toISOString(),
+            welcome_bonus_expires_at: expiration.toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', userData.user.id);
@@ -59,7 +58,7 @@ export default function SignupScreen() {
           console.error('❌ Failed to activate welcome bonus:', updateError);
           console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
         } else {
-          console.log(`✅ Welcome bonus activated! User gets ${picks} picks until ${midnight.toISOString()}`);
+          console.log(`✅ Welcome bonus activated! User gets ${picks} picks until ${expiration.toISOString()}`);
           
           // Verify the update worked
           const { data: verifyProfile, error: verifyError } = await supabase

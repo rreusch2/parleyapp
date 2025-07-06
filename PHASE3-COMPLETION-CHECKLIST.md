@@ -18,28 +18,28 @@
 
 ### Task 1: Start Python API (Phase 2 Models) ⏱️ 2 minutes
 ```bash
-cd /home/reid/Desktop/parleyapp/python-services/sports-betting-api
+cd /home/reid/Desktop/Predictive Play/python-services/sports-betting-api
 python parley_predictor.py
 ```
 **Expected**: Should start on port 5001 and show "Enhanced models available"
 
 ### Task 2: Start Backend API (LLM Orchestrator) ⏱️ 2 minutes
 ```bash
-cd /home/reid/Desktop/parleyapp/backend
+cd /home/reid/Desktop/Predictive Play/backend
 npm run dev
 ```
 **Expected**: Should start on port 3001 
 
 ### Task 3: Run Integration Test ⏱️ 2 minutes
 ```bash
-cd /home/reid/Desktop/parleyapp/backend
+cd /home/reid/Desktop/Predictive Play/backend
 node test-phase3-integration.js
 ```
 **Expected**: Should show 80%+ tests passing when both APIs are running
 
 ### Task 4: Test Enhanced Orchestrator ⏱️ 5 minutes
 ```bash
-cd /home/reid/Desktop/parleyapp/backend
+cd /home/reid/Desktop/Predictive Play/backend
 node -e "
 const orchestrator = require('./src/ai/orchestrator/enhancedDeepseekOrchestrator');
 // Test enhanced pick generation

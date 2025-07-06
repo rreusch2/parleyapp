@@ -1,0 +1,22 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+startCommand = "npm start"
+
+# Environment variables template (set these in Railway dashboard)
+# THEODDS_API_KEY=your_theodds_api_key
+# SUPABASE_URL=your_supabase_url  
+# SUPABASE_SERVICE_KEY=your_supabase_service_key
+# DEEPSEEK_API_KEY=your_deepseek_key
+# XAI_API_KEY=your_grok_key
+# AUTOMATION_SECRET=your_secure_automation_token
+# NODE_ENV=production
+
+# Daily automation cron job
+[[crons]]
+name = "daily-automation"
+schedule = "0 2 * * *"  # 2:00 AM daily
+command = "curl -X POST https://$RAILWAY_STATIC_URL/api/automation/daily -H 'Authorization: Bearer $AUTOMATION_SECRET' -H 'Content-Type: application/json'" 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Daily Automation Script for ParleyApp Phase 3
+Enhanced Daily Automation Script for Predictive Play Phase 3
 Leverages Phase 2 enhanced prediction models for improved accuracy
 Automatically generates daily picks using real data and ML models
 """
@@ -551,7 +551,7 @@ class EnhancedDailyAutomation:
         results = self.results
         
         report = f"""
-🚀 ParleyApp Enhanced Daily Analysis Report - {results['date']}
+🚀 Predictive Play Enhanced Daily Analysis Report - {results['date']}
 {'='*80}
 
 🎯 Enhanced Mode: {'✅ ACTIVE' if results['enhanced_mode'] else '❌ DISABLED'}

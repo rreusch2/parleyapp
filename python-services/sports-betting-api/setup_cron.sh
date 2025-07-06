@@ -1,10 +1,10 @@
 #!/bin/bash
 """
-Setup Cron Jobs for ParleyApp Daily Automation
+Setup Cron Jobs for Predictive Play Daily Automation
 This script sets up automated daily picks generation
 """
 
-echo "🏀 ParleyApp Daily Automation Setup"
+echo "🏀 Predictive Play Daily Automation Setup"
 echo "================================="
 
 # Get the current directory
@@ -19,15 +19,15 @@ chmod +x "$AUTOMATION_SCRIPT"
 echo "⏰ Setting up cron jobs..."
 
 # Create a temporary cron file
-TEMP_CRON_FILE="/tmp/parleyapp_cron"
+TEMP_CRON_FILE="/tmp/Predictive Play_cron"
 
 # Get existing cron jobs (if any)
 crontab -l > "$TEMP_CRON_FILE" 2>/dev/null || echo "" > "$TEMP_CRON_FILE"
 
-# Add ParleyApp automation jobs
+# Add Predictive Play automation jobs
 cat << EOF >> "$TEMP_CRON_FILE"
 
-# ParleyApp Daily Automation Jobs
+# Predictive Play Daily Automation Jobs
 # Daily picks generation at 9:00 AM
 0 9 * * * cd $SCRIPT_DIR && python3 daily_automation.py >> daily_automation.log 2>&1
 
@@ -60,4 +60,4 @@ echo ""
 echo "🔧 To view current cron jobs: crontab -l"
 echo "🗑️ To remove cron jobs: crontab -r"
 echo ""
-echo "🚀 ParleyApp automation is now active!" 
+echo "🚀 Predictive Play automation is now active!" 

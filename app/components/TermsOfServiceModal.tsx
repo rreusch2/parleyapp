@@ -64,7 +64,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
               </View>
               <Text style={styles.headerTitle}>Terms of Service</Text>
               <Text style={styles.headerSubtitle}>
-                ParleyApp - AI-Powered Sports Betting Predictions
+                Predictive Play - AI-Powered Sports Betting Predictions
               </Text>
               <Text style={styles.lastUpdated}>
                 Last Updated: {currentDate}
@@ -80,7 +80,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 <Text style={styles.sectionTitle}>1. Acceptance of Terms</Text>
               </View>
               <Text style={styles.sectionText}>
-                By creating an account and using ParleyApp ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
+                By creating an account and using Predictive Play (&quot;the Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, do not use the Service.
               </Text>
               <Text style={styles.sectionText}>
                 These Terms apply to all users of the Service, including free and premium subscribers.
@@ -94,18 +94,18 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 <Text style={styles.sectionTitle}>2. Service Description</Text>
               </View>
               <Text style={styles.sectionText}>
-                ParleyApp provides AI-powered sports betting predictions, analytics, and insights. Our Service includes:
+                Predictive Play provides AI-powered sports betting predictions, analytics, and insights. Our Service includes:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• AI-generated sports betting predictions and picks</Text>
-                <Text style={styles.bulletPoint}>• Advanced analytics and statistics</Text>
-                <Text style={styles.bulletPoint}>• Live injury reports and news</Text>
-                <Text style={styles.bulletPoint}>• Recurring trends analysis</Text>
-                <Text style={styles.bulletPoint}>• Real-time odds comparison</Text>
-                <Text style={styles.bulletPoint}>• AI chatbot for betting advice</Text>
+                <Text style={styles.bulletPoint}>&bull; AI-generated sports betting predictions and picks</Text>
+                <Text style={styles.bulletPoint}>&bull; Advanced analytics and statistics</Text>
+                <Text style={styles.bulletPoint}>&bull; Live injury reports and news</Text>
+                <Text style={styles.bulletPoint}>&bull; Recurring trends analysis</Text>
+                <Text style={styles.bulletPoint}>&bull; Real-time odds comparison</Text>
+                <Text style={styles.bulletPoint}>&bull; AI chatbot for betting advice</Text>
               </View>
               <Text style={styles.disclaimer}>
-                <AlertCircle size={16} color="#F59E0B" /> IMPORTANT: ParleyApp provides information and predictions for entertainment purposes only. We do not facilitate actual gambling or betting transactions.
+                <AlertCircle size={16} color="#F59E0B" /> IMPORTANT: Predictive Play provides information and predictions for entertainment purposes only. We do not facilitate actual gambling or betting transactions.
               </Text>
             </View>
 
@@ -119,11 +119,11 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 To access certain features, you must create an account. You agree to:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• Provide accurate and complete information</Text>
-                <Text style={styles.bulletPoint}>• Maintain the security of your account credentials</Text>
-                <Text style={styles.bulletPoint}>• Be at least 18 years old or the legal gambling age in your jurisdiction</Text>
-                <Text style={styles.bulletPoint}>• Use the Service only where legally permitted</Text>
-                <Text style={styles.bulletPoint}>• Not share your account with others</Text>
+                <Text style={styles.bulletPoint}>&bull; Provide accurate and complete information</Text>
+                <Text style={styles.bulletPoint}>&bull; Maintain the security of your account credentials</Text>
+                <Text style={styles.bulletPoint}>&bull; Be at least 18 years old or the legal gambling age in your jurisdiction</Text>
+                <Text style={styles.bulletPoint}>&bull; Use the Service only where legally permitted</Text>
+                <Text style={styles.bulletPoint}>&bull; Not share your account with others</Text>
               </View>
               <Text style={styles.sectionText}>
                 You are responsible for all activities that occur under your account.
@@ -137,16 +137,16 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 <Text style={styles.sectionTitle}>4. Payment and Subscription Terms</Text>
               </View>
               <Text style={styles.sectionText}>
-                ParleyApp offers both free and premium subscription tiers:
+                Predictive Play offers both free and premium subscription tiers:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• <Text style={styles.bold}>Free Tier:</Text> Limited daily picks and basic features</Text>
-                <Text style={styles.bulletPoint}>• <Text style={styles.bold}>Monthly Pro:</Text> $26.70/month, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>• <Text style={styles.bold}>Yearly Pro:</Text> $149.99/year, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>• <Text style={styles.bold}>Lifetime Pro:</Text> $349.99 one-time payment</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Free Tier:</Text> Limited daily picks and basic features</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $26.70/month, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $149.99/year, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Lifetime Pro:</Text> $349.99 one-time payment</Text>
               </View>
               <Text style={styles.sectionText}>
-                Subscription fees are charged through your app store account. Cancellation policies follow your platform's standard terms. No refunds for partial periods.
+                Subscription fees are charged through your app store account. Cancellation policies follow your platform&apos;s standard terms. No refunds for partial periods.
               </Text>
             </View>
 
@@ -160,12 +160,12 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 You agree not to:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• Use the Service for illegal gambling where prohibited</Text>
-                <Text style={styles.bulletPoint}>• Reverse engineer or attempt to extract our algorithms</Text>
-                <Text style={styles.bulletPoint}>• Share, resell, or redistribute our predictions</Text>
-                <Text style={styles.bulletPoint}>• Use automated tools to scrape our content</Text>
-                <Text style={styles.bulletPoint}>• Harass other users or our support team</Text>
-                <Text style={styles.bulletPoint}>• Attempt to gain unauthorized access to our systems</Text>
+                <Text style={styles.bulletPoint}>&bull; Use the Service for illegal gambling where prohibited</Text>
+                <Text style={styles.bulletPoint}>&bull; Reverse engineer or attempt to extract our algorithms</Text>
+                <Text style={styles.bulletPoint}>&bull; Share, resell, or redistribute our predictions</Text>
+                <Text style={styles.bulletPoint}>&bull; Use automated tools to scrape our content</Text>
+                <Text style={styles.bulletPoint}>&bull; Harass other users or our support team</Text>
+                <Text style={styles.bulletPoint}>&bull; Attempt to gain unauthorized access to our systems</Text>
               </View>
             </View>
 
@@ -179,14 +179,14 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 IMPORTANT DISCLAIMERS:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• Our AI predictions are not guarantees of outcomes</Text>
-                <Text style={styles.bulletPoint}>• Past performance does not indicate future results</Text>
-                <Text style={styles.bulletPoint}>• Sports betting involves risk of financial loss</Text>
-                <Text style={styles.bulletPoint}>• Only bet what you can afford to lose</Text>
-                <Text style={styles.bulletPoint}>• Seek help if you have a gambling problem</Text>
+                <Text style={styles.bulletPoint}>&bull; Our AI predictions are not guarantees of outcomes</Text>
+                <Text style={styles.bulletPoint}>&bull; Past performance does not indicate future results</Text>
+                <Text style={styles.bulletPoint}>&bull; Sports betting involves risk of financial loss</Text>
+                <Text style={styles.bulletPoint}>&bull; Only bet what you can afford to lose</Text>
+                <Text style={styles.bulletPoint}>&bull; Seek help if you have a gambling problem</Text>
               </View>
               <Text style={styles.warningText}>
-                The Service is provided "AS IS" without warranties of any kind. We do not guarantee accuracy, completeness, or profitability of our predictions.
+                The Service is provided &quot;AS IS&quot; without warranties of any kind. We do not guarantee accuracy, completeness, or profitability of our predictions.
               </Text>
             </View>
 
@@ -200,10 +200,10 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 TO THE MAXIMUM EXTENT PERMITTED BY LAW:
               </Text>
               <View style={styles.bulletPoints}>
-                <Text style={styles.bulletPoint}>• We are not liable for any betting losses</Text>
-                <Text style={styles.bulletPoint}>• Our total liability is limited to the amount you paid for the Service</Text>
-                <Text style={styles.bulletPoint}>• We are not responsible for third-party sportsbook actions</Text>
-                <Text style={styles.bulletPoint}>• We disclaim all warranties, express or implied</Text>
+                <Text style={styles.bulletPoint}>&bull; We are not liable for any betting losses</Text>
+                <Text style={styles.bulletPoint}>&bull; Our total liability is limited to the amount you paid for the Service</Text>
+                <Text style={styles.bulletPoint}>&bull; We are not responsible for third-party sportsbook actions</Text>
+                <Text style={styles.bulletPoint}>&bull; We disclaim all warranties, express or implied</Text>
               </View>
             </View>
 
@@ -259,8 +259,8 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 If you have questions about these Terms of Service, please contact us at:
               </Text>
               <View style={styles.contactInfo}>
-                <Text style={styles.contactText}>Email: support@parleyapp.com</Text>
-                <Text style={styles.contactText}>Website: www.parleyapp.com</Text>
+                <Text style={styles.contactText}>Email: support@Predictive Play.com</Text>
+                <Text style={styles.contactText}>Website: www.Predictive Play.com</Text>
               </View>
             </View>
 
@@ -275,9 +275,9 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 <Text style={styles.responsibleGamblingText}>
                   If you or someone you know has a gambling problem, please seek help:
                 </Text>
-                <Text style={styles.helplineText}>• National Problem Gambling Helpline: 1-800-522-4700</Text>
-                <Text style={styles.helplineText}>• gamblingtherapy.org</Text>
-                <Text style={styles.helplineText}>• ncpgambling.org</Text>
+                <Text style={styles.helplineText}>&bull; National Problem Gambling Helpline: 1-800-522-4700</Text>
+                <Text style={styles.helplineText}>&bull; gamblingtherapy.org</Text>
+                <Text style={styles.helplineText}>&bull; ncpgambling.org</Text>
               </LinearGradient>
             </View>
 
@@ -494,4 +494,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TermsOfServiceModal; 
+export default TermsOfServiceModal;

@@ -1,5 +1,6 @@
 import express, { Request, Response, Router } from 'express';
-import { geminiOrchestrator, GeneratePredictionParams } from '../ai/orchestrator/geminiOrchestrator';
+import { geminiOrchestratorService } from '../ai/orchestrator/geminiOrchestrator';
+import { OrchestrationRequest } from '../ai/orchestrator/geminiOrchestrator';
 // import { authenticateToken } from '../middleware/authMiddleware'; // Assuming you have auth middleware
 
 const router: Router = express.Router();
@@ -40,7 +41,7 @@ router.post('/predict', /* authenticateToken, */ async (req: Request, res: Respo
   }
 
   try {
-    const predictionParams: GeneratePredictionParams = {
+    const predictionParams: OrchestrationRequest = {
       userId,
       gameId,
       userQuery,
@@ -51,7 +52,7 @@ router.post('/predict', /* authenticateToken, */ async (req: Request, res: Respo
       }
     };
 
-    const prediction = await geminiOrchestrator.generatePrediction(predictionParams);
+    const prediction = await geminiOrchestratorService.generateRecommendation(predictionParams);
 
     if (prediction.error) {
       // Errors from the orchestrator might be user-facing (e.g., parse error) or internal

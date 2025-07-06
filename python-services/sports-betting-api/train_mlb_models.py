@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MLB Model Training Script for ParleyApp
+MLB Model Training Script for Predictive Play
 Trains models for hits, home runs, RBIs, strikeouts using real MLB data
 """
 

@@ -136,7 +136,7 @@ export class ABTestFramework {
       logger.info(`✅ A/B test created: ${testId} (${test.name})`);
       return testId;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to create A/B test: ${error.message}`);
       throw error;
     }
@@ -192,7 +192,7 @@ export class ABTestFramework {
 
       logger.info(`🚀 A/B test started: ${testId} (${test.name})`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to start A/B test: ${error.message}`);
       throw error;
     }
@@ -224,7 +224,7 @@ export class ABTestFramework {
       const controlVariant = test.variants.find(v => v.is_control);
       return controlVariant?.id || null;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to get variant assignment: ${error.message}`);
       return null;
     }
@@ -264,7 +264,7 @@ export class ABTestFramework {
 
       logger.debug(`📊 Test result recorded: ${result.test_id} - ${result.metric_name}: ${result.value}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to record test result: ${error.message}`);
       throw error;
     }
@@ -316,7 +316,7 @@ export class ABTestFramework {
         metric_results: metricResults
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to analyze test: ${error.message}`);
       throw error;
     }
@@ -606,7 +606,7 @@ export class ABTestFramework {
       logger.info(`🤖 Model comparison test created: ${testId}`);
       return testId;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to create model comparison test: ${error.message}`);
       throw error;
     }
@@ -620,7 +620,7 @@ export class ABTestFramework {
       // Mock storage - in production this would store in actual database
       logger.debug(`💾 Storing A/B test: ${test.id}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to store test: ${error.message}`);
       throw error;
     }
@@ -634,7 +634,7 @@ export class ABTestFramework {
       // Mock storage - in production this would store in actual database
       logger.debug(`💾 Storing test result: ${result.test_id}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to store result: ${error.message}`);
       throw error;
     }
@@ -664,7 +664,7 @@ export class ABTestFramework {
 
       logger.info(`🏁 A/B test ended: ${testId} - ${reason}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to end test: ${error.message}`);
       throw error;
     }

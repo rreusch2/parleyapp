@@ -1,4 +1,4 @@
-# ParleyApp Data Ingestion Service Requirements
+# Predictive Play Data Ingestion Service Requirements
 # Phase 1 Implementation
 
 # Core dependencies

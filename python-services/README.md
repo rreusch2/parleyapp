@@ -1,11 +1,11 @@
-# ParleyApp Python Services
+# Predictive Play Python Services
 
 This directory contains Python microservices that provide specialized AI tools for your LLM Orchestrator.
 
 ## 🏗️ Architecture
 
 ```
-parleyapp/
+Predictive Play/
 ├── app/                          # React Native frontend
 ├── backend/                      # Node.js/TypeScript backend
 └── python-services/              # Python microservices

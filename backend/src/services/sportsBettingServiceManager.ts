@@ -18,7 +18,7 @@ class SportsBettingServiceManager {
         timeout: 3000
       });
       return response.status === 200;
-    } catch (error) {
+    } catch (error: any) {
       return false;
     }
   }
@@ -94,7 +94,7 @@ class SportsBettingServiceManager {
       this.isStarting = false;
       return isReady;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error starting sports betting API: ${error instanceof Error ? error.message : String(error)}`);
       this.isStarting = false;
       return false;

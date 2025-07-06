@@ -34,7 +34,9 @@ import {
 import { aiService, AIPrediction } from '@/app/services/api/aiService';
 import { useSubscription } from '@/app/services/subscriptionContext';
 import EnhancedPredictionCard from '@/app/components/EnhancedPredictionCard';
+import { TwoTabPredictionsLayout } from '@/app/components/TwoTabPredictionsLayout';
 import { useAIChat } from '@/app/services/aiChatContext';
+import { supabase } from '@/app/services/api/supabaseClient';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -47,6 +49,11 @@ export default function PredictionsScreen() {
   const [filterType, setFilterType] = useState<'all' | 'high' | 'value'>('all');
   const [selectedSport, setSelectedSport] = useState<string>('all');
   const [selectedPrediction, setSelectedPrediction] = useState<AIPrediction | null>(null);
+  
+  // NEW: Track welcome bonus status and new user status
+  const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
+  const [welcomeBonusExpires, setWelcomeBonusExpires] = useState<string | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     loadPredictions();
@@ -55,8 +62,97 @@ export default function PredictionsScreen() {
   const loadPredictions = async () => {
     setLoading(true);
     try {
-      const data = await aiService.getTodaysPicks();
-      setPredictions(data);
+      // For Pro users, fetch all today's predictions directly from Supabase
+      // For Free users, use the existing service with limits
+      if (isPro) {
+        // Fetch directly from ai_predictions table for Pro users (10 most recent)
+        const { data: rawPredictions, error } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (error) {
+          console.error('Error fetching predictions from database:', error);
+          throw error;
+        }
+
+        // Transform database records to AIPrediction interface
+        const transformedPredictions: AIPrediction[] = (rawPredictions || []).map(pred => ({
+          id: pred.id,
+          match: pred.match_teams || 'TBD vs TBD',
+          pick: pred.pick,
+          odds: pred.odds,
+          confidence: pred.confidence,
+          sport: pred.sport,
+          eventTime: pred.event_time || pred.created_at,
+          reasoning: pred.reasoning || 'AI-generated prediction',
+          value: pred.value_percentage ? parseFloat(pred.value_percentage) : undefined,
+          roi_estimate: pred.roi_estimate ? parseFloat(pred.roi_estimate) : undefined,
+          status: pred.status as 'pending' | 'won' | 'lost',
+          created_at: pred.created_at
+        }));
+
+        console.log(`🎯 Loaded ${transformedPredictions.length} predictions for Pro user from database`);
+        setPredictions(transformedPredictions);
+      } else {
+        // For free users, use the existing service WITH user context for welcome bonus logic
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentUserId = user?.id;
+        const currentUserTier = 'free';
+        
+        // Get picks with welcome bonus logic applied - this returns the full API response
+        const apiResponse = await fetch(`${process.env.NODE_ENV === 'production' 
+          ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
+          : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001')}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
+        
+        const data = await apiResponse.json();
+        
+        if (data.success && data.predictions) {
+          setPredictions(data.predictions);
+          
+          // Check if this is a new user scenario or welcome bonus scenario
+          if (data.metadata) {
+            const isNewUserScenario = data.metadata.isNewUser || false;
+            const bonusActiveFromAPI = data.metadata.welcomeBonusActive || false;
+            
+            setIsNewUser(isNewUserScenario);
+            setWelcomeBonusActive(bonusActiveFromAPI);
+            
+            console.log(`📊 Predictions API Metadata:`, JSON.stringify(data.metadata, null, 2));
+            
+            if (isNewUserScenario) {
+              console.log(`🆕 New user on Predictions tab: ${data.predictions.length} picks (automatic welcome bonus)`);
+            } else if (bonusActiveFromAPI) {
+              console.log(`🎁 Welcome bonus active on Predictions tab: ${data.predictions.length} picks`);
+            } else {
+              console.log(`🎲 Free user on Predictions tab: ${data.predictions.length} picks`);
+            }
+          }
+          
+          // Also check database welcome bonus status for additional context
+          if (currentUserId && !data.metadata?.isNewUser) {
+            try {
+              const backendUrl = process.env.NODE_ENV === 'production' 
+                ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
+                : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001');
+              const response = await fetch(`${backendUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
+              const bonusData = await response.json();
+              
+              if (bonusData.success && bonusData.status.welcome_bonus_active) {
+                setWelcomeBonusActive(true);
+                setWelcomeBonusExpires(bonusData.status.welcome_bonus_expires_at);
+              }
+            } catch (error) {
+              console.error('Error fetching welcome bonus status:', error);
+            }
+          }
+        } else {
+          // Fallback to the original service method
+          const fallbackData = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+          setPredictions(fallbackData);
+        }
+      }
     } catch (error) {
       console.error('Error loading predictions:', error);
       Alert.alert('Error', 'Failed to load predictions');
@@ -70,8 +166,6 @@ export default function PredictionsScreen() {
     await loadPredictions();
     setRefreshing(false);
   };
-
-
 
   const getFilteredPredictions = () => {
     let filtered = predictions;
@@ -88,8 +182,14 @@ export default function PredictionsScreen() {
         filtered = filtered.filter(p => p.sport.toLowerCase() === selectedSport.toLowerCase());
       }
     } else {
-      // Free users only see first 2 predictions
-      filtered = filtered.slice(0, 2);
+      // NEW: For free users, show all picks if they're new users OR have welcome bonus active
+      // Otherwise limit to 2 picks
+      const hasExtendedAccess = isNewUser || welcomeBonusActive;
+      
+      if (!hasExtendedAccess) {
+        filtered = filtered.slice(0, 2);
+      }
+      // If new user or welcome bonus is active, show all picks returned by backend (usually 5)
     }
 
     return filtered;
@@ -98,6 +198,25 @@ export default function PredictionsScreen() {
   const handlePredictionAnalyze = (prediction: AIPrediction) => {
     setSelectedPrediction(prediction);
     setSelectedPick(prediction);
+    
+    // NEW: During welcome bonus OR for new users, allow full analysis like Pro users
+    const hasAnalysisAccess = isPro || welcomeBonusActive || isNewUser;
+    
+    if (!hasAnalysisAccess) {
+      Alert.alert(
+        'Pro Feature 🌟',
+        'Get detailed AI analysis of every pick with Pro!',
+        [
+          { text: 'Maybe Later', style: 'cancel' },
+          { 
+            text: 'Upgrade to Pro', 
+            onPress: openSubscriptionModal,
+            style: 'default'
+          }
+        ]
+      );
+      return;
+    }
     
     // Create a custom prompt for this specific prediction
     const customPrompt = `Analyze this AI prediction in detail:
@@ -126,6 +245,16 @@ What are your thoughts on this prediction?`;
     }, prediction);
   };
 
+  // 🔥 NEW: For Pro users, show the enhanced two-tab layout
+  if (isPro) {
+    return (
+      <View style={styles.container}>
+        <TwoTabPredictionsLayout user={{ id: 'current_user', isPro: true }} />
+      </View>
+    );
+  }
+
+  // For Free users, show the existing limited layout with upgrade prompts
   const filteredPredictions = getFilteredPredictions();
   const sports = ['all', ...Array.from(new Set(predictions.map(p => p.sport)))];
 
@@ -151,7 +280,7 @@ What are your thoughts on this prediction?`;
         >
           {isPro && (
             <View style={styles.proBadge}>
-              <Crown size={16} color="#F59E0B" />
+              <Crown size={16} color="#00E5FF" />
               <Text style={styles.proBadgeText}>PRO MEMBER</Text>
             </View>
           )}
@@ -160,20 +289,31 @@ What are your thoughts on this prediction?`;
             <View style={styles.statCard}>
               <Activity size={20} color="#00E5FF" />
               <Text style={styles.statValue}>
-                {isPro ? predictions.length : `${Math.min(predictions.length, 2)}/2`}
+                {isPro ? predictions.length : 
+                 (isNewUser || welcomeBonusActive) ? `${predictions.length}/5` : 
+                 `${Math.min(predictions.length, 2)}/2`}
               </Text>
               <Text style={styles.statLabel}>
-                {isPro ? 'Total Picks' : 'Daily Picks'}
+                {isPro ? 'Total Picks' : 
+                 isNewUser ? 'Welcome Picks' :
+                 welcomeBonusActive ? 'Bonus Picks' : 
+                 'Daily Picks'}
               </Text>
+              {(isNewUser || welcomeBonusActive) && !isPro && (
+                <View style={styles.bonusBadge}>
+                  <Text style={styles.bonusText}>{isNewUser ? '🆕' : '🎁'}</Text>
+                </View>
+              )}
             </View>
             
             <View style={styles.statCard}>
               <Target size={20} color="#10B981" />
               <Text style={styles.statValue}>
-                {isPro ? predictions.filter(p => p.confidence >= 85).length : '?'}
+                {isPro || isNewUser || welcomeBonusActive ? 
+                  predictions.filter(p => p.confidence >= 85).length : '?'}
               </Text>
               <Text style={styles.statLabel}>High Confidence</Text>
-              {!isPro && (
+              {!isPro && !isNewUser && !welcomeBonusActive && (
                 <View style={styles.lockOverlay}>
                   <Lock size={14} color="#64748B" />
                 </View>
@@ -181,12 +321,13 @@ What are your thoughts on this prediction?`;
             </View>
             
             <View style={styles.statCard}>
-              <TrendingUp size={20} color="#F59E0B" />
+              <TrendingUp size={20} color="#8B5CF6" />
               <Text style={styles.statValue}>
-                {isPro ? predictions.filter(p => (p.value || 0) >= 10).length : '?'}
+                {isPro || isNewUser || welcomeBonusActive ? 
+                  predictions.filter(p => (p.value || 0) >= 10).length : '?'}
               </Text>
               <Text style={styles.statLabel}>Value Bets</Text>
-              {!isPro && (
+              {!isPro && !isNewUser && !welcomeBonusActive && (
                 <View style={styles.lockOverlay}>
                   <Lock size={14} color="#64748B" />
                 </View>
@@ -195,21 +336,43 @@ What are your thoughts on this prediction?`;
           </View>
 
           {!isPro && (
-            <TouchableOpacity 
+                          <TouchableOpacity 
               style={styles.upgradePrompt}
               onPress={openSubscriptionModal}
             >
               <LinearGradient
-                colors={['#00E5FF', '#0891B2']}
+                colors={(isNewUser || welcomeBonusActive) ? ['#00E5FF', '#0891B2'] : ['#00E5FF', '#0891B2']}
                 style={styles.upgradeGradient}
               >
                 <Crown size={16} color="#FFFFFF" />
                 <Text style={styles.upgradeText}>
-                  Unlock unlimited picks & advanced analytics
+                  {isNewUser ? 
+                    'Enjoying the 5 picks? Upgrade for 20 daily picks forever!' :
+                    welcomeBonusActive ? 
+                      'Love the bonus? Upgrade for 20 daily picks forever!' :
+                      'Unlock 20 daily picks (10 team + 10 player props) with Pro'}
                 </Text>
                 <ChevronRight size={16} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
+          )}
+          
+          {/* Welcome Bonus Timer - only for actual welcome bonus, not new users */}
+          {welcomeBonusActive && !isNewUser && !isPro && welcomeBonusExpires && (
+            <View style={styles.bonusTimer}>
+              <Text style={styles.bonusTimerText}>
+                🎁 Welcome Bonus Active • Expires {new Date(welcomeBonusExpires).toLocaleDateString()}
+              </Text>
+            </View>
+          )}
+          
+          {/* New User Welcome Message */}
+          {isNewUser && !isPro && (
+            <View style={styles.bonusTimer}>
+              <Text style={styles.bonusTimerText}>
+                🆕 Welcome! You're getting 5 picks to try our AI predictions
+              </Text>
+            </View>
           )}
         </LinearGradient>
 
@@ -273,7 +436,7 @@ What are your thoughts on this prediction?`;
                 <Text style={styles.proFeatureText}>Risk Assessment</Text>
               </View>
               <View style={styles.proFeature}>
-                <DollarSign size={16} color="#F59E0B" />
+                <DollarSign size={16} color="#8B5CF6" />
                 <Text style={styles.proFeatureText}>Kelly Calculations</Text>
               </View>
             </View>
@@ -289,15 +452,20 @@ What are your thoughts on this prediction?`;
           </View>
         )}
 
-
-
         {/* Predictions List */}
         <View style={styles.predictionsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {isPro ? 'All AI Predictions' : 'Your Daily Picks'}
+              {isPro ? 'All AI Predictions' : 
+               isNewUser ? 'Your Welcome Picks' :
+               welcomeBonusActive ? 'Your Welcome Bonus Picks' : 
+               'Your Daily Picks'}
             </Text>
-            <Text style={styles.resultCount}>{filteredPredictions.length} results</Text>
+            <Text style={styles.resultCount}>
+              {filteredPredictions.length} results
+              {isNewUser && !isPro && ' (new user)'}
+              {welcomeBonusActive && !isNewUser && !isPro && ' (bonus active)'}
+            </Text>
           </View>
 
           {loading ? (
@@ -321,11 +489,12 @@ What are your thoughts on this prediction?`;
                   prediction={prediction}
                   index={index}
                   onAnalyze={() => handlePredictionAnalyze(prediction)}
+                  welcomeBonusActive={welcomeBonusActive || isNewUser}
                 />
               ))}
 
-              {/* Show locked predictions for free users */}
-              {!isPro && predictions.length > 2 && (
+              {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}
+              {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > 2 && (
                 <View style={styles.proUpgradeCard}>
                   <LinearGradient
                     colors={['#1a1a2e', '#16213e']}
@@ -336,11 +505,12 @@ What are your thoughts on this prediction?`;
                         <Lock size={32} color="#00E5FF" />
                       </View>
                       <Text style={styles.upgradeTitle}>
-                        {predictions.length - 2} More Predictions Available
+                        Unlock 20 Daily Predictions
                       </Text>
                       <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
                       <Text style={styles.upgradeDescription}>
-                        Access all predictions with advanced filters, confidence scoring, 
+                        Get 10 team picks (ML, spreads, totals) + 10 player props 
+                        with separate tabs, advanced filters, confidence scoring, 
                         value betting analysis, and detailed AI reasoning.
                       </Text>
                       <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
@@ -361,47 +531,12 @@ What are your thoughts on this prediction?`;
           )}
         </View>
 
-        {/* Smart Betting Calculator Upgrade Card - Free Users Only */}
-        {!isPro && (
-          <View style={styles.section}>
-            <View style={styles.proUpgradeCard}>
-              <LinearGradient
-                colors={['#1a1a2e', '#16213e']}
-                style={styles.upgradeCard}
-              >
-                <View style={styles.upgradeContent}>
-                  <View style={styles.upgradeIcon}>
-                    <DollarSign size={32} color="#00E5FF" />
-                  </View>
-                  <Text style={styles.upgradeTitle}>Smart Betting Calculator</Text>
-                  <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
-                  <Text style={styles.upgradeDescription}>
-                    Kelly criterion calculations, bankroll management, optimal bet sizing, 
-                    ROI tracking, and advanced risk assessment tools.
-                  </Text>
-                  <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
-                    <LinearGradient
-                      colors={['#00E5FF', '#0891B2']}
-                      style={styles.upgradeButtonGradient}
-                    >
-                      <Crown size={16} color="#0F172A" />
-                      <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
-                      <ChevronRight size={16} color="#0F172A" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </LinearGradient>
-            </View>
-          </View>
-        )}
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Predictions are generated by our advanced AI models and are for entertainment purposes only.
           </Text>
         </View>
       </ScrollView>
-
     </View>
   );
 }
@@ -425,15 +560,25 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 16,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    shadowColor: '#00E5FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   proBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: '#00E5FF',
     marginLeft: 6,
     letterSpacing: 0.5,
   },
@@ -445,23 +590,60 @@ const styles = StyleSheet.create({
   statCard: {
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     flex: 1,
     marginHorizontal: 4,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: 10,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 229, 255, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#E2E8F0',
     textAlign: 'center',
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  bonusBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#00E5FF',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00E5FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  bonusText: {
+    fontSize: 14,
   },
   lockOverlay: {
     position: 'absolute',
@@ -510,15 +692,26 @@ const styles = StyleSheet.create({
   filterChip: {
     backgroundColor: '#1E293B',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   filterChipActive: {
     backgroundColor: '#00E5FF',
     borderColor: '#00E5FF',
+    shadowColor: '#00E5FF',
+    shadowOpacity: 0.3,
+    elevation: 6,
   },
   filterChipText: {
     color: '#94A3B8',
@@ -531,16 +724,27 @@ const styles = StyleSheet.create({
   },
   sportChip: {
     backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sportChipActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: '#8B5CF6',
+    borderColor: '#8B5CF6',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.4,
+    elevation: 5,
   },
   sportChipText: {
     color: '#94A3B8',
@@ -670,7 +874,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   
-  // Pro Upgrade Card Styles (consistent with RecurringTrends)
+  // Common Upgrade Card Styles
   section: {
     paddingHorizontal: 16,
     marginTop: 16,
@@ -740,5 +944,32 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  
+  // Welcome Bonus Styles
+  bonusBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  bonusText: {
+    fontSize: 12,
+  },
+  bonusTimer: {
+    marginTop: 12,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+  },
+  bonusTimerText: {
+    fontSize: 12,
+    color: '#00E5FF',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

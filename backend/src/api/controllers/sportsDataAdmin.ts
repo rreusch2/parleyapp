@@ -23,8 +23,8 @@ export const triggerSportsDataUpdate = async (req: Request, res: Response) => {
       console.log(`Manually triggering update for ${targetSport}`);
       // Use the name from sportMapping for the service call, which matches sport API categories
       await sportsDataService.fetchAndStoreUpcomingGames(
-        sportMapping[targetSport].id, 
-        sportMapping[targetSport].name, 
+        sportMapping[targetSport].id,
+        sportMapping[targetSport].name,
         14
       );
       

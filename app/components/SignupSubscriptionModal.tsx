@@ -67,9 +67,9 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
      const topFeatures = [
      {
        icon: Brain,
-       title: '10 Daily AI Predictions',
-       description: 'Get 10 daily AI picks vs. 2 free picks',
-       highlight: '10 vs 2',
+               title: '20 Daily AI Predictions',
+        description: 'Get 20 daily AI picks vs. 2 free picks',
+        highlight: '20 vs 2',
      },
     {
       icon: BarChart3,
@@ -309,7 +309,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                          {/* Benefit Reminder */}
              <View style={styles.benefitReminder}>
                <Text style={styles.benefitText}>
-                 Free: 2 daily picks • Pro: 10 daily AI picks + advanced features
+                 Free: 2 daily picks • Pro: 20 daily AI picks + advanced features
                </Text>
              </View>
             

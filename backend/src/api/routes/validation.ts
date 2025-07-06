@@ -153,7 +153,7 @@ router.get('/performance-report', async (req, res) => {
     
     // Get metrics for each sport
     const sports = ['MLB', 'NBA', 'NFL', 'NHL'];
-    const sportMetrics = {};
+    const sportMetrics: { [key: string]: { accuracy: number; totalPredictions: number; correctPredictions: number; performance: string; recentPerformance: any; } } = {};
     
     for (const sport of sports) {
       try {

@@ -1,8 +1,8 @@
-# 🚀 ParleyApp - App Store Preparation Guide
+# 🚀 Predictive Play - App Store Preparation Guide
 
 ## 📋 Overview
 
-This guide provides step-by-step instructions for preparing your ParleyApp for Apple App Store submission. All critical issues identified in the comprehensive report have been addressed.
+This guide provides step-by-step instructions for preparing your Predictive Play for Apple App Store submission. All critical issues identified in the comprehensive report have been addressed.
 
 ## ✅ Critical Issues Fixed
 
@@ -33,7 +33,7 @@ This guide provides step-by-step instructions for preparing your ParleyApp for A
    // After: Environment-aware configuration
    const BACKEND_URL = (() => {
      if (process.env.NODE_ENV === 'production') {
-       return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.parleyapp.com';
+       return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com';
      }
      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
    })();
@@ -118,7 +118,7 @@ eas build --platform ios --profile production
 
 When you move to Xcode on Mac:
 
-1. **Open the project**: `ios/ParleyApp.xcworkspace`
+1. **Open the project**: `ios/Predictive Play.xcworkspace`
 2. **Update Bundle Identifier**: Change from `com.predictai.app` to your actual identifier
 3. **Configure signing**: Select your Apple Developer Team
 4. **Add Privacy Usage Descriptions** in Info.plist if needed
@@ -190,7 +190,7 @@ All critical issues from the App Store preparation report have been resolved:
 4. ✅ **Validation tools** - Automated checking for common issues
 5. ✅ **Clear next steps** - Detailed guide for App Store submission
 
-Your ParleyApp is now ready for production build and App Store submission once you update the environment variables with your actual production URLs and complete the backend deployment.
+Your Predictive Play is now ready for production build and App Store submission once you update the environment variables with your actual production URLs and complete the backend deployment.
 
 ## 🔗 Additional Resources
 

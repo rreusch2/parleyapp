@@ -45,7 +45,7 @@ router.get('/games', async (req, res) => {
     }
     
     return res.status(200).json({ success: true, games });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in /games: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
@@ -90,7 +90,7 @@ router.get('/teams', async (req, res) => {
     }
     
     return res.status(200).json({ success: true, teamTotals });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in /teams: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
@@ -175,7 +175,7 @@ router.post('/prediction', async (req, res) => {
         analysis: prediction
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in /prediction: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
@@ -227,7 +227,7 @@ router.get('/trends/:team', async (req, res) => {
       trends,
       recentGames: gameResults || []
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in /trends: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
@@ -338,7 +338,7 @@ router.post('/bulk-predictions', async (req, res) => {
       highConfidencePredictions: predictions.length,
       predictions 
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in /bulk-predictions: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }

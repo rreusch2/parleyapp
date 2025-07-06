@@ -33,7 +33,7 @@ router.get('/test-no-auth', async (req, res) => {
       games: data || [],
       message: 'Database connection working'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Route error:', error);
     res.status(500).json({ error: 'Server error', details: error instanceof Error ? error.message : String(error) });
   }
@@ -64,7 +64,7 @@ router.get('/trigger-update', async (req, res) => {
       message: 'Sports data update completed successfully',
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in manual sports data update:', error);
     res.status(500).json({
       success: false,

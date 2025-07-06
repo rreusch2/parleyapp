@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Prediction Models for ParleyApp Phase 2
+Enhanced Prediction Models for Predictive Play Phase 2
 Real data-driven ML models for player props, spreads, and totals
 """
 
@@ -42,7 +42,7 @@ class DatabaseConnection:
         self.db_params = {
             'host': os.getenv('DB_HOST', 'localhost'),
             'port': os.getenv('DB_PORT', '5432'),
-            'database': os.getenv('DB_NAME', 'parleyapp'),
+            'database': os.getenv('DB_NAME', 'Predictive Play'),
             'user': os.getenv('DB_USER', 'postgres'),
             'password': os.getenv('DB_PASSWORD', '')
         }

@@ -1,5 +1,5 @@
 """
-ParleyApp Data Ingestion for Supabase
+Predictive Play Data Ingestion for Supabase
 Modified version with SSL support for Supabase
 """
 

@@ -2,7 +2,7 @@
 
 # Start Orchestrator Setup Script
 
-echo "🚀 ParleyApp Orchestrator Startup Script"
+echo "🚀 Predictive Play Orchestrator Startup Script"
 echo "========================================"
 
 # Check if .env exists

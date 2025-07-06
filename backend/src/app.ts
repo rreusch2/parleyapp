@@ -9,6 +9,13 @@ import sportsDataRouter from './api/routes/sportsData';
 import aiRouter from './api/routes/ai';
 import newsRouter from './api/routes/news';
 import trendsRouter from './api/routes/trends';
+import notificationsRouter from './api/routes/notifications';
+import notificationSettingsRouter from './api/routes/notificationSettings';
+import insightsRouter from './api/routes/insights';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { logger } from './utils/logger';
+import automationRoutes from './routes/automation';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
@@ -48,6 +55,24 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP'
+});
+app.use(limiter);
+
+// Stricter rate limiting for automation endpoints
+const automationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // Limit to 10 automation requests per hour
+  message: 'Too many automation requests'
+});
+
 // API Routes
 app.use('/api/user-preferences', userPreferencesRouter);
 app.use('/api/predictions', predictionsRouter);
@@ -58,6 +83,10 @@ app.use('/api/sports-data', sportsDataRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/notification-settings', notificationSettingsRouter);
+app.use('/api/insights', insightsRouter);
+app.use('/api/automation', automationLimiter, automationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -85,5 +114,19 @@ app.get('/api/auth-test', (req, res) => {
 
 // Initialize sports data scheduler
 // initScheduler(); // Removed - using TheOdds API manually now
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
 export default app; 

@@ -2,26 +2,35 @@
 
 # Daily ParleyApp Picks Generation Script
 # Run this via cron job daily at 8 AM
+# Uses the orchestrator to generate 20 picks (10 team + 10 player props)
 
 LOG_FILE="/home/reid/Desktop/parleyapp/backend/logs/daily-picks-$(date +%Y-%m-%d).log"
-API_URL="http://localhost:3001/api/ai/generate-picks-all-users"
+BACKEND_DIR="/home/reid/Desktop/parleyapp/backend"
 
-echo "$(date): Starting MULTI-USER daily picks generation..." >> "$LOG_FILE"
+echo "$(date): Starting daily picks generation with orchestrator..." >> "$LOG_FILE"
 
-# Generate picks for all users
-response=$(curl -s -w "HTTP_STATUS:%{http_code}" -X POST "$API_URL" \
-  -H "Content-Type: application/json" \
-  -d '{"automated": true, "source": "daily_cron"}')
+# Change to backend directory
+cd "$BACKEND_DIR" || {
+    echo "$(date): ❌ Failed to change to backend directory" >> "$LOG_FILE"
+    exit 1
+}
 
-http_status=$(echo "$response" | grep -o "HTTP_STATUS:[0-9]*" | cut -d: -f2)
-response_body=$(echo "$response" | sed 's/HTTP_STATUS:[0-9]*$//')
+# Load environment variables
+if [ -f .env ]; then
+    export $(cat .env | xargs) 2>/dev/null || true
+fi
 
-if [ "$http_status" -eq 200 ]; then
+# Run the orchestrator to generate daily picks
+npx ts-node src/scripts/run-orchestrator.ts >> "$LOG_FILE" 2>&1
+
+exit_code=$?
+
+if [ $exit_code -eq 0 ]; then
     echo "$(date): ✅ Daily picks generated successfully" >> "$LOG_FILE"
-    echo "$response_body" >> "$LOG_FILE"
+    echo "$(date): 📊 Generated 20 picks (10 team + 10 player props)" >> "$LOG_FILE"
+    echo "$(date): 📱 Push notifications sent to users" >> "$LOG_FILE"
 else
-    echo "$(date): ❌ Failed to generate daily picks (HTTP $http_status)" >> "$LOG_FILE"
-    echo "$response_body" >> "$LOG_FILE"
+    echo "$(date): ❌ Failed to generate daily picks (exit code $exit_code)" >> "$LOG_FILE"
     
     # Send notification (optional - could add email/slack notification here)
     echo "Daily picks generation failed" | logger -t parleyapp-cron

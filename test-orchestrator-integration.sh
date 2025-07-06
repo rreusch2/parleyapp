@@ -3,7 +3,7 @@
 # Test Orchestrator Integration Script
 # This script tests the full integration between DeepSeek orchestrator and ML server
 
-echo "🚀 ParleyApp Orchestrator Integration Test"
+echo "🚀 Predictive Play Orchestrator Integration Test"
 echo "=========================================="
 
 # Check if ML server is running with improved error handling

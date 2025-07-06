@@ -5,15 +5,15 @@ services:
   postgres:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${DB_USER:-parleyapp}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-parleyapp123}
-      POSTGRES_DB: ${DB_NAME:-parleyapp}
+      POSTGRES_USER: ${DB_USER:-Predictive Play}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-Predictive Play123}
+      POSTGRES_DB: ${DB_NAME:-Predictive Play}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-parleyapp}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-Predictive Play}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,4 +84,4 @@ volumes:
 
 networks:
   default:
-    name: parleyapp-network 
+    name: Predictive Play-network 

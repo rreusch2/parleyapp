@@ -9,43 +9,24 @@ import {
   Platform,
   Animated,
   Alert,
-  Modal,
   Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
   TrendingUp, 
-  Zap, 
-  BarChart3, 
   Target, 
   Brain, 
   Sparkles,
-  Timer,
-  Award,
-  ArrowRight,
-  Clock,
-  Trophy,
-  Flame,
-  Eye,
-  X,
   Activity,
   Search,
-  AlertTriangle,
-  CheckCircle,
-  TrendingDown,
-  Database,
-  Globe,
-  Users,
-  BarChart,
-  Shield,
-  DollarSign,
-  Gift,
   Crown,
-  Lock,
   ChevronRight,
-  Bell
+  Calendar,
+  Lock,
+  Shield,
+  Trophy
 } from 'lucide-react-native';
-import { aiService, AIPrediction, AIInsight, UserStats, DailyInsight } from '@/app/services/api/aiService';
+import { aiService, AIPrediction, UserStats } from '@/app/services/api/aiService';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { router } from 'expo-router';
 
@@ -53,79 +34,18 @@ import { useSubscription } from '@/app/services/subscriptionContext';
 import EnhancedPredictionCard from '@/app/components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '@/app/components/ProAIPicksDisplay';
 import NewsFeed from '@/app/components/NewsFeed';
-import RecurringTrends from '@/app/components/RecurringTrends';
+import DailyProfessorInsights from '@/app/components/DailyProfessorInsights';
 import InjuryReportsSection from '@/app/components/InjuryReportsSection';
+import NewsModal from '@/app/components/NewsModal';
 import { useAIChat } from '@/app/services/aiChatContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-// Enhanced interfaces for DeepSeek analysis
-interface DeepSeekAnalysis {
-  id: string;
-  gameId: string;
-  pick: string;
-  confidence: 'Low' | 'Medium' | 'High';
-  reasoning: string;
-  factors: {
-    predictiveAnalytics: string;
-    recentNews: string;
-    userContext: string;
-    valueAssessment: string;
-  };
-  metadata: {
-    toolsUsed: string[];
-    processingTime: number;
-    modelVersion: string;
-  };
-  kellyStake?: number;
-  expectedValue?: number;
-  winProbability?: number;
-  confidenceInterval?: [number, number];
-}
-
-// Use DailyInsight from service instead of custom interface
-type EnhancedAIInsight = DailyInsight;
-
-// Helper function to create consistent random picks for free users
-const getConsistentRandomPicks = (picks: AIPrediction[], userId: string = 'anonymous', count: number = 2) => {
-  if (picks.length <= count) return picks;
-  
-  // Create a seed based on today's date and user ID for consistency
-  const today = new Date().toDateString();
-  const seedString = `${userId}_${today}`;
-  
-  // Simple hash function to create a seed
-  let hash = 0;
-  for (let i = 0; i < seedString.length; i++) {
-    const char = seedString.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  
-  // Use the hash as a seed for consistent randomization
-  const seededRandom = (seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  };
-  
-  // Create array of indices and shuffle using seeded random
-  const indices = Array.from({ length: picks.length }, (_, i) => i);
-  
-  // Fisher-Yates shuffle with seeded randomization
-  for (let i = indices.length - 1; i > 0; i--) {
-    const randomIndex = Math.floor(seededRandom(hash + i) * (i + 1));
-    [indices[i], indices[randomIndex]] = [indices[randomIndex], indices[i]];
-  }
-  
-  // Return the first 'count' picks from the shuffled indices
-  return indices.slice(0, count).map(index => picks[index]);
-};
-
 export default function HomeScreen() {
-  const { isPro, proFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
+  const { isPro, openSubscriptionModal } = useSubscription();
+  const { openChatWithContext, setSelectedPick } = useAIChat();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [aiInsights, setAIInsights] = useState<EnhancedAIInsight[]>([]);
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     todayPicks: 0,
@@ -135,24 +55,24 @@ export default function HomeScreen() {
     totalBets: 0,
     profitLoss: '$0'
   });
-  const [featuredInsight, setFeaturedInsight] = useState<EnhancedAIInsight | null>(null);
 
   const [sparkleAnimation] = useState(new Animated.Value(0));
-  const [selectedAnalysis, setSelectedAnalysis] = useState<DeepSeekAnalysis | null>(null);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
-  const [deepSeekInsights, setDeepSeekInsights] = useState<EnhancedAIInsight[]>([]);
-  const { openChatWithContext, setSelectedPick: setGlobalSelectedPick } = useAIChat();
   
   // New user state
   const [isNewUser, setIsNewUser] = useState<boolean | null>(null);
-
   
+  // News modal state
+  const [newsModalVisible, setNewsModalVisible] = useState(false);
+  const [selectedNewsItem, setSelectedNewsItem] = useState<any>(null);
+  
+  // Welcome bonus state
+  const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
+  const [homeIsNewUser, setHomeIsNewUser] = useState(false);
 
   useEffect(() => {
     loadInitialData();
     startSparkleAnimation();
-    loadDailyInsights();
-  }, []);
+  }, [isPro]); // Added isPro to dependencies
 
   const startSparkleAnimation = () => {
     Animated.loop(
@@ -180,7 +100,6 @@ export default function HomeScreen() {
       
       // Load all data regardless of user status
       await Promise.all([
-        fetchAIInsights(),
         fetchTodaysPicks(),
         fetchUserStats()
       ]);
@@ -191,19 +110,7 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchAIInsights = async () => {
-    try {
-      const insights = await aiService.getDailyInsights('f08b56d3-d4ec-4815-b502-6647d723d2a6');
-      // Free users get limited insights
-      const limitedInsights = isPro ? insights : insights.slice(0, 3);
-      setAIInsights(limitedInsights);
-      if (limitedInsights.length > 0) {
-        setFeaturedInsight(limitedInsights[0]);
-      }
-    } catch (error) {
-      console.error('Error fetching AI insights:', error);
-    }
-  };
+
 
   const fetchTodaysPicks = async () => {
     try {
@@ -212,9 +119,51 @@ export default function HomeScreen() {
       const currentUserId = user?.id;
       const currentUserTier = isPro ? 'pro' : 'free';
       
-      const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-      // Backend now handles pick limits including welcome bonus logic
-      setTodaysPicks(picks);
+      // For consistency with Predictions tab, let's also check the metadata here
+      if (!isPro && currentUserId) {
+        // Get API response directly to check metadata
+        try {
+          const backendUrl = process.env.NODE_ENV === 'production' 
+            ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
+            : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001');
+          const apiResponse = await fetch(`${backendUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
+          const data = await apiResponse.json();
+          
+          if (data.success && data.predictions) {
+            setTodaysPicks(data.predictions);
+            
+            // Check metadata for new user or welcome bonus status
+            if (data.metadata) {
+              const isNewUserScenario = data.metadata.isNewUser || false;
+              const bonusActiveFromAPI = data.metadata.welcomeBonusActive || false;
+              
+              setHomeIsNewUser(isNewUserScenario);
+              setWelcomeBonusActive(bonusActiveFromAPI);
+              
+              if (isNewUserScenario) {
+                console.log(`🆕 New user on Home tab: ${data.predictions.length} picks (automatic welcome bonus)`);
+              } else if (bonusActiveFromAPI) {
+                console.log(`🎁 Welcome bonus active on Home tab: ${data.predictions.length} picks`);
+              } else {
+                console.log(`🎲 Free user on Home tab: ${data.predictions.length} picks`);
+              }
+            }
+          } else {
+            // Fallback to service method
+            const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+            setTodaysPicks(picks);
+          }
+        } catch (error) {
+          console.error('Error fetching picks with metadata:', error);
+          // Fallback to service method
+          const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+          setTodaysPicks(picks);
+        }
+      } else {
+        // Pro users or no user ID - use service method
+        const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+        setTodaysPicks(picks);
+      }
     } catch (error) {
       console.error('Error fetching today\'s picks:', error);
     }
@@ -229,38 +178,17 @@ export default function HomeScreen() {
     }
   };
 
-
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadInitialData();
     setRefreshing(false);
   };
 
-
-
   const handlePickAnalyze = (pick: AIPrediction) => {
-    setGlobalSelectedPick(pick);
+    setSelectedPick(pick);
     
     // Create a custom prompt for this specific pick
-    const customPrompt = `Analyze this AI prediction in detail:
-
-🏟️ Match: ${pick.match}
-🏈 Sport: ${pick.sport}
-🎯 Pick: ${pick.pick}
-📊 Odds: ${pick.odds}
-🔥 Confidence: ${pick.confidence}%
-${pick.value ? `💰 Edge: +${pick.value}%` : ''}
-
-💭 AI Reasoning: ${pick.reasoning}
-
-Please provide deeper analysis on:
-- Why this pick has potential
-- Key factors that could affect the outcome
-- Risk assessment and betting strategy
-- Any additional insights you can provide
-
-What are your thoughts on this prediction?`;
+    const customPrompt = `Analyze this AI prediction in detail:\n\n🏟️ Match: ${pick.match}\n🏈 Sport: ${pick.sport}\n🎯 Pick: ${pick.pick}\n📊 Odds: ${pick.odds}\n🔥 Confidence: ${pick.confidence}%\n${pick.value ? `💰 Edge: +${pick.value}%` : ''}\n\n💭 AI Reasoning: ${pick.reasoning}\n\nPlease provide deeper analysis on:\n- Why this pick has potential\n- Key factors that could affect the outcome\n- Risk assessment and betting strategy\n- Any additional insights you can provide\n\nWhat are your thoughts on this prediction?`;
     
     openChatWithContext({ 
       screen: 'home', 
@@ -290,18 +218,8 @@ What are your thoughts on this prediction?`;
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 85) return '#10B981';
-    if (confidence >= 70) return '#F59E0B';
-    return '#EF4444';
-  };
-
-  const getInsightIcon = (type: string) => {
-    switch (type) {
-      case 'value': return Target;
-      case 'trend': return TrendingUp;
-      case 'alert': return Zap;
-      case 'prediction': return Brain;
-      default: return Sparkles;
-    }
+    if (confidence >= 70) return '#00E5FF';
+    return '#00E5FF'; // Changed from red to cyan for better UX
   };
 
   const sparkleOpacity = sparkleAnimation.interpolate({
@@ -309,98 +227,21 @@ What are your thoughts on this prediction?`;
     outputRange: [0.4, 1],
   });
 
-  const loadDailyInsights = async () => {
-    try {
-      // Hardcoded user ID for development - replace with real user context
-      const userId = 'f08b56d3-d4ec-4815-b502-6647d723d2a6';
-      
-      // Check if insights need regeneration (once per day)
-      const needsRegeneration = await aiService.shouldRegenerateDailyInsights(userId);
-      
-      let insights: EnhancedAIInsight[] = [];
-      
-      if (needsRegeneration) {
-        // Generate new insights using the orchestrator
-        console.log('🔄 Generating new daily insights...');
-        insights = await aiService.generateDailyInsights(userId);
-      } else {
-        // Load existing insights from database/cache
-        insights = await aiService.getDailyInsights(userId);
-      }
-      
-      // Limit insights for free users
-      const limitedInsights = isPro ? insights : insights.slice(0, 3);
-      setDeepSeekInsights(limitedInsights);
-      
-      // Set the first one as featured (with validation)
-      if (limitedInsights.length > 0) {
-        const validatedInsight = {
-          ...limitedInsights[0],
-          category: limitedInsights[0].category || 'analysis',
-          impact: limitedInsights[0].impact || 'medium',
-          title: limitedInsights[0].title || 'AI Insight',
-          description: limitedInsights[0].description || 'Loading insight details...'
-        };
-        setFeaturedInsight(validatedInsight);
-      }
-    } catch (error) {
-      console.error('Error loading daily insights:', error);
-      // Fallback to mock data if service fails
-      const fallbackInsights = await aiService.getDailyInsights('fallback');
-      const limitedFallback = isPro ? fallbackInsights : fallbackInsights.slice(0, 3);
-      setDeepSeekInsights(limitedFallback);
-      if (limitedFallback.length > 0) {
-        const validatedInsight = {
-          ...limitedFallback[0],
-          category: limitedFallback[0].category || 'analysis',
-          impact: limitedFallback[0].impact || 'medium',
-          title: limitedFallback[0].title || 'AI Insight',
-          description: limitedFallback[0].description || 'Loading insight details...'
-        };
-        setFeaturedInsight(validatedInsight);
-      }
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'analysis': return BarChart3;
-      case 'news': return Globe;
-      case 'performance': return TrendingUp;
-      case 'calculator': return Target;
-      case 'weather': return Activity;
-      case 'line_movement': return TrendingUp;
-      default: return Sparkles;
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'analysis': return '#00E5FF';
-      case 'news': return '#10B981';
-      case 'performance': return '#F59E0B';
-      case 'calculator': return '#8B5CF6';
-      case 'weather': return '#64748B'; 
-      case 'line_movement': return '#F59E0B';
-      default: return '#64748B';
-    }
-  };
-
   if (loading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <Animated.View style={{ opacity: sparkleOpacity }}>
           <Sparkles size={40} color="#00E5FF" />
         </Animated.View>
-        <Text style={styles.loadingText}>Loading AI Insights...</Text>
+        <Text style={styles.loadingText}>Loading your dashboard...</Text>
       </View>
     );
   }
 
   // Backend now handles pick limits with welcome bonus logic
-  // Display all picks returned by backend (could be 2, 5, or 10 depending on user tier/bonus)
+  // Display all picks returned by backend (could be 2, 5, or 20 depending on user tier/bonus)
   const displayPicks = todaysPicks;
-  const additionalPicksCount = isPro ? 0 : Math.max(0, 10 - displayPicks.length);
+            const additionalPicksCount = isPro ? 0 : Math.max(0, 20 - displayPicks.length);
 
   // Debug logging for pick display
   if (!isPro) {
@@ -427,11 +268,14 @@ What are your thoughts on this prediction?`;
       >
         {/* Header */}
         <LinearGradient
-          colors={isPro ? ['#1E40AF', '#7C3AED'] : ['#1E293B', '#334155']}
+          colors={isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] : ['#1E293B', '#334155', '#0F172A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
+          {/* Background Pattern */}
+          <View style={styles.headerPattern} />
+
           {isPro && (
             <View style={styles.proBadge}>
               <Crown size={16} color="#F59E0B" />
@@ -440,45 +284,74 @@ What are your thoughts on this prediction?`;
           )}
 
           <View style={styles.headerContent}>
-            <View style={styles.headerTop}>
-              <View>
-                <Text style={styles.welcomeText}>Welcome back!</Text>
-                <Text style={styles.headerTitle}>
-                  {isPro ? 'Pro Dashboard' : 'Predictive Picks'}
-                </Text>
+            {/* Centered Welcome Section */}
+            <View style={styles.welcomeSection}>
+              <View style={styles.brandContainer}>
+                <Brain size={28} color="#00E5FF" />
+                <View style={styles.brandTextContainer}>
+                  <Text style={styles.welcomeText}>Welcome back!</Text>
+                  <Text style={styles.headerTitle}>
+                    {isPro ? 'Pro Dashboard' : 'Predictive Play'}
+                  </Text>
+                </View>
+                <View style={styles.sparkleContainer}>
+                  <Sparkles size={20} color="#00E5FF" />
+                </View>
               </View>
             </View>
             
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                  {isPro ? todaysPicks.length : todaysPicks.length}
-                </Text>
-                <Text style={styles.statLabel}>
-                  {isPro ? 'Total Picks' : 'Daily Picks'}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                  {isPro ? userStats.winRate : '?'}
-                </Text>
-                <Text style={styles.statLabel}>Win Rate</Text>
-                {!isPro && (
-                  <View style={styles.lockOverlay}>
-                    <Lock size={14} color="#64748B" />
+            {/* Enhanced Stats Row with new order */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                {/* Win Rate - First Position */}
+                <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
+                  <View style={styles.statIconContainer}>
+                    <Trophy size={20} color={isPro ? "#10B981" : "#64748B"} />
                   </View>
-                )}
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }]}>
-                  {isPro ? userStats.roi : '?'}
-                </Text>
-                <Text style={styles.statLabel}>ROI</Text>
-                {!isPro && (
-                  <View style={styles.lockOverlay}>
-                    <Lock size={14} color="#64748B" />
+                  <Text style={[styles.statValue, !isPro && styles.lockedStatValue]}>
+                    {isPro ? userStats.winRate : '?'}
+                  </Text>
+                  <Text style={styles.statLabel}>Win Rate</Text>
+                  {!isPro && (
+                    <View style={styles.lockOverlay}>
+                      <Lock size={16} color="#64748B" />
+                    </View>
+                  )}
+                </View>
+
+                {/* Daily Picks - Center Position (Highlighted) */}
+                <View style={[styles.statItem, styles.centerStatItem]}>
+                  <View style={styles.centerStatIconContainer}>
+                    <Target size={24} color="#00E5FF" />
                   </View>
-                )}
+                  <Text style={[styles.statValue, styles.centerStatValue]}>
+                    {isPro ? '20' : todaysPicks.length}
+                  </Text>
+                  <Text style={[styles.statLabel, styles.centerStatLabel]}>
+                    {isPro ? 'Pro Picks' : 'Daily Picks'}
+                  </Text>
+                  {(welcomeBonusActive || homeIsNewUser) && !isPro && (
+                    <View style={styles.bonusIndicator}>
+                      <Text style={styles.bonusEmoji}>🎁</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* ROI - Third Position */}
+                <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
+                  <View style={styles.statIconContainer}>
+                    <TrendingUp size={20} color={isPro ? "#10B981" : "#64748B"} />
+                  </View>
+                  <Text style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                    {isPro ? userStats.roi : '?'}
+                  </Text>
+                  <Text style={styles.statLabel}>ROI</Text>
+                  {!isPro && (
+                    <View style={styles.lockOverlay}>
+                      <Lock size={16} color="#64748B" />
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
           </View>
@@ -494,7 +367,7 @@ What are your thoughts on this prediction?`;
               >
                 <Crown size={16} color="#FFFFFF" />
                 <Text style={styles.upgradeText}>
-                  Unlock unlimited picks & advanced analytics
+                  Unlock 20 daily picks & premium analytics
                 </Text>
                 <ChevronRight size={16} color="#FFFFFF" />
               </LinearGradient>
@@ -502,94 +375,7 @@ What are your thoughts on this prediction?`;
           )}
         </LinearGradient>
 
-        {/* Featured Insight Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {isPro ? 'AI-Powered Insights' : 'Today\'s Insight'}
-            </Text>
-          </View>
 
-          {featuredInsight && (
-            <TouchableOpacity 
-              style={styles.featuredInsightCard}
-              activeOpacity={isPro ? 0.8 : 1}
-              onPress={() => {
-                if (!isPro) {
-                  Alert.alert(
-                    'Pro Feature 🌟',
-                    'Get unlimited AI-powered insights with detailed analysis!',
-                    [
-                              { text: 'Maybe Later', style: 'cancel' },
-        { 
-          text: 'Upgrade to Pro', 
-          onPress: openSubscriptionModal,
-          style: 'default'
-        }
-                    ]
-                  );
-                }
-              }}
-            >
-              <LinearGradient
-                colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#334155']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.featuredGradient}
-              >
-                <View style={styles.insightHeader}>
-                  <View style={[
-                    styles.categoryBadge, 
-                    { backgroundColor: getCategoryColor(featuredInsight.category || 'analysis') + '20' }
-                  ]}>
-                    {React.createElement(getCategoryIcon(featuredInsight.category || 'analysis'), {
-                      size: 16,
-                      color: getCategoryColor(featuredInsight.category || 'analysis')
-                    })}
-                    <Text style={[
-                      styles.categoryText,
-                      { color: getCategoryColor(featuredInsight.category || 'analysis') }
-                    ]}>
-                      {(featuredInsight.category || 'analysis').charAt(0).toUpperCase() + (featuredInsight.category || 'analysis').slice(1)}
-                    </Text>
-                  </View>
-                  <View style={[
-                    styles.impactBadge,
-                    { backgroundColor: (featuredInsight.impact || 'medium') === 'high' ? '#EF444420' : '#F59E0B20' }
-                  ]}>
-                    <Text style={[
-                      styles.impactText,
-                      { color: (featuredInsight.impact || 'medium') === 'high' ? '#EF4444' : '#F59E0B' }
-                    ]}>
-                      {(featuredInsight.impact || 'medium').toUpperCase()} IMPACT
-                    </Text>
-                  </View>
-                </View>
-                
-                <Text style={styles.insightTitle}>{featuredInsight.title}</Text>
-                <Text style={styles.insightDescription} numberOfLines={isPro ? undefined : 2}>
-                  {featuredInsight.description}
-                </Text>
-                
-                {isPro && featuredInsight.tools_used && featuredInsight.tools_used.length > 0 && (
-                  <View style={styles.toolsUsed}>
-                    <Zap size={14} color="#00E5FF" />
-                    <Text style={styles.toolsText}>
-                      {featuredInsight.tools_used.length} AI tools analyzed
-                    </Text>
-                  </View>
-                )}
-
-                {!isPro && (
-                  <View style={styles.lockSection}>
-                    <Lock size={14} color="#64748B" />
-                    <Text style={styles.lockText}>Full analysis available with Pro</Text>
-                  </View>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
 
         {/* AI Picks Section - Pro vs Free */}
         {isPro ? (
@@ -613,7 +399,7 @@ What are your thoughts on this prediction?`;
                   confidence: pick.confidence,
                   reasoning: pick.reasoning || ''
                 };
-                setGlobalSelectedPick(transformedPick);
+                setSelectedPick(transformedPick);
                 openChatWithContext({ 
                   screen: 'home', 
                   selectedPick: transformedPick 
@@ -635,7 +421,7 @@ What are your thoughts on this prediction?`;
                 }}
               >
                 <Text style={styles.viewAllText}>View All</Text>
-                <ArrowRight size={16} color="#00E5FF" />
+                <ChevronRight size={16} color="#00E5FF" />
               </TouchableOpacity>
             </View>
 
@@ -644,13 +430,13 @@ What are your thoughts on this prediction?`;
                 style={styles.emptyPicksCard}
                 onPress={onRefresh}
               >
-                <Trophy size={40} color="#64748B" />
+                <Sparkles size={40} color="#64748B" />
                 <Text style={styles.emptyPicksTitle}>No picks yet today</Text>
                 <Text style={styles.emptyPicksText}>
                   Generate your free picks to get started
                 </Text>
                 <View style={styles.generatePicksButton}>
-                  <Zap size={16} color="#FFFFFF" />
+                  <Sparkles size={16} color="#FFFFFF" />
                   <Text style={styles.generatePicksText}>Generate Picks</Text>
                 </View>
               </TouchableOpacity>
@@ -662,6 +448,7 @@ What are your thoughts on this prediction?`;
                     prediction={pick}
                     index={index}
                     onAnalyze={() => handlePickAnalyze(pick)}
+                    welcomeBonusActive={welcomeBonusActive || homeIsNewUser}
                   />
                 ))}
 
@@ -677,12 +464,12 @@ What are your thoughts on this prediction?`;
                           <Lock size={32} color="#00E5FF" />
                         </View>
                         <Text style={styles.upgradeTitle}>
-                          {additionalPicksCount} More Picks Available
+                          {additionalPicksCount} More Premium Picks Available
                         </Text>
-                        <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
+                        <Text style={styles.upgradeSubtitle}>Pro Feature • 20 Total Picks</Text>
                         <Text style={styles.upgradeDescription}>
-                          Unlock unlimited AI-powered predictions with advanced analytics, 
-                          confidence scoring, and detailed reasoning behind every pick.
+                          Unlock all 20 daily AI-powered predictions with advanced analytics, 
+                          Kelly Criterion calculations, and detailed multi-source reasoning.
                         </Text>
                         <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
                           <LinearGradient
@@ -703,30 +490,40 @@ What are your thoughts on this prediction?`;
           </View>
         )}
 
+        {/* Daily AI Insights Section - Pro Only */}
+        <View style={styles.section}>
+          <DailyProfessorInsights sport="MLB" />
+        </View>
+
         {/* Live News Feed Section */}
         <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionTitle}>Latest News</Text>
+              <View style={styles.liveBadge}>
+                <View style={styles.liveIndicator} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            </View>
+            <TouchableOpacity 
+              style={styles.viewAllButton}
+              onPress={() => {
+                // Could navigate to a full news page in the future
+                console.log('View all news');
+              }}
+            >
+              <Text style={styles.viewAllText}>View All</Text>
+              <ChevronRight size={16} color="#00E5FF" />
+            </TouchableOpacity>
+          </View>
+          
           <View style={styles.newsSection}>
             <NewsFeed 
               limit={isPro ? 15 : 5}
               showHeader={false}
               onNewsClick={(news) => {
-                if (news.sourceUrl) {
-                  Alert.alert(
-                    'Open News Article',
-                    `Open "${news.title}" in browser?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Open', 
-                        onPress: () => {
-                          if (news.sourceUrl) {
-                            require('react-native').Linking.openURL(news.sourceUrl);
-                          }
-                        }
-                      }
-                    ]
-                  );
-                }
+                setSelectedNewsItem(news);
+                setNewsModalVisible(true);
               }}
             />
             
@@ -740,11 +537,11 @@ What are your thoughts on this prediction?`;
                     <View style={styles.upgradeIcon}>
                       <Activity size={32} color="#00E5FF" />
                     </View>
-                    <Text style={styles.upgradeTitle}>Full News Access</Text>
-                    <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
+                    <Text style={styles.upgradeTitle}>Premium News Access</Text>
+                    <Text style={styles.upgradeSubtitle}>Pro Feature • Real-time Updates</Text>
                     <Text style={styles.upgradeDescription}>
                       Get unlimited breaking news, real-time injury updates, trade alerts, 
-                      and personalized news feeds tailored to your teams.
+                      and AI-curated news feeds with insider intelligence.
                     </Text>
                     <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
                       <LinearGradient
@@ -768,11 +565,6 @@ What are your thoughts on this prediction?`;
           <InjuryReportsSection isPro={isPro} />
         </View>
 
-        {/* Recurring Trends Section - Pro Only */}
-        <View style={styles.section}>
-          <RecurringTrends sport="MLB" />
-        </View>
-
 
 
         {/* AI Disclaimer */}
@@ -786,6 +578,16 @@ What are your thoughts on this prediction?`;
         </View>
 
       </ScrollView>
+      
+      {/* News Modal */}
+      <NewsModal
+        visible={newsModalVisible}
+        onClose={() => {
+          setNewsModalVisible(false);
+          setSelectedNewsItem(null);
+        }}
+        newsItem={selectedNewsItem}
+      />
     </View>
   );
 }
@@ -811,6 +613,15 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     position: 'relative',
+    minHeight: 200,
+  },
+  headerPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.05,
   },
   proBadge: {
     flexDirection: 'row',
@@ -818,7 +629,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 40,
     right: 20,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -826,52 +637,126 @@ const styles = StyleSheet.create({
   proBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: '#00E5FF',
     marginLeft: 6,
     letterSpacing: 0.5,
   },
   headerContent: {
     marginTop: 20,
   },
-  headerTop: {
+  welcomeSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  brandContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandTextContainer: {
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  sparkleContainer: {
+    opacity: 0.8,
   },
   welcomeText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#CBD5E1',
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   generateButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     padding: 12,
   },
+  statsContainer: {
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.1)',
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
     position: 'relative',
+    paddingVertical: 12,
+  },
+  lockedStatItem: {
+    opacity: 0.6,
+  },
+  statIconContainer: {
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  centerStatItem: {
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  centerStatIconContainer: {
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
   },
   statValue: {
     fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  lockedStatValue: {
+    color: '#64748B',
+  },
+  centerStatValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#00E5FF',
+    marginBottom: 8,
   },
   statLabel: {
     fontSize: 12,
     color: '#CBD5E1',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  centerStatLabel: {
+    fontSize: 13,
+    color: '#00E5FF',
+    fontWeight: '600',
+  },
+  bonusIndicator: {
+    position: 'absolute',
+    top: -8,
+    right: 8,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  bonusEmoji: {
+    fontSize: 16,
   },
   lockOverlay: {
     position: 'absolute',
@@ -917,6 +802,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
+  liveIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00E5FF',
+    marginRight: 4,
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#00E5FF',
+  },
   aiPoweredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -945,71 +855,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 4,
   },
-  featuredInsightCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  featuredGradient: {
-    padding: 20,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  impactBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  impactText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  insightTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  insightDescription: {
-    fontSize: 14,
-    color: '#CBD5E1',
-    lineHeight: 20,
-  },
-  toolsUsed: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  toolsText: {
-    fontSize: 12,
-    color: '#00E5FF',
-    marginLeft: 6,
-  },
-  lockSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  lockText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginLeft: 6,
-  },
+
   emptyPicksCard: {
     backgroundColor: '#1E293B',
     borderRadius: 16,
@@ -1073,13 +919,13 @@ const styles = StyleSheet.create({
   unlockButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
   },
   unlockButtonText: {
-    color: '#F59E0B',
+    color: '#00E5FF',
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 6,

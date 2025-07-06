@@ -463,7 +463,7 @@ Use 3-4 tools minimum to provide the most comprehensive and well-informed recomm
       }
     }
 
-    return `You are an expert sports betting analyst and advisor for the ParleyApp. Your role is to analyze betting opportunities and provide personalized recommendations to users.
+    return `You are an expert sports betting analyst and advisor for the Predictive Play. Your role is to analyze betting opportunities and provide personalized recommendations to users.
 
 CURRENT BET ANALYSIS REQUEST:
 - Sport: ${request.sport}

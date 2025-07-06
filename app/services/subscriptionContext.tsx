@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { applePaymentService } from './paymentService';
 import { DEV_CONFIG } from '@/app/config/development';
 import { supabase } from './api/supabaseClient';
+import { Alert } from 'react-native';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -27,7 +28,7 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export const useSubscription = () => {
   const context = useContext(SubscriptionContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useSubscription must be used within a SubscriptionProvider');
   }
   return context;
@@ -122,8 +123,50 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // For lifetime purchases, this would be a one-time payment rather than subscription
-      // Payment service would need to handle lifetime differently than recurring subscriptions
+      // Development mode: Skip payment processing and directly upgrade user
+      if (__DEV__) {
+        console.log(`🔧 Development Mode: Upgrading user to ${planId} pro plan (skipping payment)`);
+        
+        try {
+          // Update user profile to Pro status in Supabase
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ 
+              subscription_tier: 'pro',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id);
+
+          if (updateError) {
+            console.error('❌ Failed to update user profile:', updateError);
+            Alert.alert('Error', 'Failed to update subscription status. Please try again.');
+            return false;
+          }
+
+          // Update local state and storage
+          setIsPro(true);
+          await AsyncStorage.setItem('subscriptionStatus', 'pro');
+          
+          // Close the modal on successful upgrade
+          setShowSubscriptionModal(false);
+          
+          // Show success message
+          Alert.alert(
+            '🎉 Welcome to Pro!',
+            `You've been upgraded to ${planId} plan! All Pro features are now unlocked.`,
+            [{ text: 'Awesome!', style: 'default' }]
+          );
+
+          console.log(`✅ Successfully upgraded user to Pro (${planId} plan)`);
+          return true;
+        } catch (error) {
+          console.error('❌ Error during dev subscription upgrade:', error);
+          Alert.alert('Error', 'Failed to upgrade account. Please try again.');
+          return false;
+        }
+      }
+
+      // Production mode: Use actual payment service
       const result = await applePaymentService.purchaseSubscription(planId, user.id);
       if (result.success) {
         setIsPro(true);

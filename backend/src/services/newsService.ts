@@ -78,7 +78,7 @@ class NewsService {
       
       logger.info(`[newsService]: ✅ Fetched ${sortedNews.length} news items`);
       return sortedNews;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[newsService]: Error fetching news:', error);
       return this.getFallbackNews(sport);
     }
@@ -103,11 +103,19 @@ class NewsService {
           
           if (data.articles && Array.isArray(data.articles)) {
             for (const article of data.articles.slice(0, limit)) {
+              // Try to get more detailed content
+              let content = article.story || article.body || article.description;
+              if (!content || content.length < 200) {
+                // If content is too short, expand the summary with relevant context
+                const baseContent = article.description || article.summary || 'Click to read more';
+                content = this.expandNewsContent(baseContent, article.headline || article.title || '', sportName);
+              }
+
               newsItems.push({
                 id: `espn_${article.id || Date.now()}_${Math.random()}`,
                 title: article.headline || article.title || 'Breaking News',
                 summary: article.description || article.summary || 'Click to read more',
-                content: article.story || article.body,
+                content: content,
                 type: this.categorizeNews(article.headline || article.title || ''),
                 sport: sportName.toUpperCase(),
                 league: sportName.toUpperCase(),
@@ -116,17 +124,17 @@ class NewsService {
                 source: 'ESPN',
                 sourceUrl: article.links?.web?.href || article.link,
                 imageUrl: article.image?.url || article.images?.[0]?.url,
-                tags: article.categories || []
+                tags: this.cleanTags(article.categories || [])
               });
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           logger.warn(`[newsService]: Failed to fetch ${sportName} news from ESPN:`, error);
         }
       }
 
       return newsItems;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[newsService]: Error fetching ESPN news:', error);
       return [];
     }
@@ -154,7 +162,7 @@ class NewsService {
         gameId: injury.gameId,
         tags: ['injury', injury.status, injury.team.toLowerCase()]
       }));
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[newsService]: Error fetching injury reports:', error);
       return [];
     }
@@ -198,13 +206,13 @@ class NewsService {
               }
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           logger.warn(`[newsService]: Failed to fetch ${sportName} injuries:`, error);
         }
       }
 
       return injuries;
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[newsService]: Error fetching ESPN injuries:', error);
       return [];
     }
@@ -222,7 +230,7 @@ class NewsService {
       // For now, we'll return mock data that matches the structure
       
       return this.getMockRSSNews(sport, limit);
-    } catch (error) {
+    } catch (error: any) {
       logger.error('[newsService]: Error fetching RSS news:', error);
       return [];
     }
@@ -310,6 +318,87 @@ class NewsService {
     return 'low';
   }
 
+  /**
+   * Expand news content with relevant context when original content is too short
+   */
+  private expandNewsContent(baseContent: string, title: string, sport: string): string {
+    const type = this.categorizeNews(title);
+    let expandedContent = baseContent;
+
+    // Add sport-specific context
+    const sportContext = this.getSportContext(sport, type);
+    if (sportContext) {
+      expandedContent += `\n\n${sportContext}`;
+    }
+
+    // Add type-specific insights
+    const typeContext = this.getTypeContext(type, title);
+    if (typeContext) {
+      expandedContent += `\n\n${typeContext}`;
+    }
+
+    return expandedContent;
+  }
+
+  /**
+   * Get sport-specific context
+   */
+  private getSportContext(sport: string, type: string): string {
+    const sportLower = sport.toLowerCase();
+    
+    switch (sportLower) {
+      case 'nba':
+        return 'NBA developments can significantly impact player props, team spreads, and over/under lines. Monitor injury reports and lineup changes closely.';
+      case 'nfl':
+        return 'NFL news affects weekly betting markets dramatically. Consider how this impacts point spreads, player props, and team totals.';
+      case 'mlb':
+        return 'Baseball news influences daily betting markets. Pay attention to pitching matchups, weather conditions, and lineup changes.';
+      case 'nhl':
+        return 'Hockey developments can affect puck lines, totals, and player prop bets. Goalie changes and injury reports are particularly important.';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Get type-specific context
+   */
+  private getTypeContext(type: string, title: string): string {
+    switch (type) {
+      case 'injury':
+        return 'Injury reports are crucial for sports betting. Key players being out can shift point spreads by several points and dramatically affect over/under totals.';
+      case 'trade':
+        return 'Trades can reshape team dynamics and affect betting lines. New players may need time to adjust, while departing players leave gaps in team performance.';
+      case 'breaking':
+        return 'Breaking news often creates immediate opportunities in betting markets. Quick line movements may occur as sportsbooks adjust to new information.';
+      case 'analysis':
+        return 'Statistical analysis provides valuable insights for informed betting decisions. Look for trends that might not be reflected in current betting lines.';
+      case 'lineup':
+        return 'Lineup changes can significantly impact game outcomes. Star players sitting out or playing different positions affects team performance metrics.';
+      default:
+        return 'Stay informed with the latest sports developments to make better betting decisions.';
+    }
+  }
+
+  /**
+   * Clean and simplify tags array
+   */
+  private cleanTags(tags: any[]): string[] {
+    if (!Array.isArray(tags)) return [];
+    
+    return tags
+      .map(tag => {
+        if (typeof tag === 'string') return tag;
+        if (tag?.name) return tag.name;
+        if (tag?.description) return tag.description;
+        if (tag?.type) return tag.type;
+        return null;
+      })
+      .filter(tag => tag && typeof tag === 'string')
+      .filter(tag => tag.length < 50) // Remove overly long tags
+      .slice(0, 5); // Limit to 5 tags max
+  }
+
   private deduplicateNews(news: NewsItem[]): NewsItem[] {
     const seen = new Set<string>();
     return news.filter(item => {
@@ -340,25 +429,25 @@ class NewsService {
     const mockNews: NewsItem[] = [
       {
         id: 'rss_1',
-        title: 'Trade Deadline Approaching: Key Players on the Move',
-        summary: 'Multiple teams are looking to make moves before the deadline...',
-        type: 'trade',
+        title: 'NBA Season Trends Shaping Playoff Picture',
+        summary: 'Current team performances are creating interesting storylines as we approach the playoffs...',
+        type: 'analysis',
         sport: 'NBA',
-        impact: 'high',
+        impact: 'medium',
         timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
         source: 'CBS Sports',
-        tags: ['trade', 'deadline']
+        tags: ['analysis', 'playoffs']
       },
       {
         id: 'rss_2',
-        title: 'Weather Alert: Snow Expected for Tonight\'s Game',
-        summary: 'Heavy snowfall could impact outdoor games scheduled for tonight...',
-        type: 'weather',
-        sport: 'NFL',
-        impact: 'medium',
-        timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-        source: 'Weather.com',
-        tags: ['weather', 'snow']
+        title: 'MLB Spring Training Underway',
+        summary: 'Teams are beginning spring preparations with key focus areas emerging for the upcoming season...',
+        type: 'analysis',
+        sport: 'MLB',
+        impact: 'low',
+        timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+        source: 'ESPN',
+        tags: ['spring-training', 'analysis']
       }
     ];
 

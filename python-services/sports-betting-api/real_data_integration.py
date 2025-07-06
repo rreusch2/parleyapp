@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Real Sports Data Integration for ParleyApp
+Real Sports Data Integration for Predictive Play
 Connects to actual sports APIs for live data instead of mock data
 """
 

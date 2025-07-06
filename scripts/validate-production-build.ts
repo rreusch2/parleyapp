@@ -3,7 +3,7 @@
 /**
  * Production Build Validation Script
  * 
- * This script validates that your ParleyApp is ready for production build
+ * This script validates that your Predictive Play is ready for production build
  * and App Store submission by checking for common issues.
  */
 
@@ -24,7 +24,7 @@ class ProductionValidator {
   private criticalErrors: string[] = [];
 
   async validate(): Promise<ValidationResult> {
-    console.log('🔍 Validating ParleyApp for production build...\n');
+    console.log('🔍 Validating Predictive Play for production build...\n');
 
     // Check environment variables
     this.checkEnvironmentVariables();
@@ -98,6 +98,55 @@ class ProductionValidator {
         }
       }
     });
+
+    // Check for console.log statements in production code
+    this.checkForConsoleLogStatements();
+  }
+
+  private checkForConsoleLogStatements() {
+    console.log('🧹 Checking for console.log statements...');
+    
+    const appDir = 'app';
+    if (!fs.existsSync(appDir)) {
+      return;
+    }
+
+    let consoleLogsFound = 0;
+
+    const checkDirectory = (dirPath: string) => {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+        
+        if (entry.isDirectory() && !entry.name.includes('node_modules')) {
+          checkDirectory(fullPath);
+        } else if (entry.name.match(/\.(ts|tsx|js|jsx)$/)) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const lines = content.split('\n');
+          
+          lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+            // Skip commented lines and __DEV__ wrapped console.logs
+            if (!trimmedLine.startsWith('//') && 
+                !trimmedLine.startsWith('*') &&
+                /console\.(log|error|warn|info|debug)\s*\(/.test(line) &&
+                !line.includes('__DEV__')) {
+              consoleLogsFound++;
+              this.warnings.push(`⚠️  Console.log found in ${fullPath}:${index + 1} - ${trimmedLine}`);
+            }
+          });
+        }
+      }
+    };
+
+    checkDirectory(appDir);
+
+    if (consoleLogsFound > 0) {
+      this.warnings.push(`⚠️  Found ${consoleLogsFound} unwrapped console.log statements. Run 'npm run cleanup-console-logs' to fix.`);
+    } else {
+      console.log('✅ No unwrapped console.log statements found');
+    }
   }
 
   private checkConfigurationFiles() {

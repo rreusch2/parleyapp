@@ -35,6 +35,7 @@ import {
   BarChart3
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
+import NewsModal from './NewsModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -79,9 +80,11 @@ export default function NewsFeed({
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // Filter out injury news items and apply selected filter
-  const filteredNews = allNews.filter(item => item.type !== 'injury'); // Remove injury items
+  // Filter out injury and weather news items and apply selected filter
+  const filteredNews = allNews.filter(item => item.type !== 'injury' && item.type !== 'weather'); // Remove injury and weather items
   const news = selectedFilter === 'all' 
     ? filteredNews 
     : filteredNews.filter(item => item.type === selectedFilter);
@@ -159,9 +162,15 @@ export default function NewsFeed({
   const handleNewsPress = (newsItem: NewsItem) => {
     if (onNewsClick) {
       onNewsClick(newsItem);
-    } else if (newsItem.sourceUrl) {
-      Linking.openURL(newsItem.sourceUrl);
+    } else {
+      setSelectedNews(newsItem);
+      setModalVisible(true);
     }
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedNews(null);
   };
 
   const getNewsIcon = (type: string) => {
@@ -211,51 +220,40 @@ export default function NewsFeed({
     { key: 'all', label: 'All', icon: Activity, count: news.length },
     { key: 'breaking', label: 'Breaking', icon: Zap, count: news.filter(n => n.type === 'breaking').length },
     { key: 'trade', label: 'Trade', icon: TrendingUp, count: news.filter(n => n.type === 'trade').length },
-    { key: 'weather', label: 'Weather', icon: CloudRain, count: news.filter(n => n.type === 'weather').length },
+    { key: 'lineup', label: 'Lineup', icon: User, count: news.filter(n => n.type === 'lineup').length },
     { key: 'analysis', label: 'Analysis', icon: BarChart3, count: news.filter(n => n.type === 'analysis').length }
   ];
 
   const getFallbackNews = (): NewsItem[] => [
     {
       id: '1',
-      title: 'Trade Deadline Buzz: Cowboys Exploring Options',
-      summary: 'The Dallas Cowboys are reportedly exploring trade options to bolster their offensive line before the deadline.',
-      type: 'trade',
-      sport: 'NFL',
-      team: 'Cowboys',
+      title: 'NBA MVP Race Heating Up',
+      summary: 'With the season progressing, several players are emerging as strong contenders for the MVP award based on recent performances.',
+      type: 'analysis',
+      sport: 'NBA',
       impact: 'medium',
       timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      source: 'NFL Network'
-    },
-    {
-      id: '2',
-      title: 'Weather Alert: Snow Expected in Chicago',
-      summary: 'Heavy snowfall is expected for tonight\'s Bears vs Packers game, which could significantly impact scoring.',
-      type: 'weather',
-      sport: 'NFL',
-      impact: 'medium',
-      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-      source: 'Weather.com'
-    },
-    {
-      id: '3',
-      title: 'BREAKING: Star Player Traded to Championship Contender',
-      summary: 'In a shocking move, the league\'s top scorer has been traded to a title-contending team just before the playoffs.',
-      type: 'breaking',
-      sport: 'NBA',
-      impact: 'high',
-      timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
       source: 'ESPN'
     },
     {
-      id: '4',
-      title: 'Advanced Analytics Show Value Betting Opportunities',
-      summary: 'Our latest statistical analysis reveals several undervalued betting lines for tonight\'s games based on team performance metrics.',
-      type: 'analysis',
+      id: '2',
+      title: 'BREAKING: Major League Baseball Updates Playoff Format',
+      summary: 'MLB has announced significant changes to the playoff structure that will affect betting strategies and team preparations.',
+      type: 'breaking',
       sport: 'MLB',
+      impact: 'high',
+      timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      source: 'MLB.com'
+    },
+    {
+      id: '3',
+      title: 'Advanced Analytics Reveal Betting Trends',
+      summary: 'Recent statistical analysis shows interesting patterns in team performance that smart bettors should consider.',
+      type: 'analysis',
+      sport: 'NBA',
       impact: 'medium',
       timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-      source: 'Predictive Play'
+      source: 'The Athletic'
     }
   ];
 
@@ -349,7 +347,7 @@ export default function NewsFeed({
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <AlertTriangle size={24} color="#EF4444" />
+            <AlertTriangle size={24} color="#00E5FF" />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => fetchNews()}>
               <Text style={styles.retryText}>Try Again</Text>
@@ -385,18 +383,6 @@ export default function NewsFeed({
                       </View>
                       
                       <View style={styles.rightMetadata}>
-                        <View style={[
-                          styles.impactBadge,
-                          { backgroundColor: `${getImpactColor(item.impact)}20` }
-                        ]}>
-                          <Text style={[
-                            styles.impactText,
-                            { color: getImpactColor(item.impact) }
-                          ]}>
-                            {item.impact.toUpperCase()}
-                          </Text>
-                        </View>
-                        
                         <View style={styles.timeContainer}>
                           <Clock size={12} color="#94A3B8" />
                           <Text style={styles.timeText}>
@@ -444,12 +430,7 @@ export default function NewsFeed({
                     <ChevronRight size={16} color="#64748B" />
                   </View>
 
-                  {/* High impact indicator */}
-                  {item.impact === 'high' && (
-                    <View style={styles.highImpactIndicator}>
-                      <Flame size={12} color="#EF4444" />
-                    </View>
-                  )}
+
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -486,6 +467,13 @@ export default function NewsFeed({
           </>
         )}
       </ScrollView>
+      
+      {/* News Modal */}
+      <NewsModal
+        visible={modalVisible}
+        onClose={handleCloseModal}
+        newsItem={selectedNews}
+      />
     </View>
   );
 }
@@ -530,7 +518,7 @@ const styles = StyleSheet.create({
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -539,13 +527,13 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#00E5FF',
     marginRight: 4,
   },
   liveText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#EF4444',
+    color: '#00E5FF',
   },
   filtersContainer: {
     marginBottom: 4,
@@ -607,13 +595,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   newsCard: {
-    marginBottom: 12,
-    borderRadius: 12,
+    marginBottom: 16,
+    borderRadius: 16,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   newsGradient: {
-    padding: 16,
+    padding: 20,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.05)',
   },
   newsHeader: {
     marginBottom: 12,
@@ -732,7 +730,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   errorText: {
-    color: '#EF4444',
+    color: '#94A3B8',
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,

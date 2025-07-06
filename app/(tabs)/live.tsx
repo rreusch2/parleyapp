@@ -148,10 +148,23 @@ export default function GamesScreen() {
       const todayStr = today.toDateString();
       const tomorrowStr = tomorrow.toDateString();
       
+      const now = new Date();
+      
       const todayGames = games.filter(game => {
         const gameDate = new Date(game.start_time);
         const gameDateStr = gameDate.toDateString();
-        return game.status === 'scheduled' && gameDateStr === todayStr;
+        
+        // Game must be scheduled AND either:
+        // 1. Game is in the future (hasn't started yet)
+        // 2. Game is within 30 minutes of start time (buffer for live games)
+        const gameStartTime = gameDate.getTime();
+        const currentTime = now.getTime();
+        const timeDifference = gameStartTime - currentTime;
+        const thirtyMinutesInMs = 30 * 60 * 1000;
+        
+        return game.status === 'scheduled' && 
+               gameDateStr === todayStr && 
+               timeDifference > -thirtyMinutesInMs; // Allow 30 min buffer for recently started games
       });
 
       const tomorrowGames = games.filter(game => {
@@ -587,7 +600,7 @@ export default function GamesScreen() {
             {/* Away Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <Text style={styles.teamName}>{game.away_team}</Text>
+                <Text style={styles.modernTeamName}>{game.away_team}</Text>
                 <Text style={styles.teamRecord}>
                   {game.stats.away_score !== null ? game.stats.away_score : ''}
                 </Text>
@@ -623,7 +636,7 @@ export default function GamesScreen() {
             {/* Home Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <Text style={styles.teamName}>{game.home_team}</Text>
+                <Text style={styles.modernTeamName}>{game.home_team}</Text>
                 <Text style={styles.teamRecord}>
                   {game.stats.home_score !== null ? game.stats.home_score : ''}
                 </Text>
@@ -680,7 +693,7 @@ export default function GamesScreen() {
                     }}
                   >
                     <Text style={[
-                      styles.bookName,
+                      styles.modernBookName,
                       (selectedBooks[game.id] === book.bookName || (!selectedBooks[game.id] && index === 0)) && styles.selectedBookName
                     ]}>
                       {book.bookName}
@@ -717,11 +730,11 @@ export default function GamesScreen() {
           {/* AI Pick Preview */}
           {game.aiPick && (
             <View style={styles.modernAiPick}>
-              <View style={styles.aiPickHeader}>
+              <View style={styles.modernAiPickHeader}>
                 <Zap size={16} color="#00E5FF" />
-                <Text style={styles.aiPickTitle}>AI Pick</Text>
-                <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceText}>{game.aiPick.confidence}%</Text>
+                <Text style={styles.modernAiPickTitle}>AI Pick</Text>
+                <View style={styles.modernConfidenceBadge}>
+                  <Text style={styles.modernConfidenceText}>{game.aiPick.confidence}%</Text>
                 </View>
               </View>
               <Text style={styles.aiPickContent} numberOfLines={2}>
@@ -764,22 +777,28 @@ export default function GamesScreen() {
           )}
 
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Calendar size={20} color="#00E5FF" />
-              <Text style={styles.statValue}>{gameStats.total}</Text>
-              <Text style={styles.statLabel}>Total Games</Text>
+            <View style={styles.dualStatCard}>
+              <Calendar size={22} color="#00E5FF" />
+              <Text style={styles.dualStatValue}>{gameStats.total}</Text>
+              <Text style={styles.dualStatLabel}>Games Available{'\n'}Today & Tomorrow</Text>
             </View>
             
-            <View style={styles.statCard}>
-              <Brain size={20} color="#10B981" />
-              <Text style={styles.statValue}>{gameStats.withAI}</Text>
-              <Text style={styles.statLabel}>With AI Picks</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <TrendingUp size={20} color="#EF4444" />
-              <Text style={styles.statValue}>{gameStats.live}</Text>
-              <Text style={styles.statLabel}>Live Now</Text>
+            <View style={styles.dualStatCardSecondary}>
+              <Clock size={22} color="#8B5CF6" />
+              <Text style={styles.dualStatValueSecondary}>
+                {new Date().toLocaleDateString('en-US', { 
+                  weekday: 'short', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </Text>
+              <Text style={styles.dualStatLabel}>
+                {new Date().toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                })}
+              </Text>
             </View>
           </View>
 
@@ -932,12 +951,50 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
     marginTop: 30,
+    paddingHorizontal: 8,
+    gap: 12,
   },
   statCard: {
     alignItems: 'center',
     flex: 1,
+  },
+  dualStatCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    height: 100,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  dualStatCardSecondary: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    height: 100,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  centeredStatCard: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginHorizontal: 32,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
   },
   statValue: {
     fontSize: 24,
@@ -945,8 +1002,52 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginVertical: 4,
   },
+  dualStatValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#00E5FF',
+    marginVertical: 8,
+    textAlign: 'center',
+  },
+  dualStatValueSecondary: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#8B5CF6',
+    marginVertical: 8,
+    textAlign: 'center',
+  },
+  dualStatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  centeredStatValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#00E5FF',
+    marginVertical: 8,
+  },
   statLabel: {
     fontSize: 12,
+    color: '#CBD5E1',
+  },
+  centeredStatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
+  dateText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#CBD5E1',
   },
   actionButtons: {
@@ -1217,11 +1318,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  teamName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   score: {
     fontSize: 18,
     fontWeight: '700',
@@ -1290,55 +1386,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 2,
   },
-  bookName: {
-    fontSize: 9,
-    color: '#00E5FF',
-    fontWeight: '600',
-  },
   aiPickPreview: {
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
-  },
-  aiPickHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  aiPickTitle: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  confidenceBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  confidenceText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  aiPickTextContent: {
-    fontSize: 14,
-    color: '#E2E8F0',
-    fontWeight: '500',
-  },
-  valueIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    gap: 4,
-  },
-  valueText: {
-    fontSize: 12,
-    color: '#10B981',
-    fontWeight: '600',
   },
   lockOverlay: {
     position: 'absolute',
@@ -1512,7 +1564,7 @@ const styles = StyleSheet.create({
     flex: 2.5,
     paddingRight: 12,
   },
-  teamName: {
+  modernTeamName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -1579,7 +1631,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 255, 0.15)',
     borderColor: '#00E5FF',
   },
-  bookName: {
+  modernBookName: {
     fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
@@ -1606,25 +1658,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.2)',
   },
-  aiPickHeader: {
+  modernAiPickHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  aiPickTitle: {
+  modernAiPickTitle: {
     flex: 1,
     marginLeft: 8,
     fontSize: 13,
     fontWeight: '700',
     color: '#00E5FF',
   },
-  confidenceBadge: {
+  modernConfidenceBadge: {
     backgroundColor: 'rgba(16, 185, 129, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
-  confidenceText: {
+  modernConfidenceText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#10B981',

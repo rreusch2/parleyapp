@@ -1,0 +1,48 @@
+{
+  "start_time": "2025-07-04T20:57:14.241Z",
+  "tests": {
+    "python_api_health": {
+      "status": "fail",
+      "error": "timeout of 5000ms exceeded"
+    },
+    "enhanced_models": {
+      "status": "pass",
+      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <script type=\"module\">\nimport RefreshRuntime from \"/@react-refresh\"\nRefreshRuntime.injectIntoGlobalHook(window)\nwindow.$RefreshReg$ = () => {}\nwindow.$RefreshSig$ = () => (type) => type\nwindow.__vite_plugin_react_preamble_installed__ = true\n</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"description\" content=\"AI-powered financial management and insights\" />\n    <meta name=\"theme-color\" content=\"#1E293B\" />\n    <title>Fintellect | AI-Powered Financial Management</title>\n    <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n    <link rel=\"manifest\" href=\"/site.webmanifest\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>"
+    },
+    "enhanced_player_props": {
+      "status": "pass",
+      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <script type=\"module\">\nimport RefreshRuntime from \"/@react-refresh\"\nRefreshRuntime.injectIntoGlobalHook(window)\nwindow.$RefreshReg$ = () => {}\nwindow.$RefreshSig$ = () => (type) => type\nwindow.__vite_plugin_react_preamble_installed__ = true\n</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"description\" content=\"AI-powered financial management and insights\" />\n    <meta name=\"theme-color\" content=\"#1E293B\" />\n    <title>Fintellect | AI-Powered Financial Management</title>\n    <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n    <link rel=\"manifest\" href=\"/site.webmanifest\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>"
+    },
+    "enhanced_spread": {
+      "status": "pass",
+      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <script type=\"module\">\nimport RefreshRuntime from \"/@react-refresh\"\nRefreshRuntime.injectIntoGlobalHook(window)\nwindow.$RefreshReg$ = () => {}\nwindow.$RefreshSig$ = () => (type) => type\nwindow.__vite_plugin_react_preamble_installed__ = true\n</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"description\" content=\"AI-powered financial management and insights\" />\n    <meta name=\"theme-color\" content=\"#1E293B\" />\n    <title>Fintellect | AI-Powered Financial Management</title>\n    <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n    <link rel=\"manifest\" href=\"/site.webmanifest\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>"
+    },
+    "enhanced_total": {
+      "status": "pass",
+      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <script type=\"module\">\nimport RefreshRuntime from \"/@react-refresh\"\nRefreshRuntime.injectIntoGlobalHook(window)\nwindow.$RefreshReg$ = () => {}\nwindow.$RefreshSig$ = () => (type) => type\nwindow.__vite_plugin_react_preamble_installed__ = true\n</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"description\" content=\"AI-powered financial management and insights\" />\n    <meta name=\"theme-color\" content=\"#1E293B\" />\n    <title>Fintellect | AI-Powered Financial Management</title>\n    <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n    <link rel=\"manifest\" href=\"/site.webmanifest\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>"
+    },
+    "enhanced_parlay": {
+      "status": "pass",
+      "data": "<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <script type=\"module\">\nimport RefreshRuntime from \"/@react-refresh\"\nRefreshRuntime.injectIntoGlobalHook(window)\nwindow.$RefreshReg$ = () => {}\nwindow.$RefreshSig$ = () => (type) => type\nwindow.__vite_plugin_react_preamble_installed__ = true\n</script>\n\n    <script type=\"module\" src=\"/@vite/client\"></script>\n\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/svg+xml\" href=\"/favicon.svg\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <meta name=\"description\" content=\"AI-powered financial management and insights\" />\n    <meta name=\"theme-color\" content=\"#1E293B\" />\n    <title>Fintellect | AI-Powered Financial Management</title>\n    <link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\">\n    <link rel=\"icon\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\">\n    <link rel=\"manifest\" href=\"/site.webmanifest\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>"
+    },
+    "backend_api_health": {
+      "status": "fail",
+      "error": "Request failed with status code 404"
+    },
+    "automation_script": {
+      "status": "fail",
+      "error": "Script not found"
+    },
+    "frontend_components": {
+      "status": "fail",
+      "error": "Component not found"
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "passed": 5,
+    "failed": 4,
+    "success_rate": "55.6%",
+    "end_time": "2025-07-04T20:57:19.291Z"
+  }
+}

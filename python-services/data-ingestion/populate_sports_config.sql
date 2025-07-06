@@ -1,4 +1,4 @@
--- ParleyApp: Populate sports_config table for The Odds API integration
+-- Predictive Play: Populate sports_config table for The Odds API integration
 -- Run this in your Supabase SQL editor
 
 -- First, insert the sports we're tracking

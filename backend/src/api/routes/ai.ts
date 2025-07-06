@@ -1,6 +1,7 @@
 import express from 'express';
+import { BestPick } from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
 import { generateBettingRecommendationDeepSeek } from '../../ai/orchestrator/deepseekOrchestrator';
-import { generateEnhancedDailyPicks } from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
+import enhancedDeepseekOrchestrator from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
 import { createLogger } from '../../utils/logger';
 import sportRadarService from '../../services/sportsData/sportRadarService';
 import { dailyInsightsService, DailyInsight } from '../../services/supabase/dailyInsightsService';
@@ -78,6 +79,7 @@ function generatePlayerPropData(sport: string, homeTeam: string, awayTeam: strin
 }
 
 const router = express.Router();
+
 const logger = createLogger('aiRoutes');
 
 // DailyInsight interface is now imported from the service
@@ -140,7 +142,7 @@ router.get('/insights', async (req, res) => {
       success: true,
       insights
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error fetching insights: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -171,7 +173,7 @@ router.post('/generate-enhanced-picks', async (req, res) => {
     
     // Generate enhanced daily picks using the new orchestrator
     const startTime = Date.now();
-    const allEnhancedPicks = await generateEnhancedDailyPicks('system', ALL_DAILY_PICKS);
+    const allEnhancedPicks = await enhancedDeepseekOrchestrator.generateDailyPicks('system', ALL_DAILY_PICKS);
     const processingTime = Date.now() - startTime;
 
     // Filter picks based on user tier (top picks for user)
@@ -203,7 +205,7 @@ router.post('/generate-enhanced-picks', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ Enhanced orchestrator failed: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       success: false,
@@ -561,7 +563,7 @@ router.post('/generate-picks', async (req, res) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error generating orchestrated picks: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -656,7 +658,7 @@ router.post('/recommendations', async (req, res) => {
       success: true,
       data: recommendation
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error generating recommendation: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -684,7 +686,7 @@ router.get('/health', (req, res) => {
  */
 router.get('/picks', async (req, res) => {
   try {
-    const { userId, date, sport } = req.query;
+    const { userId, date, sport } = req.query as { userId?: string, date?: string, sport?: string };
     
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
@@ -795,7 +797,7 @@ router.get('/picks', async (req, res) => {
 
     // Filter by sport if provided
     if (sport) {
-      query = query.eq('sport', sport);
+      query = query.eq('sport', sport as string);
     }
 
     // Apply tier limits with welcome bonus logic
@@ -878,7 +880,7 @@ router.get('/picks', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error fetching saved predictions: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch saved predictions',
@@ -1044,7 +1046,7 @@ router.post('/daily-insights/generate', async (req, res) => {
       });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error generating daily insights: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to generate daily insights',
@@ -1080,7 +1082,7 @@ router.get('/daily-insights', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error fetching daily insights: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch daily insights',
@@ -1122,7 +1124,7 @@ router.get('/daily-insights/status', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error checking daily insights status: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to check daily insights status',
@@ -1153,7 +1155,7 @@ router.get('/daily-insights/stats', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error fetching insight stats: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch insight statistics',
@@ -1187,7 +1189,7 @@ router.get('/daily-insights/history', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error fetching insight history: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch insight history',
@@ -1215,7 +1217,7 @@ router.delete('/daily-insights/cleanup', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error cleaning up insights: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to cleanup old insights',
@@ -1264,7 +1266,7 @@ router.post('/chat', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ Error in Grok chat: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({
       success: false,
@@ -1345,7 +1347,7 @@ router.post('/chat/stream', async (req, res) => {
 
     res.end();
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ Error in Grok streaming chat: ${error instanceof Error ? error.message : String(error)}`);
     
     const sendStreamData = (data: any) => {
@@ -1461,7 +1463,7 @@ router.post('/chat/analyze-game', async (req, res) => {
 
       const result = await generateStreamingBettingRecommendationDeepSeekPro(
         streamingRequest,
-        (update) => {
+        (update: any) => {
           // Forward Pro streaming updates to client
           sendStreamData({
             type: 'content',
@@ -1523,7 +1525,7 @@ Want me to analyze any other aspects of this game or look at different bet types
       res.end();
     }
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in deep game analysis: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -1612,7 +1614,7 @@ router.post('/generate-picks-all-users', async (req, res) => {
       }
     });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error in multi-user picks generation: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({
       success: false,
@@ -1738,7 +1740,7 @@ async function generatePicksForUser(userId: string, tier: string = 'free') {
     
     return generatedPicks;
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ Error generating picks for user ${userId}: ${error}`);
     throw error;
   }
@@ -1780,7 +1782,7 @@ router.get('/starter-picks', async (req, res) => {
       logger.error(`❌ Error fetching daily picks: ${dailyError.message}`);
     }
 
-    let starterPicks = [];
+    let starterPicks: BestPick[] = [];
 
     if (dailyPicks && dailyPicks.length > 0) {
       // Filter out poor quality picks
@@ -1886,7 +1888,7 @@ router.get('/starter-picks', async (req, res) => {
           confidence: 78,
           sport: 'MLB',
           event_time: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-          reasoning: 'Welcome to ParleyApp! The Dodgers have strong home advantage and a superior bullpen. This is a sample pick to get you started - real AI predictions begin tomorrow at 8 AM.',
+          reasoning: 'Welcome to Predictive Play! The Dodgers have strong home advantage and a superior bullpen. This is a sample pick to get you started - real AI predictions begin tomorrow at 8 AM.',
           value_percentage: 14.2,
           roi_estimate: 16.5,
           status: 'pending',
@@ -1993,7 +1995,7 @@ router.get('/starter-picks', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`❌ Error fetching starter picks: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({
       success: false,
@@ -2042,7 +2044,7 @@ router.post('/cleanup-test-data', async (req, res) => {
       deletedCount: deletedPicks?.length || 0
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error in cleanup: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -2092,7 +2094,7 @@ async function getGamesFromDatabase(limit: number = 10): Promise<any[]> {
     logger.info(`📊 Sports breakdown: ${transformedGames.map(g => g.sport).join(', ')}`);
     
     return transformedGames;
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error fetching games from database:', error);
     return [];
   }
@@ -2134,7 +2136,7 @@ router.post('/test-database-games', async (req, res) => {
       message: currentGames?.length ? 'Games found in database' : 'No games in database - background fetcher may need to run'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error testing database games:', error);
     return res.status(500).json({ 
       success: false, 
@@ -2202,11 +2204,208 @@ router.get('/predictions/latest', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error fetching latest predictions: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch latest predictions',
       details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * @route GET /api/ai/team-picks
+ * @desc Fetch stored team picks (ML, spreads, totals) from database
+ * @access Public
+ */
+router.get('/team-picks', async (req, res) => {
+  try {
+    const { test } = req.query;
+    logger.info(`🏈 Fetching team picks from database - Test Mode: ${test === 'true'}`);
+    
+    // Fetch team picks from database instead of generating new ones
+    const { data: teamPicks, error } = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .in('bet_type', ['moneyline', 'spread', 'total'])
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      logger.error('❌ Error fetching team picks from database:', error);
+      throw error;
+    }
+
+    // Transform database records to expected format
+    const formattedPicks = (teamPicks || []).map(pick => ({
+      id: pick.id,
+      match_teams: pick.match_teams || `${pick.away_team || 'Away'} @ ${pick.home_team || 'Home'}`,
+      pick: pick.pick,
+      odds: pick.odds,
+      confidence: pick.confidence,
+      value_percentage: pick.value_percentage || 0,
+      reasoning: pick.reasoning || 'AI-generated prediction',
+      bet_type: pick.bet_type,
+      sport: pick.sport,
+      created_at: pick.created_at,
+      status: pick.status
+    }));
+
+    logger.info(`✅ Fetched ${formattedPicks.length} team picks from database`);
+    
+    res.json({
+      success: true,
+      picks: formattedPicks,
+      count: formattedPicks.length,
+      type: 'team',
+      source: 'database',
+      test_mode: test === 'true'
+    });
+    
+  } catch (error) {
+    logger.error('❌ Error fetching team picks:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch team picks',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * @route GET /api/ai/player-props-picks
+ * @desc Fetch stored player props picks from database
+ * @access Public
+ */
+router.get('/player-props-picks', async (req, res) => {
+  try {
+    const { test } = req.query;
+    logger.info(`⚾ Fetching player props picks from database - Test Mode: ${test === 'true'}`);
+    
+    // Fetch player props picks from database instead of generating new ones
+    const { data: playerPropsPicks, error } = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .eq('bet_type', 'player_prop')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      logger.error('❌ Error fetching player props picks from database:', error);
+      throw error;
+    }
+
+    // Transform database records to expected format
+    const formattedPicks = (playerPropsPicks || []).map(pick => ({
+      id: pick.id,
+      match_teams: pick.match_teams || `${pick.away_team || 'Away'} @ ${pick.home_team || 'Home'}`,
+      pick: pick.pick,
+      odds: pick.odds,
+      confidence: pick.confidence,
+      value_percentage: pick.value_percentage || 0,
+      reasoning: pick.reasoning || 'AI-generated prediction',
+      bet_type: pick.bet_type,
+      sport: pick.sport,
+      created_at: pick.created_at,
+      status: pick.status
+    }));
+
+    logger.info(`✅ Fetched ${formattedPicks.length} player props picks from database`);
+    
+    res.json({
+      success: true,
+      picks: formattedPicks,
+      count: formattedPicks.length,
+      type: 'player_props',
+      source: 'database',
+      test_mode: test === 'true'
+    });
+    
+  } catch (error) {
+    logger.error('❌ Error fetching player props picks:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch player props picks',
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * @route GET /api/ai/daily-picks-combined
+ * @desc Fetch stored daily picks (10 team + 10 player props) from database
+ * @access Public
+ */
+router.get('/daily-picks-combined', async (req, res) => {
+  try {
+    const { test } = req.query;
+    logger.info(`🏆 Fetching combined daily picks from database - Test Mode: ${test === 'true'}`);
+    
+    // Fetch both types of picks from database in parallel
+    const [teamPicksResult, playerPropsResult] = await Promise.all([
+      supabase
+        .from('ai_predictions')
+        .select('*')
+        .in('bet_type', ['moneyline', 'spread', 'total'])
+        .order('created_at', { ascending: false })
+        .limit(10),
+      supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('bet_type', 'player_prop')
+        .order('created_at', { ascending: false })
+        .limit(10)
+    ]);
+
+    if (teamPicksResult.error) {
+      logger.error('❌ Error fetching team picks:', teamPicksResult.error);
+      throw teamPicksResult.error;
+    }
+
+    if (playerPropsResult.error) {
+      logger.error('❌ Error fetching player props picks:', playerPropsResult.error);
+      throw playerPropsResult.error;
+    }
+
+    // Transform database records to expected format
+    const formatPicks = (picks: any[]) => picks.map(pick => ({
+      id: pick.id,
+      match_teams: pick.match_teams || `${pick.away_team || 'Away'} @ ${pick.home_team || 'Home'}`,
+      pick: pick.pick,
+      odds: pick.odds,
+      confidence: pick.confidence,
+      value_percentage: pick.value_percentage || 0,
+      reasoning: pick.reasoning || 'AI-generated prediction',
+      bet_type: pick.bet_type,
+      sport: pick.sport,
+      created_at: pick.created_at,
+      status: pick.status
+    }));
+
+    const teamPicks = formatPicks(teamPicksResult.data || []);
+    const playerPropsPicks = formatPicks(playerPropsResult.data || []);
+    
+    logger.info(`✅ Fetched ${teamPicks.length} team picks + ${playerPropsPicks.length} player props picks from database`);
+    
+    res.json({
+      success: true,
+      team_picks: teamPicks,
+      player_props_picks: playerPropsPicks,
+      total_picks: teamPicks.length + playerPropsPicks.length,
+      breakdown: {
+        team_picks: teamPicks.length,
+        player_props_picks: playerPropsPicks.length
+      },
+      source: 'database',
+      test_mode: test === 'true'
+    });
+    
+  } catch (error) {
+    logger.error('❌ Error fetching combined daily picks:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch combined daily picks',
+      message: error instanceof Error ? error.message : String(error)
     });
   }
 });

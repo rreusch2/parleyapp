@@ -26,7 +26,7 @@ export const DEV_CONFIG = {
    */
   USE_LOCAL_API: true,
   LOCAL_API_URL: 'http://localhost:3001',
-  PRODUCTION_API_URL: 'https://api.parleyapp.com',
+  PRODUCTION_API_URL: 'https://api.predictiveplay.com',
 
   /**
    * Mock Data
@@ -46,5 +46,5 @@ export const DEV_CONFIG = {
    * Default user for development testing
    */
   TEST_USER_ID: 'f08b56d3-d4ec-4815-b502-6647d723d2a6',
-  TEST_USER_EMAIL: 'test@parleyapp.com',
+  TEST_USER_EMAIL: 'test@predictiveplay.com',
 }; 

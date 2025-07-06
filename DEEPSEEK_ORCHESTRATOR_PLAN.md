@@ -18,7 +18,7 @@
 
 #### 1.1 Start ML Prediction Server
 ```bash
-cd /home/reid/Desktop/parleyapp/python-services/sports-betting-api
+cd /home/reid/Desktop/Predictive Play/python-services/sports-betting-api
 python3 ml_prediction_server.py
 ```
 This serves your trained NBA/MLB models on port 8001.
@@ -31,7 +31,7 @@ PYTHON_ML_SERVER_URL=http://localhost:8001
 
 #### 1.3 Run Manual Orchestrator for Testing
 ```bash
-cd /home/reid/Desktop/parleyapp/python-services/sports-betting-api
+cd /home/reid/Desktop/Predictive Play/python-services/sports-betting-api
 python3 run_orchestrator.py
 ```
 This will:
@@ -44,7 +44,7 @@ This will:
 
 #### 2.1 Ingest Historical Team Games
 ```bash
-cd /home/reid/Desktop/parleyapp/python-services/data-ingestion
+cd /home/reid/Desktop/Predictive Play/python-services/data-ingestion
 # Set THEODDS_API_KEY in .env first
 python3 ingest_team_games.py
 ```

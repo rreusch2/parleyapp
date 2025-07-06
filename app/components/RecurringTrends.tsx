@@ -409,7 +409,7 @@ const RecurringTrends: React.FC<RecurringTrendsProps> = ({ sport = 'MLB' }) => {
                 <Activity size={48} color="#64748B" />
                 <Text style={styles.emptyTitle}>No Player Trends Found</Text>
                 <Text style={styles.emptyMessage}>
-                  We're analyzing recent games to find recurring patterns. Check back soon!
+                  We&apos;re analyzing recent games to find recurring patterns. Check back soon!
                 </Text>
               </View>
             )}
@@ -426,7 +426,7 @@ const RecurringTrends: React.FC<RecurringTrendsProps> = ({ sport = 'MLB' }) => {
                 <Trophy size={48} color="#64748B" />
                 <Text style={styles.emptyTitle}>No Team Trends Found</Text>
                 <Text style={styles.emptyMessage}>
-                  We're analyzing team performance patterns. Check back soon!
+                  We&apos;re analyzing team performance patterns. Check back soon!
                 </Text>
               </View>
             )}

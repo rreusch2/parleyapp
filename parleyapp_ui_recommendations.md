@@ -1,8 +1,8 @@
-ParleyApp UI and Pro Features 
+Predictive Play UI and Pro Features 
 
 Recommendation 
 
-This document provides a comprehensive recommendation for structuring the User Interface (UI) and defining Pro features for the ParleyApp, integrating insights from the enhanced AI and backend architecture. The goal is to create an intuitive, informative, and engaging user experience that leverages the power of the improved AI system. 
+This document provides a comprehensive recommendation for structuring the User Interface (UI) and defining Pro features for the Predictive Play, integrating insights from the enhanced AI and backend architecture. The goal is to create an intuitive, informative, and engaging user experience that leverages the power of the improved AI system. 
 
 Core UI Principles 
 
@@ -192,4 +192,4 @@ Optimized Data Loading: Implement efficient data loading strategies (e.g., lazy 
 
 Push Notifications: Utilize push notifications for real-time alerts on game starts, score changes, and new AI picks. 
 
-By implementing these UI and Pro feature recommendations, ParleyApp can offer a compelling and valuable experience to both casual bettors and serious enthusiasts, leveraging its powerful AI backend to provide actionable insights and foster a loyal user base.
+By implementing these UI and Pro feature recommendations, Predictive Play can offer a compelling and valuable experience to both casual bettors and serious enthusiasts, leveraging its powerful AI backend to provide actionable insights and foster a loyal user base.

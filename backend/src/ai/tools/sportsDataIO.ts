@@ -453,7 +453,7 @@ class SportsDataIOService {
    */
   private createMockGameData(gameId: string, sport: string): any {
     // Current realistic matchups for June 2025
-    const realTeams = {
+    const realTeams: { [key: string]: { [key: string]: { home: string; away: string } } } = {
       'MLB': {
         'mlb_001': { home: 'San Diego Padres', away: 'Los Angeles Dodgers' },
         'mlb_002': { home: 'Boston Red Sox', away: 'New York Yankees' },
@@ -479,7 +479,7 @@ class SportsDataIOService {
       }
     };
 
-    const teams = realTeams[sport]?.[gameId] || { home: 'Home Team', away: 'Away Team' };
+    const teams = (realTeams as any)[sport]?.[gameId] || { home: 'Home Team', away: 'Away Team' };
     
     return {
       games: [{
@@ -692,7 +692,7 @@ class SportsDataIOService {
    * @param sport - Sport name
    */
   private generateRealisticScores(sport: string): { home: number; away: number } {
-    const sportScoreRanges = {
+    const sportScoreRanges: { [key: string]: { min: number; max: number } } = {
       'NBA': { min: 95, max: 125 },
       'NFL': { min: 14, max: 35 },
       'MLB': { min: 2, max: 8 },

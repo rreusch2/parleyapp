@@ -108,11 +108,11 @@ export default function LoginScreen() {
             </Link>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
+          <View style={styles.signupPrompt}>
+            <Text style={styles.signupPromptText}>Don&apos;t have an account? </Text>
             <Link href="/signup" asChild>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign Up</Text>
+                <Text style={styles.signupLink}>Sign Up</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -171,6 +171,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: '#ffffff',
+    selectionColor: '#00E5FF',
   } as any,
   placeholderText: {
     color: '#cccccc',
@@ -191,32 +192,33 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: 'black',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
   },
   forgotPassword: {
+    marginTop: 20,
     alignItems: 'center',
-    marginTop: 25,
   },
   forgotPasswordText: {
-    color: '#e0e0e0',
-    fontSize: 14,
+    color: '#bfdbfe',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
-  footer: {
+  signupPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,
   },
-  footerText: {
+  signupPromptText: {
     color: '#e0e0e0',
-    marginRight: 5,
-    fontSize: 15,
+    fontSize: 16,
   },
-  footerLink: {
-    color: '#ffffff',
+  signupLink: {
+    color: '#00E5FF',
+    fontSize: 16,
     fontWeight: 'bold',
-    fontSize: 15,
+    textDecorationLine: 'underline',
   },
 }); 

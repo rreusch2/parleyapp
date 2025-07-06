@@ -206,7 +206,7 @@ export class PerformanceMonitor {
       logger.info('✅ System metrics collected successfully');
       return metrics;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to collect system metrics: ${error.message}`);
       throw error;
     }
@@ -242,7 +242,7 @@ export class PerformanceMonitor {
         }
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ API health check failed: ${error.message}`);
       return {
         backend_api: 'down',
@@ -272,7 +272,7 @@ export class PerformanceMonitor {
       logger.debug(`✅ ${serviceName} API: ${status} (${responseTime}ms)`);
       return { status, responseTime };
 
-    } catch (error) {
+    } catch (error: any) {
       const responseTime = Date.now() - startTime;
       logger.error(`❌ ${serviceName} API: down (${responseTime}ms) - ${error.message}`);
       return { status: 'down', responseTime };
@@ -328,7 +328,7 @@ export class PerformanceMonitor {
         missing_data_alerts: this.checkMissingDataAlerts(logs)
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Data ingestion health check failed: ${error.message}`);
       return this.getDefaultDataIngestionMetrics();
     }
@@ -427,7 +427,7 @@ export class PerformanceMonitor {
         successful_predictions: successfulPredictions
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Model performance check failed: ${error.message}`);
       return this.getDefaultModelMetrics();
     }
@@ -464,7 +464,7 @@ export class PerformanceMonitor {
         }
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ User engagement check failed: ${error.message}`);
       return {
         active_users_24h: 0,
@@ -493,7 +493,7 @@ export class PerformanceMonitor {
         cache_hit_rate: Math.random() * 20 + 80 // 80-100%
       };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ System resources check failed: ${error.message}`);
       return {
         cpu_usage: 0,
@@ -527,7 +527,7 @@ export class PerformanceMonitor {
         logger.debug('✅ Metrics stored successfully');
       }
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Metrics storage failed: ${error.message}`);
     }
   }
@@ -546,7 +546,7 @@ export class PerformanceMonitor {
           await this.triggerAlert(alert, metrics);
         }
 
-      } catch (error) {
+      } catch (error: any) {
         logger.error(`❌ Alert evaluation failed for ${alert.name}: ${error.message}`);
       }
     }
@@ -572,7 +572,7 @@ export class PerformanceMonitor {
           return false;
       }
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to check alert condition: ${error.message}`);
       return false;
     }
@@ -623,7 +623,7 @@ export class PerformanceMonitor {
         logger.error(`❌ Failed to store alert: ${error.message}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Alert storage failed: ${error.message}`);
     }
 
@@ -670,7 +670,7 @@ export class PerformanceMonitor {
 
       return { status, summary, metrics };
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to get system status: ${error.message}`);
       return {
         status: 'critical',
@@ -697,7 +697,7 @@ export class PerformanceMonitor {
 
       return modelData || [];
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Model performance dashboard failed: ${error.message}`);
       return [];
     }
@@ -712,7 +712,7 @@ export class PerformanceMonitor {
     setInterval(async () => {
       try {
         await this.collectSystemMetrics();
-      } catch (error) {
+      } catch (error: any) {
         logger.error(`❌ Monitoring cycle failed: ${error.message}`);
       }
     }, intervalMinutes * 60 * 1000);

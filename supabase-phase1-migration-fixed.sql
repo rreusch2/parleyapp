@@ -1,4 +1,4 @@
--- ParleyApp Phase 1 Data Layer Migration for Supabase (FIXED)
+-- Predictive Play Phase 1 Data Layer Migration for Supabase (FIXED)
 -- This version handles dependencies properly to avoid foreign key errors
 
 -- Enable required extensions

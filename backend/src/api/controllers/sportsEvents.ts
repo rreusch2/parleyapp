@@ -11,12 +11,12 @@ export const getSportsEvents = async (req: Request, res: Response) => {
       .order('start_time', { ascending: true });
 
     // Apply filters if provided
-    if (sport) {
+    if (sport && typeof sport === 'string') {
       console.log('Filtering by sport:', sport.toUpperCase());
       query = query.eq('sport', sport.toUpperCase());
     }
 
-    if (league) {
+    if (league && typeof league === 'string') {
       console.log('Filtering by league:', league.toUpperCase());
       query = query.eq('league', league.toUpperCase());
     }

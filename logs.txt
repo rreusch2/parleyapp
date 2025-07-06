@@ -1847,4 +1847,4 @@
 
 To run orchestrator in production mode (saves to DB):
 cd backend && npx ts-node src/scripts/run-orchestrator.ts
-reid@pop-os:~/Desktop/parleyapp$ 
+reid@pop-os:~/Desktop/Predictive Play$ 

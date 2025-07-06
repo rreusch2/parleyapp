@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Daily Automation Script for ParleyApp
+Daily Automation Script for Predictive Play
 Automatically generates daily picks and saves them to the database
 Can be run as a cron job: 0 9 * * * /path/to/daily_automation.py
 """
@@ -187,7 +187,7 @@ class DailyAutomation:
     def generate_report(self) -> str:
         """Generate a formatted report of the daily analysis."""
         report = f"""
-🏀 ParleyApp Daily Analysis Report - {self.results['date']}
+🏀 Predictive Play Daily Analysis Report - {self.results['date']}
 {'='*60}
 
 📊 Analysis Summary:

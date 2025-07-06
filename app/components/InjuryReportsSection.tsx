@@ -96,7 +96,7 @@ export default function InjuryReportsSection({ isPro }: Props) {
 
   if (!isPro) {
     return (
-      <View style={styles.container}>
+      <View style={styles.proUpgradeCard}>
         <LinearGradient
           colors={['#1a1a2e', '#16213e']}
           style={styles.upgradeCard}
@@ -498,7 +498,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   // Modal Styles
-  // Pro Upgrade Card Styles (consistent with RecurringTrends)
+  // Pro Upgrade Card Styles (consistent with News section)
+  proUpgradeCard: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   upgradeCard: {
     padding: 24,
   },

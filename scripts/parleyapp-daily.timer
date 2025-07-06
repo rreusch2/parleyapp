@@ -1,0 +1,15 @@
+[Unit]
+Description=Run ParleyApp Daily Workflow
+Requires=parleyapp-daily.service
+
+[Timer]
+# Run daily at 2:00 AM (good time for sports data updates)
+OnCalendar=*-*-* 02:00:00
+# If system was down, run 10 minutes after boot
+OnBootSec=10min
+# Randomize start time by up to 10 minutes to avoid API rate limiting
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target 

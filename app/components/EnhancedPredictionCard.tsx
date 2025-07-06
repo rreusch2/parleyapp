@@ -40,6 +40,7 @@ interface Props {
   prediction: AIPrediction;
   index: number;
   onAnalyze?: () => void;
+  welcomeBonusActive?: boolean;
 }
 
 interface AdvancedAnalysis {
@@ -55,7 +56,7 @@ interface AdvancedAnalysis {
   toolsUsed: string[];
 }
 
-export default function EnhancedPredictionCard({ prediction, index, onAnalyze }: Props) {
+export default function EnhancedPredictionCard({ prediction, index, onAnalyze, welcomeBonusActive = false }: Props) {
   const { isPro, openSubscriptionModal } = useSubscription();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
@@ -83,9 +84,9 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
   }, [isPro]);
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 85) return '#10B981';
-    if (confidence >= 70) return '#F59E0B';
-    return '#EF4444';
+    if (confidence >= 85) return '#10B981';     // Green for high confidence
+    if (confidence >= 70) return '#00E5FF';     // Cyan for medium confidence  
+    return '#8B5CF6';                          // Purple for lower confidence (more appealing than gray)
   };
 
   const getSportIcon = (sport: string) => {
@@ -99,10 +100,14 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
   };
 
   const handleAdvancedAnalysis = async () => {
-    if (!isPro) {
+    const hasAnalysisAccess = isPro || welcomeBonusActive;
+    
+    if (!hasAnalysisAccess) {
       Alert.alert(
         'Premium Feature 🌟',
-        'Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!',
+        welcomeBonusActive ? 
+          'Welcome bonus expired! Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!' :
+          'Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!',
         [
           { text: 'Later', style: 'cancel' },
           { 
@@ -117,7 +122,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
 
     setIsLoadingAnalysis(true);
     
-    // Simulate loading advanced analysis
+    // Quick analysis loading with minimal delay for better UX
     setTimeout(() => {
       setAdvancedAnalysis({
         kellyStake: 2.5,
@@ -133,7 +138,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
       });
       setShowAnalysis(true);
       setIsLoadingAnalysis(false);
-    }, 1500);
+    }, 300);
   };
 
   const glowOpacity = glowAnimation.interpolate({
@@ -178,7 +183,11 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
             
             <View style={[
               styles.confidenceBadge, 
-              { backgroundColor: `${getConfidenceColor(prediction.confidence)}20` }
+              { 
+                backgroundColor: `${getConfidenceColor(prediction.confidence)}20`,
+                borderWidth: 1,
+                borderColor: `${getConfidenceColor(prediction.confidence)}40`
+              }
             ]}>
               <Text style={[
                 styles.confidenceText, 
@@ -208,11 +217,16 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
           </View>
 
           {/* Premium Features Section */}
-          {isPro ? (
-            <View style={styles.premiumSection}>
+          {(isPro || welcomeBonusActive) ? (
+                          <View style={[styles.premiumSection, welcomeBonusActive && !isPro && styles.bonusSection]}>
               <View style={styles.premiumBadge}>
-                <Crown size={12} color="#F59E0B" />
-                <Text style={styles.premiumBadgeText}>PRO INSIGHTS</Text>
+                <Crown size={12} color="#00E5FF" />
+                <Text style={styles.premiumBadgeText}>
+                  {isPro ? "PRO INSIGHTS" : "BONUS INSIGHTS"}
+                </Text>
+                {welcomeBonusActive && !isPro && (
+                  <Text style={styles.bonusIndicator}>🎁</Text>
+                )}
               </View>
               
               <View style={styles.premiumStats}>
@@ -225,7 +239,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
                   <Text style={styles.premiumStatText}>Risk: Low</Text>
                 </View>
                 <View style={styles.premiumStat}>
-                  <Activity size={14} color="#F59E0B" />
+                  <Activity size={14} color="#8B5CF6" />
                   <Text style={styles.premiumStatText}>Line: Stable</Text>
                 </View>
               </View>
@@ -239,14 +253,17 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
           )}
 
           {/* Reasoning */}
-          <Text style={styles.reasoningText} numberOfLines={isPro ? 4 : 2}>
-            {isPro ? prediction.reasoning : `${prediction.reasoning.substring(0, 100)}...`}
+          <Text style={styles.reasoningText} numberOfLines={(isPro || welcomeBonusActive) ? 4 : 2}>
+            {(isPro || welcomeBonusActive) ? prediction.reasoning : `${prediction.reasoning.substring(0, 100)}...`}
           </Text>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={[styles.actionButton, isPro && styles.actionButtonPro]}
+              style={[
+                styles.actionButton, 
+                (isPro || welcomeBonusActive) && styles.actionButtonPro
+              ]}
               onPress={handleAdvancedAnalysis}
               disabled={isLoadingAnalysis}
             >
@@ -256,12 +273,15 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze }:
                 <Eye size={16} color="#00E5FF" />
               )}
               <Text style={styles.actionButtonText}>
-                {isPro ? 'Advanced Analysis' : 'View Analysis'}
+                {(isPro || welcomeBonusActive) ? 'Advanced Analysis' : 'View Analysis'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.actionButton, isPro && styles.actionButtonPro]}
+              style={[
+                styles.actionButton, 
+                (isPro || welcomeBonusActive) && styles.actionButtonPro
+              ]}
               onPress={onAnalyze}
             >
               <MessageCircle size={16} color="#8B5CF6" />
@@ -473,12 +493,24 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   premiumSection: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    shadowColor: '#00E5FF',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bonusSection: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
   },
   premiumBadge: {
     flexDirection: 'row',
@@ -487,10 +519,14 @@ const styles = StyleSheet.create({
   },
   premiumBadgeText: {
     fontSize: 11,
-    color: '#F59E0B',
+    color: '#00E5FF',
     fontWeight: '700',
     marginLeft: 4,
     letterSpacing: 0.5,
+  },
+  bonusIndicator: {
+    fontSize: 12,
+    marginLeft: 4,
   },
   premiumStats: {
     flexDirection: 'row',

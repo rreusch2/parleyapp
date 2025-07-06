@@ -162,7 +162,7 @@ class SportsDataService {
       }
 
       return await response.json();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
       throw error;
     }
@@ -185,7 +185,7 @@ class SportsDataService {
         try {
           const cachedData = fs.readFileSync(cacheFilePath, 'utf8');
           return JSON.parse(cachedData);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error reading cache:', error);
           // Continue to fetch fresh data if cache read fails
         }
@@ -210,190 +210,115 @@ class SportsDataService {
       fs.writeFileSync(cacheFilePath, JSON.stringify(data, null, 2));
       
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
       throw error;
     }
   }
 
-  async fetchAndStoreUpcomingGames() {
+  async fetchAndStoreUpcomingGames(sportId?: number, sportName?: string, days: number = 7) {
     console.log("Attempting to fetch and store upcoming games...");
     const systemDate = new Date();
-    const year = systemDate.getFullYear();
-    const month = String(systemDate.getMonth() + 1).padStart(2, '0');
-    const day = String(systemDate.getDate()).padStart(2, '0');
-    const currentDate = `${year}-${month}-${day}`;
-    console.log(`Using date for fetching: ${currentDate}`);
-
     const processedGames = new Set(); // Track processed games to prevent duplicates
 
-    // Use ESPN's FREE API for comprehensive current MLB game data
-    try {
-      console.log('Fetching current MLB games from ESPN API...');
-      const espnResponse = await fetch('http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard');
-      const espnData = await espnResponse.json();
+    const fetchAndStoreForDate = async (date: Date, source: string, sportId?: number, sportName?: string) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const currentDateStr = `${year}-${month}-${day}`;
 
-      if (espnData && espnData.events) {
-        console.log(`Found ${espnData.events.length} current MLB games from ESPN API`);
+      console.log(`Using date for fetching: ${currentDateStr}`);
 
-        // Process ESPN MLB games
-        for (const event of espnData.events) {
-          const competition = event.competitions[0];
-          const homeTeam = competition.competitors.find((team: any) => team.homeAway === 'home');
-          const awayTeam = competition.competitors.find((team: any) => team.homeAway === 'away');
-          
-          const gameKey = `${awayTeam.team.displayName}@${homeTeam.team.displayName}`;
-          if (processedGames.has(gameKey)) {
-            console.log(`Skipping duplicate game: ${gameKey}`);
-            continue;
+      if (source === 'ESPN' && sportName === 'MLB') {
+        try {
+          console.log('Fetching current MLB games from ESPN API...');
+          const espnResponse = await fetch('http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard');
+          const espnData = await espnResponse.json();
+
+          if (espnData && espnData.events) {
+            console.log(`Found ${espnData.events.length} current MLB games from ESPN API`);
+
+            for (const event of espnData.events) {
+              const competition = event.competitions[0];
+              const homeTeam = competition.competitors.find((team: any) => team.homeAway === 'home');
+              const awayTeam = competition.competitors.find((team: any) => team.homeAway === 'away');
+              
+              const gameKey = `${awayTeam.team.displayName}@${homeTeam.team.displayName}`;
+              if (processedGames.has(gameKey)) {
+                console.log(`Skipping duplicate game: ${gameKey}`);
+                continue;
+              }
+              processedGames.add(gameKey);
+              
+              console.log('Processing ESPN MLB game:', {
+                id: event.id,
+                teams: `${awayTeam.team.displayName} @ ${homeTeam.team.displayName}`,
+                date: event.date,
+                status: competition.status.type.name
+              });
+
+              await this.storeGameData({
+                external_event_id: event.id.toString(),
+                sport: 'MLB',
+                league: 'MLB',
+                home_team: homeTeam.team.displayName,
+                away_team: awayTeam.team.displayName,
+                start_time: new Date(event.date).toISOString(),
+                status: this.mapESPNStatus(competition.status.type.name),
+                stats: {
+                  venue: competition.venue?.fullName || 'Unknown',
+                  city: competition.venue?.address?.city || 'Unknown',
+                  home_score: homeTeam.score ? parseInt(homeTeam.score) : null,
+                  away_score: awayTeam.score ? parseInt(awayTeam.score) : null,
+                  spectators: competition.attendance || null,
+                  event_thumb: null,
+                  home_logo: homeTeam.team.logo,
+                  away_logo: awayTeam.team.logo,
+                  league_logo: null,
+                  status_detail: competition.status.type.detail || competition.status.type.name,
+                }
+              }, 'ESPN');
+            }
           }
-          processedGames.add(gameKey);
-          
-          console.log('Processing ESPN MLB game:', {
-            id: event.id,
-            teams: `${awayTeam.team.displayName} @ ${homeTeam.team.displayName}`,
-            date: event.date,
-            status: competition.status.type.name
+        } catch (error: any) {
+          console.error('Error processing ESPN MLB games:', error);
+        }
+      } else if (source === 'TheSportsDB') {
+        try {
+          console.log(`Fetching upcoming games for ${sportName || 'all sports'} from TheSportsDB...`);
+          const mlbResponse = await axios.get(`${THESPORTSDB_V1_BASE_URL}/eventsday.php`, {
+            params: {
+              d: currentDateStr,
+              s: sportName || 'Baseball'
+            }
           });
 
-          await this.storeGameData({
-            external_event_id: event.id.toString(),
-            sport: 'MLB',
-            league: 'MLB',
-            home_team: homeTeam.team.displayName,
-            away_team: awayTeam.team.displayName,
-            start_time: new Date(event.date).toISOString(),
-            status: this.mapESPNStatus(competition.status.type.name),
-            stats: {
-              venue: competition.venue?.fullName || 'Unknown',
-              city: competition.venue?.address?.city || 'Unknown',
-              home_score: homeTeam.score ? parseInt(homeTeam.score) : null,
-              away_score: awayTeam.score ? parseInt(awayTeam.score) : null,
-              spectators: competition.attendance || null,
-              event_thumb: null,
-              home_logo: homeTeam.team.logo,
-              away_logo: awayTeam.team.logo,
-              league_logo: null,
-              status_detail: competition.status.type.detail || competition.status.type.name,
-            }
-          }, 'ESPN');
-        }
-      }
-    } catch (error) {
-      console.error('Error processing ESPN MLB games:', error);
-    }
-
-    // Also fetch upcoming games for the next few days to get scheduled games
-    try {
-      console.log('Fetching upcoming MLB games from TheSportsDB...');
-      const tomorrow = new Date(systemDate);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowDate = tomorrow.toISOString().split('T')[0];
-      
-      for (const date of [currentDate, tomorrowDate]) {
-        const mlbResponse = await axios.get(`${THESPORTSDB_V1_BASE_URL}/eventsday.php`, {
-          params: {
-            d: date,
-            s: 'Baseball'
-          }
-        });
-
-        if (mlbResponse.data && mlbResponse.data.events) {
-          const mlbGames = mlbResponse.data.events.filter((event: any) => 
-            event.strLeague?.toUpperCase().includes('MLB') || 
-            event.strLeague?.toUpperCase().includes('MAJOR LEAGUE BASEBALL')
-          );
-          console.log(`Found ${mlbGames.length} MLB games for ${date} from TheSportsDB`);
-
-          // Process TheSportsDB games if not already processed
-          for (const event of mlbGames) {
-            const gameKey = `${event.strAwayTeam}@${event.strHomeTeam}`;
-            if (processedGames.has(gameKey)) {
-              console.log(`Skipping duplicate game: ${gameKey}`);
-              continue;
-            }
-            processedGames.add(gameKey);
-
-            console.log('Processing TheSportsDB MLB game:', {
-              id: event.idEvent,
-              teams: `${event.strAwayTeam} @ ${event.strHomeTeam}`,
-              date: event.dateEvent,
-              time: event.strTime
-            });
-
-            await this.storeGameData({
-              external_event_id: event.idEvent.toString(),
-              sport: 'MLB',
-              league: 'MLB',
-              home_team: event.strHomeTeam,
-              away_team: event.strAwayTeam,
-              start_time: (() => {
-                if (event.dateEvent && event.strTime) {
-                  const [hours, minutes] = event.strTime.split(':').map(Number);
-                  const gameDate = new Date(event.dateEvent);
-                  gameDate.setUTCHours(hours, minutes, 0, 0);
-                  return gameDate.toISOString();
-                }
-                const defaultDate = new Date(event.dateEvent);
-                defaultDate.setUTCHours(0, 0, 0, 0);
-                return defaultDate.toISOString();
-              })(),
-              status: mapStatus(event.strStatus || 'Scheduled'),
-              stats: {
-                venue: event.strVenue || 'Unknown',
-                city: event.strCity || 'Unknown',
-                home_score: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
-                away_score: event.intAwayScore !== null ? parseInt(event.intAwayScore) : null,
-                spectators: event.intSpectators !== null ? parseInt(event.intSpectators) : null,
-                event_thumb: event.strThumb,
-                home_logo: event.strHomeTeamBadge,
-                away_logo: event.strAwayTeamBadge,
-                league_logo: event.strLeagueLogo,
-                status_detail: event.strProgress || event.strStatus,
-              }
-            }, 'TheSportsDB');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error processing TheSportsDB MLB games:', error);
-    }
-
-    // Continue with other leagues using TheSportsDB (NBA, NHL, NFL)
-    for (const leagueKey in LEAGUES_TSDB) {
-      if (leagueKey === 'MLB') continue; // Skip MLB as we've already handled it
-
-      if (Object.prototype.hasOwnProperty.call(LEAGUES_TSDB, leagueKey)) {
-        const leagueInfo = LEAGUES_TSDB[leagueKey as keyof typeof LEAGUES_TSDB];
-        try {
-          console.log(`Fetching upcoming games for league: ${leagueKey} (ID: ${leagueInfo.id}, Sport: ${leagueInfo.sportName})`);
-          const events = await sportsDbApi.getNextEventsByLeagueId(leagueInfo.id);
-
-          if (events && events.length > 0) {
-            const leagueEvents = events.filter((event: TheSportsDBEvent) => 
-              event.strLeague?.toUpperCase().includes(leagueKey) ||
-              event.strSport?.toUpperCase().includes(leagueKey)
+          if (mlbResponse.data && mlbResponse.data.events) {
+            const mlbGames = mlbResponse.data.events.filter((event: any) => 
+              event.strLeague?.toUpperCase().includes(sportName?.toUpperCase() || '') || 
+              event.strSport?.toUpperCase().includes(sportName?.toUpperCase() || '')
             );
-            
-            console.log(`Found ${leagueEvents.length} upcoming events for ${leagueKey}. Processing...`);
-            
-            for (const event of leagueEvents) {
-              const gameKey = `${event.strAwayTeam}@${event.strHomeTeam}@${leagueKey}`;
-              if (processedGames.has(gameKey)) continue;
+            console.log(`Found ${mlbGames.length} games for ${currentDateStr} from TheSportsDB`);
+
+            for (const event of mlbGames) {
+              const gameKey = `${event.strAwayTeam}@${event.strHomeTeam}`;
+              if (processedGames.has(gameKey)) {
+                console.log(`Skipping duplicate game: ${gameKey}`);
+                continue;
+              }
               processedGames.add(gameKey);
 
-              console.log(`Processing ${leagueKey} event:`, {
+              console.log('Processing TheSportsDB game:', {
                 id: event.idEvent,
                 teams: `${event.strAwayTeam} @ ${event.strHomeTeam}`,
                 date: event.dateEvent,
-                time: event.strTime,
-                league: event.strLeague
+                time: event.strTime
               });
 
               await this.storeGameData({
                 external_event_id: event.idEvent.toString(),
-                sport: leagueKey,
-                league: leagueKey,
+                sport: sportName || 'MLB',
+                league: event.strLeague,
                 home_team: event.strHomeTeam,
                 away_team: event.strAwayTeam,
                 start_time: (() => {
@@ -422,15 +347,32 @@ class SportsDataService {
                 }
               }, 'TheSportsDB');
             }
-          } else {
-            console.log(`Found 0 upcoming events for ${leagueKey}. Processing...`);
           }
-        } catch (error) {
-          console.error(`Error processing ${leagueKey} (League ID: ${leagueInfo.id}):`, error);
+        } catch (error: any) {
+          console.error(`Error processing TheSportsDB ${sportName || 'all sports'} games:`, error);
         }
       }
+    };
+
+    if (sportId && sportName) {
+      // Fetch data for a specific sport
+      for (let i = 0; i < days; i++) {
+        const date = new Date(systemDate);
+        date.setDate(systemDate.getDate() + i);
+        await fetchAndStoreForDate(date, 'TheSportsDB', sportId, sportName);
+      }
+    } else {
+      // Fetch data for all sports (current behavior)
+      for (let i = 0; i < days; i++) {
+        const date = new Date(systemDate);
+        date.setDate(systemDate.getDate() + i);
+        await fetchAndStoreForDate(date, 'ESPN', undefined, 'MLB'); // ESPN for MLB
+        await fetchAndStoreForDate(date, 'TheSportsDB', undefined, 'NBA'); // TheSportsDB for NBA
+        await fetchAndStoreForDate(date, 'TheSportsDB', undefined, 'NFL'); // TheSportsDB for NFL
+        await fetchAndStoreForDate(date, 'TheSportsDB', undefined, 'NHL'); // TheSportsDB for NHL
+      }
     }
-    console.log("Completed fetching and storing games using ESPN API with TheSportsDB supplement.");
+    console.log("Completed fetching and storing games.");
   }
 
   // Helper method to store game data with improved duplicate checking
@@ -519,7 +461,7 @@ class SportsDataService {
           console.log(`Inserted new game from ${source}: ${gameData.away_team} @ ${gameData.home_team}`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Unexpected error in storeGameData for ${gameData.away_team} @ ${gameData.home_team}:`, error);
     }
   }
@@ -596,7 +538,7 @@ class SportsDataService {
                 console.log(`New status: ${updatedGameData.status}, Score: ${updatedGameData.stats.home_score}-${updatedGameData.stats.away_score}`);
               }
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error(`Error processing game ${game.external_event_id}:`, error);
           }
         }));
@@ -608,7 +550,7 @@ class SportsDataService {
       }
 
       console.log("Completed game status updates");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in updateGameStatuses:", error);
     }
   }
@@ -627,6 +569,11 @@ class SportsDataService {
   }
 
   // Helper method to map ESPN status to our database status
+  async fetchLeagues(sport: string, country?: string): Promise<any> {
+    console.warn(`fetchLeagues not fully implemented for ${sport}, country: ${country || 'all'}. Returning mock data.`);
+    return [];
+  }
+
   private mapESPNStatus(espnStatus: string): string {
     const status = espnStatus.toLowerCase();
     if (status.includes('final') || status.includes('completed')) {

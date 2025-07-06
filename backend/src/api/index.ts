@@ -16,6 +16,7 @@ import sportsDataRoutes from './routes/sportsData';
 import sportsDataAdminRoutes from './routes/sportsDataAdmin';
 import injuriesRoutes from './routes/injuries';
 import trendsRoutes from './routes/trends';
+import insightsRoutes from './routes/insights';
 
 // Initialize express app
 const app = express();
@@ -72,6 +73,7 @@ app.use('/api/sports-data', sportsDataRoutes);
 app.use('/api/sports-data-admin', sportsDataAdminRoutes);
 app.use('/api/injuries', injuriesRoutes);
 app.use('/api/trends', trendsRoutes);
+app.use('/api/insights', insightsRoutes);
 
 // Fetch tomorrow's games endpoint
 app.post('/api/fetch-tomorrow-games', async (req, res) => {
@@ -161,11 +163,11 @@ app.get('/api/debug-date', async (req, res) => {
 
 // Health check endpoints
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', service: 'parleyapp-backend', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'ok', service: 'Predictive Play-backend', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', service: 'parleyapp-backend', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'ok', service: 'Predictive Play-backend', timestamp: new Date().toISOString() });
 });
 
 // Error handling middleware

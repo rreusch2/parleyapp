@@ -29,7 +29,7 @@ router.get('/stats', async (req, res) => {
       success: true,
       stats
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error fetching user stats: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -67,7 +67,7 @@ router.put('/preferences', async (req, res) => {
       success: true,
       message: 'Preferences saved successfully'
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error saving preferences: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -101,7 +101,7 @@ router.get('/preferences', async (req, res) => {
       success: true,
       preferences
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error fetching preferences: ${error instanceof Error ? error.message : String(error)}`);
     return res.status(500).json({ 
       success: false, 
@@ -189,7 +189,7 @@ router.get('/welcome-bonus-status', async (req, res) => {
       status
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`💥 Error checking welcome bonus status: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to check welcome bonus status',

@@ -1,4 +1,4 @@
--- Enhanced ParleyApp Database Schema for Phase 1
+-- Enhanced Predictive Play Database Schema for Phase 1
 -- Designed to support comprehensive sports betting data from OddsJam/The Odds API
 
 -- Enable required extensions

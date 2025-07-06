@@ -1,4 +1,4 @@
--- ParleyApp Phase 1 Migration - STEP 1: Base Tables Only
+-- Predictive Play Phase 1 Migration - STEP 1: Base Tables Only
 -- Run this first to create the foundation tables
 
 -- Enable required extensions

@@ -9,7 +9,7 @@ INSERT INTO public.profiles (id, username, email, subscription_tier, is_active)
 VALUES (
     'f08b56d3-d4ec-4815-b502-6647d723d2a6'::uuid,
     'reid_default',
-    'reid@parleyapp.com',
+    'reid@Predictive Play.com',
     'pro',
     true
 ) ON CONFLICT (id) DO UPDATE SET

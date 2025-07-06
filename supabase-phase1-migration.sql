@@ -1,4 +1,4 @@
--- ParleyApp Phase 1 Data Layer Migration for Supabase
+-- Predictive Play Phase 1 Data Layer Migration for Supabase
 -- Safe to run multiple times - uses IF NOT EXISTS
 -- Optimized for The Odds API integration
 

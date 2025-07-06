@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
       pagination: { limit, offset }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[InjuriesAPI]: Error fetching injuries:', error);
     res.status(500).json({ 
       error: 'Internal server error',
@@ -116,7 +116,7 @@ router.get('/stats', async (req, res) => {
       last_updated: new Date().toISOString()
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[InjuriesAPI]: Error fetching injury stats:', error);
     res.status(500).json({ 
       error: 'Internal server error',
@@ -163,7 +163,7 @@ router.get('/upcoming-games', async (req, res) => {
       sport: sport || 'all'
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[InjuriesAPI]: Error fetching upcoming game injuries:', error);
     res.status(500).json({ 
       error: 'Internal server error',
@@ -198,7 +198,7 @@ router.post('/refresh', async (req, res) => {
       status: 'processing'
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[InjuriesAPI]: Error triggering injury refresh:', error);
     res.status(500).json({ 
       error: 'Failed to trigger injury refresh',

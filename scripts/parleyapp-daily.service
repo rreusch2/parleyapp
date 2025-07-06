@@ -1,0 +1,31 @@
+[Unit]
+Description=ParleyApp Daily Automated Workflow
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=reid
+Group=reid
+WorkingDirectory=/home/reid/Desktop/parleyapp
+Environment=NODE_ENV=production
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/reid/.nvm/versions/node/v18.17.0/bin
+ExecStart=/home/reid/Desktop/parleyapp/scripts/daily-automated-workflow.sh
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=3600
+RemainAfterExit=no
+
+# Restart policy
+Restart=no
+RestartSec=60
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/reid/Desktop/parleyapp/logs /tmp
+
+[Install]
+WantedBy=multi-user.target 

@@ -36,7 +36,7 @@ console.log('   • Real-time confidence scoring');
 console.log('   • Mathematical precision');
 console.log('   • Professional-grade language');
 console.log('');
-console.log('💎 PARLEYAPP PRO IS NOW LEGENDARY! 🚀');
+console.log('💎 Predictive Play PRO IS NOW LEGENDARY! 🚀');
 
 function testProOrchestrator() {
   // This function is now just a placeholder since we've shown the setup instructions

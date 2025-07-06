@@ -47,7 +47,7 @@ export async function getSimpleSportsData(
       status: 'upcoming'
     };
     
-  } catch (error) {
+  } catch (error: any) {
     console.log(`⚠️ Sports data fetch failed, using fallback predictions`);
     return getFallbackPredictions(gameId, sport, teams);
   }
@@ -73,7 +73,7 @@ async function fetchESPNData(sport: string, teams?: { home: string; away: string
     
     // Parse ESPN data for team info, scores, etc.
     return data;
-  } catch (error) {
+  } catch (error: any) {
     console.log(`ESPN API unavailable: ${error}`);
     return null;
   }
@@ -108,7 +108,7 @@ function generateSimplePredictions(teams?: { home: string; away: string }) {
   return {
     homeWinProbability: homeWinProb,
     awayWinProbability: awayWinProb,
-    confidence: Math.abs(expectedValue) > 5 ? 'High' : Math.abs(expectedValue) > 2 ? 'Medium' : 'Low',
+    confidence: (Math.abs(expectedValue) > 5 ? 'High' : Math.abs(expectedValue) > 2 ? 'Medium' : 'Low') as 'Low' | 'Medium' | 'High',
     expectedValue: Number(expectedValue.toFixed(1))
   };
 }

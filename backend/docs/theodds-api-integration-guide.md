@@ -1,4 +1,4 @@
-# The Odds API Integration Guide for ParleyApp
+# The Odds API Integration Guide for Predictive Play
 
 ## 🚀 Quick Start
 
@@ -54,7 +54,7 @@ Edit the `.env` file created by setup script:
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=parleyapp
+DB_NAME=Predictive Play
 DB_USER=postgres
 DB_PASSWORD=your_actual_password
 ```
@@ -198,7 +198,7 @@ Consider upgrading to paid tier ($99+/month) for production use.
 
 - The Odds API Docs: https://the-odds-api.com/
 - API Status: https://status.the-odds-api.com/
-- ParleyApp Issues: Check backend logs
+- Predictive Play Issues: Check backend logs
 
 ## 🎉 Success Checklist
 
@@ -210,4 +210,4 @@ Consider upgrading to paid tier ($99+/month) for production use.
 - [ ] Frontend displaying live odds
 - [ ] Models retrained with real data
 
-Once complete, your ParleyApp will be powered by real-time sports data! 🚀 
+Once complete, your Predictive Play will be powered by real-time sports data! 🚀 

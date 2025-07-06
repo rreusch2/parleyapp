@@ -11,6 +11,7 @@ import logging
 import joblib
 import numpy as np
 import pandas as pd
+import traceback
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -107,72 +108,234 @@ def get_db_connection():
         sslmode='require'
     )
 
-def get_player_recent_stats(player_name: str, team: str, sport: str, games: int = 10):
-    """Get recent player statistics"""
+def get_player_recent_stats(player_id=None, player_name=None, team=None, sport=None, games=10):
+    """Get a player's recent game stats by player_id (preferred) or name+team"""
+    if not player_id and not player_name:
+        logger.warning("Neither player_id nor player_name provided for stats lookup")
+        return []
+        
+    # Normalize sport to uppercase for database query
+    if sport:
+        sport = sport.upper()
+        
     conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor = conn.cursor()
     
-    try:
-        # Find player by name and team
-        cursor.execute("""
-            SELECT id FROM players 
-            WHERE name ILIKE %s 
-            AND team ILIKE %s 
-            AND sport = %s
-            LIMIT 1
-        """, (f'%{player_name}%', f'%{team}%', sport))
+    player = None
+    player_id_for_stats = None
+    
+    # If player_id is provided, use it directly
+    if player_id:
+        # Verify the player exists
+        cursor.execute("""SELECT id, name, team FROM players WHERE id = %s""", (player_id,))
+        result = cursor.fetchone()
+        if result:
+            player = {'id': result[0], 'name': result[1], 'team': result[2]}
+            player_id_for_stats = player_id
+            logger.info(f"Found player by ID: {player['name']} ({player['id']})")
+        else:
+            logger.warning(f"Player with ID {player_id} not found")
+    
+    # If we don't have a player_id or couldn't find by ID, try by name+team
+    if not player_id_for_stats and player_name:
+        # Try to find player by name and team
+        query = """SELECT id, name, team FROM players WHERE name ILIKE %s"""
+        params = [f"%{player_name}%"]
         
-        player = cursor.fetchone()
-        if not player:
-            return None
+        if team:
+            query += " AND team = %s"
+            params.append(team)
+            
+        if sport:
+            query += " AND sport = %s"
+            params.append(sport)
+            
+        cursor.execute(query, tuple(params))
+        result = cursor.fetchone()
         
-        # Get recent stats
-        cursor.execute("""
-            SELECT pgs.stats, pgs.game_date
-            FROM player_game_stats pgs
-            WHERE pgs.player_id = %s
-            ORDER BY pgs.game_date DESC
-            LIMIT %s
-        """, (player['id'], games))
+        if result:
+            player = {'id': result[0], 'name': result[1], 'team': result[2]}
+            player_id_for_stats = player['id']
+            logger.info(f"Found player by name: {player['name']} ({player['id']})")
+        else:
+            logger.warning(f"Player not found by name: {player_name}, team: {team}, sport: {sport}")
+            return []
+    
+    if not player_id_for_stats:
+        logger.warning("Could not determine player_id for stats lookup")
+        return []
+    
+    # Get recent stats - game_date is inside the stats JSONB
+    cursor.execute("""
+        SELECT pgs.stats, pgs.stats->>'game_date' as game_date
+        FROM player_game_stats pgs
+        WHERE pgs.player_id = %s
+        ORDER BY (pgs.stats->>'game_date')::date DESC
+        LIMIT %s
+    """, (player_id_for_stats, games))
+    
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    stats_list = []
+    for result in results:
+        stats_dict = result[0]
+        game_date = result[1]
+        stats_dict['game_date'] = game_date
+        stats_list.append(stats_dict)
         
-        stats = cursor.fetchall()
-        return stats
-        
-    finally:
-        cursor.close()
-        conn.close()
+    if not stats_list:
+        logger.warning(f"No stats found for player {player['name']} (ID: {player_id_for_stats})")
+    else:
+        logger.info(f"Found {len(stats_list)} game stats for player {player['name']} (ID: {player_id_for_stats})")
+            
+    return stats_list
 
 def calculate_player_features(player_stats, prop_type, is_home=True):
-    """Calculate features for player prop prediction"""
-    if not player_stats:
-        # Return default features if no stats
-        return np.zeros(10)  # Adjust based on your model's expected features
+    """Calculate MLB features matching the training data exactly"""
     
-    # Extract relevant stat from recent games
-    recent_values = []
-    for game in player_stats:
-        stats = game['stats']
-        if prop_type in stats:
-            recent_values.append(float(stats[prop_type]))
+    # Extract all game stats into organized arrays
+    # player_stats already contains the stats dictionaries directly from get_player_recent_stats
+    game_stats = []
+    for stats_json in player_stats:
+        if isinstance(stats_json, dict):
+            game_stats.append(stats_json)
     
-    if not recent_values:
-        return np.zeros(10)
+    if not game_stats:
+        logger.warning(f"No valid stats found for {prop_type}, using defaults")
+        return get_default_mlb_features(prop_type)
     
-    # Calculate features
-    features = [
-        np.mean(recent_values[-5:]) if len(recent_values) >= 5 else np.mean(recent_values),  # 5-game avg
-        np.mean(recent_values[-10:]) if len(recent_values) >= 10 else np.mean(recent_values),  # 10-game avg
-        np.mean(recent_values),  # Season avg
-        np.std(recent_values) if len(recent_values) > 1 else 0,  # Consistency
-        recent_values[0] if recent_values else 0,  # Last game
-        max(recent_values) if recent_values else 0,  # Season high
-        min(recent_values) if recent_values else 0,  # Season low
-        1 if is_home else 0,  # Home/away
-        len(recent_values),  # Games played
-        np.median(recent_values) if recent_values else 0  # Median
-    ]
+    # Calculate days rest (default to 1 if can't determine)
+    days_rest = 1
     
-    return np.array(features)
+    try:
+        # MLB-specific feature engineering to match training
+        if prop_type == 'hits' or prop_type == 'batter_hits':
+            return calculate_hits_features(game_stats, days_rest)
+        elif prop_type == 'home_runs' or prop_type == 'batter_home_runs':
+            return calculate_home_runs_features(game_stats, days_rest)
+        elif prop_type == 'strikeouts' or prop_type == 'pitcher_strikeouts':
+            return calculate_strikeouts_features(game_stats, days_rest)
+        elif prop_type == 'rbis' or prop_type == 'batter_rbis':
+            return calculate_rbis_features(game_stats, days_rest)
+        else:
+            logger.warning(f"Unknown prop type {prop_type}, using default features")
+            return get_default_mlb_features(prop_type)
+    except Exception as e:
+        logger.error(f"Error calculating features for {prop_type}: {e}")
+        return get_default_mlb_features(prop_type)
+
+def get_default_mlb_features(prop_type):
+    """Return default features for MLB props when data is missing"""
+    if prop_type in ['hits', 'batter_hits']:
+        # 14 features for hits: hits_avg_5, hits_avg_10, hits_avg_20, ba_avg_5, ba_avg_10, at_bats_avg_5, at_bats_avg_10, launch_angle_avg_10, launch_speed_avg_10, hits_trend, hits_std_10, hits_last_3, pa_avg_10, days_rest
+        return np.array([1.1, 1.0, 0.95, 0.275, 0.270, 4.2, 4.1, 15.0, 88.0, 0.02, 0.8, 1.0, 4.5, 1.0])
+    elif prop_type in ['home_runs', 'batter_home_runs']:
+        # 9 features for home runs: home_runs_avg_5, home_runs_avg_10, home_runs_avg_20, launch_angle_avg_10, launch_speed_avg_10, at_bats_avg_10, home_runs_trend, home_runs_std_10, days_rest
+        return np.array([0.25, 0.22, 0.20, 18.0, 92.0, 4.1, 0.01, 0.4, 1.0])
+    elif prop_type in ['strikeouts', 'pitcher_strikeouts']:
+        # 8 features for strikeouts: strikeouts_avg_5, strikeouts_avg_10, strikeouts_avg_20, at_bats_avg_5, at_bats_avg_10, strikeouts_trend, pa_avg_10, days_rest
+        return np.array([6.2, 6.0, 5.8, 4.2, 4.1, 0.05, 4.5, 1.0])
+    elif prop_type in ['rbis', 'batter_rbis']:
+        # 8 features for rbis: rbis_avg_5, rbis_avg_10, rbis_avg_20, hits_avg_10, home_runs_avg_10, at_bats_avg_10, ba_avg_10, days_rest
+        return np.array([1.8, 1.7, 1.6, 1.0, 0.22, 4.1, 0.270, 1.0])
+    else:
+        # Generic 14 features
+        return np.array([1.0, 1.0, 1.0, 0.25, 0.25, 4.0, 4.0, 15.0, 85.0, 0.0, 0.5, 1.0, 4.0, 1.0])
+
+def safe_get_stat(stats, stat_name, default=0.0):
+    """Safely extract a stat from the stats dict"""
+    try:
+        val = stats.get(stat_name, default)
+        return float(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
+def calculate_hits_features(game_stats, days_rest):
+    """Calculate 14 features for hits prediction"""
+    hits = [safe_get_stat(g, 'hits') for g in game_stats]
+    at_bats = [safe_get_stat(g, 'at_bats') for g in game_stats]
+    plate_appearances = [safe_get_stat(g, 'plate_appearances', ab+1) for g, ab in zip(game_stats, at_bats)]
+    
+    # Calculate batting averages where possible
+    batting_avgs = [h/ab if ab > 0 else 0.0 for h, ab in zip(hits, at_bats)]
+    
+    # Launch angle and speed (use defaults if not available)
+    launch_angles = [safe_get_stat(g, 'launch_angle', 15.0) for g in game_stats]
+    launch_speeds = [safe_get_stat(g, 'launch_speed', 88.0) for g in game_stats]
+    
+    return np.array([
+        np.mean(hits[:5]) if len(hits) >= 5 else np.mean(hits) if hits else 1.0,           # hits_avg_5
+        np.mean(hits[:10]) if len(hits) >= 10 else np.mean(hits) if hits else 1.0,         # hits_avg_10
+        np.mean(hits[:20]) if len(hits) >= 20 else np.mean(hits) if hits else 1.0,         # hits_avg_20
+        np.mean(batting_avgs[:5]) if len(batting_avgs) >= 5 else np.mean(batting_avgs) if batting_avgs else 0.27, # ba_avg_5
+        np.mean(batting_avgs[:10]) if len(batting_avgs) >= 10 else np.mean(batting_avgs) if batting_avgs else 0.27, # ba_avg_10
+        np.mean(at_bats[:5]) if len(at_bats) >= 5 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_5
+        np.mean(at_bats[:10]) if len(at_bats) >= 10 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_10
+        np.mean(launch_angles[:10]) if len(launch_angles) >= 10 else np.mean(launch_angles) if launch_angles else 15.0, # launch_angle_avg_10
+        np.mean(launch_speeds[:10]) if len(launch_speeds) >= 10 else np.mean(launch_speeds) if launch_speeds else 88.0, # launch_speed_avg_10
+        (hits[0] - hits[-1]) / len(hits) if len(hits) > 1 else 0.0,                      # hits_trend
+        np.std(hits[:10]) if len(hits) >= 10 else np.std(hits) if len(hits) > 1 else 0.5, # hits_std_10
+        np.mean(hits[:3]) if len(hits) >= 3 else np.mean(hits) if hits else 1.0,           # hits_last_3
+        np.mean(plate_appearances[:10]) if len(plate_appearances) >= 10 else np.mean(plate_appearances) if plate_appearances else 4.5, # pa_avg_10
+        days_rest                                                                          # days_rest
+    ])
+
+def calculate_home_runs_features(game_stats, days_rest):
+    """Calculate 9 features for home runs prediction"""
+    home_runs = [safe_get_stat(g, 'home_runs') for g in game_stats]
+    at_bats = [safe_get_stat(g, 'at_bats') for g in game_stats]
+    launch_angles = [safe_get_stat(g, 'launch_angle', 18.0) for g in game_stats]
+    launch_speeds = [safe_get_stat(g, 'launch_speed', 92.0) for g in game_stats]
+    
+    return np.array([
+        np.mean(home_runs[:5]) if len(home_runs) >= 5 else np.mean(home_runs) if home_runs else 0.2,  # home_runs_avg_5
+        np.mean(home_runs[:10]) if len(home_runs) >= 10 else np.mean(home_runs) if home_runs else 0.2, # home_runs_avg_10
+        np.mean(home_runs[:20]) if len(home_runs) >= 20 else np.mean(home_runs) if home_runs else 0.2, # home_runs_avg_20
+        np.mean(launch_angles[:10]) if len(launch_angles) >= 10 else np.mean(launch_angles) if launch_angles else 18.0, # launch_angle_avg_10
+        np.mean(launch_speeds[:10]) if len(launch_speeds) >= 10 else np.mean(launch_speeds) if launch_speeds else 92.0, # launch_speed_avg_10
+        np.mean(at_bats[:10]) if len(at_bats) >= 10 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_10
+        (home_runs[0] - home_runs[-1]) / len(home_runs) if len(home_runs) > 1 else 0.0,      # home_runs_trend
+        np.std(home_runs[:10]) if len(home_runs) >= 10 else np.std(home_runs) if len(home_runs) > 1 else 0.3, # home_runs_std_10
+        days_rest                                                                           # days_rest
+    ])
+
+def calculate_strikeouts_features(game_stats, days_rest):
+    """Calculate 8 features for strikeouts prediction"""
+    strikeouts = [safe_get_stat(g, 'strikeouts') for g in game_stats]
+    at_bats = [safe_get_stat(g, 'at_bats') for g in game_stats]
+    plate_appearances = [safe_get_stat(g, 'plate_appearances', ab+1) for g, ab in zip(game_stats, at_bats)]
+    
+    return np.array([
+        np.mean(strikeouts[:5]) if len(strikeouts) >= 5 else np.mean(strikeouts) if strikeouts else 6.0, # strikeouts_avg_5
+        np.mean(strikeouts[:10]) if len(strikeouts) >= 10 else np.mean(strikeouts) if strikeouts else 6.0, # strikeouts_avg_10
+        np.mean(strikeouts[:20]) if len(strikeouts) >= 20 else np.mean(strikeouts) if strikeouts else 6.0, # strikeouts_avg_20
+        np.mean(at_bats[:5]) if len(at_bats) >= 5 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_5
+        np.mean(at_bats[:10]) if len(at_bats) >= 10 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_10
+        (strikeouts[0] - strikeouts[-1]) / len(strikeouts) if len(strikeouts) > 1 else 0.0, # strikeouts_trend
+        np.mean(plate_appearances[:10]) if len(plate_appearances) >= 10 else np.mean(plate_appearances) if plate_appearances else 4.5, # pa_avg_10
+        days_rest                                                                          # days_rest
+    ])
+
+def calculate_rbis_features(game_stats, days_rest):
+    """Calculate 8 features for RBIs prediction"""
+    rbis = [safe_get_stat(g, 'rbis') for g in game_stats]
+    hits = [safe_get_stat(g, 'hits') for g in game_stats]
+    home_runs = [safe_get_stat(g, 'home_runs') for g in game_stats]
+    at_bats = [safe_get_stat(g, 'at_bats') for g in game_stats]
+    batting_avgs = [h/ab if ab > 0 else 0.0 for h, ab in zip(hits, at_bats)]
+    
+    return np.array([
+        np.mean(rbis[:5]) if len(rbis) >= 5 else np.mean(rbis) if rbis else 1.5,           # rbis_avg_5
+        np.mean(rbis[:10]) if len(rbis) >= 10 else np.mean(rbis) if rbis else 1.5,         # rbis_avg_10
+        np.mean(rbis[:20]) if len(rbis) >= 20 else np.mean(rbis) if rbis else 1.5,         # rbis_avg_20
+        np.mean(hits[:10]) if len(hits) >= 10 else np.mean(hits) if hits else 1.0,         # hits_avg_10
+        np.mean(home_runs[:10]) if len(home_runs) >= 10 else np.mean(home_runs) if home_runs else 0.2, # home_runs_avg_10
+        np.mean(at_bats[:10]) if len(at_bats) >= 10 else np.mean(at_bats) if at_bats else 4.0, # at_bats_avg_10
+        np.mean(batting_avgs[:10]) if len(batting_avgs) >= 10 else np.mean(batting_avgs) if batting_avgs else 0.27, # ba_avg_10
+        days_rest                                                                          # days_rest
+    ])
 
 def get_team_features(home_team, away_team, sport='MLB'):
     """Calculate team features for betting predictions"""
@@ -349,133 +512,201 @@ def predict_game():
 @app.route('/api/v2/predict/player-prop', methods=['POST'])
 def predict_player_prop():
     """Predict player prop using trained models"""
-    data = request.json
-    
-    sport = data.get('sport', '').upper()
-    # Normalise prop_type to lower-case so that "Points" and "POINTS" still work
-    prop_type = data.get('prop_type', '').lower()  # e.g. "points", "hits", "home_runs"
-    player_id = data.get('player_id')
-    # Ensure line is present and numeric
-    line = data.get('line')
     try:
-        line = float(line)
-    except (TypeError, ValueError):
-        return jsonify({
-            'error': 'line is required and must be a numeric value.'
-        }), 400
-    if line == 0:
-        return jsonify({
-            'error': 'line must be non-zero.'
-        }), 400
-    game_context = data.get('game_context', {})
-    
-    # Map complex/long prop_type names to the core model prop_type we have
-    alias_map = {
-        # MLB aliases
-        'pitcher_strikeouts': 'strikeouts',
-        'batter_total_bases': 'hits',   # Use hits model as crude proxy
-        'batter_hits': 'hits',
-        'batter_home_runs': 'home_runs',
-        'batter_rbis': 'hits',          # RBIs roughly correlate with hits
-        # NBA aliases (in case we receive full names)
-        'points': 'points',
-        'rebounds': 'rebounds',
-        'assists': 'assists'
-    }
-
-    core_prop_type = alias_map.get(prop_type, prop_type)
-
-    # Map to model key
-    sport_lower = 'nba' if sport == 'NBA' else 'mlb'
-    model_key = f"{sport_lower}_{core_prop_type}"
-    
-    # Early validation of payload
-    if not prop_type:
-        return jsonify({
-            'error': 'prop_type is required and must be a non-empty string.'
-        }), 400
-    
-    if model_key not in MODELS:
-        return jsonify({
-            'error': (
-                f"Model not found for sport={sport} and prop_type={prop_type} (mapped to {core_prop_type}). "
-                "Loaded models are: " + ', '.join(MODELS.keys())
-            )
-        }), 404
-    
-    try:
-        # ------------------------------------------------------------------
-        # 1) Build realistic per-player feature vector
-        # ------------------------------------------------------------------
-        # We try to use actual recent stats from the database; if we can't find
-        # them we fall back to a zero-filled array (handled inside helper).
-
+        data = request.json
+        logger.info(f"Player prop prediction request: {data}")
+        
+        # Extract key fields
+        sport = data.get('sport', '').upper()
+        prop_type = data.get('prop_type', '').lower()  # Normalize to lowercase
+        player_id = data.get('player_id')
         player_name = data.get('player_name') or data.get('player') or data.get('name')
-        team = data.get('team') or data.get('team_name') or game_context.get('team')
-        is_home = bool(game_context.get('is_home'))
-
+        team = data.get('team') or data.get('team_name') or data.get('game_context', {}).get('team')
+        is_home = bool(data.get('game_context', {}).get('is_home', True))
+        
+        # Validate line
+        try:
+            line = float(data.get('line', 0))
+            if line <= 0:
+                return jsonify({'error': 'line must be greater than zero'}), 400
+        except (TypeError, ValueError):
+            return jsonify({'error': 'line must be a valid number'}), 400
+        
+        # Map prop type aliases to core model types
+        alias_map = {
+            # MLB aliases
+            'pitcher_strikeouts': 'strikeouts',
+            'batter_total_bases': 'total_bases',
+            'batter_hits': 'hits',
+            'batter_home_runs': 'home_runs',
+            'batter_rbis': 'rbis',
+            # NBA aliases
+            'points': 'points',
+            'rebounds': 'rebounds',
+            'assists': 'assists'
+        }
+        
+        core_prop_type = alias_map.get(prop_type, prop_type)
+        
+        # Map to model key
+        sport_lower = 'nba' if sport == 'NBA' else 'mlb'
+        model_key = f"{sport_lower}_{core_prop_type}"
+        
+        # Validate we have the necessary fields
+        if not prop_type:
+            return jsonify({'error': 'prop_type is required'}), 400
+            
+        if not player_id and not player_name:
+            return jsonify({'error': 'player_id or player_name is required'}), 400
+        
+        # Check if model exists
+        if model_key not in MODELS:
+            return jsonify({
+                'error': f"No model available for {sport} {core_prop_type}",
+                'available_models': list(MODELS.keys())
+            }), 404
+            
+        # Get player stats
         player_stats = None
-        if player_name and team:
+        if player_id:
+            logger.info(f"Looking up player stats by ID: {player_id}")
             try:
-                player_stats = get_player_recent_stats(player_name, team, sport, games=10)
-            except Exception as db_err:
-                logger.warning(f"Could not fetch recent stats for {player_name}: {db_err}")
-
-        # Use helper to calculate rolling averages / highs / consistency, etc.
-        features_core = calculate_player_features(player_stats, core_prop_type, is_home)
-
-        # Append the sportsbook line as an additional signal so the model can
-        # gauge how far it is from the market.  Also include a simple hot-streak
-        # indicator (last game vs line).
-        extra_features = np.array([
-            line,                   # current sportsbook line
-            line * 1.1              # last-game heuristic (placeholder)
-        ])
-
-        features = np.concatenate([features_core, extra_features]).reshape(1, -1)
+                player_stats = get_player_recent_stats(
+                    player_id=player_id,
+                    games=10
+                )
+            except Exception as e:
+                logger.warning(f"Error getting stats by ID: {str(e)}")
+                
+        # Fall back to name+team if needed
+        if not player_stats and player_name:
+            logger.info(f"Looking up player stats by name: {player_name}, team: {team}")
+            try:
+                player_stats = get_player_recent_stats(
+                    player_name=player_name,
+                    team=team,
+                    sport=sport_lower,
+                    games=10
+                )
+            except Exception as e:
+                logger.warning(f"Error getting stats by name: {str(e)}")
+                
+        # Create player info for response
+        player_info = {
+            'player_id': player_id,
+            'player_name': player_name,
+            'team': team,
+            'stats_found': bool(player_stats),
+            'stats_count': len(player_stats) if player_stats else 0
+        }
         
-        # Align feature size with model/scaler expectation to avoid shape-mismatch errors
-        scaler = MODELS[model_key].get('scaler')
-
-        # Determine how many features the downstream component expects
-        expected_features = None
-        if scaler and hasattr(scaler, 'n_features_in_'):
-            expected_features = scaler.n_features_in_
-        elif hasattr(MODELS[model_key]['model'], 'n_features_in_'):
-            expected_features = MODELS[model_key]['model'].n_features_in_
-
-        if expected_features and features.shape[1] != expected_features:
-            if features.shape[1] > expected_features:
-                # Trim extra columns
-                features = features[:, :expected_features]
-            else:
-                # Pad with zeros for missing columns
-                padding = np.zeros((features.shape[0], expected_features - features.shape[1]))
-                features = np.hstack([features, padding])
-
-        # Now perform scaling if we have a scaler and feature sizes match
-        if scaler:
-            features = scaler.transform(features)
-        
-        # Make prediction using the loaded model
+        # Extract relevant stats for this prop type
+        relevant_stat_values = []
+        if player_stats:
+            for game_stats in player_stats:
+                # player_stats already contains the stats directly from get_player_recent_stats
+                if core_prop_type in game_stats:
+                    relevant_stat_values.append({
+                        'value': game_stats[core_prop_type],
+                        'game_date': game_stats.get('game_date', 'unknown')
+                    })
+            
+            player_info['relevant_stats'] = relevant_stat_values
+            logger.info(f"Found {len(relevant_stat_values)} {core_prop_type} values in player stats")
+        else:
+            logger.warning("No player stats found")
+            
+        # Get model components
         model = MODELS[model_key]['model']
-        prediction = model.predict(features)[0]
+        scaler = MODELS[model_key].get('scaler')
+            
+        # Calculate features
+        features = calculate_player_features(player_stats, core_prop_type, is_home)
+        features_array = np.array(features).reshape(1, -1)
         
-        # Calculate confidence based on difference from line
+        # Scale features if we have a scaler
+        if scaler:
+            features_array = scaler.transform(features_array)
+            
+        # Make prediction
+        prediction = model.predict(features_array)[0]
+        
+        # Calculate confidence
+        # More data = higher confidence
+        stats_factor = min(1.0, len(relevant_stat_values) / 5) if relevant_stat_values else 0.5
+        
+        # Bigger difference from line = higher confidence
         diff = abs(prediction - line)
-        confidence = min(0.85, 0.6 + diff / (line * 0.5))
+        diff_factor = diff / (line * 0.3)  # Normalize by line size
+        
+        # Combine factors but cap at 0.85 to avoid overconfidence
+        confidence = min(0.85, 0.5 + (diff_factor * stats_factor))
         
         # Calculate value percentage
-        value_pct = (diff / line) * 100
+        value_pct = (diff / line) * 100 if line > 0 else 0
         
+        logger.info(f"Prediction for {player_name} {core_prop_type}: {prediction:.2f}, confidence: {confidence:.2f}")
+        
+        # Return prediction with detailed debugging info
         return jsonify({
             'prediction': round(prediction, 2),
             'confidence': round(confidence, 3),
             'value_percentage': round(value_pct, 1),
-            'features_used': ['recent_avg', '10_game_avg', 'season_avg', 'consistency'],
-            'model_version': '1.0',
-            'timestamp': datetime.now().isoformat(),
-            'enhanced': True
+            'recommend': 'over' if prediction > line else 'under',
+            'player_info': player_info,
+            'features': features.tolist(),
+            'model_key': model_key,
+            'line': line
+        })
+            
+    except Exception as e:
+        logger.error(f"Error in player prop prediction: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'error': 'Server error during prediction',
+            'details': str(e)
+        }), 500
+        if player_stats:
+            for game in player_stats:
+                if prop_type in game:
+                    relevant_stat_values.append({
+                        'value': game[prop_type],
+                        'game_date': game.get('game_date', 'unknown')
+                    })
+            player_info['relevant_stats'] = relevant_stat_values
+        
+        # Calculate features
+        features = calculate_player_features(player_stats, prop_type, is_home)
+        
+        # Scale features
+        scaler_path = os.path.join('models', f"{sport}_{prop_type}_scaler.pkl")
+        if os.path.exists(scaler_path):
+            with open(scaler_path, 'rb') as f:
+                scaler = pickle.load(f)
+            features = scaler.transform([features])
+        else:
+            features = [features]  # Ensure it's a 2D array for model
+        
+        # Make prediction
+        prediction = model.predict(features)[0]
+        
+        # Calculate confidence based on how much data we have and difference from line
+        stats_confidence_factor = min(1.0, len(player_stats) / 5) if player_stats else 0.5
+        diff = abs(prediction - line)
+        line_factor = diff / (line * 0.3)  # Less aggressive scaling
+        confidence = min(0.85, 0.5 + (line_factor * stats_confidence_factor))
+        
+        # Calculate value percentage
+        value_pct = (diff / line) * 100
+        
+        # Return prediction with debugging info
+        return jsonify({
+            'prediction': round(prediction, 2),
+            'confidence': round(confidence, 3),
+            'value_percentage': round(value_pct, 1),
+            'player_info': player_info,
+            'features': features[0].tolist() if hasattr(features[0], 'tolist') else list(features[0]),
+            'recommend': 'over' if prediction > line else 'under'
         })
         
     except Exception as e:

@@ -129,7 +129,7 @@ export class TrendAnalysisService {
         })
         .slice(0, limit);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in getMLBRecurringTrends:', error);
       return this.getFallbackTrends();
     }
@@ -280,7 +280,7 @@ export class TrendAnalysisService {
       if (updateError) {
         console.error('Error updating betting results:', updateError);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in updateBettingResults:', error);
     }
   }
@@ -330,7 +330,7 @@ export class TrendAnalysisService {
       if (error) {
         console.error('Error processing betting results:', error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in processBettingResultsFromStats:', error);
     }
   }
@@ -358,7 +358,7 @@ export class TrendAnalysisService {
       logger.info(`✅ Found ${playerStats?.length || 0} prop streaks`);
       return playerStats || [];
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error in getPlayerPropTrends:', error);
       return this.getManualPropStreaks(sport, minStreak);
     }
@@ -592,7 +592,7 @@ export class TrendAnalysisService {
       
       return teamTrends.slice(0, 10); // Return top 10 team trends
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error analyzing team trends:', error);
       throw error;
     }
@@ -646,7 +646,7 @@ export class TrendAnalysisService {
 
       return opportunities.sort((a, b) => b.total_trends - a.total_trends);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error('Error getting live trend opportunities:', error);
       throw error;
     }
@@ -870,7 +870,7 @@ export class TrendAnalysisService {
         current_line: undefined, // Would fetch from odds API
         recommended_bet: undefined
       };
-    } catch (error) {
+    } catch (error: any) {
       return undefined;
     }
   }

@@ -78,20 +78,7 @@ INSERT INTO news_articles (
   'https://nfl.com/news/cowboys-trade-deadline',
   NOW() - INTERVAL '2 hours'
 ),
-(
-  'weather_sample_1',
-  'Heavy Snow Expected for Tonight''s Bears vs Packers Game',
-  'Weather forecasts show heavy snowfall expected during tonight''s Bears vs Packers matchup, which could significantly impact scoring and betting lines.',
-  'The National Weather Service has issued a winter weather advisory for the Green Bay area, with 4-6 inches of snow expected to fall during tonight''s Bears vs Packers game at Lambeau Field. The conditions are expected to affect passing games and could favor under bets for total points...',
-  'weather',
-  'NFL',
-  'Packers',
-  null,
-  'medium',
-  'Weather.com',
-  'https://weather.com/sports/snow-packers-game',
-  NOW() - INTERVAL '1 hour'
-),
+
 (
   'breaking_sample_1',
   'Major League Baseball Announces New Playoff Format',

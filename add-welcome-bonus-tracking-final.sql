@@ -10,7 +10,7 @@ WHERE welcome_bonus_claimed = true;
 
 -- Add helpful comments
 COMMENT ON COLUMN public.profiles.welcome_bonus_claimed IS 'Whether user has claimed their welcome bonus from spinning wheel';
-COMMENT ON COLUMN public.profiles.welcome_bonus_expires_at IS 'When the welcome bonus expires (midnight of signup day)';
+COMMENT ON COLUMN public.profiles.welcome_bonus_expires_at IS 'When the welcome bonus expires (24 hours from signup for fair trial period)';
 
 -- Update existing users to have welcome bonus already expired (they've been using the app)
 UPDATE public.profiles 

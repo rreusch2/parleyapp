@@ -1,12 +1,12 @@
-# Comprehensive App Store Launch Preparation Report for ParleyApp
+# Comprehensive App Store Launch Preparation Report for Predictive Play
 
 ## Introduction
 
-This report provides a comprehensive guide to preparing the ParleyApp React Native iPhone application for submission to the Apple App Store. It covers critical aspects including code analysis, addressing the settings tab functionality, general app enhancements, and a detailed step-by-step process for transitioning the project to Xcode on a Mac for final build and submission. The goal is to ensure the app meets Apple's stringent App Review Guidelines, performs optimally, and provides a secure and seamless user experience, thereby maximizing the chances of a successful launch.
+This report provides a comprehensive guide to preparing the Predictive Play React Native iPhone application for submission to the Apple App Store. It covers critical aspects including code analysis, addressing the settings tab functionality, general app enhancements, and a detailed step-by-step process for transitioning the project to Xcode on a Mac for final build and submission. The goal is to ensure the app meets Apple's stringent App Review Guidelines, performs optimally, and provides a secure and seamless user experience, thereby maximizing the chances of a successful launch.
 
 ## 1. Code Analysis and Initial Findings
 
-Upon initial review of the ParleyApp codebase, the following observations were made:
+Upon initial review of the Predictive Play codebase, the following observations were made:
 
 ### 1.1 `localhost` References
 
@@ -64,10 +64,10 @@ The `Odds Format` and `Data Usage` select fields were previously non-interactive
 
 ### 2.4 Link Items (e.g., Change Password, Help Center)
 
-Link items such as `Change Password`, `Help Center`, `Send Feedback`, and `About ParleyApp` were also non-interactive. These have been updated to display an `Alert` when pressed, indicating the intended navigation or action. The `Subscription`, `Payment History`, and `Restore Purchases` links already have existing actions, including `Linking.openURL` for App Store subscription management and email support.
+Link items such as `Change Password`, `Help Center`, `Send Feedback`, and `About Predictive Play` were also non-interactive. These have been updated to display an `Alert` when pressed, indicating the intended navigation or action. The `Subscription`, `Payment History`, and `Restore Purchases` links already have existing actions, including `Linking.openURL` for App Store subscription management and email support.
 
 **Action Required:**
-- **Implement Navigation/Actions for Link Items:** For links like `Change Password`, you will need to implement navigation to the respective screens or trigger appropriate actions (e.g., opening an in-app browser for `Help Center` or `About ParleyApp`, or composing an email for `Send Feedback`).
+- **Implement Navigation/Actions for Link Items:** For links like `Change Password`, you will need to implement navigation to the respective screens or trigger appropriate actions (e.g., opening an in-app browser for `Help Center` or `About Predictive Play`, or composing an email for `Send Feedback`).
 
 ### 2.5 Error Handling and User Feedback
 
@@ -106,7 +106,7 @@ Beyond general guidelines, React Native apps often face specific rejection issue
 
 ### 3.3 Performance Optimization Best Practices for React Native
 
-To ensure your ParleyApp performs well and avoids rejection due to performance issues, consider implementing the following:
+To ensure your Predictive Play performs well and avoids rejection due to performance issues, consider implementing the following:
 
 - **Image Optimization:** Compress images, use efficient formats (WebP), lazy load, cache images (e.g., `react-native-fast-image`).
 - **Reduce Re-renders:** Utilize `React.memo`, `PureComponent`, `useCallback`, and `useMemo`. Avoid inline functions/objects in `render`.
@@ -145,8 +145,8 @@ While React Native allows for cross-platform development, the final build and su
 
 1.  **Clone the Repository on Mac:**
     ```bash
-    git clone https://github.com/rreusch2/parleyapp.git
-    cd parleyapp
+    git clone https://github.com/rreusch2/Predictive Play.git
+    cd Predictive Play
     ```
 
 2.  **Install JavaScript Dependencies:**
@@ -164,9 +164,9 @@ While React Native allows for cross-platform development, the final build and su
     *Note: If you encounter issues, try `pod deintegrate`, `pod clean`, and then `pod install` again. Ensure your Podfile is correctly configured.*
 
 4.  **Open Project in Xcode:**
-    Open the `.xcworkspace` file (not `.xcodeproj`) located in the `ios` directory. For ParleyApp, this would likely be `parleyapp/ios/ParleyApp.xcworkspace`.
+    Open the `.xcworkspace` file (not `.xcodeproj`) located in the `ios` directory. For Predictive Play, this would likely be `Predictive Play/ios/Predictive Play.xcworkspace`.
     ```bash
-    open ios/ParleyApp.xcworkspace
+    open ios/Predictive Play.xcworkspace
     ```
 
 5.  **Configure General Settings in Xcode:**
@@ -175,7 +175,7 @@ While React Native allows for cross-platform development, the final build and su
 
 
 General tab. Here, you will configure:
-    - **Bundle Identifier:** A unique string that identifies your app. It should be in reverse-domain name format (e.g., `com.yourcompany.parleyapp`).
+    - **Bundle Identifier:** A unique string that identifies your app. It should be in reverse-domain name format (e.g., `com.yourcompany.Predictive Play`).
     - **Version and Build Numbers:** Set your app's version number (e.g., 1.0.0) and build number. Increment the build number with each new submission.
     - **Signing & Capabilities:** Select your Apple Developer Team. Xcode will automatically manage provisioning profiles. If you encounter issues, you may need to manually create or refresh provisioning profiles in your Apple Developer account.
 
@@ -244,7 +244,7 @@ Beyond the core functionality and App Store requirements, these final tweaks can
 
 ## 6. Conclusion and Recommendations
 
-ParleyApp has a solid foundation, and with the addressed `localhost` issues and dummy implementations for the settings tab, it's moving in the right direction. The critical next steps involve replacing the dummy implementations with actual backend integrations, rigorously testing all functionalities, and meticulously preparing for the App Store submission process.
+Predictive Play has a solid foundation, and with the addressed `localhost` issues and dummy implementations for the settings tab, it's moving in the right direction. The critical next steps involve replacing the dummy implementations with actual backend integrations, rigorously testing all functionalities, and meticulously preparing for the App Store submission process.
 
 **Key Recommendations:**
 
@@ -255,7 +255,7 @@ ParleyApp has a solid foundation, and with the addressed `localhost` issues and 
 5.  **Adherence to Guidelines:** Continuously refer to the App Review Guidelines. Pay special attention to privacy, data handling, and user experience. Be transparent with Apple about any non-obvious features or third-party integrations.
 6.  **Performance and Security:** Do not underestimate the importance of performance and security. Unoptimized apps or those with security vulnerabilities are prime candidates for rejection.
 
-By systematically addressing these areas, you will significantly increase the likelihood of a smooth App Store approval process and a successful launch for ParleyApp.
+By systematically addressing these areas, you will significantly increase the likelihood of a smooth App Store approval process and a successful launch for Predictive Play.
 
 ---
 

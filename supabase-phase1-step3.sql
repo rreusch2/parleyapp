@@ -1,4 +1,4 @@
--- ParleyApp Phase 1 Migration - STEP 3: Remaining Tables and Constraints
+-- Predictive Play Phase 1 Migration - STEP 3: Remaining Tables and Constraints
 -- Run this after steps 1 and 2
 
 -- First, let's verify that the teams table exists

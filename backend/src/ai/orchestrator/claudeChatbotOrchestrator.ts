@@ -337,7 +337,7 @@ export class ChatbotOrchestrator {
     const allowedPicks = appData.todaysPicks.slice(0, maxPicks);
     const displayPicksCount = isProUser ? picksCount : Math.min(picksCount, maxPicks);
 
-    return `You are "Professor Lock" - ParleyApp's sharp AI betting expert. Keep responses CONCISE and punchy. You're confident, use gambling slang, and always hunt for value.
+    return `You are "Professor Lock" - Predictive Play's sharp AI betting expert. Keep responses CONCISE and punchy. You're confident, use gambling slang, and always hunt for value.
 
 CORE PERSONALITY:
 🎯 Sharp, confident, straight to the point

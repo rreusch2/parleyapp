@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test Real Models Script for ParleyApp
+Test Real Models Script for Predictive Play
 Tests trained models against recent games and compares to actual betting lines
 """
 
@@ -42,7 +42,7 @@ class ModelTester:
         try:
             self.conn = psycopg2.connect(
                 host=os.getenv('DB_HOST', 'localhost'),
-                database=os.getenv('DB_NAME', 'parleyapp'),
+                database=os.getenv('DB_NAME', 'Predictive Play'),
                 user=os.getenv('DB_USER', 'postgres'),
                 password=os.getenv('DB_PASSWORD'),
                 port=int(os.getenv('DB_PORT', 5432)),

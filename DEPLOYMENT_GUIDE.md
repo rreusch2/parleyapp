@@ -1,7 +1,7 @@
-# 🚄 Railway Deployment Guide for ParleyApp
+# 🚄 Railway Deployment Guide for Predictive Play
 
 ## 📋 Overview
-This guide will help you deploy your ParleyApp backend services to Railway for production.
+This guide will help you deploy your Predictive Play backend services to Railway for production.
 
 ## 🎯 What We're Deploying
 1. **Node.js Backend** (`backend/` folder) → API for app functionality
@@ -146,8 +146,8 @@ Railway automatically redeploys when you push to GitHub:
 ### Custom Domains (Optional)
 ```bash
 # Add custom domain in Railway dashboard
-# Example: api.parleyapp.com → your backend
-# Example: python-api.parleyapp.com → your Python API
+# Example: api.Predictive Play.com → your backend
+# Example: python-api.Predictive Play.com → your Python API
 ```
 
 ### Monitoring

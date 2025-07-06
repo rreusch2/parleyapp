@@ -9,63 +9,69 @@ import {
   Alert,
   Platform,
   Linking,
-  Vibration
+  Vibration,
+  Modal,
+  TextInput
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
-  Settings,
   Bell,
   Shield,
-  CreditCard,
   HelpCircle,
   ChevronRight,
   User,
   Target,
-  TrendingUp,
-  DollarSign,
-  Calendar,
-  Star,
   LogOut,
   ChevronDown,
-  ChevronUp,
-  Trophy,
-  BarChart3,
-  Zap,
-  History,
-  ExternalLink,
-  Award,
-  Users,
-  Wallet,
   Crown,
-  CheckCircle,
-  Clock,
-  Info,
   Sparkles,
-  Gift,
   Lock,
-  Brain
+  Brain,
+  Eye,
+  EyeOff
 } from 'lucide-react-native';
-import { Picker } from '@react-native-picker/picker';
-import MultiSelect from 'react-native-multiple-select';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { aiService } from '@/app/services/api/aiService';
 import { router } from 'expo-router';
-import Slider from '@react-native-community/slider';
 import { useSubscription } from '@/app/services/subscriptionContext';
+import HelpCenterModal from '@/app/components/HelpCenterModal';
+import FeedbackModal from '@/app/components/FeedbackModal';
+import AboutModal from '@/app/components/AboutModal';
+
+interface UserProfile {
+  id: string;
+  username: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  subscription_tier: 'free' | 'pro';
+  created_at: string;
+}
 
 export default function SettingsScreen() {
   const { isPro, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: true,
-    aiAlerts: true,
-    oddsFormat: 'American',
-    biometricLogin: false,
-    dataUsage: 'Optimized',
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notificationSettings, setNotificationSettings] = useState({
+    ai_picks: true,
   });
 
   // Profile section state
   const [showProfileDetails, setShowProfileDetails] = useState(false);
+  
+  // Modal states
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -84,44 +90,137 @@ export default function SettingsScreen() {
   ]);
   const [selectedSports, setSelectedSports] = useState<number[]>([]);
 
-  // User stats (normally would come from API)
-  const [userStats] = useState({
-    winRate: isPro ? '67%' : '58%',
-    roi: isPro ? '+22.4%' : '+12.1%',
-    totalBets: isPro ? 186 : 32,
-    profitLoss: isPro ? '+$4,456' : '+$325',
-    streak: isPro ? 7 : 3
-  });
+  // Load user profile data
+  useEffect(() => {
+    loadUserProfile();
+    loadNotificationSettings();
+  }, []);
 
-  const [recentBets] = useState([
-    {
-      id: '1',
-      match: 'Lakers vs Warriors',
-      pick: 'Warriors -3.5',
-      status: 'win',
-      amount: '$100',
-      return: '+$90.91',
-      date: 'Today'
-    },
-    {
-      id: '2',
-      match: 'Chiefs vs Ravens',
-      pick: 'Over 51.5',
-      status: 'win',
-      amount: '$150',
-      return: '+$136.36',
-      date: 'Yesterday'
-    },
-    {
-      id: '3',
-      match: 'Yankees vs Red Sox',
-      pick: 'Yankees ML',
-      status: 'loss',
-      amount: '$75',
-      return: '-$75',
-      date: '2 days ago'
+  const loadNotificationSettings = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notification-settings`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notification settings');
+      }
+
+      const settings = await response.json();
+      setNotificationSettings(settings);
+    } catch (error) {
+      console.error('Error loading notification settings:', error);
     }
-  ]);
+  };
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Fetch user profile from profiles table
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          // Fallback to auth user data
+          setUserProfile({
+            id: user.id,
+            username: user.user_metadata?.username || null,
+            email: user.email || null,
+            avatar_url: null,
+            subscription_tier: 'free',
+            created_at: user.created_at
+          });
+        } else {
+          setUserProfile({
+            id: profile.id,
+            username: profile.username,
+            email: user.email || profile.email,
+            avatar_url: profile.avatar_url,
+            subscription_tier: profile.subscription_tier || 'free',
+            created_at: profile.created_at
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'New password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      setChangePasswordLoading(true);
+
+      // Verify user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to change your password');
+        return;
+      }
+
+      // Update password directly - Supabase handles authentication internally
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        // Handle specific error cases
+        if (updateError.message.includes('same')) {
+          Alert.alert('Error', 'New password must be different from your current password');
+        } else if (updateError.message.includes('weak')) {
+          Alert.alert('Error', 'Password is too weak. Please choose a stronger password');
+        } else {
+          Alert.alert('Error', updateError.message);
+        }
+        return;
+      }
+
+      Alert.alert(
+        'Success',
+        'Password changed successfully! You may need to sign in again.',
+        [{ text: 'OK', onPress: () => setShowChangePasswordModal(false) }]
+      );
+
+      // Clear form
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+
+    } catch (error: any) {
+      console.error('Password change error:', error);
+      Alert.alert('Error', error.message || 'Failed to change password');
+    } finally {
+      setChangePasswordLoading(false);
+    }
+  };
 
   const proFeatures = [
     { icon: Brain, title: 'Unlimited AI Picks', description: 'Get AI predictions for all games' },
@@ -132,23 +231,28 @@ export default function SettingsScreen() {
     { icon: Shield, title: 'Exclusive Insights', description: 'Access all premium research content' }
   ];
 
-  const toggleSwitch = (setting) => {
-    if (!isPro && (setting === 'aiAlerts' || setting === 'biometricLogin')) {
-      Alert.alert(
-        'Pro Feature 🌟',
-        'This feature is available for Pro members only.',
-        [
-          { text: 'Maybe Later', style: 'cancel' },
-          { 
-            text: 'Upgrade to Pro', 
-            onPress: () => openSubscriptionModal(),
-            style: 'default'
-          }
-        ]
-      );
-      return;
+  const toggleSwitch = async (setting) => {
+    const newSettings = { ...notificationSettings, [setting]: !notificationSettings[setting] };
+    setNotificationSettings(newSettings);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notification-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ settings: newSettings }),
+      });
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+      // Revert on error
+      setNotificationSettings({ ...notificationSettings, [setting]: !notificationSettings[setting] });
+      Alert.alert('Error', 'Failed to save your settings. Please try again.');
     }
-    setSettings({ ...settings, [setting]: !settings[setting] });
   };
 
   const handleSavePreferences = async () => {
@@ -244,7 +348,7 @@ export default function SettingsScreen() {
             text: 'Contact Support',
             onPress: () => {
               // Open support email
-              Linking.openURL('mailto:support@parleyapp.com?subject=Subscription%20Support');
+              Linking.openURL('mailto:support@Predictive Play.com?subject=Subscription%20Support');
             }
           }
         ]
@@ -253,6 +357,51 @@ export default function SettingsScreen() {
       // For free users, open the subscription modal
       openSubscriptionModal();
     }
+  };
+
+  // Handler for link items
+  const handleLinkPress = (itemId: string) => {
+    switch (itemId) {
+      case 'password':
+        setShowChangePasswordModal(true);
+        break;
+      
+      case 'help':
+        setShowHelpCenterModal(true);
+        break;
+      
+      case 'feedback':
+        setShowFeedbackModal(true);
+        break;
+      
+      case 'about':
+        setShowAboutModal(true);
+        break;
+      
+      default:
+        Alert.alert('Coming Soon', 'This feature will be available in a future update.');
+        break;
+    }
+  };
+
+  // Get user display name and initials
+  const getUserDisplayName = () => {
+    if (userProfile?.username) return userProfile.username;
+    if (userProfile?.email) return userProfile.email.split('@')[0];
+    return 'User';
+  };
+
+  const getUserInitials = () => {
+    const displayName = getUserDisplayName();
+    return displayName.substring(0, 2).toUpperCase();
+  };
+
+  const handleBiometricComingSoon = () => {
+    Alert.alert(
+      'Coming Soon! 🔐',
+      'Biometric login is coming in a future update. Stay tuned for secure and convenient authentication options!',
+      [{ text: 'Got it!', style: 'default' }]
+    );
   };
 
   const settingsSections = [
@@ -307,22 +456,11 @@ export default function SettingsScreen() {
       ]
     },
     {
-      title: 'Preferences',
-      icon: Zap,
+      title: 'Notifications',
+      icon: Bell,
       iconColor: '#F59E0B',
       items: [
-        { id: 'notifications', title: 'Notifications', type: 'toggle', value: settings.notifications },
-        { id: 'darkMode', title: 'Dark Mode', type: 'toggle', value: settings.darkMode },
-        { 
-          id: 'aiAlerts', 
-          title: 'AI Value Alerts', 
-          type: 'toggle', 
-          value: settings.aiAlerts,
-          locked: !isPro,
-          proFeature: true
-        },
-        { id: 'oddsFormat', title: 'Odds Format', type: 'select', value: settings.oddsFormat },
-        { id: 'dataUsage', title: 'Data Usage', type: 'select', value: settings.dataUsage },
+        { id: 'ai_picks', title: 'New AI Picks', type: 'toggle', value: notificationSettings.ai_picks },
       ]
     },
     {
@@ -334,17 +472,9 @@ export default function SettingsScreen() {
         { 
           id: 'biometricLogin', 
           title: 'Biometric Login', 
-          type: 'toggle', 
-          value: settings.biometricLogin,
-          locked: !isPro,
-          proFeature: true
-        },
-        { 
-          id: 'twoFactor', 
-          title: 'Two-Factor Authentication', 
-          type: 'link',
-          locked: !isPro,
-          proFeature: true
+          type: 'coming-soon',
+          subtitle: 'Coming Soon',
+          action: handleBiometricComingSoon
         },
       ]
     },
@@ -355,44 +485,8 @@ export default function SettingsScreen() {
       items: [
         { id: 'help', title: 'Help Center', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
-        { id: 'about', title: 'About ParleyApp', type: 'link' },
+        { id: 'about', title: 'About Predictive Play', type: 'link' },
       ]
-    }
-  ];
-
-  const menuItems = [
-    { 
-      id: 'betting-history', 
-      title: 'Betting History', 
-      icon: History,
-      color: '#00E5FF' 
-    },
-    { 
-      id: 'notifications', 
-      title: 'Notifications', 
-      icon: Bell,
-      color: '#F59E0B' 
-    },
-    { 
-      id: 'bankroll', 
-      title: 'Bankroll Management', 
-      icon: Wallet,
-      color: '#10B981',
-      locked: !isPro
-    },
-    { 
-      id: 'leaderboard', 
-      title: 'Leaderboard', 
-      icon: Award,
-      color: '#8B5CF6',
-      locked: !isPro
-    },
-    { 
-      id: 'friends', 
-      title: 'Friends & Groups', 
-      icon: Users,
-      color: '#EC4899',
-      locked: !isPro
     }
   ];
 
@@ -406,6 +500,8 @@ export default function SettingsScreen() {
             item.action();
           } else if (item.type === 'toggle' && !item.locked) {
             toggleSwitch(item.id);
+          } else if (item.type === 'link' && !item.locked) {
+            handleLinkPress(item.id);
           } else if (item.locked) {
             Alert.alert(
               'Pro Feature 🌟',
@@ -444,10 +540,9 @@ export default function SettingsScreen() {
               thumbColor={item.value ? '#FFFFFF' : '#9CA3AF'}
             />
           )}
-          {item.type === 'select' && (
-            <View style={styles.selectContainer}>
-              <Text style={styles.selectValue}>{item.value}</Text>
-              <ChevronRight size={16} color="#6B7280" />
+          {item.type === 'coming-soon' && (
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Coming Soon</Text>
             </View>
           )}
           {item.type === 'link' && (
@@ -473,11 +568,11 @@ export default function SettingsScreen() {
                 style={styles.profileImagePlaceholder}
               >
                 {isPro && <Crown size={20} color="#FFFFFF" />}
-                {!isPro && <Text style={styles.profileInitials}>JD</Text>}
+                {!isPro && <Text style={styles.profileInitials}>{getUserInitials()}</Text>}
               </LinearGradient>
               <View style={styles.profileDetails}>
                 <View style={styles.profileNameContainer}>
-                  <Text style={styles.profileName}>John Doe</Text>
+                  <Text style={styles.profileName}>{loading ? 'Loading...' : getUserDisplayName()}</Text>
                   {isPro && (
                     <View style={styles.proBadge}>
                       <Crown size={12} color="#F59E0B" />
@@ -486,6 +581,9 @@ export default function SettingsScreen() {
                   )}
                 </View>
                 <Text style={styles.profileStatus}>
+                  {userProfile?.email || 'Loading...'}
+                </Text>
+                <Text style={styles.profileMemberStatus}>
                   {isPro ? 'Pro Member • Elite Status' : 'Free Member • Starter'}
                 </Text>
               </View>
@@ -500,157 +598,89 @@ export default function SettingsScreen() {
 
         {showProfileDetails && (
           <View style={styles.profileDetailsSection}>
-            {/* Stats Overview */}
-            <View style={styles.statsCard}>
-              <View style={styles.statsHeader}>
-                <Text style={styles.statsTitle}>Performance</Text>
-                <TouchableOpacity style={styles.statsFilterButton}>
-                  <Text style={styles.statsFilterText}>Last 30 Days</Text>
-                  <ChevronRight size={16} color="#00E5FF" />
-                </TouchableOpacity>
+            {/* Account Info */}
+            <View style={styles.accountInfoCard}>
+              <View style={styles.accountInfoHeader}>
+                <View style={styles.accountInfoIcon}>
+                  <User size={20} color="#00E5FF" />
+                </View>
+                <Text style={styles.accountInfoTitle}>Account Information</Text>
               </View>
-
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <View style={styles.statIconContainer}>
-                    <TrendingUp size={16} color="#00E5FF" />
-                  </View>
-                  <Text style={styles.statValue}>{userStats.winRate}</Text>
-                  <Text style={styles.statLabel}>Win Rate</Text>
+              
+              <View style={styles.accountInfoContent}>
+                <View style={styles.accountInfoItem}>
+                  <Text style={styles.accountInfoLabel}>Username</Text>
+                  <Text style={styles.accountInfoValue}>
+                    {userProfile?.username || 'Not set'}
+                  </Text>
                 </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                    <TrendingUp size={16} color="#10B981" />
-                  </View>
-                  <Text style={styles.statValue}>{userStats.roi}</Text>
-                  <Text style={styles.statLabel}>ROI</Text>
+                
+                <View style={styles.accountInfoItem}>
+                  <Text style={styles.accountInfoLabel}>Email</Text>
+                  <Text style={styles.accountInfoValue}>
+                    {userProfile?.email || 'Loading...'}
+                  </Text>
                 </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                    <Calendar size={16} color="#F59E0B" />
-                  </View>
-                  <Text style={styles.statValue}>{userStats.totalBets}</Text>
-                  <Text style={styles.statLabel}>Total Bets</Text>
+                
+                <View style={styles.accountInfoItem}>
+                  <Text style={styles.accountInfoLabel}>Member Since</Text>
+                  <Text style={styles.accountInfoValue}>
+                    {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : 'Loading...'}
+                  </Text>
                 </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                    <Wallet size={16} color="#10B981" />
-                  </View>
-                  <Text style={styles.statValue}>{userStats.profitLoss}</Text>
-                  <Text style={styles.statLabel}>Profit/Loss</Text>
-                </View>
-              </View>
-
-              {!isPro && (
-                <TouchableOpacity 
-                  style={styles.upgradeStatsButton}
-                  onPress={() => openSubscriptionModal()}
-                >
-                  <LinearGradient
-                    colors={['rgba(245, 158, 11, 0.2)', 'rgba(245, 158, 11, 0.1)']}
-                    style={styles.upgradeStatsGradient}
-                  >
-                    <Sparkles size={16} color="#F59E0B" />
-                    <Text style={styles.upgradeStatsText}>
-                      Unlock advanced stats and analytics with Pro
+                
+                <View style={styles.accountInfoItem}>
+                  <Text style={styles.accountInfoLabel}>Subscription</Text>
+                  <View style={styles.subscriptionBadge}>
+                    <Text style={[styles.subscriptionBadgeText, { 
+                      color: isPro ? '#F59E0B' : '#6B7280',
+                      backgroundColor: isPro ? 'rgba(245, 158, 11, 0.1)' : 'rgba(107, 114, 128, 0.1)'
+                    }]}>
+                      {isPro ? 'PRO MEMBER' : 'FREE MEMBER'}
                     </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Recent Bets */}
-            <View style={styles.recentBetsCard}>
-              <View style={styles.recentBetsHeader}>
-                <Text style={styles.recentBetsTitle}>Recent Bets</Text>
-                <TouchableOpacity style={styles.viewAllButton}>
-                  <Text style={styles.viewAllText}>View All</Text>
-                  <ChevronRight size={16} color="#00E5FF" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.betsList}>
-                {recentBets.slice(0, isPro ? 3 : 2).map(bet => (
-                  <TouchableOpacity key={bet.id} style={styles.betItem}>
-                    <View>
-                      <Text style={styles.betMatch}>{bet.match}</Text>
-                      <Text style={styles.betPick}>{bet.pick}</Text>
-                      <Text style={styles.betDate}>{bet.date}</Text>
-                    </View>
-                    <View style={styles.betDetails}>
-                      <Text style={styles.betAmount}>{bet.amount}</Text>
-                      <Text style={[
-                        styles.betReturn,
-                        { color: bet.status === 'win' ? '#10B981' : '#EF4444' }
-                      ]}>{bet.return}</Text>
-                      <View style={[
-                        styles.betStatus,
-                        { backgroundColor: bet.status === 'win' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }
-                      ]}>
-                        <Text style={[
-                          styles.betStatusText,
-                          { color: bet.status === 'win' ? '#10B981' : '#EF4444' }
-                        ]}>{bet.status.toUpperCase()}</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                {!isPro && (
-                  <View style={styles.lockedBetItem}>
-                    <Lock size={16} color="#6B7280" />
-                    <Text style={styles.lockedBetText}>View complete history with Pro</Text>
                   </View>
-                )}
+                </View>
               </View>
             </View>
 
-            {/* Profile Action Items */}
-            <View style={styles.profileActionsCard}>
-              <Text style={styles.profileActionsTitle}>Quick Actions</Text>
-              <View style={styles.profileActionsList}>
-                {menuItems.map(item => (
+            {/* AI Features Summary */}
+            <View style={styles.featuresCard}>
+              <View style={styles.featuresHeader}>
+                <View style={styles.featuresIcon}>
+                  <Brain size={20} color="#8B5CF6" />
+                </View>
+                <Text style={styles.featuresTitle}>AI Features</Text>
+              </View>
+              
+              <View style={styles.featuresContent}>
+                <Text style={styles.featuresDescription}>
+                  {isPro 
+                    ? 'You have access to all premium AI features including unlimited picks, advanced analytics, and live AI chat.'
+                    : 'Upgrade to Pro to unlock unlimited AI picks, advanced analytics, live chat, and more premium features.'
+                  }
+                </Text>
+                
+                {!isPro && (
                   <TouchableOpacity 
-                    key={item.id} 
-                    style={[styles.profileActionItem, item.locked && styles.profileActionItemLocked]}
-                    onPress={() => {
-                      if (item.locked) {
-                        Alert.alert(
-                          'Pro Feature 🌟',
-                          `${item.title} is available for Pro members only.`,
-                          [
-                            { text: 'Maybe Later', style: 'cancel' },
-                            { 
-                              text: 'Upgrade to Pro', 
-                              onPress: () => openSubscriptionModal(),
-                              style: 'default'
-                            }
-                          ]
-                        );
-                      }
-                    }}
+                    style={styles.upgradeButton}
+                    onPress={() => openSubscriptionModal()}
                   >
-                    <View style={styles.profileActionLeft}>
-                      <View style={[styles.profileActionIcon, { backgroundColor: `${item.color}20` }]}>
-                        <item.icon size={18} color={item.locked ? '#6B7280' : item.color} />
-                      </View>
-                      <Text style={[styles.profileActionTitle, item.locked && styles.profileActionTitleLocked]}>
-                        {item.title}
+                    <LinearGradient
+                      colors={['rgba(245, 158, 11, 0.2)', 'rgba(245, 158, 11, 0.1)']}
+                      style={styles.upgradeGradient}
+                    >
+                      <Sparkles size={16} color="#F59E0B" />
+                      <Text style={styles.upgradeText}>
+                        Upgrade to Pro
                       </Text>
-                      {item.locked && <Lock size={14} color="#6B7280" style={{ marginLeft: 8 }} />}
-                    </View>
-                    <ChevronRight size={16} color="#6B7280" />
+                    </LinearGradient>
                   </TouchableOpacity>
-                ))}
+                )}
               </View>
             </View>
           </View>
         )}
       </View>
-
-
 
       {/* Settings Sections */}
       {settingsSections.map((section, index) => (
@@ -673,9 +703,82 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <View style={styles.versionInfo}>
-        <Text style={styles.versionText}>ParleyApp v1.0.0</Text>
-        <Text style={styles.copyrightText}>© 2025 ParleyApp Inc.</Text>
+        <Text style={styles.versionText}>Predictive Play v1.0.0</Text>
+        <Text style={styles.copyrightText}>© 2025 Predictive Play Inc.</Text>
       </View>
+
+      {/* Change Password Modal */}
+      <Modal
+        visible={showChangePasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowChangePasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Current Password"
+              secureTextEntry={!showCurrentPassword}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              onFocus={() => setShowCurrentPassword(true)}
+              onBlur={() => setShowCurrentPassword(false)}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="New Password"
+              secureTextEntry={!showNewPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              onFocus={() => setShowNewPassword(true)}
+              onBlur={() => setShowNewPassword(false)}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm Password"
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              onFocus={() => setShowConfirmPassword(true)}
+              onBlur={() => setShowConfirmPassword(false)}
+            />
+            <TouchableOpacity
+              style={styles.changePasswordButton}
+              onPress={handleChangePassword}
+            >
+              <Text style={styles.changePasswordText}>
+                {changePasswordLoading ? 'Changing...' : 'Change Password'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowChangePasswordModal(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Help Center Modal */}
+      <HelpCenterModal
+        visible={showHelpCenterModal}
+        onClose={() => setShowHelpCenterModal(false)}
+      />
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        visible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+      />
+
+      {/* About Modal */}
+      <AboutModal
+        visible={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
+      />
     </ScrollView>
   );
 }
@@ -686,6 +789,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   contentContainer: {
+    paddingTop: 20,
     paddingBottom: 30,
   },
   // Profile styles
@@ -763,7 +867,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   profileStatus: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  profileMemberStatus: {
+    fontSize: 14,
     color: '#E2E8F0',
     marginBottom: 8,
   },
@@ -967,8 +1076,8 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: 16,
-    color: '#FFFFFF',
     fontWeight: '500',
+    color: '#FFFFFF',
   },
   settingTitleLocked: {
     color: '#94A3B8',
@@ -1049,11 +1158,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 12,
     marginRight: 10,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#00E5FF',
   },
   logoutButton: {
     flexDirection: 'row',
@@ -1234,5 +1338,217 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    minHeight: 300,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+  },
+  modalOptionSelected: {
+    backgroundColor: '#00E5FF',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  modalOptionTextSelected: {
+    color: '#0F172A',
+    fontWeight: '600',
+  },
+  checkMark: {
+    fontSize: 18,
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  modalCancelButton: {
+    marginTop: 16,
+    paddingVertical: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  changePasswordButton: {
+    backgroundColor: '#00E5FF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  changePasswordText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: '#EF4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Account Info Card styles
+  accountInfoCard: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  accountInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  accountInfoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  accountInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  accountInfoContent: {
+    gap: 12,
+  },
+  accountInfoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  accountInfoLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  accountInfoValue: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
+  },
+  subscriptionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  subscriptionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  // Features Card styles
+  featuresCard: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  featuresHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featuresIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  featuresTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  featuresContent: {
+    gap: 12,
+  },
+  featuresDescription: {
+    fontSize: 14,
+    color: '#94A3B8',
+    lineHeight: 20,
+  },
+  upgradeButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  upgradeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  upgradeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  // Coming Soon Badge styles
+  comingSoonBadge: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    borderWidth: 1,
+    borderColor: '#F97316',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  comingSoonText: {
+    color: '#F97316',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

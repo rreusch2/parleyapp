@@ -101,7 +101,7 @@ export class ContentGenerator {
       logger.info(`✅ Daily content generation complete: ${contentItems.length} items created`);
       return contentItems;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Daily content generation failed: ${error.message}`);
       throw error;
     }
@@ -167,7 +167,7 @@ export class ContentGenerator {
       logger.info(`✅ Generated ${injuryReports.length} injury reports`);
       return injuryReports;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Injury report generation failed: ${error.message}`);
       return [];
     }
@@ -231,7 +231,7 @@ export class ContentGenerator {
       logger.info(`✅ Generated ${newsSummaries.length} news summaries`);
       return newsSummaries;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ News summary generation failed: ${error.message}`);
       return [];
     }
@@ -299,7 +299,7 @@ export class ContentGenerator {
       logger.info(`✅ Generated ${featuredArticles.length} featured articles`);
       return featuredArticles;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Featured article generation failed: ${error.message}`);
       return [];
     }
@@ -365,7 +365,7 @@ export class ContentGenerator {
       logger.info(`✅ Generated ${bettingInsights.length} betting insights`);
       return bettingInsights;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Betting insight generation failed: ${error.message}`);
       return [];
     }
@@ -511,7 +511,7 @@ Target length: 400-500 words. Focus on practical, actionable advice that helps b
 
       logger.info(`✅ Content storage completed`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Content storage failed: ${error.message}`);
       throw error;
     }
@@ -546,7 +546,7 @@ Target length: 400-500 words. Focus on practical, actionable advice that helps b
 
       return data || [];
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Content retrieval failed: ${error.message}`);
       return [];
     }

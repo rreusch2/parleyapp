@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Update Game Dates Script for ParleyApp
+Update Game Dates Script for Predictive Play
 
 This script updates the start_time of existing games in the sports_events table 
-to create tomorrow's games for your Live tab in ParleyApp.
+to create tomorrow's games for your Live tab in Predictive Play.
 """
 
 import psycopg2
@@ -334,7 +334,7 @@ def create_sample_games():
 def main():
     """Main function"""
     try:
-        logger.info("🏆 ParleyApp Game Dates Updater")
+        logger.info("🏆 Predictive Play Game Dates Updater")
         logger.info("=" * 50)
         
         # Check if we need to create sample games first

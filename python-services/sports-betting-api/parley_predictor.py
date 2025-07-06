@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ParleyApp Sports Betting Prediction API - Phase 2 Enhanced
+Predictive Play Sports Betting Prediction API - Phase 2 Enhanced
 Provides player props, spread, over/under, and parlay predictions using enhanced ML models
 """
 
@@ -1317,5 +1317,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
     
-    logger.info(f"Starting ParleyApp Prediction API on port {port}")
+    logger.info(f"Starting Predictive Play Prediction API on port {port}")
     app.run(host='0.0.0.0', port=port, debug=debug) 

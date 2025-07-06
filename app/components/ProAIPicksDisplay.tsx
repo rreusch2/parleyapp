@@ -173,16 +173,16 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return '#00E676'; // High confidence - bright green
-    if (confidence >= 65) return '#FFC107'; // Medium confidence - amber
-    return '#FF5722'; // Low confidence - red
+    if (confidence >= 80) return '#10B981'; // High confidence - green
+    if (confidence >= 65) return '#00E5FF'; // Medium confidence - cyan
+    return '#8B5CF6'; // Lower confidence - purple (more appealing than red)
   };
 
   const getValueColor = (value: number) => {
-    if (value >= 30) return '#00E676'; // Excellent value
-    if (value >= 15) return '#FFC107'; // Good value
-    if (value >= 5) return '#FF9800'; // Fair value
-    return '#FF5722'; // Low value
+    if (value >= 30) return '#10B981'; // Excellent value - green
+    if (value >= 15) return '#00E5FF'; // Good value - cyan
+    if (value >= 5) return '#F59E0B'; // Fair value - orange
+    return '#8B5CF6'; // Lower value - purple (appealing)
   };
 
   const getROIColor = (roi: number) => {
@@ -257,7 +257,17 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
             </View>
             
             <View style={styles.pickHeaderRight}>
-              <View style={[styles.confidenceBadge, { backgroundColor: getConfidenceColor(pick.confidence) + '20' }]}>
+              <View style={[
+                styles.confidenceBadge, 
+                { 
+                  backgroundColor: getConfidenceColor(pick.confidence) + '20',
+                  borderColor: getConfidenceColor(pick.confidence) + '40',
+                  shadowColor: getConfidenceColor(pick.confidence),
+                  shadowOpacity: 0.3,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }
+              ]}>
                 <Text style={[styles.confidenceText, { color: getConfidenceColor(pick.confidence) }]}>
                   {pick.confidence}%
                 </Text>
@@ -389,7 +399,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
-          {limit ? `Top ${Math.min(limit, picks.length)} of ${picks.length}` : `${picks.length} Latest Picks`}
+          {limit ? `Top ${Math.min(limit, picks.length)} of 20` : `20 Latest Picks`}
         </Text>
       </View>
 
@@ -421,7 +431,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                   colors={['#7C3AED', '#1E40AF']}
                   style={styles.viewAllGradient}
                 >
-                  <Text style={styles.viewAllText}>View All {picks.length} Picks</Text>
+                  <Text style={styles.viewAllText}>View All 20 Picks</Text>
                   <ChevronRight size={16} color="#FFFFFF" />
                 </LinearGradient>
               </TouchableOpacity>
@@ -583,10 +593,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   confidenceBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
   },
   confidenceText: {
     fontSize: 12,

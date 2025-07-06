@@ -9,37 +9,32 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Send } from 'lucide-react-native';
+import { Mail } from 'lucide-react-native';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleResetPassword = async () => {
     if (!email) {
-      Alert.alert('Reset Password Error', 'Please enter your email address');
+      Alert.alert('Error', 'Please enter your email address.');
       return;
     }
 
     try {
       setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'parleyai://reset-password',
+        redirectTo: 'com.predictiveplay.mobile://reset-password',
       });
 
       if (error) throw error;
 
-      Alert.alert(
-        'Check Your Email',
-        'Password reset instructions have been sent to your email address.',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
-      );
+      Alert.alert('Success', 'Check your email for a password reset link!');
     } catch (error: any) {
-      Alert.alert('Reset Password Error', error.message);
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -57,7 +52,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>Forgot Your Password?</Text>
           <Text style={styles.subtitle}>
-            No worries! Enter your email below and we'll send you a link to reset it.
+            Enter your email address below and we&apos;ll send you a link to reset your password.
           </Text>
 
           <View style={styles.form}>
@@ -66,13 +61,13 @@ export default function ForgotPasswordScreen() {
                 <Mail color={styles.inputIcon.color} size={20} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your email address"
+                  placeholder="Enter your email"
                   placeholderTextColor={styles.placeholderText.color}
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
-                  selectionColor={styles.inputSelectionColor.color}
+                  selectionColor={styles.input.selectionColor}
                 />
               </View>
             </View>
@@ -82,18 +77,14 @@ export default function ForgotPasswordScreen() {
               onPress={handleResetPassword}
               disabled={loading}
             >
-              <Send color={styles.buttonText.color} size={20} style={styles.buttonIcon} />
               <Text style={styles.buttonText}>
-                {loading ? 'Sending Link...' : 'Send Reset Link'}
+                {loading ? 'Sending...' : 'Reset Password'}
               </Text>
             </TouchableOpacity>
-          </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Remembered your password?</Text>
             <Link href="/login" asChild>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign In Here</Text>
+              <TouchableOpacity style={styles.backToLogin}>
+                <Text style={styles.backToLoginText}>Back to Login</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -152,47 +143,33 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: '#ffffff',
-  },
-  inputSelectionColor: {
-    color: '#4169e1',
-  },
+    selectionColor: '#00E5FF',
+  } as any,
   placeholderText: {
     color: '#cccccc',
   },
   button: {
     backgroundColor: '#4169e1',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 15,
     borderRadius: 30,
+    alignItems: 'center',
     marginTop: 20,
-  },
-  buttonIcon: {
-    marginRight: 10,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: 'black',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+  backToLogin: {
     marginTop: 20,
+    alignItems: 'center',
   },
-  footerText: {
-    color: '#e0e0e0',
-    marginRight: 5,
-    fontSize: 15,
+  backToLoginText: {
+    color: '#bfdbfe',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
-  footerLink: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-}); 
+});

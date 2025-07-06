@@ -129,7 +129,7 @@ async function populateBettingResults(limit: number = 100) {
       });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in populateBettingResults:', error);
   }
 }
@@ -148,7 +148,7 @@ async function testTrends() {
       console.log(`${index + 1}. ${trend.playerName} (${trend.team}) - ${trend.propType}: ${trend.streakLength} ${trend.streakType.toUpperCase()} in a row (${trend.confidence}% confidence)`);
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error testing trends:', error);
   }
 }

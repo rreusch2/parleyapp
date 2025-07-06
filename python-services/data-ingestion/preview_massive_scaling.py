@@ -98,7 +98,7 @@ def preview_massive_scaling():
     print(f"\n🎉 READY TO SCALE?")
     print("-" * 50)
     print(f"Command: python massive_mlb_scaling.py")
-    print(f"This will transform ParleyApp into an industry leader!")
+    print(f"This will transform Predictive Play into an industry leader!")
     
     scaler.close()
     

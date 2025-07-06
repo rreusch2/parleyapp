@@ -1,4 +1,4 @@
--- ParleyApp: Populate sports_config table for The Odds API integration
+-- Predictive Play: Populate sports_config table for The Odds API integration
 -- This script works with the existing table structure
 
 -- First, let's check what columns exist in sports_config

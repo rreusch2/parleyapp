@@ -392,11 +392,12 @@ class ManualOrchestrator:
             logger.info(f"   Value: {formatted['value_percentage']}%")
             logger.info(f"   Type: {formatted['bet_type']}")
         
-        # Step 5: Store in database (optional)
-        store = input("\n💾 Store these picks in database? (y/n): ")
-        if store.lower() == 'y':
-            self.store_picks(best_picks, games)
-            logger.info("✅ Picks stored successfully!")
+        # Step 5: Store in database
+        self.store_picks(best_picks, games)
+        logger.info("✅ Picks stored successfully!")
+
+        # Step 6: Trigger notifications
+        self.trigger_notifications()
     
     def store_picks(self, picks: List[Dict], games: List[Dict]):
         """Store picks in ai_predictions table"""
@@ -434,6 +435,20 @@ class ManualOrchestrator:
         
         self.conn.commit()
         cursor.close()
+
+    def trigger_notifications(self):
+        """Trigger notifications by calling the backend endpoint"""
+        backend_url = os.getenv('BACKEND_API_URL')
+        if not backend_url:
+            logger.warning("⚠️ BACKEND_API_URL not set, skipping notifications.")
+            return
+
+        try:
+            response = requests.post(f"{backend_url}/api/notifications/notify-picks-ready")
+            response.raise_for_status()  # Raise an exception for bad status codes
+            logger.info("✅ Successfully triggered notifications.")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Failed to trigger notifications: {e}")
 
 if __name__ == "__main__":
     orchestrator = ManualOrchestrator()

@@ -66,18 +66,53 @@ export class EnhancedPredictionsTool {
      */
     async predictPlayerProp(request: PlayerPropRequest): Promise<PredictionResult> {
         try {
-            logger.info(`🎯 Enhanced player prop prediction: ${request.sport} ${request.prop_type} for ${request.player_id}`);
-
-            const response = await fetch(`${this.apiUrl}/api/v2/predict/player-prop`, {
+            const supportedPropTypes: Record<string, string[]> = {
+                'NBA': ['points', 'rebounds', 'assists'],
+                'MLB': ['hits', 'home_runs', 'strikeouts']
+            };
+            
+            const sport = request.sport.toUpperCase();
+            const propType = request.prop_type.toLowerCase();
+            
+            logger.info(`🎯 Enhanced player prop prediction: ${sport} ${propType} for ${request.player_id}`);
+            
+            // Check if prop type is supported
+            const isSupported = supportedPropTypes[sport]?.includes(propType);
+            if (!isSupported) {
+                logger.warn(`⚠️ Unsupported prop type: ${sport} ${propType}. Supported types are: ${supportedPropTypes[sport]?.join(', ') || 'none'}`); 
+                throw new Error(`No ML model available for ${sport} ${propType}`);
+            }
+            
+            // Map prop types to their canonical form if needed
+            const propTypeMap: Record<string, string> = {
+                'pitcher_strikeouts': 'strikeouts',
+                'batter_total_bases': 'total_bases',
+                'batter_hits': 'hits',
+                'batter_home_runs': 'home_runs',
+                'batter_rbis': 'rbis'
+            };
+            
+            const canonicalPropType = propTypeMap[propType] || propType;
+            
+            // The correct endpoint is singular form
+            const endpoint = '/api/v2/predict/player-prop';
+            
+            logger.info(`Calling endpoint: ${this.apiUrl}${endpoint} for ${sport} ${canonicalPropType}`);
+            const response = await fetch(`${this.apiUrl}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(request)
+                body: JSON.stringify({
+                    ...request,
+                    prop_type: canonicalPropType  // Ensure we use canonical prop type
+                })
             });
-
+            
             if (!response.ok) {
-                throw new Error(`API responded with status ${response.status}`);
+                const errorText = await response.text();
+                logger.error(`❌ Failed with status ${response.status}: ${errorText}`);
+                throw new Error(`API responded with status ${response.status}: ${errorText}`);
             }
-
+            
             const result = await response.json() as any;
             
             logger.info(`✅ Enhanced player prop result: ${result.prediction} (confidence: ${result.confidence})`);

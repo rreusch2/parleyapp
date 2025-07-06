@@ -8,7 +8,7 @@ const logger = createLogger('payments');
 
 // Initialize Stripe with your secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2024-06-20',
 });
 
 // Subscription plan configuration
@@ -67,7 +67,7 @@ router.post('/create-intent', async (req: Request, res: Response) => {
         status: paymentIntent.status,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error creating payment intent:', error);
     res.status(500).json({ error: 'Failed to create payment intent' });
   }
@@ -129,7 +129,7 @@ router.post('/verify-apple-purchase', async (req: Request, res: Response) => {
         error: 'Invalid receipt'
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Apple purchase verification error:', error);
     res.status(500).json({
       success: false,
@@ -162,7 +162,7 @@ async function verifyReceiptWithApple(receiptData: string): Promise<boolean> {
     
     logger.info('🍎 Simulating successful Apple receipt verification for development');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Apple receipt verification failed:', error);
     return false;
   }
@@ -184,8 +184,7 @@ router.post('/confirm-apple-pay', async (req: Request, res: Response) => {
 
     // Confirm the payment intent with the Apple Pay token
     const paymentIntent = await stripe.paymentIntents.confirm(clientSecret, {
-      payment_method_data: {
-        type: 'card',
+      payment_method: {
         card: {
           token: paymentToken,
         },
@@ -217,7 +216,7 @@ router.post('/confirm-apple-pay', async (req: Request, res: Response) => {
         },
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Apple Pay confirmation failed:', error);
     res.status(500).json({
       success: false,
@@ -269,7 +268,7 @@ router.post('/confirm-card', async (req: Request, res: Response) => {
         },
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Card payment confirmation failed:', error);
     res.status(500).json({
       success: false,
@@ -353,7 +352,7 @@ router.put('/users/subscription', async (req: Request, res: Response) => {
         expiresAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error updating subscription:', error);
     res.status(500).json({ error: 'Failed to update subscription' });
   }
@@ -400,7 +399,7 @@ router.post('/users/subscription/validate', async (req: Request, res: Response) 
       tier: profile?.subscription_tier || 'free',
       expiresAt: subscription?.current_period_end,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('❌ Error validating subscription:', error);
     res.json({ isActive: false, tier: 'free' });
   }
@@ -435,7 +434,7 @@ async function getOrCreateStripeCustomer(userId: string) {
       .eq('id', userId);
 
     return customer;
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error creating Stripe customer:', error);
     throw error;
   }
@@ -467,7 +466,7 @@ async function createSubscriptionRecord(paymentIntent: Stripe.PaymentIntent) {
       });
 
     logger.info(`✅ Subscription record created for user ${userId}`);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to create subscription record:', error);
   }
 }

@@ -275,7 +275,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
             {/* Features List */}
             <View style={styles.featuresSection}>
-              <Text style={styles.sectionTitle}>What's Included</Text>
+              <Text style={styles.sectionTitle}>What&apos;s Included</Text>
               <View style={styles.featuresGrid}>
                 {features.map((feature, index) => (
                   <View key={index} style={styles.featureItem}>
@@ -303,7 +303,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   ))}
                 </View>
                 <Text style={styles.testimonialText}>
-                  "Got the Lifetime Pro - best investment ever! ROI paid for itself in 2 months. The AI predictions are insanely accurate!"
+                  &quot;Got the Lifetime Pro - best investment ever! ROI paid for itself in 2 months. The AI predictions are insanely accurate!&quot;
                 </Text>
                 <Text style={styles.testimonialAuthor}>- Marcus R., Lifetime Member</Text>
               </LinearGradient>

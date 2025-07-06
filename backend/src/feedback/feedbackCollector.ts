@@ -97,7 +97,7 @@ export class FeedbackCollector {
       logger.info(`✅ Feedback submitted: ${feedbackId} (${feedback.feedback_type}, ${priority} priority)`);
       return feedbackId;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to submit feedback: ${error.message}`);
       throw error;
     }
@@ -126,7 +126,7 @@ export class FeedbackCollector {
 
       logger.info(`✅ Prediction feedback submitted for prediction: ${feedback.prediction_id}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to submit prediction feedback: ${error.message}`);
       throw error;
     }
@@ -181,7 +181,7 @@ export class FeedbackCollector {
       // For now, log the feedback
       logger.debug(`💾 Storing feedback: ${JSON.stringify(feedback, null, 2)}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to store feedback: ${error.message}`);
       throw error;
     }
@@ -195,7 +195,7 @@ export class FeedbackCollector {
       // In production, this would store in actual database
       logger.debug(`💾 Storing prediction feedback: ${JSON.stringify(feedback, null, 2)}`);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to store prediction feedback: ${error.message}`);
       throw error;
     }
@@ -216,7 +216,7 @@ export class FeedbackCollector {
         await this.autoAssignBugReport(feedback);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to trigger immediate action: ${error.message}`);
     }
   }
@@ -276,7 +276,7 @@ export class FeedbackCollector {
       logger.info(`📊 Generated feedback analytics for last ${days} days`);
       return analytics;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to get feedback analytics: ${error.message}`);
       throw error;
     }
@@ -312,7 +312,7 @@ export class FeedbackCollector {
       logger.info('📈 Generated prediction accuracy feedback summary');
       return summary;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to get prediction accuracy feedback: ${error.message}`);
       throw error;
     }
@@ -353,7 +353,7 @@ export class FeedbackCollector {
       logger.info('🔧 Generated model improvement recommendations from feedback');
       return recommendations;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to process feedback for model improvement: ${error.message}`);
       throw error;
     }
@@ -387,7 +387,7 @@ export class FeedbackCollector {
       logger.info(`📋 Retrieved ${mockFeedback.length} feedback items of type: ${type}`);
       return mockFeedback;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to get feedback by type: ${error.message}`);
       return [];
     }
@@ -405,7 +405,7 @@ export class FeedbackCollector {
         logger.info(`📝 Resolution notes: ${resolutionNotes}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to update feedback status: ${error.message}`);
       throw error;
     }
@@ -453,7 +453,7 @@ ${improvements.retrain_recommendations.length > 0 ? improvements.retrain_recomme
       logger.info('📊 Generated comprehensive feedback report');
       return report;
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`❌ Failed to generate feedback report: ${error.message}`);
       throw error;
     }

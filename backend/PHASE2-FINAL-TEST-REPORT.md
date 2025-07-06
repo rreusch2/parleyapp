@@ -43,7 +43,7 @@
 
 ### ✅ Architecture
 ```
-ParleyApp (Production Ready)
+Predictive Play (Production Ready)
 ├── React Native Frontend
 ├── Node.js Backend (Enhanced)
 │   ├── Gemini LLM Orchestrator
@@ -105,7 +105,7 @@ ParleyApp (Production Ready)
 
 **Phase 2 is COMPLETE and PRODUCTION READY!**
 
-Your ParleyApp now has:
+Your Predictive Play now has:
 - ✅ Professional sports betting AI system
 - ✅ Cost-effective prediction algorithms
 - ✅ Automated value bet detection

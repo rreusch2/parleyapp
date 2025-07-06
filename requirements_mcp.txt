@@ -1,0 +1,10 @@
+# StatMuse MCP Server Dependencies
+mcp>=1.0.0
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
+redis>=5.0.0
+asyncio-throttle>=1.0.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0 

@@ -1,0 +1,77 @@
+FROM node:18-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    bash \
+    dcron \
+    tzdata \
+    jq
+
+# Set timezone
+ENV TZ=America/New_York
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Set working directory
+WORKDIR /app
+
+# Copy and build backend (needed for scripts)
+COPY backend/package*.json ./backend/
+RUN cd backend && npm ci --only=production
+
+COPY backend/tsconfig.json ./backend/
+COPY backend/src ./backend/src
+RUN cd backend && npm run build
+
+# Copy automation scripts
+COPY scripts/ ./scripts/
+COPY test-orchestrator-integration.sh ./
+
+# Make scripts executable
+RUN chmod +x ./scripts/*.sh
+RUN chmod +x ./test-orchestrator-integration.sh
+
+# Create automation script that calls the API
+RUN cat > /app/scripts/api-automation.sh << 'EOF'
+#!/bin/bash
+echo "$(date): Triggering daily automation via API..."
+response=$(curl -s -X POST "${BACKEND_URL}/api/automation/daily" \
+  -H "Authorization: Bearer ${AUTOMATION_SECRET}" \
+  -H "Content-Type: application/json")
+echo "$(date): Response: $response"
+EOF
+
+RUN chmod +x /app/scripts/api-automation.sh
+
+# Create cron job that calls the API endpoint
+RUN echo "0 2 * * * /app/scripts/api-automation.sh >> /app/automation-logs/cron.log 2>&1" > /etc/crontabs/root
+
+# Create start script
+RUN cat > /app/start-automation.sh << 'EOF'
+#!/bin/bash
+echo "Starting ParleyApp Automation Service..."
+
+# Create log directories
+mkdir -p /app/logs/daily-workflow
+mkdir -p /app/automation-logs
+
+# Wait for backend to be ready
+echo "Waiting for backend to be ready..."
+while ! curl -s "${BACKEND_URL}/api/health" > /dev/null; do
+  echo "Backend not ready, waiting 10s..."
+  sleep 10
+done
+echo "Backend is ready!"
+
+# Start cron in foreground
+echo "Starting cron daemon..."
+exec crond -f -l 2
+EOF
+
+RUN chmod +x /app/start-automation.sh
+
+# Health check
+HEALTHCHECK --interval=1h --timeout=30s --start-period=60s --retries=3 \
+  CMD test -f /app/automation-logs/cron.log || exit 1
+
+CMD ["/app/start-automation.sh"] 

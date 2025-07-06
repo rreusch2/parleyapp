@@ -90,7 +90,7 @@ async function testSportRadarEndpoints() {
       } else {
         console.log(`❌ Failed with status: ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Error testing ${endpoint.name}:`, error.message);
     }
     

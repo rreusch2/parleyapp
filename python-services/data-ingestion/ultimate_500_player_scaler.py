@@ -562,7 +562,7 @@ class Ultimate500PlayerScaler:
         logger.info(f"   Total Players in Database: {total_players}")
         logger.info(f"   Total Game Records: {total_games}")
         logger.info(f"   Average Games per Player: {total_games/max(total_players,1):.1f}")
-        logger.info(f"🏆 PARLEYAPP IS NOW AN INDUSTRY LEADER! 🏆")
+        logger.info(f"🏆 Predictive Play IS NOW AN INDUSTRY LEADER! 🏆")
         
         return results
     

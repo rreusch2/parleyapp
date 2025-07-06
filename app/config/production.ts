@@ -20,8 +20,8 @@ export const PROD_CONFIG = {
   USE_LOCAL_API: false,
   
   // 🚨 REPLACE THESE WITH YOUR ACTUAL PRODUCTION URLS 🚨
-  PRODUCTION_API_URL: 'https://api.parleyapp.com',
-  PRODUCTION_PYTHON_API_URL: 'https://python-api.parleyapp.com',
+  PRODUCTION_API_URL: 'https://api.Predictive Play.com',
+  PRODUCTION_PYTHON_API_URL: 'https://python-api.Predictive Play.com',
   
   /**
    * App Store Requirements
@@ -88,11 +88,11 @@ export const validateProductionConfig = () => {
     }
     
     // Check for placeholder URLs
-    if (backendUrl.includes('parleyapp.com') && backendUrl.includes('api.parleyapp.com')) {
+    if (backendUrl.includes('Predictive Play.com') && backendUrl.includes('api.Predictive Play.com')) {
       errors.push('⚠️  Backend URL appears to be a placeholder. Update with your actual production URL');
     }
     
-    if (pythonUrl.includes('parleyapp.com') && pythonUrl.includes('python-api.parleyapp.com')) {
+    if (pythonUrl.includes('Predictive Play.com') && pythonUrl.includes('python-api.Predictive Play.com')) {
       errors.push('⚠️  Python API URL appears to be a placeholder. Update with your actual production URL');
     }
   }

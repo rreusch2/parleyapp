@@ -1,7 +1,7 @@
 # Sports Data API Selection Analysis - Phase 1
 
 ## Executive Summary
-For ParleyApp's Phase 1 Data Layer Foundation, we need to select a primary sports data API provider. After thorough analysis, **OddsJam** is the recommended choice.
+For Predictive Play's Phase 1 Data Layer Foundation, we need to select a primary sports data API provider. After thorough analysis, **OddsJam** is the recommended choice.
 
 ## API Comparison
 

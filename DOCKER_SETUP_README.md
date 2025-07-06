@@ -1,4 +1,4 @@
-# ParleyApp Docker Setup Guide
+# Predictive Play Docker Setup Guide
 
 ## 🚀 Quick Start
 
@@ -23,7 +23,7 @@ docker compose down
 
 ### 1. **PostgreSQL Database** (Port 5432)
 - Local database for development
-- Automatically initialized with ParleyApp schema
+- Automatically initialized with Predictive Play schema
 
 ### 2. **Backend API** (Port 3000)
 - Node.js/TypeScript API server
@@ -145,7 +145,7 @@ docker compose exec backend npx ts-node -e "
 
 - **Rebuild Required**: After making changes to backend or ML server code
 - **Volume Persistence**: ML models and database data persist between container restarts
-- **Network**: All services communicate on `parleyapp-network`
+- **Network**: All services communicate on `Predictive Play-network`
 - **Production**: Use proper secrets management (not `.env` files) in production
 
 ## 📅 Automated Daily Picks
@@ -153,7 +153,7 @@ docker compose exec backend npx ts-node -e "
 Add to your crontab:
 ```bash
 # Generate picks daily at 8 AM
-0 8 * * * cd /path/to/parleyapp && docker compose exec -T backend npx ts-node src/scripts/run-orchestrator.ts
+0 8 * * * cd /path/to/Predictive Play && docker compose exec -T backend npx ts-node src/scripts/run-orchestrator.ts
 ```
 
 ## 🔄 Development Workflow

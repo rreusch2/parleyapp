@@ -51,7 +51,7 @@ router.get('/status', async (req, res) => {
       status: 'Sports data service is available',
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({
       success: false,
       error: 'Service unavailable'

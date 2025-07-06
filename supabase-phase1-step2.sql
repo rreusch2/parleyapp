@@ -1,4 +1,4 @@
--- ParleyApp Phase 1 Migration - STEP 2: Teams and Sports Events
+-- Predictive Play Phase 1 Migration - STEP 2: Teams and Sports Events
 -- Run this after step 1
 
 -- Create teams table (depends on sports_config from step 1)

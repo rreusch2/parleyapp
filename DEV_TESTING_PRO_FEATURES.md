@@ -1,6 +1,6 @@
 # Testing Pro Features During Development
 
-This guide explains how to test Pro features in ParleyApp without making actual payments.
+This guide explains how to test Pro features in Predictive Play without making actual payments.
 
 ## Quick Start
 

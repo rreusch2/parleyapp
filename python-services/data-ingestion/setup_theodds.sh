@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 ParleyApp - The Odds API Setup"
+echo "🚀 Predictive Play - The Odds API Setup"
 echo "=================================="
 echo ""
 
@@ -38,7 +38,7 @@ SPORTS_API_KEY=YOUR_API_KEY_HERE
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=parleyapp
+DB_NAME=Predictive Play
 DB_USER=postgres
 DB_PASSWORD=your_password_here
 

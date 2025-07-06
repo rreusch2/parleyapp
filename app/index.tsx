@@ -10,110 +10,130 @@ import { DEV_CONFIG } from '@/app/config/development';
 export default function LandingPage() {
   const router = useRouter(); // Initialize router
 
-  // Development login function
+  // Development login function for Pro User
   const handleDevLogin = async () => {
     try {
-      // Sign in as the test user configured in development.ts
+      console.log('🔧 Attempting dev login for Pro user...');
+      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: DEV_CONFIG.TEST_USER_EMAIL,
-        password: 'devpassword123', // Development password
+        email: 'reid123456789@gmail.com',
+        password: 'Rekaja20',
       });
 
       if (error) {
-        // If user doesn't exist, create them
-        console.log('Test user not found, creating...');
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: DEV_CONFIG.TEST_USER_EMAIL,
-          password: 'devpassword123',
-          options: {
-            data: {
-              username: 'dev_user',
-            }
-          }
-        });
+        console.error('❌ Dev login error:', error);
+        Alert.alert(
+          'Dev Login Error', 
+          'Could not log in with Pro account. Try regular login instead.',
+          [
+            { text: 'Regular Login', onPress: () => router.push('/login') },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+        return;
+      }
 
-        if (signUpError) {
-          Alert.alert('Dev Login Error', 'Failed to create/login test user: ' + signUpError.message);
-          return;
-        }
-
-        // Update the user's profile to be a pro user
-        if (signUpData.user) {
-          await supabase
-            .from('profiles')
-            .update({ subscription_tier: 'pro' })
-            .eq('id', signUpData.user.id);
-        }
-      } else {
-        // Ensure existing user is set to pro
-        if (data.user) {
+      if (data.user) {
+        console.log(`✅ Successfully logged in as reid123456789@gmail.com`);
+        
+        // Try to update profile to Pro tier if possible
+        try {
           await supabase
             .from('profiles')
             .update({ subscription_tier: 'pro' })
             .eq('id', data.user.id);
+          console.log(`✅ Updated profile to pro tier`);
+        } catch (profileError) {
+          console.log('⚠️ Could not update profile, but login successful');
         }
+        
+        console.log('🎯 Dev login successful, navigating to app...');
+        router.replace('/(tabs)');
       }
-
-      console.log('✅ Dev login successful, navigating to app...');
-      router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Dev login failed:', error);
-      Alert.alert('Dev Login Error', error.message);
+      console.error('Dev login error:', error);
+      Alert.alert(
+        'Dev Login Error', 
+        'Login failed. Try regular login instead.',
+        [
+          { text: 'Regular Login', onPress: () => router.push('/login') },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     }
   };
 
   // Development login function for Free User
   const handleDevLoginFree = async () => {
     try {
-      // Use a different email for free user
-      const freeUserEmail = 'dev.free@predictiveplay.com';
+      console.log('🔧 Attempting dev login for Free user...');
       
-      // Sign in as the free test user
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: freeUserEmail,
-        password: 'devpassword123', // Development password
-      });
+      // Try multiple existing free test accounts
+      const freeTestAccounts = [
+        { email: 'free@predictiveplay.com', tier: 'free' },
+        { email: 'test.free@predictiveplay.com', tier: 'free' },
+        { email: 'demo@predictiveplay.com', tier: 'free' },
+        { email: 'user@predictiveplay.com', tier: 'free' }
+      ];
 
-      if (error) {
-        // If user doesn't exist, create them
-        console.log('Free test user not found, creating...');
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: freeUserEmail,
-          password: 'devpassword123',
-          options: {
-            data: {
-              username: 'dev_free_user',
+      let loginSuccess = false;
+      
+      for (const account of freeTestAccounts) {
+        try {
+          console.log(`🔍 Trying free account: ${account.email}`);
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: account.email,
+            password: 'devpassword123',
+          });
+
+          if (!error && data.user) {
+            console.log(`✅ Successfully logged in as ${account.email}`);
+            
+            // Try to update profile if possible, but don't fail if it doesn't work
+            try {
+              await supabase
+                .from('profiles')
+                .update({ subscription_tier: account.tier })
+                .eq('id', data.user.id);
+              console.log(`✅ Updated profile to ${account.tier} tier`);
+            } catch (profileError) {
+              console.log('⚠️ Could not update profile, but login successful');
             }
+            
+            loginSuccess = true;
+            break;
           }
-        });
-
-        if (signUpError) {
-          Alert.alert('Dev Login Error', 'Failed to create/login free test user: ' + signUpError.message);
-          return;
-        }
-
-        // Set the user's profile to be a free user
-        if (signUpData.user) {
-          await supabase
-            .from('profiles')
-            .update({ subscription_tier: 'free' })
-            .eq('id', signUpData.user.id);
-        }
-      } else {
-        // Ensure existing user is set to free
-        if (data.user) {
-          await supabase
-            .from('profiles')
-            .update({ subscription_tier: 'free' })
-            .eq('id', data.user.id);
+        } catch (accountError) {
+          console.log(`❌ Failed to login with ${account.email}:`, accountError);
+          continue;
         }
       }
 
-      console.log('✅ Dev free login successful, navigating to app...');
+      if (!loginSuccess) {
+        // If all existing accounts fail, show helpful message
+        Alert.alert(
+          'Dev Login Issue',
+          'Could not log in with existing free test accounts. This might be due to database configuration. Please try the regular login.',
+          [
+            { text: 'Use Regular Login', onPress: () => router.push('/login') },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+        return;
+      }
+
+      console.log('🎯 Dev free login successful, navigating to app...');
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Dev free login failed:', error);
-      Alert.alert('Dev Login Error', error.message);
+      console.error('Dev free login error:', error);
+      Alert.alert(
+        'Dev Login Error', 
+        'Login failed. Try regular login instead.',
+        [
+          { text: 'Regular Login', onPress: () => router.push('/login') },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     }
   };
 

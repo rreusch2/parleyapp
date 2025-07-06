@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Real Model Training Script for ParleyApp
+Real Model Training Script for Predictive Play
 Connects to Supabase and trains models with actual player game stats
 """
 
@@ -45,7 +45,7 @@ class SupabaseDataLoader:
         try:
             self.conn = psycopg2.connect(
                 host=os.getenv('DB_HOST', 'localhost'),
-                database=os.getenv('DB_NAME', 'parleyapp'),
+                database=os.getenv('DB_NAME', 'Predictive Play'),
                 user=os.getenv('DB_USER', 'postgres'),
                 password=os.getenv('DB_PASSWORD'),
                 port=int(os.getenv('DB_PORT', 5432)),
