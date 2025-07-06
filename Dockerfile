@@ -20,10 +20,15 @@ RUN cd backend && npm run build
 RUN ls -la backend/dist/
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3001
+ENV PORT=3001
 
 # Set working directory to backend
 WORKDIR /app/backend
+
+# Add debugging to verify files exist
+RUN ls -la dist/ || echo "No dist directory found"
+RUN ls -la package.json || echo "No package.json found"
 
 # Start the application
 CMD ["npm", "start"]
