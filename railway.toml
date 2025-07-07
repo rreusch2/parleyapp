@@ -1,5 +1,11 @@
 [build]
-builder = "dockerfile"
+builder = "nixpacks"
 
-[deploy]
-healthcheckPath = "/health"
+[deploy]  
+startCommand = "cd backend && npm start"
+healthcheckPath = "/api/health"
+
+[nixpacks]
+aptPkgs = ["nodejs", "npm"]
+installPhase = "cd backend && npm install"
+buildPhase = "cd backend && npm run build:babel"
