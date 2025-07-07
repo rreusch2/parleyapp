@@ -1,11 +1,10 @@
 [build]
 builder = "nixpacks"
 
-[deploy]  
-startCommand = "sh -c 'cd backend && npm start'"
-healthcheckPath = "/api/health"
+[deploy]
+startCommand = "gunicorn statmuse_api_server:app --bind 0.0.0.0:$PORT"
+healthcheckPath = "/health"
 
 [nixpacks]
-aptPkgs = ["nodejs", "npm", "bash"]
-installPhase = "npm install --prefix backend"
-buildPhase = "npm run build:babel --prefix backend"
+aptPkgs = ["python3", "python3-pip"]
+installPhase = "pip install -r statmuse-requirements.txt"
