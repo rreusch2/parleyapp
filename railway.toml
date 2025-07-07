@@ -2,10 +2,10 @@
 builder = "nixpacks"
 
 [deploy]  
-startCommand = "cd backend && npm start"
+startCommand = "npm start --prefix backend"
 healthcheckPath = "/api/health"
 
 [nixpacks]
 aptPkgs = ["nodejs", "npm"]
-installPhase = "cd backend && npm install"
-buildPhase = "cd backend && npm run build:babel"
+installPhase = "npm install --prefix backend"
+buildPhase = "npm run build:babel --prefix backend"
