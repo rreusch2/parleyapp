@@ -11,9 +11,7 @@ function AppContent() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <Slot />
       <StatusBar style="auto" />
       
       <SubscriptionModal
