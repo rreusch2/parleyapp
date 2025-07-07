@@ -10,8 +10,8 @@
     "strict": false,
     "noEmitOnError": false,
     "noImplicitAny": false,
+    "skipDefaultLibCheck": true,
     "allowJs": true,
-    "suppressImplicitAnyIndexErrors": true,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -37,7 +37,9 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
-  ],
-  "extends": "expo/tsconfig.base"
+    "dist",
+    "src/tests",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }

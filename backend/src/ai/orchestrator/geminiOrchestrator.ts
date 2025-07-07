@@ -20,7 +20,7 @@ const logger = createLogger('geminiOrchestrator');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Define interfaces for orchestrator
-interface OrchestrationRequest {
+export interface OrchestrationRequest {
   userId: string;
   gameId: string;
   betType: 'moneyline' | 'spread' | 'total' | 'player_prop' | 'football_1x2' | 'football_over_under';
@@ -39,7 +39,7 @@ interface OrchestrationRequest {
   };
 }
 
-interface OrchestrationResponse {
+export interface OrchestrationResponse {
   recommendation: {
     pick: string;
     confidence: 'Low' | 'Medium' | 'High';
