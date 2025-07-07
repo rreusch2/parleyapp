@@ -1,22 +1,22 @@
 import express from 'express';
 import cors from 'cors';
-// import userPreferencesRouter from './api/routes/userPreferences';
-// import predictionsRouter from './api/routes/predictions';
-// import sportsEventsRouter from './api/routes/sportsEvents';
-// import betHistoryRouter from './api/routes/betHistory';
-// import sportsDataAdminRouter from './api/routes/sportsDataAdmin';
-// import sportsDataRouter from './api/routes/sportsData';
-// import aiRouter from './api/routes/ai';
-// import newsRouter from './api/routes/news';
-// import trendsRouter from './api/routes/trends';
-// import notificationsRouter from './api/routes/notifications';
-// import notificationSettingsRouter from './api/routes/notificationSettings';
-// import insightsRouter from './api/routes/insights';
+import userPreferencesRouter from './api/routes/userPreferences';
+import predictionsRouter from './api/routes/predictions';
+import sportsEventsRouter from './api/routes/sportsEvents';
+import betHistoryRouter from './api/routes/betHistory';
+import sportsDataAdminRouter from './api/routes/sportsDataAdmin';
+import sportsDataRouter from './api/routes/sportsData';
+import aiRouter from './api/routes/ai';
+import newsRouter from './api/routes/news';
+import trendsRouter from './api/routes/trends';
+import notificationsRouter from './api/routes/notifications';
+import notificationSettingsRouter from './api/routes/notificationSettings';
+import insightsRouter from './api/routes/insights';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
-// import automationRoutes from './routes/automation';
-// import purchasesRouter from './routes/purchases';
+import automationRoutes from './routes/automation';
+import purchasesRouter from './routes/purchases';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
@@ -75,20 +75,20 @@ const automationLimiter = rateLimit({
 });
 
 // API Routes
-// app.use('/api/user-preferences', userPreferencesRouter);
-// app.use('/api/predictions', predictionsRouter);
-// app.use('/api/sports-events', sportsEventsRouter);
-// app.use('/api/bets', betHistoryRouter);
-// app.use('/api/sports-data-admin', sportsDataAdminRouter);
-// app.use('/api/sports-data', sportsDataRouter);
-// app.use('/api/ai', aiRouter);
-// app.use('/api/news', newsRouter);
-// app.use('/api/trends', trendsRouter);
-// app.use('/api/notifications', notificationsRouter);
-// app.use('/api/notification-settings', notificationSettingsRouter);
-// app.use('/api/insights', insightsRouter);
-// app.use('/api/purchases', purchasesRouter);
-// app.use('/api/automation', automationLimiter, automationRoutes);
+app.use('/api/user-preferences', userPreferencesRouter);
+app.use('/api/predictions', predictionsRouter);
+app.use('/api/sports-events', sportsEventsRouter);
+app.use('/api/bets', betHistoryRouter);
+app.use('/api/sports-data-admin', sportsDataAdminRouter);
+app.use('/api/sports-data', sportsDataRouter);
+app.use('/api/ai', aiRouter);
+app.use('./api/news', newsRouter);
+app.use('/api/trends', trendsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/notification-settings', notificationSettingsRouter);
+app.use('/api/insights', insightsRouter);
+app.use('/api/purchases', purchasesRouter);
+app.use('/api/automation', automationLimiter, automationRoutes);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
