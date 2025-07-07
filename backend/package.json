@@ -15,6 +15,10 @@
     "orchestrator": "ts-node src/scripts/run-orchestrator.ts"
   },
   "dependencies": {
+    "@babel/cli": "^7.28.0",
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
     "@google/generative-ai": "^0.7.1",
     "@supabase/supabase-js": "^2.50.0",
     "axios": "^1.6.0",
@@ -37,10 +41,6 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.28.0",
-    "@babel/core": "^7.28.0",
-    "@babel/preset-env": "^7.28.0",
-    "@babel/preset-typescript": "^7.27.1",
     "@types/cors": "^2.8.15",
     "@types/express": "^4.17.20",
     "@types/node": "^20.8.0"
