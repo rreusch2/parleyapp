@@ -1,6 +1,7 @@
 // Robust startup script with error handling
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 // Log startup information
 console.log('==== STARTUP DIAGNOSTICS ====');
@@ -26,10 +27,17 @@ if (!fs.existsSync(serverPath)) {
 
 console.log(`Starting application from ${serverPath}`);
 
-// Start the main application directly
-try {
-  require(`./${serverPath}`);
-} catch (error) {
-  console.error('Error starting application:', error);
+// Start the main application using spawn
+const app = spawn('node', [serverPath], { stdio: 'inherit' });
+
+app.on('error', (err) => {
+  console.error('Failed to start application:', err);
   process.exit(1);
-}
+});
+
+app.on('exit', (code) => {
+  console.log(`Application exited with code ${code}`);
+  if (code !== 0) {
+    process.exit(code);
+  }
+});
