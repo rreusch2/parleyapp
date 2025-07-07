@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import userPreferencesRouter from './api/routes/userPreferences';
+import userRouter from './api/routes/user';
 import predictionsRouter from './api/routes/predictions';
 import sportsEventsRouter from './api/routes/sportsEvents';
 import betHistoryRouter from './api/routes/betHistory';
@@ -79,6 +80,7 @@ const automationLimiter = rateLimit({
 
 // API Routes
 app.use('/api/user-preferences', userPreferencesRouter);
+app.use('/api/user', userRouter);
 app.use('/api/predictions', predictionsRouter);
 app.use('/api/sports-events', sportsEventsRouter);
 app.use('/api/bets', betHistoryRouter);
