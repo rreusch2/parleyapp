@@ -13,7 +13,7 @@ console.log('Environment variables:', {
   ENV_PATH: process.env.ENV_PATH
 });
 
-// Start server
-app.listen(port, () => {
+// Start server - bind to 0.0.0.0 for Railway
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server running on port ${port}`);
 }); 
