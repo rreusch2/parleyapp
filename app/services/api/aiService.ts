@@ -1,19 +1,9 @@
 import { supabase } from './supabaseClient';
 
 // Use proper environment variables with better fallback logic
-const BACKEND_URL = (() => {
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com';
-  }
-  return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-})();
+const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
 
-const PYTHON_API_URL = (() => {
-  if (process.env.NODE_ENV === 'production') {
-    return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'https://python-api.Predictive Play.com';
-  }
-  return process.env.EXPO_PUBLIC_PYTHON_API_URL || 'http://localhost:8001';
-})();
+const PYTHON_API_URL = 'https://feisty-nurturing-production-9c29.up.railway.app';
 
 export interface AIPrediction {
   id: string;

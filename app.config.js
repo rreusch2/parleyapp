@@ -53,7 +53,7 @@ module.exports = {
       // VAPID keys for web push notifications
       vapidPublicKey: "BECJqbsZfUznpo_xM6Rqz34r6gfXgNkDpTc8OQ7ovWO1KdSRKHn5NsrPWOFzEJy4WZq6vn039fpAnAz0uWWdS4s"
     },
-    plugins: ["expo-router", "expo-font", "expo-web-browser", "expo-notifications", "react-native-iap"],
+    plugins: ["expo-router", "expo-font", "expo-notifications", "react-native-iap"],
     experiments: {
       typedRoutes: true
     },

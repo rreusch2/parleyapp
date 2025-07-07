@@ -58,7 +58,7 @@ export class EnhancedPredictionsTool {
     private apiUrl: string;
 
     constructor() {
-        this.apiUrl = process.env.PYTHON_ML_SERVER_URL || 'http://localhost:8001';
+        this.apiUrl = process.env.PYTHON_ML_SERVER_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
     }
 
     /**

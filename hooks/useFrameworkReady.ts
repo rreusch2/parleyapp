@@ -11,3 +11,5 @@ export function useFrameworkReady() {
     window.frameworkReady?.();
   });
 }
+
+export default useFrameworkReady;

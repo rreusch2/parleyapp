@@ -8339,3 +8339,40 @@
 {"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 07:39:56"}
 {"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 07:39:56"}
 {"level":"error","message":"❌ Enhanced spread prediction failed: fetch failed","service":"app","timestamp":"2025-07-06 07:39:56"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:24"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:25"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:25"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:25"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:26"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:26"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:27"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:27"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:28"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:28"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:24:28"}
+{"level":"error","message":"❌ Error storing pick total_df536cc1-27af-42d5-9ab3-0529c8eff624_over_1751858667781: duplicate key value violates unique constraint \"ai_predictions_pkey\"","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 22:25:09"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:06"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:07"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:07"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:07"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:08"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:08"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:09"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:09"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:09"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:10"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:27:10"}
+{"level":"error","message":"❌ Error storing pick total_df536cc1-27af-42d5-9ab3-0529c8eff624_over_1751858829586: duplicate key value violates unique constraint \"ai_predictions_pkey\"","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 22:27:50"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:50"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:51"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:51"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:51"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:52"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:52"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:53"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:53"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:53"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:54"}
+{"level":"error","message":"❌ Enhanced spread prediction failed: API responded with status 404","service":"app","timestamp":"2025-07-06 22:49:54"}
+{"level":"error","message":"❌ Error storing pick total_df536cc1-27af-42d5-9ab3-0529c8eff624_over_1751860193682: duplicate key value violates unique constraint \"ai_predictions_pkey\"","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 22:50:24"}
+{"level":"error","message":"❌ Error storing pick ml_1a77aace-afff-49ac-9e30-2339c176291b_home_1751860193046: duplicate key value violates unique constraint \"ai_predictions_pkey\"","service":"enhancedDeepseekOrchestrator","timestamp":"2025-07-06 22:50:24"}

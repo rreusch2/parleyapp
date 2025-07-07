@@ -15,7 +15,7 @@ dotenv.config();
 
 const logger = createLogger('enhancedDeepseekOrchestrator');
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const PYTHON_ML_SERVER_URL = process.env.PYTHON_ML_SERVER_URL || 'http://localhost:8001';
+const PYTHON_ML_SERVER_URL = process.env.PYTHON_ML_SERVER_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
 
 interface DatabaseGame {
   id: string;

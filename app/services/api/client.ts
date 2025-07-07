@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getStorageItem } from '../storage';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'https://zooming-rebirth-production-a305.up.railway.app/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,

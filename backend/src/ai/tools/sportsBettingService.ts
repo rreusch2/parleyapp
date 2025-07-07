@@ -57,7 +57,7 @@ export class SportsBettingService {
 
   constructor() {
     // Python microservice URL (you'll deploy this separately)
-    this.baseUrl = process.env.SPORTS_BETTING_SERVICE_URL || 'http://localhost:8001';
+    this.baseUrl = process.env.SPORTS_BETTING_SERVICE_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
   }
 
   /**

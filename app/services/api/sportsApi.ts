@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { SportsEvent, GetGamesParams } from '@/app/types/sports';
+import type { SportsEvent, GetGamesParams } from '@/app/types/sports';
 import { supabase } from './supabaseClient';
 
 // Use environment variable with fallback to local IP for mobile access
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.58:3001/api';
+const API_BASE_URL = 'https://zooming-rebirth-production-a305.up.railway.app/api';
 
 export { type SportsEvent, type GetGamesParams };
 

@@ -333,3 +333,11 @@
 {"level":"info","message":"Performing web search for: \"Kyle Schwarber home run splits vs left-handed pitchers 2023 recent stats\"","service":"webSearch","timestamp":"2025-07-06 03:16:27"}
 {"level":"error","message":"SerpAPI search failed: Request failed with status code 429","service":"webSearch","timestamp":"2025-07-06 03:16:27"}
 {"level":"error","message":"Error performing web search: Request failed with status code 429","service":"webSearch","timestamp":"2025-07-06 03:16:27"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-06 22:33:34"}
+{"level":"info","message":"DuckDuckGo search returned 2 results for \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-06 22:33:35"}
+{"level":"info","message":"Performing web search for: \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:35"}
+{"level":"info","message":"DuckDuckGo search returned 0 results for \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:36"}
+{"level":"info","message":"Performing web search for: \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-06 22:33:57"}
+{"level":"info","message":"DuckDuckGo search returned 2 results for \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}
+{"level":"info","message":"Performing web search for: \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}
+{"level":"info","message":"DuckDuckGo search returned 0 results for \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}

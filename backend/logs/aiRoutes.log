@@ -4959,3 +4959,15 @@
 {"level":"info","message":"📚 Found 0 saved predictions for pro tier user fe7f57cc-01cc-4179-864e-96ca57351106","service":"aiRoutes","timestamp":"2025-07-06 05:49:05"}
 {"level":"info","message":"🏈 Fetching team picks from database - Test Mode: true","service":"aiRoutes","timestamp":"2025-07-06 05:49:20"}
 {"level":"info","message":"✅ Fetched 10 team picks from database","service":"aiRoutes","timestamp":"2025-07-06 05:49:20"}
+{"level":"info","message":"📚 Fetching saved predictions for user: fe7f57cc-01cc-4179-864e-96ca57351106","service":"aiRoutes","timestamp":"2025-07-06 09:50:33"}
+{"level":"info","message":"👤 User fe7f57cc-01cc-4179-864e-96ca57351106: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"🌟 Pro tier user fe7f57cc-01cc-4179-864e-96ca57351106: unlimited picks","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user fe7f57cc-01cc-4179-864e-96ca57351106","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"📚 Fetching saved predictions for user: fe7f57cc-01cc-4179-864e-96ca57351106","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"👤 User fe7f57cc-01cc-4179-864e-96ca57351106: tier=pro, totalPredictions=0, isNewUser=true","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"🌟 Pro tier user fe7f57cc-01cc-4179-864e-96ca57351106: unlimited picks","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"📚 Found 0 saved predictions for pro tier user fe7f57cc-01cc-4179-864e-96ca57351106","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"📚 Fetching latest 10 predictions from database","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"📚 Found 10 latest predictions","service":"aiRoutes","timestamp":"2025-07-06 09:50:34"}
+{"level":"info","message":"🏈 Fetching team picks from database - Test Mode: true","service":"aiRoutes","timestamp":"2025-07-06 09:50:49"}
+{"level":"info","message":"✅ Fetched 10 team picks from database","service":"aiRoutes","timestamp":"2025-07-06 09:50:49"}

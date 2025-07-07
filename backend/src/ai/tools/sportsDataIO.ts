@@ -227,7 +227,7 @@ class SportsDataIOService {
       logger.info(`🚀 Attempting to use ADVANCED Python model (66.9% accuracy)`);
       
       // Your Python API is running on port 8001
-      const response = await axios.post('http://localhost:8001/backtest', {
+      const response = await axios.post('https://feisty-nurturing-production-9c29.up.railway.app/backtest', {
         sport: sport.toLowerCase(),
         strategy: 'balanced',
         startDate: '2024-01-01',

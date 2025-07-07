@@ -33,7 +33,8 @@ import {
   AlertCircle,
   Building2
 } from 'lucide-react-native';
-import { sportsApi, type SportsEvent } from '@/app/services/api/sportsApi';
+import { sportsApi } from '@/app/services/api/sportsApi';
+import type { SportsEvent } from '@/app/services/api/sportsApi';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { aiService, AIPrediction } from '@/app/services/api/aiService';

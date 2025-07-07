@@ -61,7 +61,7 @@ class SportsBettingService {
   private readonly apiBaseUrl: string;
 
   constructor() {
-    this.apiBaseUrl = process.env.SPORTS_BETTING_API_URL || 'http://localhost:8001';
+    this.apiBaseUrl = process.env.SPORTS_BETTING_API_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
   }
 
   /**

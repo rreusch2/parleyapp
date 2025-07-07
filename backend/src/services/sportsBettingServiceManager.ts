@@ -5,7 +5,7 @@ import axios from 'axios';
 
 class SportsBettingServiceManager {
   private pythonProcess: ChildProcess | null = null;
-  private readonly apiUrl = process.env.SPORTS_BETTING_API_URL || 'http://localhost:8001';
+  private readonly apiUrl = process.env.SPORTS_BETTING_API_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
   private readonly pythonServicePath = path.join(process.cwd(), 'python-services', 'sports-betting-api');
   private isStarting = false;
 

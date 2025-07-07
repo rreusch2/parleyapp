@@ -54,12 +54,12 @@ async function main() {
     logger.info(`   - Test Mode: ${testMode}`);
     logger.info(`   - User ID: ${userId}`);
     logger.info(`   - Target: 10 team picks + 10 player props = 20 total`);
-    logger.info(`   - ML Server: ${process.env.PYTHON_ML_SERVER_URL || 'http://localhost:8001'}`);
+    logger.info(`   - ML Server: ${process.env.PYTHON_ML_SERVER_URL || 'https://feisty-nurturing-production-9c29.up.railway.app'}`);
 
     // Verify ML server is running
     try {
       const axios = require('axios');
-      const mlServerUrl = process.env.PYTHON_ML_SERVER_URL || 'http://localhost:8001';
+      const mlServerUrl = process.env.PYTHON_ML_SERVER_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
       const healthResponse = await axios.get(`${mlServerUrl}/health`);
       logger.info(`✅ ML Server is healthy: ${healthResponse.data.models_loaded} models loaded`);
     } catch (error) {
