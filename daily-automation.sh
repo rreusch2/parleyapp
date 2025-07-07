@@ -31,7 +31,7 @@ log "=== ParleyApp Daily Automation Started ==="
 log "Project Root: $PROJECT_ROOT"
 
 # Step 1: Daily Game and Odds Fetch (MUST RUN FIRST - populates base data)
-log "Step 1/4: Fetching daily games and odds..."
+log "Step 1/3: Fetching daily games and odds..."
 cd "$PROJECT_ROOT/backend"
 if npx ts-node src/scripts/setupOddsIntegration.ts >> "$LOG_FILE" 2>&1; then
     log "✅ Daily odds integration completed successfully"
@@ -40,7 +40,7 @@ else
 fi
 
 # Step 2: Daily Insights (depends on fresh game/odds data)
-log "Step 2/4: Running Daily Insights..."
+log "Step 2/3: Running Daily Insights..."
 cd "$PROJECT_ROOT"
 if python insights.py >> "$LOG_FILE" 2>&1; then
     log "✅ Daily insights completed successfully"
@@ -48,26 +48,17 @@ else
     handle_error "Daily insights (insights.py)"
 fi
 
-# Step 3: Generate 10 Team Picks
-log "Step 3/4: Generating team predictions..."
-cd "$PROJECT_ROOT/backend"
-if npx ts-node src/scripts/run-orchestrator.ts >> "$LOG_FILE" 2>&1; then
-    log "✅ Team predictions completed successfully"
-else
-    handle_error "Team predictions (run-orchestrator.ts)"
-fi
-
-# Step 4: Generate 10 Player Props Picks
-log "Step 4/4: Generating player props predictions..."
+# Step 3: Generate 20 Total Picks (10 Team + 10 Player Props) - Unified Orchestrator
+log "Step 3/3: Running unified orchestrator (team + props predictions)..."
 cd "$PROJECT_ROOT"
-if python props.py >> "$LOG_FILE" 2>&1; then
-    log "✅ Player props predictions completed successfully"
+if python main.py --mode both >> "$LOG_FILE" 2>&1; then
+    log "✅ Unified predictions completed successfully (10 team + 10 player props)"
 else
-    handle_error "Player props predictions (props.py)"
+    handle_error "Unified predictions (main.py)"
 fi
 
 log "=== ParleyApp Daily Automation Completed Successfully ==="
-log "All 4 prediction pipelines executed successfully"
+log "All 3 prediction pipelines executed successfully"
 log "Check Supabase ai_predictions table for today's picks"
 
 # Optional: Clean up old log files (keep last 30 days)

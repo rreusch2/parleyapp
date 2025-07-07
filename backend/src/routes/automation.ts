@@ -32,13 +32,14 @@ router.post('/daily', verifyAutomationRequest, async (req, res) => {
   try {
     // Set up paths
     const projectRoot = path.join(__dirname, '../../../');
-    const scriptPath = path.join(projectRoot, 'scripts/daily-automated-workflow.sh');
+    const scriptPath = path.join(projectRoot, 'daily-automation.sh');
     
     logger.info(`[${requestId}] Project root: ${projectRoot}`);
     logger.info(`[${requestId}] Script path: ${scriptPath}`);
+    logger.info(`[${requestId}] Running updated daily automation with unified orchestrator`);
     
-    // Run the automation script
-    const { stdout, stderr } = await execAsync(`cd ${projectRoot} && chmod +x scripts/daily-automated-workflow.sh && ./scripts/daily-automated-workflow.sh`, {
+    // Run the updated automation script with unified orchestrator
+    const { stdout, stderr } = await execAsync(`cd ${projectRoot} && chmod +x daily-automation.sh && ./daily-automation.sh`, {
       timeout: 30 * 60 * 1000, // 30 minute timeout
       maxBuffer: 1024 * 1024 * 10 // 10MB buffer for logs
     });
@@ -88,9 +89,9 @@ router.post('/test', verifyAutomationRequest, async (req, res) => {
   try {
     const projectRoot = path.join(__dirname, '../../../');
     
-    // Run in mock mode with reduced delays for testing
+    // Run unified orchestrator in test mode
     const { stdout, stderr } = await execAsync(
-      `cd ${projectRoot} && ./scripts/daily-automated-workflow.sh --mock --skip-delays`,
+      `cd ${projectRoot} && python main.py --mode both --test`,
       {
         timeout: 5 * 60 * 1000, // 5 minute timeout for test
         maxBuffer: 1024 * 1024 * 5 // 5MB buffer

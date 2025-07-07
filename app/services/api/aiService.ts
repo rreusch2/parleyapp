@@ -1,9 +1,9 @@
 import { supabase } from './supabaseClient';
 
 // Use proper environment variables with better fallback logic
-const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
 
-const PYTHON_API_URL = 'https://feisty-nurturing-production-9c29.up.railway.app';
+const PYTHON_API_URL = process.env.EXPO_PUBLIC_PYTHON_API_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
 
 export interface AIPrediction {
   id: string;
@@ -180,22 +180,17 @@ class AIService {
       }
 
       // Use the picks endpoint that handles welcome bonus logic
-      const data = await this.makeRequest(`${BACKEND_URL}/api/ai/picks?userId=${currentUserId}&userTier=${tier}`);
+      const data = await this.makeRequest(`${BACKEND_URL}/api/ai/daily-picks-combined`);
       
-      if (data.success && data.predictions && data.predictions.length > 0) {
-        console.log(`📚 Loaded ${data.predictions.length} AI picks for ${tier} user ${currentUserId}`);
+      if (data.success && data.total_picks > 0) {
+        // Combine team picks and player props into a single array
+        const allPicks = [
+          ...(data.team_picks || []),
+          ...(data.player_props_picks || [])
+        ];
         
-        // Log metadata for debugging
-        if (data.metadata) {
-          console.log(`📊 API Metadata:`, JSON.stringify(data.metadata, null, 2));
-        }
-        
-        // Log welcome bonus status if applicable
-        if (data.metadata?.welcomeBonusActive) {
-          console.log(`🎁 Welcome bonus active: ${data.predictions.length} picks (expires ${data.metadata.welcomeBonusExpires})`);
-        }
-        
-        return data.predictions;
+        console.log(`📚 Loaded ${allPicks.length} AI picks (${data.breakdown?.team_picks || 0} team + ${data.breakdown?.player_props_picks || 0} props)`);
+        return allPicks;
       }
       
       // If no predictions found, return empty array

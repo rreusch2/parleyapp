@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20.18-alpine
 
 # Set working directory to the backend application directory
 WORKDIR /app/backend
@@ -8,7 +8,7 @@ RUN apk add --no-cache python3 make g++
 
 # Copy package files and install dependencies
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm install --omit=dev
 
 # Copy TypeScript config, babel config, and source files
 COPY backend/tsconfig.json ./

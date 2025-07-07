@@ -21,6 +21,9 @@ import purchasesRouter from './routes/purchases';
 
 const app = express();
 
+// Trust proxy for Railway deployment
+app.set('trust proxy', 1);
+
 // CORS configuration
 const corsOptions = {
   origin: [
@@ -82,7 +85,7 @@ app.use('/api/bets', betHistoryRouter);
 app.use('/api/sports-data-admin', sportsDataAdminRouter);
 app.use('/api/sports-data', sportsDataRouter);
 app.use('/api/ai', aiRouter);
-app.use('./api/news', newsRouter);
+app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/notification-settings', notificationSettingsRouter);
