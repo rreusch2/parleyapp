@@ -1,0 +1,18 @@
+{
+  "name": "parleyapp-cron-service",
+  "version": "1.0.0",
+  "description": "Daily automation cron service for ParleyApp MLB predictions",
+  "main": "cron-handler.js",
+  "scripts": {
+    "start": "node cron-handler.js",
+    "dev": "node cron-handler.js"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.0",
+    "express": "^4.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
