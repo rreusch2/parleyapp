@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "cd python-services/sports-betting-api && gunicorn ml_prediction_server:app --bind 0.0.0.0:$PORT"
+startCommand = "sh -c 'cd python-services/sports-betting-api && gunicorn ml_prediction_server:app --bind 0.0.0.0:$PORT'"
 healthcheckPath = "/health"
 
 [nixpacks]
