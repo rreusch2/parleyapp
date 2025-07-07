@@ -8,7 +8,7 @@ RUN apk add --no-cache python3 make g++
 
 # Copy package files and install dependencies
 COPY backend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy TypeScript config and source files
 COPY backend/tsconfig.json ./
