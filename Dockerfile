@@ -10,8 +10,9 @@ RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
 RUN npm ci
 
-# Copy TypeScript config and source files
+# Copy TypeScript config, babel config, and source files
 COPY backend/tsconfig.json ./
+COPY backend/.babelrc ./
 COPY backend/src ./src
 
 # Build TypeScript application
