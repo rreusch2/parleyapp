@@ -6,6 +6,6 @@ startCommand = "sh -c 'cd backend && npm start'"
 healthcheckPath = "/api/health"
 
 [nixpacks]
-aptPkgs = ["nodejs", "npm"]
+aptPkgs = ["nodejs", "npm", "bash"]
 installPhase = "npm install --prefix backend"
 buildPhase = "npm run build:babel --prefix backend"
