@@ -102,9 +102,8 @@ export default function PredictionsScreen() {
         const currentUserTier = 'free';
         
         // Get picks with welcome bonus logic applied - this returns the full API response
-        const apiResponse = await fetch(`${process.env.NODE_ENV === 'production' 
-          ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
-          : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001')}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
+        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+        const apiResponse = await fetch(`${baseUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
         
         const data = await apiResponse.json();
         
@@ -133,10 +132,8 @@ export default function PredictionsScreen() {
           // Also check database welcome bonus status for additional context
           if (currentUserId && !data.metadata?.isNewUser) {
             try {
-              const backendUrl = process.env.NODE_ENV === 'production' 
-                ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
-                : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001');
-              const response = await fetch(`${backendUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
+              const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+              const response = await fetch(`${baseUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
               const bonusData = await response.json();
               
               if (bonusData.success && bonusData.status.welcome_bonus_active) {

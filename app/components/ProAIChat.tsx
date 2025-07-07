@@ -318,7 +318,8 @@ export default function ProAIChat({
       setMessages(prev => [...prev, aiMessage]);
 
       // Call the streaming Grok chatbot API
-      const response = await fetch('http://localhost:3001/api/ai/chat/stream', {
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/ai/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

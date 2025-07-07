@@ -126,7 +126,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       setLoading(true);
       setError(null);
 
-      const baseUrl = Platform.OS === 'web' ? 'http://localhost:3001' : 'http://192.168.1.58:3001';
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       
       console.log('🧠 Fetching Daily AI Insights...');
 
@@ -165,7 +165,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       setRefreshing(true);
       setError(null);
 
-      const baseUrl = Platform.OS === 'web' ? 'http://localhost:3001' : 'http://192.168.1.58:3001';
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       
       console.log('🔄 Generating new Professor Lock insights...');
 

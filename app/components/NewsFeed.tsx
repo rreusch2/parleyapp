@@ -128,7 +128,8 @@ export default function NewsFeed({
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:3001/api/news?${params}`, {
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/news?${params}`, {
         headers
       });
 

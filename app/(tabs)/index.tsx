@@ -123,10 +123,8 @@ export default function HomeScreen() {
       if (!isPro && currentUserId) {
         // Get API response directly to check metadata
         try {
-          const backendUrl = process.env.NODE_ENV === 'production' 
-            ? (process.env.EXPO_PUBLIC_BACKEND_URL || 'https://api.Predictive Play.com')
-            : (process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001');
-          const apiResponse = await fetch(`${backendUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
+          const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+          const apiResponse = await fetch(`${baseUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
           const data = await apiResponse.json();
           
           if (data.success && data.predictions) {

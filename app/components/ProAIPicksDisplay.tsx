@@ -96,7 +96,8 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
     try {
       setLoading(true);
       // Fetch the 10 most recent AI predictions from backend
-      const response = await fetch('http://localhost:3001/api/ai/predictions/latest?limit=10');
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/ai/predictions/latest?limit=10`);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.predictions) {

@@ -44,7 +44,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     setTeamLoading(true);
     try {
       // Use the correct API endpoint for team picks
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001'}/api/ai/team-picks?test=true`);
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/ai/team-picks?test=true`);
       const data = await response.json();
       
       if (data.success) {
@@ -68,7 +69,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     setPropsLoading(true);
     try {
       // Use the correct API endpoint for player props picks
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001'}/api/ai/player-props-picks?test=true`);
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/ai/player-props-picks?test=true`);
       const data = await response.json();
       
       if (data.success) {

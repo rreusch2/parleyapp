@@ -400,7 +400,8 @@ export default function GamesScreen() {
       setLoading(true);
       console.log('🔄 Fetching tomorrow\'s games...');
       
-      const response = await fetch('http://localhost:3001/api/fetch-tomorrow-games', {
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${baseUrl}/api/fetch-tomorrow-games`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

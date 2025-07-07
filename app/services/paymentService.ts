@@ -49,7 +49,7 @@ class ApplePaymentService {
   private purchaseUpdateSubscription: any = null;
   private purchaseErrorSubscription: any = null;
   private isInitialized = false;
-  private readonly BACKEND_URL = 'http://localhost:3001/api';
+  private readonly BACKEND_URL = `${process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app'}/api`;
 
   // Subscription plans with Apple product IDs
   readonly subscriptionPlans: SubscriptionPlan[] = [

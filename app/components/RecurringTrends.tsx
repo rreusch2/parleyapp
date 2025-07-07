@@ -92,8 +92,8 @@ const RecurringTrends: React.FC<RecurringTrendsProps> = ({ sport = 'MLB' }) => {
       setLoading(true);
       setError(null);
 
-      // Use appropriate base URL for development 
-      const baseUrl = Platform.OS === 'web' ? 'http://localhost:3001' : 'http://192.168.1.58:3001';
+      // Use dynamic base URL with environment variable fallback
+      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       
       console.log(`🔍 Fetching trends for ${sport}...`);
 
