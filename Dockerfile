@@ -1,33 +1,31 @@
 FROM node:18-alpine
 
-WORKDIR /app
-
-# Copy backend package files
-COPY backend/package*.json ./backend/
-COPY backend/.babelrc ./backend/
-
-# Install dependencies
-RUN cd backend && npm install
-
-# Copy backend source code
-COPY backend/src ./backend/src
-
-# Build with Babel (bypasses TypeScript errors)
-RUN cd backend && npm run build:babel
-
-# Verify build output exists
-RUN ls -la backend/dist/
-
-# Expose port
-EXPOSE 3001
-ENV PORT=3001
-
-# Set working directory to backend
+# Set working directory to the backend application directory
 WORKDIR /app/backend
 
-# Add debugging to verify files exist
-RUN ls -la dist/ || echo "No dist directory found"
-RUN ls -la package.json || echo "No package.json found"
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Start the application
-CMD ["npm", "start"]
+# Copy package files and install dependencies
+COPY backend/package*.json ./
+RUN npm ci --only=production
+
+# Copy TypeScript config and source files
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+
+# Build TypeScript application
+RUN npm run build:babel
+
+# Copy our robust startup script
+COPY backend/start.js ./
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"
+
+# Run the application using our robust startup script
+CMD ["node", "start.js"]
