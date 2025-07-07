@@ -2,7 +2,7 @@ import app from './app';
 import { initGameStartScheduler } from './services/notifications/scheduler';
 import { initScheduler } from './services/sportsData/scheduler';
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Initialize notification scheduler
 initGameStartScheduler();

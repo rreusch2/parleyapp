@@ -90,8 +90,13 @@ app.use('/api/insights', insightsRouter);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
 
-// Health check endpoint
+// Health check endpoints
 app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Additional health check endpoint at /api/health for Docker healthcheck
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
