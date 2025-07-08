@@ -42,7 +42,6 @@ router.get('/daily-professor-lock', async (req, res) => {
     const { data: insights, error } = await supabase
       .from('daily_professor_insights')
       .select('*')
-      .eq('date_generated', today) // Filter by today's date
       .order('insight_order', { ascending: true }); // Order by insight_order
 
     if (error) {
