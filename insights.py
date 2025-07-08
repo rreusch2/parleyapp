@@ -26,17 +26,17 @@ class IntelligentInsightsGenerator:
     def __init__(self):
         # Initialize Supabase client
         self.supabase_url = os.getenv('SUPABASE_URL')
-        self.supabase_key = os.getenv('SUPABASE_ANON_KEY')
+        self.supabase_key = os.getenv('SUPABASE_SERVICE_KEY')  # Use service key for admin operations
         
         if not self.supabase_url or not self.supabase_key:
-            raise ValueError("Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables")
+            raise ValueError("Please set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables")
         
         logger.info(f"Connecting to Supabase...")
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         
         # Backend API settings
         self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
-        self.user_id = "admin_insights_generator"
+        self.user_id = "00000000-0000-0000-0000-000000000001"  # Use a UUID format
         
         # Headers for web requests
         self.headers = {
@@ -571,18 +571,17 @@ Write ONE brief, professional greeting."""
         try:
             logger.info("💾 Storing AI-categorized insights...")
             
-            # Clear existing insights for today from both tables
+            # Clear existing insights for today
             today = date.today().isoformat()
             self.supabase.table('ai_insights').delete().gte('created_at', today).execute()
-            self.supabase.table('daily_professor_insights').delete().gte('created_at', today).execute()
             
-            # Store intro message first in ai_insights table
+            # Store intro message first
             if intro_message:
                 intro_record = {
-                    'user_id': 'admin_insights_generator',  # Required field for ai_insights table
+                    'user_id': self.user_id,
                     'title': 'Daily AI Greeting',
                     'description': intro_message,
-                    'type': 'trend',  # Must be one of: trend, value, alert, prediction
+                    'type': 'trend',
                     'impact': 'high',
                     'data': {
                         'category': 'intro',
@@ -595,9 +594,9 @@ Write ONE brief, professional greeting."""
                     'created_at': datetime.now().isoformat()
                 }
                 self.supabase.table('ai_insights').insert(intro_record).execute()
-                logger.info("💾 Stored intro message to ai_insights table")
+                logger.info("💾 Stored intro message")
             
-            # Store insights in ai_insights table
+            # Store insights
             start_order = 2 if intro_message else 1
             
             for i, insight in enumerate(insights):
@@ -617,7 +616,7 @@ Write ONE brief, professional greeting."""
                 game_info = None
                 if len(teams) >= 2:
                     game_info = {
-                        'home_team': teams[0],  # Could be enhanced to determine home/away
+                        'home_team': teams[0],
                         'away_team': teams[1],
                         'game_time': 'TBD'
                     }
@@ -632,10 +631,10 @@ Write ONE brief, professional greeting."""
                     ai_type = 'prediction'
                 
                 record = {
-                    'user_id': 'admin_insights_generator',  # Required field for ai_insights table
+                    'user_id': self.user_id,
                     'title': title[:100],
                     'description': insight_text,
-                    'type': ai_type,  # Must be one of: trend, value, alert, prediction
+                    'type': ai_type,
                     'impact': 'high' if any(word in insight_text.lower() for word in ['value', 'opportunity', 'edge']) else 'medium',
                     'data': {
                         'category': category,
@@ -651,10 +650,10 @@ Write ONE brief, professional greeting."""
                 }
                 
                 self.supabase.table('ai_insights').insert(record).execute()
-                logger.info(f"💾 Stored {category} insight to ai_insights table: {insight_text[:80]}...")
+                logger.info(f"💾 Stored {category} insight: {insight_text[:80]}...")
             
             total_stored = len(insights) + (1 if intro_message else 0)
-            logger.info(f"💾 Stored {total_stored} total insights with AI categorization to ai_insights table")
+            logger.info(f"💾 Stored {total_stored} total insights with AI categorization")
             
         except Exception as e:
             logger.error(f"Error storing insights: {e}")

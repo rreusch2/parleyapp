@@ -38,11 +38,10 @@ router.get('/daily-professor-lock', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     
     const { data: insights, error } = await supabase
-      .from('daily_professor_insights')
+      .from('ai_insights')
       .select('*')
       .gte('created_at', today)
-      .order('created_at', { ascending: false })
-      .order('insight_order', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       logger.error('Database error fetching insights:', error);
@@ -57,13 +56,13 @@ router.get('/daily-professor-lock', async (req, res) => {
       id: insight.id,
       title: insight.title,
       description: insight.description,
-      category: insight.category,
-      confidence: insight.confidence || 75,
+      category: insight.data?.category || 'trends',
+      confidence: insight.data?.confidence || 75,
       impact: insight.impact || 'medium',
-      research_sources: insight.research_sources || [],
+      research_sources: insight.data?.research_sources || [],
       created_at: insight.created_at,
-      insight_order: insight.insight_order,
-      game_info: insight.game_info || null
+      insight_order: insight.data?.insight_order || 0,
+      game_info: insight.data?.game_info || null
     }));
 
     logger.info(`✅ Found ${transformedInsights.length} AI insights`);
@@ -135,11 +134,10 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
         const today = new Date().toISOString().split('T')[0];
         
         const { data: newInsights, error } = await supabase
-          .from('daily_professor_insights')
+          .from('ai_insights')
           .select('*')
           .gte('created_at', today)
-          .order('created_at', { ascending: false })
-          .order('insight_order', { ascending: true });
+          .order('created_at', { ascending: false });
 
         if (error) {
           logger.error('Database error fetching new insights:', error);
@@ -154,13 +152,13 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
           id: insight.id,
           title: insight.title,
           description: insight.description,
-          category: insight.category,
-          confidence: insight.confidence || 75,
+          category: insight.data?.category || 'trends',
+          confidence: insight.data?.confidence || 75,
           impact: insight.impact || 'medium',
-          research_sources: insight.research_sources || [],
+          research_sources: insight.data?.research_sources || [],
           created_at: insight.created_at,
-          insight_order: insight.insight_order,
-          game_info: insight.game_info || null
+          insight_order: insight.data?.insight_order || 0,
+          game_info: insight.data?.game_info || null
         }));
 
         logger.info(`✅ Successfully generated ${transformedInsights.length} new insights`);
