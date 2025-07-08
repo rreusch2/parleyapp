@@ -44,6 +44,7 @@ interface DailyInsight {
   research_sources: string[];
   created_at: string;
   insight_order?: number;
+  insight_text?: string;
   teams?: string[];
   game_info?: {
     home_team: string;
@@ -97,6 +98,11 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       
       // Extract and clean up the intro message
       let message = introInsight.description;
+      
+      // Only process if we have a message
+      if (!message) {
+        return { message: null, remainingInsights: insights };
+      }
       
       // Remove "no picks yet" references and similar phrases
       message = message.replace(/—no picks yet.*?win\./gi, '');
@@ -315,18 +321,22 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
           </View>
 
           {/* Title with category color and description */}
-          <Text style={[
-            styles.insightTitle,
-            { 
-              color: getCategoryColor(insight.category),
-              textShadowColor: getCategoryColor(insight.category) + '40',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 3,
-            }
-          ]}>
-            {insight.title}
+          {insight.title && (
+            <Text style={[
+              styles.insightTitle,
+              { 
+                color: getCategoryColor(insight.category),
+                textShadowColor: getCategoryColor(insight.category) + '40',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 3,
+              }
+            ]}>
+              {insight.title}
+            </Text>
+          )}
+          <Text style={styles.insightDescription}>
+            {insight.description || insight.insight_text || ''}
           </Text>
-          <Text style={styles.insightDescription}>{insight.description}</Text>
         </View>
 
         {/* Game info if available (without the problematic date) */}
