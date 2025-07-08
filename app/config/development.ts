@@ -35,6 +35,12 @@ export const DEV_CONFIG = {
   USE_MOCK_DATA: false,
 
   /**
+   * Test Pro Subscription Mode
+   * Allow upgrading to Pro without payment for testing
+   */
+  ENABLE_TEST_PRO_SUBSCRIPTION: true,
+
+  /**
    * Debug Features
    */
   SHOW_DEBUG_INFO: true,

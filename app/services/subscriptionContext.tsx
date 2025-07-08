@@ -124,7 +124,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (!user) return false;
 
       // Development mode: Skip payment processing and directly upgrade user
-      if (__DEV__) {
+      if (__DEV__ || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION) {
         console.log(`🔧 Development Mode: Upgrading user to ${planId} pro plan (skipping payment)`);
         
         try {

@@ -33,6 +33,8 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import inAppPurchaseService from '../services/inAppPurchases';
+import { useSubscription } from '../services/subscriptionContext';
+import { DEV_CONFIG } from '../config/development';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -52,6 +54,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly');
   const [loading, setLoading] = useState(false);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const { subscribeToPro } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -76,23 +79,33 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
     try {
       setLoading(true);
       
-      // Get the product ID based on selected plan
-      const productId = getProductId(selectedPlan);
-      
-      if (!productId) {
-        throw new Error('Product not available');
-      }
+      // Check if test mode is enabled
+      if (__DEV__ || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION) {
+        console.log('🧪 Test mode: Using subscription context for Pro upgrade');
+        const success = await subscribeToPro(selectedPlan);
+        if (success) {
+          onClose();
+          return;
+        }
+      } else {
+        // Production mode: Use IAP service
+        const productId = getProductId(selectedPlan);
+        
+        if (!productId) {
+          throw new Error('Product not available');
+        }
 
-      // Use IAP service to purchase
-      await inAppPurchaseService.purchaseSubscription(productId);
-      
-      // Call the optional callback if provided
-      if (onSubscribe) {
-        await onSubscribe(selectedPlan);
+        // Use IAP service to purchase
+        await inAppPurchaseService.purchaseSubscription(productId);
+        
+        // Call the optional callback if provided
+        if (onSubscribe) {
+          await onSubscribe(selectedPlan);
+        }
+        
+        // Close modal on success
+        onClose();
       }
-      
-      // Close modal on success
-      onClose();
     } catch (error) {
       console.error('Subscription error:', error);
       Alert.alert('Error', 'Failed to process subscription. Please try again.');
@@ -341,7 +354,9 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 <Text style={styles.subscribeText}>
                   {loading 
                     ? 'Processing...' 
-                    : `Start ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
+                    : (__DEV__ || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION)
+                      ? `🧪 Test ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro (Free)`
+                      : `Start ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
                   }
                 </Text>
                 <ChevronRight size={20} color="#FFFFFF" />
