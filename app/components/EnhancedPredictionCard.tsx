@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   gradient: {
-    padding: 16,
+    padding: 12,
     position: 'relative',
   },
   premiumGlow: {
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   matchTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 4,
@@ -470,13 +470,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#00E5FF',
     marginBottom: 2,
   },
   oddsText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#E2E8F0',
   },
   valueSection: {
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   premiumSection: {
     backgroundColor: 'rgba(0, 229, 255, 0.1)',
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.2)',
@@ -530,14 +530,15 @@ const styles = StyleSheet.create({
   },
   premiumStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    gap: 4,
   },
   premiumStat: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   premiumStatText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#E2E8F0',
     marginLeft: 4,
   },
@@ -556,9 +557,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   reasoningText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#CBD5E1',
-    lineHeight: 20,
+    lineHeight: 18,
     marginBottom: 12,
   },
   actionButtons: {
@@ -573,8 +574,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.5)',
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -583,7 +584,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 255, 0.1)',
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#E2E8F0',
     fontWeight: '600',
     marginLeft: 6,

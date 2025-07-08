@@ -216,25 +216,49 @@ export class ChatbotOrchestrator {
    */
   private async getAppData(userId: string) {
     try {
-      // Get today's AI predictions
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setHours(23, 59, 59, 999);
-
+      // Get today's AI predictions with improved filtering
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrowEnd = new Date(todayStart);
+      tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
+      
+      // Get recent high-quality predictions with better time range
       const { data: todaysPicks, error: picksError } = await supabase
         .from('ai_predictions')
         .select('*')
-        .gte('created_at', startOfDay.toISOString())
-        .lte('created_at', endOfDay.toISOString())
-        .eq('status', 'pending')
+        .eq('status', 'pending') // Only active predictions
+        .gte('confidence', 65) // Higher confidence threshold
+        .gte('event_time', todayStart.toISOString()) // Only current/future games
+        .lte('event_time', tomorrowEnd.toISOString()) // Not too far in future
+        .not('match_teams', 'ilike', '%sample%') // Exclude sample data
+        .not('match_teams', 'ilike', '%demo%') // Exclude demo data
+        .not('match_teams', 'ilike', '%test%') // Exclude test data
+        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Only picks from last 7 days
         .order('confidence', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false })
+        .limit(15);
 
       if (picksError) {
         logger.error(`Error fetching today's picks: ${picksError.message}`);
       }
 
+      // Remove duplicate games (keep highest confidence picks)
+      const uniqueGamePicks: any[] = [];
+      const gameIds = new Set();
+      
+      if (todaysPicks) {
+        for (const pick of todaysPicks) {
+          // Use match_teams as unique identifier
+          if (!pick.match_teams) continue;
+          
+          const gameKey = pick.match_teams.toLowerCase().trim();
+          if (!gameIds.has(gameKey)) {
+            gameIds.add(gameKey);
+            uniqueGamePicks.push(pick);
+          }
+        }
+      }
+      
       // Get recent injury reports (handle if table doesn't exist)
       let injuries: any[] = [];
       try {
@@ -270,7 +294,7 @@ export class ChatbotOrchestrator {
       }
 
       return {
-        todaysPicks: todaysPicks || [],
+        todaysPicks: uniqueGamePicks || [],
         injuries: injuries,
         news: news,
         timestamp: new Date().toISOString()

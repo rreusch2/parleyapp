@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import inAppPurchaseService from '../services/inAppPurchases';
+import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   X,
@@ -30,6 +31,7 @@ import {
   ChevronRight,
   Infinity,
   Gem,
+  Gift,
 } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
 import { DEV_CONFIG } from '../config/development';
@@ -232,13 +234,17 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           </View>
                         )}
                       </View>
-                      <Text style={styles.planPrice}>$0.82</Text>
-                      <Text style={styles.planPeriod}>per day</Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$49.98</Text>
+                        <Text style={styles.planPrice}>$24.99</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.planPeriod}>per month</Text>
+                      <Text style={styles.dailyPrice}>($0.83 / day)</Text>
                     </View>
-                    <View style={styles.planBilling}>
-                      <Text style={styles.billingText}>Billed Monthly</Text>
-                      <Text style={styles.billingAmount}>$24.99/month</Text>
-                    </View>
+                    
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -274,17 +280,14 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           </View>
                         )}
                       </View>
-                      <View style={styles.yearlyPricing}>
-                        <Text style={styles.planPrice}>$149.99</Text>
-                        <View style={styles.savingsBadge}>
-                          <Text style={styles.savingsText}>Save 53%</Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$399.98</Text>
+                        <Text style={styles.planPrice}>$199.99</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
                         </View>
                       </View>
                       <Text style={styles.planPeriod}>per year</Text>
-                    </View>
-                    <View style={styles.planBilling}>
-                      <Text style={styles.billingText}>Best Value</Text>
-                      <Text style={styles.billingAmount}>$12.50/month</Text>
                     </View>
                   </View>
                 </LinearGradient>
@@ -322,22 +325,27 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           </View>
                         )}
                       </View>
-                      <View style={styles.lifetimePricing}>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$699.98</Text>
                         <Text style={styles.planPrice}>$349.99</Text>
-                        <View style={styles.lifetimeBadge}>
-                          <Text style={styles.lifetimeText}>One-time</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
                         </View>
                       </View>
                       <Text style={styles.planPeriod}>forever</Text>
                     </View>
-                    <View style={styles.planBilling}>
-                      <Text style={styles.billingText}>Never pay again</Text>
-                      <Text style={styles.billingAmount}>$9.72/month</Text>
-                      <Text style={styles.billingNote}>lifetime value</Text>
-                    </View>
+                    
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
+            </View>
+
+            {/* Monthly Pro Giveaway - Positioned between pricing and features */}
+            <View style={styles.giveawayContainer}>
+              <Gift size={20} color="#F59E0B" />
+              <Text style={styles.giveawayText}>
+                All Monthly Pro members are entered in a monthly giveaway to win a free Yearly Pro subscription!
+              </Text>
             </View>
 
             {/* Features List */}
@@ -553,13 +561,45 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   planPrice: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '900',
     color: '#FFFFFF',
+    textAlign: 'left',
+    letterSpacing: 0.5,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 10,
+  },
+  originalPriceText: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+    fontWeight: '600',
+  },
+  discountBadge: {
+    backgroundColor: '#FFD700', // Gold color for discount
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  discountText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '800',
   },
   planPeriod: {
     fontSize: 14,
     color: '#E2E8F0',
+    marginTop: 2,
+  },
+  dailyPrice: {
+    fontSize: 12,
+    color: '#A0AEC0',
     marginTop: 2,
   },
   yearlyPricing: {
@@ -712,6 +752,25 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  giveawayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  giveawayText: {
+    fontSize: 15,
+    color: '#F59E0B',
+    marginLeft: 12,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 22,
   },
 });
 

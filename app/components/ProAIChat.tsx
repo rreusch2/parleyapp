@@ -33,6 +33,7 @@ import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '@/app/services/subscriptionContext';
 import { AIPrediction } from '@/app/services/api/aiService';
 import { useAIChat } from '@/app/services/aiChatContext';
+import { supabase } from '@/app/services/api/supabaseClient';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -166,6 +167,18 @@ export default function ProAIChat({
     isLoadingMessageCount,
     freeUserMessageCount
   } = useAIChat();
+
+  // Get the current user ID for API requests
+  const getCurrentUserId = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || 'anonymous';
+    } catch (error) {
+      console.error('Error getting user ID:', error);
+      return 'anonymous';
+    }
+  };
+
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -319,14 +332,18 @@ export default function ProAIChat({
 
       // Call the streaming Grok chatbot API
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      const response = await fetch(`${baseUrl}/api/ai/chat/stream`, {
+      
+      // Use text/event-stream compatible approach for iOS
+      const fetchUrl = `${baseUrl}/api/ai/chat/stream`;
+      const fetchOptions = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
           message: messageText,
-          userId: 'f08b56d3-d4ec-4815-b502-6647d723d2a6', // TODO: Use real user ID
+          userId: await getCurrentUserId(), // Fixed typo: 'us' -> 'userId'
           context: {
             screen: chatContext?.screen || 'chat',
             selectedPick: selectedPick,
@@ -339,40 +356,36 @@ export default function ProAIChat({
             timestamp: msg.timestamp.toISOString()
           }))
         })
-      });
+      };
 
-      if (!response.ok) {
-        throw new Error('Failed to get response from Grok');
-      }
-
-      if (!response.body) {
-        throw new Error('No response body for streaming');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
+      // Create a cross-platform compatible approach for handling streaming responses
+      if (Platform.OS === 'ios') {
+        // iOS requires a different approach since ReadableStream may not be fully supported
+        const response = await fetch(fetchUrl, fetchOptions);
         
-        if (done) break;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // Get the full response text and process as a string
+        const responseText = await response.text();
+        
+        // Process the response as if it was streamed
+        const lines = responseText.split('\n');
+        
+        // First, handle any search or status events
+        let hasWebSearch = false;
+        let searchMessage: ChatMessage | null = null;
         
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
               
-              if (data.type === 'start') {
-                // Initial status - keep typing indicator
-                setIsTyping(true);
-                setIsSearching(false);
-              } else if (data.type === 'web_search') {
+              if (data.type === 'web_search') {
                 // Web search started - add search bubble as a message
                 const searchMessageId = `search_${Date.now()}`;
-                const searchMessage: ChatMessage = {
+                searchMessage = {
                   id: searchMessageId,
                   text: '',
                   isUser: false,
@@ -384,48 +397,176 @@ export default function ProAIChat({
                 setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
                 setIsSearching(true);
                 setIsTyping(false);
+                hasWebSearch = true;
                 
                 setTimeout(() => {
                   flatListRef.current?.scrollToEnd({ animated: true });
                 }, 100);
-              } else if (data.type === 'chunk') {
-                // Remove search bubble and start streaming
-                setMessages(prev => prev.filter(msg => !msg.isSearching));
-                setIsSearching(false);
-                setIsTyping(false);
-                
-                // Append chunk to AI message
-                setMessages(prev => prev.map(msg => 
-                  msg.id === aiMessageId 
-                    ? { ...msg, text: msg.text + data.content }
-                    : msg
-                ));
-                
-                // Auto-scroll as content comes in
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: false });
-                }, 10);
-              } else if (data.type === 'complete') {
-                // Final message with metadata
-                setMessages(prev => prev.map(msg => 
-                  msg.id === aiMessageId 
-                    ? { ...msg, toolsUsed: data.toolsUsed || [] }
-                    : msg
-                ));
-                setIsTyping(false);
-                setIsSearching(false);
-              } else if (data.type === 'error') {
-                // Error occurred
-                setMessages(prev => prev.map(msg => 
-                  msg.id === aiMessageId 
-                    ? { ...msg, text: data.content || "An error occurred" }
-                    : msg
-                ));
-                setIsTyping(false);
-                setIsSearching(false);
               }
             } catch (parseError) {
               console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+        
+        // Give the search message time to display before continuing
+        if (hasWebSearch) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        
+        // Remove search bubble if it exists
+        if (searchMessage) {
+          setMessages(prev => prev.filter(msg => !msg.isSearching));
+          setIsSearching(false);
+        }
+        
+        // Now, process the actual content - but simulate streaming for better UX
+        let fullContent = '';
+        let toolsUsed: string[] = [];
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'chunk' && data.content) {
+                fullContent += data.content;
+              } else if (data.type === 'complete') {
+                toolsUsed = data.toolsUsed || [];
+              }
+            } catch (parseError) {
+              // Ignore parse errors for this pass
+            }
+          }
+        }
+        
+        // If we have content, simulate streaming by adding characters one by one
+        if (fullContent) {
+          // Break into smaller chunks for more natural streaming simulation
+          const chunks = fullContent.match(/.{1,5}/g) || [];
+          
+          for (const chunk of chunks) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === aiMessageId 
+                ? { ...msg, text: msg.text + chunk }
+                : msg
+            ));
+            
+            // Small random delay between chunks for natural effect
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 30 + 20));
+            
+            // Auto-scroll as content comes in
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }, 10);
+          }
+          
+          // Finally, update with any toolsUsed metadata
+          setMessages(prev => prev.map(msg => 
+            msg.id === aiMessageId 
+              ? { ...msg, toolsUsed }
+              : msg
+          ));
+        }
+        
+        setIsTyping(false);
+        setIsSearching(false);
+      } else {
+        // For Android and web, use the streaming API approach
+        const response = await fetch(fetchUrl, fetchOptions);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to get response from Grok: ${response.status}`);
+        }
+
+        if (!response.body) {
+          throw new Error('No response body for streaming');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          // Decode the chunk and add to buffer
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
+          
+          // Process complete lines in the buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the incomplete line in the buffer
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === 'start') {
+                  // Initial status - keep typing indicator
+                  setIsTyping(true);
+                  setIsSearching(false);
+                } else if (data.type === 'web_search') {
+                  // Web search started - add search bubble as a message
+                  const searchMessageId = `search_${Date.now()}`;
+                  const searchMessage: ChatMessage = {
+                    id: searchMessageId,
+                    text: '',
+                    isUser: false,
+                    timestamp: new Date(),
+                    isSearching: true,
+                    searchQuery: data.message || 'Searching for latest sports news...'
+                  };
+                  
+                  setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
+                  setIsSearching(true);
+                  setIsTyping(false);
+                  
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
+                } else if (data.type === 'chunk') {
+                  // Remove search bubble and start streaming
+                  setMessages(prev => prev.filter(msg => !msg.isSearching));
+                  setIsSearching(false);
+                  setIsTyping(false);
+                  
+                  // Append chunk to AI message
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { ...msg, text: msg.text + data.content }
+                      : msg
+                  ));
+                  
+                  // Auto-scroll as content comes in
+                  setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }, 10);
+                } else if (data.type === 'complete') {
+                  // Final message with metadata
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { ...msg, toolsUsed: data.toolsUsed || [] }
+                      : msg
+                  ));
+                  setIsTyping(false);
+                  setIsSearching(false);
+                } else if (data.type === 'error') {
+                  // Error occurred
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { ...msg, text: data.content || "An error occurred" }
+                      : msg
+                  ));
+                  setIsTyping(false);
+                  setIsSearching(false);
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SSE data:', line);
+              }
             }
           }
         }

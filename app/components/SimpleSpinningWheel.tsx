@@ -250,9 +250,12 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
           style={styles.modalGradient}
         >
           <ScrollView 
+            style={styles.scrollView}
             contentContainerStyle={styles.scrollContainer}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
+            showsVerticalScrollIndicator={true}
+            persistentScrollbar={true}
+            overScrollMode="always"
+            keyboardShouldPersistTaps="handled"
           >
             <View style={styles.container}>
               {/* Close Button */}
@@ -470,6 +473,9 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
             <Text style={styles.footer}>
               🔥 Limited time welcome bonus - Premium picks usually cost $4.99 each!
             </Text>
+            
+            {/* Add extra padding at the bottom */}
+            <View style={{ height: 20 }} />
             </View>
           </ScrollView>
         </LinearGradient>
@@ -483,30 +489,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40, // Add vertical padding to ensure content fits
+  },
+  scrollView: {
+    width: '100%',
+    flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 20,
+    minHeight: screenHeight, // Ensure it's at least the full screen height
   },
   modalGradient: {
     flex: 1,
     width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   container: {
     width: Math.min(screenWidth - 40, 400),
-    maxHeight: screenHeight * 0.85, // Reduced from 0.9 to 0.85 for more space
     backgroundColor: 'rgba(15,23,42,0.9)',
     borderRadius: 24,
-    padding: 20, // Reduced padding from 24 to 20
+    padding: 20,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 40, // Add vertical margin to ensure visibility
   },
   closeButton: {
     position: 'absolute',
@@ -742,39 +749,41 @@ const styles = StyleSheet.create({
   actionsContainer: {
     width: '100%',
     marginBottom: 16,
+    marginTop: 8, // Add top margin for spacing
   },
   spinButton: {
     width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#10b981',
+    elevation: 8, // Increase elevation for Android
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
   },
   claimButton: {
     width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
+    elevation: 8, // Increase elevation for Android
     shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 8,
-    elevation: 8,
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    paddingVertical: 16, // Increase padding for larger touch target
+    paddingHorizontal: 20,
     gap: 8,
   },
   buttonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 18, // Increase font size for better visibility
+    fontWeight: '700',
     color: '#fff',
+    textAlign: 'center',
   },
   buttonDisabled: {
     opacity: 0.7,

@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import time
 import re
+import urllib.parse
 
 # Load environment variables
 load_dotenv()
@@ -35,7 +36,7 @@ class IntelligentInsightsGenerator:
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         
         # Backend API settings
-        self.backend_url = os.getenv('BACKEND_URL', 'http://localhost:3001')
+        self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
         self.user_id = "admin_insights_generator"
         
         # Headers for web requests
@@ -151,6 +152,210 @@ class IntelligentInsightsGenerator:
             logger.error(f"Error querying StatMuse: {e}")
             return None
 
+    def web_search(self, query):
+        """Perform a web search using Brave Search API"""
+        try:
+            logger.info(f"🔍 Web Search Query: {query}")
+            
+            # Brave Search API endpoint
+            url = "https://api.search.brave.com/res/v1/web/search"
+            
+            # Request headers with API key
+            headers = {
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": "BSAeUgjDopknh3YccW-TDVSwdc4DKn7"
+            }
+            
+            # Request parameters
+            params = {
+                "q": query,
+                "count": 5,  # Number of results to return
+                "search_lang": "en"
+            }
+            
+            # Make the request
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                results = []
+                
+                # Extract search results
+                if 'web' in data and 'results' in data['web']:
+                    for result in data['web']['results']:
+                        results.append({
+                            'title': result.get('title', ''),
+                            'snippet': result.get('description', '')
+                        })
+                
+                logger.info(f"✅ Web search found {len(results)} results for: {query}")
+                
+                # Format the results for the AI
+                formatted_results = []
+                for i, result in enumerate(results[:5], 1):  # Limit to top 5 results
+                    formatted_results.append(f"{i}. {result['title']}: {result['snippet']}")
+                
+                return {
+                    'query': query,
+                    'results': formatted_results,
+                    'result_count': len(results)
+                }
+            else:
+                logger.warning(f"Web search query failed: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error performing web search: {e}")
+            return None
+            
+    def get_mock_search_results(self, query):
+        """Generate realistic mock search results based on the query"""
+        query_lower = query.lower()
+        results = []
+        
+        # Weather forecast results
+        if 'weather' in query_lower or 'forecast' in query_lower:
+            team_names = self.extract_team_names_from_query(query)
+            if team_names:
+                results = [
+                    {
+                        'title': f"Weather Forecast for {team_names[0]} vs {team_names[1]} Game",
+                        'snippet': f"Clear skies expected for tonight's game between {team_names[0]} and {team_names[1]}. Temperature around 72°F with light winds 5-10 mph blowing out to center field."
+                    },
+                    {
+                        'title': f"MLB Weather Report - {team_names[0]} Stadium Conditions",
+                        'snippet': f"Game day forecast shows perfect baseball weather with no precipitation expected. Humidity at 45% with moderate temperatures throughout the evening."
+                    },
+                    {
+                        'title': f"Baseball Weather Impact Analysis - {team_names[0]} vs {team_names[1]}",
+                        'snippet': f"Weather conditions should have minimal impact on tonight's game. Wind direction slightly favors hitters but not enough to significantly affect play."
+                    }
+                ]
+            
+        # Injury report results
+        elif 'injury' in query_lower or 'injuries' in query_lower:
+            team_names = self.extract_team_names_from_query(query)
+            if team_names:
+                results = [
+                    {
+                        'title': f"{team_names[0]} Injury Report - Latest Updates",
+                        'snippet': f"{team_names[0]} dealing with multiple injuries: starting shortstop (hamstring) listed as day-to-day, relief pitcher moved to 15-day IL with shoulder inflammation."
+                    },
+                    {
+                        'title': f"{team_names[1]} MLB Injury Tracker",
+                        'snippet': f"{team_names[1]} relatively healthy with only minor concerns. Starting center fielder returned to lineup yesterday after missing two games with back tightness."
+                    },
+                    {
+                        'title': f"MLB Injury News - Impact on {team_names[0]} vs {team_names[1]}",
+                        'snippet': f"Key matchup affected by {team_names[0]}'s injuries to bullpen. Team missing two relievers which could impact late-game situations against {team_names[1]}."
+                    }
+                ]
+        
+        # Starting pitcher results
+        elif 'pitcher' in query_lower or 'pitching' in query_lower:
+            team_names = self.extract_team_names_from_query(query)
+            if team_names:
+                results = [
+                    {
+                        'title': f"Probable Pitchers: {team_names[0]} vs {team_names[1]}",
+                        'snippet': f"{team_names[0]} sending their ace (3.24 ERA, 1.12 WHIP) to the mound against {team_names[1]}'s number three starter (4.56 ERA, 1.38 WHIP) in tonight's matchup."
+                    },
+                    {
+                        'title': f"{team_names[0]} Pitcher Analysis - Recent Performance",
+                        'snippet': f"Starting pitcher for {team_names[0]} has been strong at home with a 2.85 ERA in last 5 home starts. Strikeout rate up 8% compared to road games."
+                    },
+                    {
+                        'title': f"{team_names[1]} Starter Struggling with Command",
+                        'snippet': f"{team_names[1]}'s pitcher has walked 12 batters in his last 18 innings pitched. Control issues could be problematic against {team_names[0]}'s patient lineup."
+                    }
+                ]
+        
+        # General team matchup results
+        else:
+            team_names = self.extract_team_names_from_query(query)
+            if team_names:
+                results = [
+                    {
+                        'title': f"{team_names[0]} vs {team_names[1]} Preview and Analysis",
+                        'snippet': f"{team_names[0]} have won 7 of their last 10 meetings against {team_names[1]}, including a 3-game sweep in their most recent series."
+                    },
+                    {
+                        'title': f"MLB Matchup Stats: {team_names[0]} vs {team_names[1]}",
+                        'snippet': f"{team_names[0]} batting .275 against right-handed pitching this season while {team_names[1]} struggling with a team ERA of 4.85 over their last 12 games."
+                    },
+                    {
+                        'title': f"Inside Edge: {team_names[0]} vs {team_names[1]} Tonight",
+                        'snippet': f"{team_names[0]} have a significant advantage in bullpen performance with relievers posting a combined 3.25 ERA compared to {team_names[1]}'s 4.78 ERA in the last month."
+                    }
+                ]
+        
+        # If we couldn't extract team names or match a category, provide generic results
+        if not results:
+            results = [
+                {
+                    'title': "MLB Daily Analysis and Predictions",
+                    'snippet': "Breaking down today's MLB slate with key statistics, weather impacts, and injury updates affecting all matchups."
+                },
+                {
+                    'title': "Baseball Betting Insights - Today's Games",
+                    'snippet': "Expert analysis on pitching matchups, team trends, and statistical advantages for today's MLB games."
+                },
+                {
+                    'title': "MLB Weather and Field Conditions Report",
+                    'snippet': "Comprehensive weather forecast for all MLB stadiums with wind, temperature, and precipitation data that could impact game outcomes."
+                }
+            ]
+            
+        return results
+    
+    def extract_team_names_from_query(self, query):
+        """Extract team names from a search query"""
+        # Common MLB team names to look for
+        mlb_teams = [
+            "Angels", "Astros", "Athletics", "Blue Jays", "Braves", "Brewers", 
+            "Cardinals", "Cubs", "Diamondbacks", "Dodgers", "Giants", "Guardians", 
+            "Mariners", "Marlins", "Mets", "Nationals", "Orioles", "Padres", 
+            "Phillies", "Pirates", "Rangers", "Rays", "Red Sox", "Reds", 
+            "Rockies", "Royals", "Tigers", "Twins", "White Sox", "Yankees",
+            "Boston", "New York", "Chicago", "Los Angeles", "LA", "Toronto",
+            "Tampa Bay", "Kansas City", "San Diego", "San Francisco", "St. Louis",
+            "Colorado", "Arizona", "Texas", "Houston", "Seattle", "Cleveland",
+            "Cincinnati", "Pittsburgh", "Philadelphia", "Miami", "Atlanta",
+            "Detroit", "Minnesota", "Milwaukee", "Washington"
+        ]
+        
+        found_teams = []
+        query_words = query.split()
+        
+        # Look for team names in the query
+        for team in mlb_teams:
+            if team.lower() in query.lower():
+                found_teams.append(team)
+                
+        # If we found more than 2 teams, take the first 2
+        if len(found_teams) > 2:
+            found_teams = found_teams[:2]
+        
+        # If we found less than 2 teams, try to infer from query
+        if len(found_teams) < 2:
+            # Try to find "vs" or "versus" pattern
+            if " vs " in query.lower() or " versus " in query.lower():
+                parts = re.split(r'\s+vs\.?\s+|\s+versus\s+', query.lower())
+                if len(parts) >= 2:
+                    # Extract team names from parts
+                    for part in parts[:2]:
+                        words = part.split()
+                        for word in words:
+                            # Check if word could be a team name (capitalize first letter)
+                            potential_team = word.capitalize()
+                            if potential_team not in found_teams and len(potential_team) > 3:
+                                found_teams.append(potential_team)
+                                if len(found_teams) >= 2:
+                                    break
+        
+        return found_teams if len(found_teams) == 2 else None
+
     def format_games_data(self, games):
         """Format games data for AI consumption"""
         formatted_games = "📊 **UPCOMING GAMES WITH ODDS:**\n\n"
@@ -199,7 +404,7 @@ class IntelligentInsightsGenerator:
 {games_data}
 
 🎯 **YOUR MISSION:**
-Research these games using StatMuse queries and generate 8-10 valuable insights for sports bettors.
+Research these games using StatMuse queries and web searches to generate 5-8 valuable insights for sports bettors.
 
 **INSIGHT CATEGORIES:**
 You must assign ONE category to each insight:
@@ -218,8 +423,10 @@ You must assign ONE category to each insight:
 
 **RESEARCH & ATTRIBUTION:**
 - Query StatMuse for any stats you want to investigate
+- Use web search for weather, injuries, and recent news
 - Use "My research shows..." or "Analysis indicates..." for general findings
 - Use "StatMuse confirms..." only when you actually query StatMuse
+- Use "Web search reveals..." when referencing web search results
 - No fake website citations - just honest research language
 
 **ANALYTICAL APPROACH - NO BETTING PICKS:**
@@ -227,12 +434,14 @@ You must assign ONE category to each insight:
 - Example: "Team X has outperformed expectations on the road with a 8-2 record in their last 10 games"
 - NO betting recommendations: Don't say "take the over", "back the ML", "fade", etc.
 - NO promotional language: Don't say "easy money", "lock", "juice", "bankroll", etc.
+- DO NOT include any closing message, question, or call to action at the end
 
 **EXAMPLE FORMAT:**
 [CATEGORY: trends] StatMuse shows the Yankees are 12-3 in their last 15 home games, indicating strong home-field performance this season.
 [CATEGORY: pitcher] Analysis reveals the starting pitcher has a 2.85 ERA in his last 5 starts, showing consistent recent form.
+[CATEGORY: weather] Web search reveals 15-20 mph winds blowing out to center field tonight, potentially impacting fly balls and total runs.
 
-Generate 8-10 analytical insights using this exact format with categories."""
+Generate 5-8 analytical insights using this exact format with categories."""
 
             # Send to Professor Lock for intelligent analysis
             url = f"{self.backend_url}/api/ai/chat"
@@ -270,28 +479,37 @@ Generate 8-10 analytical insights using this exact format with categories."""
     def process_ai_statmuse_requests(self, ai_response, games):
         """Process any StatMuse queries the AI wants to make and enhance the response"""
         try:
-            logger.info("🔍 Processing AI's StatMuse research requests...")
+            logger.info("🔍 Processing AI's research requests...")
             
             # Generate intelligent queries based on actual games
             statmuse_queries = self.generate_intelligent_statmuse_queries(games)
+            web_search_queries = self.generate_intelligent_web_search_queries(games)
             
-            # Execute the most valuable queries
+            # Execute the most valuable StatMuse queries
             statmuse_results = []
-            for query in statmuse_queries[:6]:  # Limit to prevent overload
+            for query in statmuse_queries[:4]:  # Limit to prevent overload
                 result = self.query_statmuse(query)
                 if result:
                     statmuse_results.append(result)
                 time.sleep(2)  # Be respectful
             
+            # Execute web search queries
+            web_search_results = []
+            for query in web_search_queries[:3]:  # Limit to prevent overload
+                result = self.web_search(query)
+                if result:
+                    web_search_results.append(result)
+                time.sleep(2)  # Be respectful
+            
             # If AI found queries to make, enhance the response with real data
-            if statmuse_results:
-                enhanced_response = self.enhance_ai_response_with_statmuse(ai_response, statmuse_results)
+            if statmuse_results or web_search_results:
+                enhanced_response = self.enhance_ai_response_with_research(ai_response, statmuse_results, web_search_results)
                 return enhanced_response
             else:
                 return ai_response
                 
         except Exception as e:
-            logger.error(f"Error processing StatMuse requests: {e}")
+            logger.error(f"Error processing research requests: {e}")
             return ai_response
 
     def extract_statmuse_queries(self, ai_response):
@@ -333,26 +551,68 @@ Generate 8-10 analytical insights using this exact format with categories."""
         unique_queries = list(dict.fromkeys(queries))[:6]
         return unique_queries
 
-    def enhance_ai_response_with_statmuse(self, ai_response, statmuse_results):
-        """Enhance AI response with real StatMuse data"""
-        try:
-            logger.info("🔥 Enhancing AI response with real StatMuse data...")
+    def generate_intelligent_web_search_queries(self, games):
+        """Generate intelligent web search queries based on actual games"""
+        queries = []
+        
+        # Take first 3 games and generate relevant queries
+        for game in games[:3]:
+            home_team = game['home_team']
+            away_team = game['away_team']
             
-            # Create StatMuse data summary
-            statmuse_data = "\n\n🎯 **REAL STATMUSE DATA:**\n"
-            for result in statmuse_results:
-                statmuse_data += f"• {result['answer']}\n"
+            # Generate team-specific queries for most valuable insights
+            team_queries = [
+                f"{home_team} vs {away_team} weather forecast",
+                f"{home_team} {away_team} injury report",
+                f"{home_team} {away_team} starting pitchers today"
+            ]
+            
+            queries.extend(team_queries)
+        
+        # Remove duplicates and limit to most valuable
+        unique_queries = list(dict.fromkeys(queries))[:6]
+        return unique_queries
+
+    def enhance_ai_response_with_research(self, ai_response, statmuse_results, web_search_results):
+        """Enhance AI response with real research data"""
+        try:
+            logger.info("🔥 Enhancing AI response with real research data...")
+            
+            # Create research data summary
+            research_data = "\n\n🎯 **REAL RESEARCH DATA:**\n"
+            
+            # Add StatMuse results
+            if statmuse_results:
+                research_data += "\n**StatMuse Results:**\n"
+                for result in statmuse_results:
+                    research_data += f"• {result['answer']}\n"
+            
+            # Add Web Search results
+            if web_search_results:
+                research_data += "\n**Web Search Results:**\n"
+                for result in web_search_results:
+                    research_data += f"• Query: {result['query']}\n"
+                    for item in result['results']:
+                        research_data += f"  - {item}\n"
             
             # Send enhanced prompt to AI
             enhancement_prompt = f"""Here's your initial analysis:
 
 {ai_response}
 
-{statmuse_data}
+{research_data}
 
-Now enhance your insights using this REAL StatMuse data. Update your analysis to incorporate these actual statistics. Keep your insights focused and valuable - use "StatMuse confirms..." when referencing this data.
+Now enhance your insights using this REAL research data. Update your analysis to incorporate these actual statistics and information. Keep your insights focused and valuable.
 
-Generate your final 8-10 insights that combine your analysis with this real data."""
+For StatMuse data, use "StatMuse confirms..." when referencing this data.
+For web search data, use "Web search reveals..." when referencing this information.
+
+Generate your final 5-8 insights that combine your analysis with this real data. Remember to use the format:
+[CATEGORY: category_name] Your insight text here...
+
+Make sure to have a variety of categories including trends, pitcher, bullpen, injury, weather, matchup, and research.
+
+IMPORTANT: DO NOT include any closing message, question, or call to action at the end."""
 
             url = f"{self.backend_url}/api/ai/chat"
             
@@ -360,7 +620,7 @@ Generate your final 8-10 insights that combine your analysis with this real data
                 "message": enhancement_prompt,
                 "userId": self.user_id,
                 "context": {
-                    "screen": "statmuse_enhancement",
+                    "screen": "research_enhancement",
                     "userTier": "pro"
                 },
                 "conversationHistory": []
@@ -371,14 +631,14 @@ Generate your final 8-10 insights that combine your analysis with this real data
             if response.status_code == 200:
                 result = response.json()
                 enhanced_response = result.get('response', '')
-                logger.info("✅ Enhanced insights with real StatMuse data")
+                logger.info("✅ Enhanced insights with real research data")
                 return enhanced_response
             else:
                 logger.error(f"Enhancement failed: {response.status_code}")
                 return ai_response
                 
         except Exception as e:
-            logger.error(f"Error enhancing with StatMuse: {e}")
+            logger.error(f"Error enhancing with research data: {e}")
             return ai_response
 
     def parse_ai_insights(self, ai_response):
@@ -431,7 +691,7 @@ Generate your final 8-10 insights that combine your analysis with this real data
                     # Filter specific betting language
                     not any(pick_word in line.lower() for pick_word in ['take the', 'back the', 'pound the', 'hammer', 'fade', 'smash', 'solid play', 'easy money', 'strong pick', 'could be the move']) and
                     # Filter conclusion statements
-                    not any(conclusion in line.lower() for conclusion in ['which game you', 'let\'s roll', 'cash roll', 'should i whip', 'you vibin', 'there\'s the updated', 'hit me with', 'wanna ride', 'ready to parlay', 'thoughts?']) and
+                    not any(conclusion in line.lower() for conclusion in ['which game you', 'let\'s roll', 'cash roll', 'should i whip', 'you vibin', 'there\'s the updated', 'hit me with', 'wanna ride', 'ready to parlay', 'thoughts?', 'what\'s your next move', 'want me to', 'need anything else', 'any other questions', 'hope this helps']) and
                     # Filter promotional language
                     not any(promo in line.lower() for promo in ['bankroll builder', 'watch the cash', 'safe bet to pad'])):
                     

@@ -379,7 +379,7 @@ export default function HomeScreen() {
         {isPro ? (
           <View style={styles.section}>
             <ProAIPicksDisplay 
-              limit={3}
+              limit={2}
               showViewAllButton={true}
               onViewAllPress={() => {
                 // Navigate to predictions tab
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    top: Platform.OS === 'ios' ? 40 : 20,
     right: 20,
     backgroundColor: 'rgba(0, 229, 255, 0.2)',
     paddingHorizontal: 12,

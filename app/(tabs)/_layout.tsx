@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushToken } from '@/app/services/notificationService';
-import { View, useColorScheme } from 'react-native';
+import { View, useColorScheme, Text } from 'react-native';
 import { Settings, Calendar, Zap, Home } from 'lucide-react-native';
 import { AIChatProvider } from '@/app/services/aiChatContext';
 import FloatingAIChatButton from '@/app/components/FloatingAIChatButton';
@@ -78,7 +78,16 @@ export default function TabLayout() {
         name="predictions"
         options={{
           title: 'Predictions',
-          headerTitle: 'AI Predictions',
+          headerTitle: () => (
+            <View>
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 24, textAlign: 'center' }}>
+                PREDICTIVE PLAY
+              </Text>
+              <Text style={{ color: '#94A3B8', fontSize: 14, textAlign: 'center', marginTop: 2 }}>
+                Smart Betting, Powered by AI
+              </Text>
+            </View>
+          ),
           tabBarIcon: ({ color, size }) => (
             <Zap size={size} color={color} />
           ),

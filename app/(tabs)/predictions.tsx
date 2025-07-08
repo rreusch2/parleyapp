@@ -347,7 +347,7 @@ What are your thoughts on this prediction?`;
                     'Enjoying the 5 picks? Upgrade for 20 daily picks forever!' :
                     welcomeBonusActive ? 
                       'Love the bonus? Upgrade for 20 daily picks forever!' :
-                      'Unlock 20 daily picks (10 team + 10 player props) with Pro'}
+                      'Unlock all Pro features'}
                 </Text>
                 <ChevronRight size={16} color="#FFFFFF" />
               </LinearGradient>
@@ -506,8 +506,7 @@ What are your thoughts on this prediction?`;
                       </Text>
                       <Text style={styles.upgradeSubtitle}>Pro Feature</Text>
                       <Text style={styles.upgradeDescription}>
-                        Get 10 team picks (ML, spreads, totals) + 10 player props 
-                        with separate tabs, advanced filters, confidence scoring, 
+                        Get all daily AI-powered predictions with advanced filters, confidence scoring,
                         value betting analysis, and detailed AI reasoning.
                       </Text>
                       <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>
@@ -547,7 +546,7 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   headerStats: {
-    paddingVertical: 20,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     position: 'relative',
   },
@@ -582,7 +581,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
+    marginTop: 10,
   },
   statCard: {
     alignItems: 'center',

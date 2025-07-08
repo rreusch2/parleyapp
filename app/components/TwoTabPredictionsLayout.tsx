@@ -225,15 +225,10 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           {/* Centered Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleContainer}>
-              <Crown size={24} color="#00E5FF" />
+              <Crown size={20} color="#00E5FF" />
               <View style={styles.titleTextContainer}>
                 <Text style={styles.headerTitle}>Pro AI Predictions</Text>
-                <View style={styles.subtitleContainer}>
-                  <Target size={16} color="#10B981" />
-                  <Text style={styles.headerSubtitle}>
-                    20 Daily Picks ({activeTab === 'team' ? '10 Team + 10 Props' : '10 Props + 10 Team'})
-                  </Text>
-                </View>
+                
               </View>
               <Sparkles size={20} color="#00E5FF" />
             </View>
@@ -296,10 +291,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   header: {
-    padding: 20,
-    paddingTop: 30,
+    padding: 15,
+    paddingTop: 25,
     position: 'relative',
-    minHeight: 140,
+    minHeight: 110,
   },
   headerPattern: {
     position: 'absolute',
@@ -314,7 +309,7 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -323,10 +318,10 @@ const styles = StyleSheet.create({
   },
   titleTextContainer: {
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: 10,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -352,7 +347,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 229, 255, 0.12)',
     borderRadius: 22,
-    padding: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.25)',
     shadowColor: '#00E5FF',
@@ -369,16 +364,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
     color: '#00E5FF',
-    marginBottom: 4,
+    marginBottom: 2,
     textShadowColor: 'rgba(0, 229, 255, 0.4)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#CBD5E1',
     fontWeight: '600',
     textAlign: 'center',
@@ -386,7 +381,7 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    height: 32,
+    height: 24,
     backgroundColor: 'rgba(0, 229, 255, 0.3)',
     marginHorizontal: 8,
   },
@@ -402,14 +397,14 @@ const styles = StyleSheet.create({
       width: 0,
       height: -2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 3,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginHorizontal: 4,
     borderRadius: 14,
     backgroundColor: '#334155',
@@ -436,7 +431,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
   },
   tabTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#E2E8F0',
     letterSpacing: 0.3,
@@ -446,7 +441,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tabSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     marginTop: 2,
     fontWeight: '500',
@@ -458,28 +453,28 @@ const styles = StyleSheet.create({
   },
   countBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
     backgroundColor: '#00E5FF',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#FFFFFF',
     shadowColor: '#00E5FF',
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   countText: {
     color: 'white',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.1,
   },

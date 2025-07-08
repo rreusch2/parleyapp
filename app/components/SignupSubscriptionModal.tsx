@@ -35,6 +35,9 @@ import {
 import inAppPurchaseService from '../services/inAppPurchases';
 import { useSubscription } from '../services/subscriptionContext';
 import { DEV_CONFIG } from '../config/development';
+import Colors from '../constants/Colors';
+
+
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -178,7 +181,10 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#94A3B8" />
             </TouchableOpacity>
-            
+          </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Main Header - Now inside ScrollView */}
             <View style={styles.headerContent}>
               <View style={styles.crownContainer}>
                 <Crown size={40} color="#F59E0B" />
@@ -188,9 +194,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 Start your betting journey with Pro features
               </Text>
             </View>
-          </View>
-
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            
             {/* Value Proposition */}
             <View style={styles.valueSection}>
               <Text style={styles.sectionTitle}>Choose Your Experience</Text>
@@ -199,28 +203,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               </Text>
             </View>
 
-            {/* Quick Feature Comparison */}
-            <View style={styles.featuresSection}>
-              <Text style={styles.featuresTitle}>What You Get</Text>
-              <View style={styles.featuresGrid}>
-                {topFeatures.map((feature, index) => (
-                  <View key={index} style={styles.featureItem}>
-                    <View style={styles.featureIcon}>
-                      <feature.icon size={20} color="#00E5FF" />
-                    </View>
-                    <View style={styles.featureContent}>
-                      <Text style={styles.featureTitle}>{feature.title}</Text>
-                      <Text style={styles.featureDescription}>{feature.description}</Text>
-                      <View style={styles.featureHighlight}>
-                        <Text style={styles.featureHighlightText}>{feature.highlight}</Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Pricing Plans - Simplified */}
+            {/* Pricing Plans - Moved before features */}
             <View style={styles.pricingSection}>
               {/* Yearly Plan - Featured */}
               <TouchableOpacity
@@ -244,12 +227,18 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>Yearly Pro</Text>
                       <View style={styles.yearlyPricing}>
-                        <Text style={styles.planPrice}>$149.99</Text>
+                        <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$399.98</Text>
+                        <Text style={styles.planPrice}>$199.99</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
                         <View style={styles.savingsBadge}>
                           <Text style={styles.savingsText}>Save 53%</Text>
                         </View>
                       </View>
-                      <Text style={styles.planPeriod}>$12.50/month • billed yearly</Text>
+                      <Text style={styles.planPeriod}>$16.67/month • billed annually</Text>
                     </View>
                     {selectedPlan === 'yearly' && (
                       <View style={styles.selectedIndicator}>
@@ -279,8 +268,15 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                   <View style={styles.planHeader}>
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>Monthly Pro</Text>
-                      <Text style={styles.planPrice}>$26.70</Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$49.98</Text>
+                        <Text style={styles.planPrice}>$24.99</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
                       <Text style={styles.planPeriod}>per month</Text>
+                      <Text style={styles.dailyPrice}>($0.83 / day)</Text>
                     </View>
                     {selectedPlan === 'monthly' && (
                       <View style={styles.selectedIndicator}>
@@ -318,7 +314,13 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                         <Text style={styles.planName}>Lifetime Pro</Text>
                         <Infinity size={18} color="#F59E0B" style={{ marginLeft: 8 }} />
                       </View>
-                      <Text style={styles.planPrice}>$349.99</Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.originalPriceText}>$699.98</Text>
+                        <Text style={styles.planPrice}>$349.99</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
                       <Text style={styles.planPeriod}>one-time payment</Text>
                     </View>
                     {selectedPlan === 'lifetime' && (
@@ -329,6 +331,35 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
+            </View>
+
+            {/* Monthly Pro Giveaway - Positioned between pricing and features */}
+            <View style={styles.giveawayContainer}>
+              <Gift size={20} color="#F59E0B" />
+              <Text style={styles.giveawayText}>
+                All Monthly Pro members are entered in a monthly giveaway to win a free Yearly Pro subscription!
+              </Text>
+            </View>
+
+            {/* Quick Feature Comparison - After pricing */}
+            <View style={styles.featuresSection}>
+              <Text style={styles.featuresTitle}>What You Get</Text>
+              <View style={styles.featuresGrid}>
+                {topFeatures.map((feature, index) => (
+                  <View key={index} style={styles.featureItem}>
+                    <View style={styles.featureIcon}>
+                      <feature.icon size={20} color="#00E5FF" />
+                    </View>
+                    <View style={styles.featureContent}>
+                      <Text style={styles.featureTitle}>{feature.title}</Text>
+                      <Text style={styles.featureDescription}>{feature.description}</Text>
+                      <View style={styles.featureHighlight}>
+                        <Text style={styles.featureHighlightText}>{feature.highlight}</Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
             </View>
           </ScrollView>
 
@@ -376,7 +407,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               </View>
             </TouchableOpacity>
 
-                         {/* Benefit Reminder */}
+            {/* Benefit Reminder */}
              <View style={styles.benefitReminder}>
                <Text style={styles.benefitText}>
                  Free: 2 daily picks • Pro: 20 daily AI picks + advanced features
@@ -405,7 +436,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 0, // Reduced padding bottom
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -418,7 +449,9 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10, // Reduced margin
+    marginBottom: 10, // Added margin bottom
+    paddingHorizontal: 20,
   },
   crownContainer: {
     width: 80,
@@ -448,7 +481,7 @@ const styles = StyleSheet.create({
   },
   valueSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginVertical: 16, // Adjusted vertical margin
   },
   sectionTitle: {
     fontSize: 20,
@@ -467,7 +500,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   featuresTitle: {
-    fontSize: 18,
+    fontSize: 20, // Increased size
     fontWeight: '600',
     color: '#FFFFFF',
     marginBottom: 16,
@@ -484,6 +517,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 8, // Added spacing between features
   },
   featureIcon: {
     width: 40,
@@ -594,14 +628,46 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   planPrice: {
-    fontSize: 24,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFFFFF', // Changed to white for better contrast
+    letterSpacing: 0.5,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // Removed justifyContent: 'center' to align left
+    marginTop: 10,
+  },
+  originalPriceText: {
+    fontSize: 20,
+    color: '#E2E8F0', // Slightly lighter grey for better contrast
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+    fontWeight: '600',
+  },
+  discountBadge: {
+    backgroundColor: '#FFD700', // Gold color for discount
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  discountText: {
+    color: Colors.light.background,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 2,
   },
   planPeriod: {
     fontSize: 14,
     color: '#E2E8F0',
+    textAlign: 'left', // Align to left
+  },
+  dailyPrice: {
+    fontSize: 12,
+    color: '#A0AEC0',
+    textAlign: 'left',
+    marginTop: 2,
   },
   yearlyPricing: {
     flexDirection: 'row',
@@ -683,6 +749,24 @@ const styles = StyleSheet.create({
     color: '#10B981',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  giveawayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+  },
+  giveawayText: {
+    fontSize: 15,
+    color: '#F59E0B',
+    fontWeight: '600',
+    marginLeft: 12,
+    flex: 1,
   },
   termsContainer: {
     alignItems: 'center',
