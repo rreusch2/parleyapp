@@ -5,7 +5,8 @@ import { Expo } from 'expo-server-sdk';
 
 const expo = new Expo();
 
-// [REMOVED] Game start notifications logic has been removed as per user request.
+// Function to get users who have subscribed to game start notifications
+async function getSubscribedUsersForGameStart() {
   const { data, error } = await supabase
     .from('profiles')
     .select('id, push_token, notification_settings')
@@ -20,7 +21,8 @@ const expo = new Expo();
   return data;
 }
 
-
+// Function to send notifications for games starting soon
+async function sendGameStartNotifications() {
   const users = await getSubscribedUsersForGameStart();
   if (users.length === 0) {
     return;
@@ -66,10 +68,14 @@ const expo = new Expo();
   }
 }
 
-
-  // Run every minute
+// Initialize notification schedulers
+function initNotificationSchedulers() {
+  // Run game start notifications every minute
   cron.schedule('* * * * *', () => {
     console.log('Running game start notification scheduler...');
     sendGameStartNotifications();
   });
 }
+
+export { initNotificationSchedulers };
+
