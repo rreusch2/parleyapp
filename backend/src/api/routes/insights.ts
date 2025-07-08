@@ -94,7 +94,7 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
     // Set longer timeout for this operation
     req.setTimeout(120000); // 2 minutes
 
-    const scriptPath = path.join(__dirname, '../../../../enhanced_intelligent_insights.py');
+    const scriptPath = path.join(__dirname, '../../../../insights.py');
     
     logger.info(`📁 Running Python script: ${scriptPath}`);
 
