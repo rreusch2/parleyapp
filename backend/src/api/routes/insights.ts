@@ -34,13 +34,14 @@ router.get('/daily-professor-lock', async (req, res) => {
   try {
     logger.info('📊 Fetching Daily AI Insights');
 
-    // Get insights from today (or most recent)
-    const today = new Date().toISOString().split('T')[0];
+    // Get insights from today or last 24 hours
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
     
     const { data: insights, error } = await supabase
       .from('ai_insights')
       .select('*')
-      .gte('created_at', today)
+      .gte('created_at', yesterday.toISOString())
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -131,12 +132,13 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
 
       try {
         // Fetch the newly generated insights
-        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
         
         const { data: newInsights, error } = await supabase
           .from('ai_insights')
           .select('*')
-          .gte('created_at', today)
+          .gte('created_at', yesterday.toISOString())
           .order('created_at', { ascending: false });
 
         if (error) {
