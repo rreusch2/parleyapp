@@ -37,7 +37,7 @@ router.get('/daily-professor-lock', async (req, res) => {
     // Get insights from today (or most recent)
     const today = new Date().toISOString().split('T')[0];
     
-    const today = new Date().toISOString().slice(0, 10); // Get YYYY-MM-DD
+    
 
     const { data: insights, error } = await supabase
       .from('daily_professor_insights')
