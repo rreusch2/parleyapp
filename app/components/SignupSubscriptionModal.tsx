@@ -82,33 +82,23 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
     try {
       setLoading(true);
       
-      // Check if test mode is enabled
-      if (__DEV__ || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION) {
-        console.log('🧪 Test mode: Using subscription context for Pro upgrade');
-        const success = await subscribeToPro(selectedPlan);
-        if (success) {
-          onClose();
-          return;
-        }
-      } else {
-        // Production mode: Use IAP service
-        const productId = getProductId(selectedPlan);
-        
-        if (!productId) {
-          throw new Error('Product not available');
-        }
-
-        // Use IAP service to purchase
-        await inAppPurchaseService.purchaseSubscription(productId);
-        
-        // Call the optional callback if provided
-        if (onSubscribe) {
-          await onSubscribe(selectedPlan);
-        }
-        
-        // Close modal on success
-        onClose();
+      // Production mode: Use IAP service
+      const productId = getProductId(selectedPlan);
+      
+      if (!productId) {
+        throw new Error('Product not available');
       }
+
+      // Use IAP service to purchase
+      await inAppPurchaseService.purchaseSubscription(productId);
+      
+      // Call the optional callback if provided
+      if (onSubscribe) {
+        await onSubscribe(selectedPlan);
+      }
+      
+      // Close modal on success
+      onClose();
     } catch (error) {
       console.error('Subscription error:', error);
       Alert.alert('Error', 'Failed to process subscription. Please try again.');
@@ -385,9 +375,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 <Text style={styles.subscribeText}>
                   {loading 
                     ? 'Processing...' 
-                    : (__DEV__ || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION)
-                      ? `🧪 Test ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro (Free)`
-                      : `Start ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
+                    : `Start ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
                   }
                 </Text>
                 <ChevronRight size={20} color="#FFFFFF" />

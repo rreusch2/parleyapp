@@ -39,6 +39,8 @@ import { useSubscription } from '../services/subscriptionContext';
 import HelpCenterModal from '../components/HelpCenterModal';
 import FeedbackModal from '../components/FeedbackModal';
 import AboutModal from '../components/AboutModal';
+import TermsOfServiceModal from '../components/TermsOfServiceModal';
+import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
 
 interface UserProfile {
@@ -66,6 +68,8 @@ export default function SettingsScreen() {
   const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Change password state
@@ -443,6 +447,14 @@ export default function SettingsScreen() {
         setShowAboutModal(true);
         break;
       
+      case 'terms':
+        setShowTermsModal(true);
+        break;
+        
+      case 'privacy':
+        setShowPrivacyModal(true);
+        break;
+      
       default:
         Alert.alert('Coming Soon', 'This feature will be available in a future update.');
         break;
@@ -551,6 +563,8 @@ export default function SettingsScreen() {
         { id: 'help', title: 'Help Center', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
         { id: 'about', title: 'About Predictive Play', type: 'link' },
+        { id: 'terms', title: 'Terms of Service', type: 'link' },
+        { id: 'privacy', title: 'Privacy Policy', type: 'link' },
       ]
     }
   ];
@@ -899,7 +913,7 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Help Center Modal */}
-      <HelpCenterModal
+      <HelpCenterModal 
         visible={showHelpCenterModal}
         onClose={() => setShowHelpCenterModal(false)}
       />
@@ -909,11 +923,23 @@ export default function SettingsScreen() {
         visible={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
       />
-
+      
       {/* About Modal */}
       <AboutModal
         visible={showAboutModal}
         onClose={() => setShowAboutModal(false)}
+      />
+      
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
+      
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
       />
     </ScrollView>
   );
