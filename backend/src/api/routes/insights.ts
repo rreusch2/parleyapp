@@ -37,12 +37,13 @@ router.get('/daily-professor-lock', async (req, res) => {
     // Get insights from today (or most recent)
     const today = new Date().toISOString().split('T')[0];
     
+    const today = new Date().toISOString().slice(0, 10); // Get YYYY-MM-DD
+
     const { data: insights, error } = await supabase
       .from('daily_professor_insights')
       .select('*')
-      .gte('created_at', today)
-      .order('created_at', { ascending: false })
-      .order('insight_order', { ascending: true });
+      .eq('date_generated', today) // Filter by today's date
+      .order('insight_order', { ascending: true }); // Order by insight_order
 
     if (error) {
       logger.error('Database error fetching insights:', error);
