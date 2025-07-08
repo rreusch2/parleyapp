@@ -11,8 +11,11 @@ import {
   Animated,
   Modal,
   Dimensions,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  Keyboard
 } from 'react-native';
+import EventSource from 'react-native-sse';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   MessageCircle,
@@ -189,6 +192,64 @@ export default function ProAIChat({
   const [dotAnimation1] = useState(new Animated.Value(0));
   const [dotAnimation2] = useState(new Animated.Value(0));
   const [dotAnimation3] = useState(new Animated.Value(0));
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Add keyboard listeners with height detection
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      'keyboardWillShow',
+      (e) => {
+        // Store keyboard height
+        setKeyboardHeight(e.endCoordinates.height);
+        setKeyboardVisible(true);
+        // Scroll to bottom with a small delay to ensure the keyboard is fully shown
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+    
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      (e) => {
+        // Fallback for Android
+        if (Platform.OS !== 'ios') {
+          setKeyboardHeight(e.endCoordinates.height);
+          setKeyboardVisible(true);
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
+      }
+    );
+    
+    const keyboardWillHideListener = Keyboard.addListener(
+      'keyboardWillHide',
+      () => {
+        setKeyboardVisible(false);
+        setKeyboardHeight(0);
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        // Fallback for Android
+        if (Platform.OS !== 'ios') {
+          setKeyboardVisible(false);
+          setKeyboardHeight(0);
+        }
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardDidShowListener.remove();
+      keyboardWillHideListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (showAIChat && isPro) {
@@ -330,246 +391,162 @@ export default function ProAIChat({
 
       setMessages(prev => [...prev, aiMessage]);
 
-      // Call the streaming Grok chatbot API
+      // Call the streaming Grok chatbot API using SSE for real-time streaming
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       
-      // Use text/event-stream compatible approach for iOS
-      const fetchUrl = `${baseUrl}/api/ai/chat/stream`;
-      const fetchOptions = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
-        body: JSON.stringify({
+      try {
+        // Use react-native-sse for real-time streaming
+        const userId = await getCurrentUserId();
+        const requestBody = JSON.stringify({
           message: messageText,
-          userId: await getCurrentUserId(), // Fixed typo: 'us' -> 'userId'
+          userId: userId,
           context: {
             screen: chatContext?.screen || 'chat',
             selectedPick: selectedPick,
             userTier: isPro ? 'pro' : 'free',
-            maxPicks: isPro ? 10 : 2 // Pro gets 10 picks, Free gets 2
+            maxPicks: isPro ? 10 : 2
           },
           conversationHistory: messages.map(msg => ({
             role: msg.isUser ? 'user' : 'assistant',
             content: msg.text,
             timestamp: msg.timestamp.toISOString()
           }))
-        })
-      };
+        });
 
-      // Create a cross-platform compatible approach for handling streaming responses
-      if (Platform.OS === 'ios') {
-        // iOS requires a different approach since ReadableStream may not be fully supported
-        const response = await fetch(fetchUrl, fetchOptions);
+        console.log('🌊 Starting SSE connection for chat streaming');
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Get the full response text and process as a string
-        const responseText = await response.text();
-        
-        // Process the response as if it was streamed
-        const lines = responseText.split('\n');
-        
-        // First, handle any search or status events
-        let hasWebSearch = false;
+        // Create a new EventSource connection to the server
+        const eventSource = new EventSource(`${baseUrl}/api/ai/chat/stream`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+          },
+          method: 'POST',
+          body: requestBody
+        });
+
         let searchMessage: ChatMessage | null = null;
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
+
+        // Handle incoming messages
+        eventSource.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📩 SSE message received:', data.type);
+            
+            if (data.type === 'start') {
+              // Initial status - keep typing indicator
+              setIsTyping(true);
+              setIsSearching(false);
+            } else if (data.type === 'web_search') {
+              // Web search started - add search bubble
+              const searchMessageId = `search_${Date.now()}`;
+              searchMessage = {
+                id: searchMessageId,
+                text: '',
+                isUser: false,
+                timestamp: new Date(),
+                isSearching: true,
+                searchQuery: data.message || 'Searching for latest sports news...'
+              };
               
-              if (data.type === 'web_search') {
-                // Web search started - add search bubble as a message
-                const searchMessageId = `search_${Date.now()}`;
-                searchMessage = {
-                  id: searchMessageId,
-                  text: '',
-                  isUser: false,
-                  timestamp: new Date(),
-                  isSearching: true,
-                  searchQuery: data.message || 'Searching for latest sports news...'
-                };
+              setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
+              setIsSearching(true);
+              setIsTyping(false);
+              
+              // Scroll to show the search message
+              setTimeout(() => {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            } else if (data.type === 'chunk') {
+              // Remove search bubble if it exists
+              if (searchMessage) {
+                setMessages(prev => prev.filter(msg => !msg.isSearching));
+                searchMessage = null;
+                setIsSearching(false);
+              }
+              
+              // Add content chunk
+              if (data.content) {
+                setMessages(prev => prev.map(msg => 
+                  msg.id === aiMessageId 
+                    ? { ...msg, text: msg.text + data.content }
+                    : msg
+                ));
                 
-                setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
-                setIsSearching(true);
-                setIsTyping(false);
-                hasWebSearch = true;
-                
+                // Scroll as content comes in
                 setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: true });
-                }, 100);
+                  flatListRef.current?.scrollToEnd({ animated: false });
+                }, 50);
               }
-            } catch (parseError) {
-              console.warn('Failed to parse SSE data:', line);
-            }
-          }
-        }
-        
-        // Give the search message time to display before continuing
-        if (hasWebSearch) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-        
-        // Remove search bubble if it exists
-        if (searchMessage) {
-          setMessages(prev => prev.filter(msg => !msg.isSearching));
-          setIsSearching(false);
-        }
-        
-        // Now, process the actual content - but simulate streaming for better UX
-        let fullContent = '';
-        let toolsUsed: string[] = [];
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
+            } else if (data.type === 'complete') {
+              // Final message with metadata
+              setMessages(prev => prev.map(msg => 
+                msg.id === aiMessageId 
+                  ? { ...msg, toolsUsed: data.toolsUsed || [] }
+                  : msg
+              ));
+              setIsTyping(false);
+              setIsSearching(false);
               
-              if (data.type === 'chunk' && data.content) {
-                fullContent += data.content;
-              } else if (data.type === 'complete') {
-                toolsUsed = data.toolsUsed || [];
-              }
-            } catch (parseError) {
-              // Ignore parse errors for this pass
+              // Close the connection when complete
+              eventSource.close();
+              console.log('✅ SSE connection closed - message complete');
+            } else if (data.type === 'error') {
+              // Error occurred
+              setMessages(prev => prev.map(msg => 
+                msg.id === aiMessageId 
+                  ? { ...msg, text: data.content || "An error occurred" }
+                  : msg
+              ));
+              setIsTyping(false);
+              setIsSearching(false);
+              
+              // Close the connection on error
+              eventSource.close();
+              console.log('❌ SSE connection closed - error occurred');
             }
+          } catch (parseError) {
+            console.warn('Failed to parse SSE data:', event.data);
           }
-        }
-        
-        // If we have content, simulate streaming by adding characters one by one
-        if (fullContent) {
-          // Break into smaller chunks for more natural streaming simulation
-          const chunks = fullContent.match(/.{1,5}/g) || [];
+        });
+
+        // Handle connection open
+        eventSource.addEventListener('open', () => {
+          console.log('🟢 SSE connection opened');
+        });
+
+        // Handle errors
+        eventSource.addEventListener('error', (error) => {
+          console.error('SSE error:', error);
           
-          for (const chunk of chunks) {
-            setMessages(prev => prev.map(msg => 
-              msg.id === aiMessageId 
-                ? { ...msg, text: msg.text + chunk }
-                : msg
-            ));
-            
-            // Small random delay between chunks for natural effect
-            await new Promise(resolve => setTimeout(resolve, Math.random() * 30 + 20));
-            
-            // Auto-scroll as content comes in
-            setTimeout(() => {
-              flatListRef.current?.scrollToEnd({ animated: false });
-            }, 10);
-          }
-          
-          // Finally, update with any toolsUsed metadata
+          // Update the message with error information
           setMessages(prev => prev.map(msg => 
             msg.id === aiMessageId 
-              ? { ...msg, toolsUsed }
+              ? { ...msg, text: "Sorry, hit a technical issue with streaming. Try again in a sec! 🔧" }
               : msg
           ));
-        }
+          
+          setIsTyping(false);
+          setIsSearching(false);
+          
+          // Close the connection on error
+          eventSource.close();
+          console.log('❌ SSE connection closed due to error');
+        });
+      } catch (error) {
+        console.error('Streaming error:', error);
         
+        // Add error message
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 2).toString(),
+          text: "Sorry, hit a technical issue with streaming. Try again in a sec! 🔧",
+          isUser: false,
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => [...prev, errorMessage]);
         setIsTyping(false);
         setIsSearching(false);
-      } else {
-        // For Android and web, use the streaming API approach
-        const response = await fetch(fetchUrl, fetchOptions);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to get response from Grok: ${response.status}`);
-        }
-
-        if (!response.body) {
-          throw new Error('No response body for streaming');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          
-          if (done) break;
-          
-          // Decode the chunk and add to buffer
-          const chunk = decoder.decode(value, { stream: true });
-          buffer += chunk;
-          
-          // Process complete lines in the buffer
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep the incomplete line in the buffer
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                
-                if (data.type === 'start') {
-                  // Initial status - keep typing indicator
-                  setIsTyping(true);
-                  setIsSearching(false);
-                } else if (data.type === 'web_search') {
-                  // Web search started - add search bubble as a message
-                  const searchMessageId = `search_${Date.now()}`;
-                  const searchMessage: ChatMessage = {
-                    id: searchMessageId,
-                    text: '',
-                    isUser: false,
-                    timestamp: new Date(),
-                    isSearching: true,
-                    searchQuery: data.message || 'Searching for latest sports news...'
-                  };
-                  
-                  setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
-                  setIsSearching(true);
-                  setIsTyping(false);
-                  
-                  setTimeout(() => {
-                    flatListRef.current?.scrollToEnd({ animated: true });
-                  }, 100);
-                } else if (data.type === 'chunk') {
-                  // Remove search bubble and start streaming
-                  setMessages(prev => prev.filter(msg => !msg.isSearching));
-                  setIsSearching(false);
-                  setIsTyping(false);
-                  
-                  // Append chunk to AI message
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === aiMessageId 
-                      ? { ...msg, text: msg.text + data.content }
-                      : msg
-                  ));
-                  
-                  // Auto-scroll as content comes in
-                  setTimeout(() => {
-                    flatListRef.current?.scrollToEnd({ animated: false });
-                  }, 10);
-                } else if (data.type === 'complete') {
-                  // Final message with metadata
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === aiMessageId 
-                      ? { ...msg, toolsUsed: data.toolsUsed || [] }
-                      : msg
-                  ));
-                  setIsTyping(false);
-                  setIsSearching(false);
-                } else if (data.type === 'error') {
-                  // Error occurred
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === aiMessageId 
-                      ? { ...msg, text: data.content || "An error occurred" }
-                      : msg
-                  ));
-                  setIsTyping(false);
-                  setIsSearching(false);
-                }
-              } catch (parseError) {
-                console.warn('Failed to parse SSE data:', line);
-              }
-            }
-          }
-        }
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -591,7 +568,7 @@ export default function ProAIChat({
 
   const quickActions = [
     { icon: '🔒', text: "Today's Locks", action: "Show me today's locks, Professor" },
-    { icon: '🎲', text: "Build Parlay", action: "Build me a 3-leg parlay with your best picks" },
+    { icon: '🎲', text: "Build Parlay", action: "Build me a smart parlay from your latest predictions" },
     { icon: '🌐', text: "Latest Sports News", action: "What's the latest news in sports?" },
     { icon: '🎯', text: "Bankroll Tips", action: "Give me your top bankroll management tips" }
   ];
@@ -707,11 +684,31 @@ export default function ProAIChat({
     );
   };
 
+  // Welcome message to display when no messages
+  const renderWelcomeMessage = () => {
+    if (messages.length === 0) {
+      return (
+        <View style={styles.welcomeContainer}>
+          <View style={styles.welcomeIconContainer}>
+            <Brain size={32} color="#00E5FF" />
+          </View>
+          <Text style={styles.welcomeTitle}>Professor Lock</Text>
+          <Text style={styles.welcomeSubtitle}>Your AI Betting Advisor</Text>
+          <Text style={styles.welcomeText}>
+            Ask me about picks, betting strategies, or latest sports news. I'll help you make sharp plays.
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
     <Modal visible={showAIChat} animationType="slide" presentationStyle="pageSheet">
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
         {/* Header */}
         <LinearGradient
@@ -728,7 +725,6 @@ export default function ProAIChat({
               </Animated.View>
               <Text style={styles.headerTitle}>Professor Lock</Text>
             </View>
-            <Text style={styles.headerSubtitle}>Powered by Grok-3</Text>
           </View>
           <View style={styles.statusIndicator}>
             <View style={styles.onlineIndicator} />
@@ -743,9 +739,19 @@ export default function ProAIChat({
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
           style={styles.messagesList}
-          contentContainerStyle={styles.messagesContainer}
+          contentContainerStyle={[
+            styles.messagesContainer,
+            keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 20 },
+            messages.length === 0 && { flexGrow: 1, justifyContent: 'center' }
+          ]}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onContentSizeChange={() => {
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+          ListEmptyComponent={renderWelcomeMessage}
+          // Remove the keyboard dismiss on scroll which caused the keyboard to disappear
         />
 
 
@@ -766,17 +772,16 @@ export default function ProAIChat({
           </View>
         )}
 
-        {/* Quick Actions */}
-        {messages.length <= 1 && (
-          <View style={styles.quickActionsContainer}>
+        {/* Quick Actions - Hide when keyboard is visible on iOS */}
+        {messages.length <= 1 && !keyboardVisible && (
+          <View style={[styles.quickActionsContainer, { maxHeight: 200, overflow: 'scroll' }]}>
             <Text style={styles.quickActionsTitle}>Quick Plays:</Text>
-            <View style={styles.quickActions}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
               {quickActions.map((action, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.quickActionButton}
+                  style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
                   onPress={() => {
-                    // Quick actions should always populate input field - restriction only applies when sending
                     setInputText(action.action);
                   }}
                 >
@@ -784,15 +789,14 @@ export default function ProAIChat({
                   <Text style={styles.quickActionText}>{action.text}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
             
             {/* Parlay Quick Options */}
-            <Text style={[styles.quickActionsTitle, { marginTop: 16, marginBottom: 8 }]}>Parlay Builder:</Text>
-            <View style={styles.quickActions}>
+            <Text style={[styles.quickActionsTitle, { marginTop: 8, marginBottom: 8 }]}>Parlay Builder:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <TouchableOpacity
-                style={styles.quickActionButton}
+                style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
                 onPress={() => {
-                  // Quick actions should always populate input field - restriction only applies when sending
                   setInputText("Build me a safe 2-leg parlay");
                 }}
               >
@@ -800,16 +804,15 @@ export default function ProAIChat({
                 <Text style={styles.quickActionText}>2-Leg Safe</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.quickActionButton}
+                style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
                 onPress={() => {
-                  // Quick actions should always populate input field - restriction only applies when sending
                   setInputText("Give me a 4-leg parlay for bigger payout");
                 }}
               >
                 <Text style={styles.quickActionIcon}>🔥</Text>
                 <Text style={styles.quickActionText}>4-Leg Risky</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           </View>
         )}
 
@@ -824,7 +827,10 @@ export default function ProAIChat({
         </View>
 
         {/* Input */}
-        <View style={styles.inputContainer}>
+        <View style={[
+          styles.inputContainer, 
+          keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0, paddingTop: 8 }
+        ]}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.textInput}
@@ -1024,16 +1030,16 @@ const styles = StyleSheet.create({
 
   quickActionsContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     backgroundColor: '#0F172A',
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
   quickActionsTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   quickActions: {
     flexDirection: 'row',
@@ -1044,13 +1050,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderRadius: 16,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
     marginBottom: 8,
-    width: '48%',
+    minWidth: 120,
   },
   quickActionIcon: {
     fontSize: 14,
@@ -1060,11 +1066,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#E2E8F0',
     fontWeight: '500',
-    flex: 1,
   },
   inputContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     backgroundColor: '#0F172A',
     borderTopWidth: 1,
     borderTopColor: '#334155',
@@ -1077,14 +1082,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    marginBottom: Platform.OS === 'ios' ? 0 : 0,
   },
   textInput: {
     flex: 1,
     fontSize: 15,
     color: '#E2E8F0',
-    maxHeight: 120,
-    paddingVertical: 10,
+    maxHeight: 100,
+    paddingVertical: 8,
     paddingRight: 12,
     lineHeight: 22,
     fontWeight: '400',
@@ -1194,5 +1200,39 @@ const styles = StyleSheet.create({
     color: '#00E5FF',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  
+  // Welcome message styles
+  welcomeContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#00E5FF',
+    marginBottom: 16,
+  },
+  welcomeText: {
+    fontSize: 15,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 22,
   },
 }); 

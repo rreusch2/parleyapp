@@ -212,6 +212,41 @@ export class ChatbotOrchestrator {
   }
 
   /**
+   * Get the latest 20 AI predictions for parlay building
+   */
+  private async getLatest20Predictions() {
+    try {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrowEnd = new Date(todayStart);
+      tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
+      
+      const { data: predictions, error } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('status', 'pending') // Only active predictions
+        .gte('event_time', todayStart.toISOString()) // Only current/future games
+        .lte('event_time', tomorrowEnd.toISOString()) // Not too far in future
+        .not('match_teams', 'ilike', '%sample%') // Exclude sample data
+        .not('match_teams', 'ilike', '%demo%') // Exclude demo data
+        .not('match_teams', 'ilike', '%test%') // Exclude test data
+        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Only picks from last 7 days
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        logger.error(`Error fetching latest 20 predictions: ${error.message}`);
+        return [];
+      }
+
+      return predictions || [];
+    } catch (error) {
+      logger.error(`Error in getLatest20Predictions: ${error}`);
+      return [];
+    }
+  }
+
+  /**
    * Get current app data (the 10 daily picks, trends, etc.)
    */
   private async getAppData(userId: string) {
@@ -237,6 +272,9 @@ export class ChatbotOrchestrator {
         .order('confidence', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(15);
+
+      // Get latest 20 predictions for parlay building
+      const latest20Predictions = await this.getLatest20Predictions();
 
       if (picksError) {
         logger.error(`Error fetching today's picks: ${picksError.message}`);
@@ -295,6 +333,7 @@ export class ChatbotOrchestrator {
 
       return {
         todaysPicks: uniqueGamePicks || [],
+        latest20Predictions: latest20Predictions,
         injuries: injuries,
         news: news,
         timestamp: new Date().toISOString()
@@ -351,6 +390,7 @@ export class ChatbotOrchestrator {
     const picksCount = appData.todaysPicks.length;
     const injuriesCount = appData.injuries.length;
     const newsCount = appData.news.length;
+    const latest20Count = appData.latest20Predictions.length;
     
     // Determine user tier and pick limits
     const userTier = context.userTier || 'free';
@@ -381,6 +421,7 @@ ${isProUser ? '' : `
 
 CURRENT DATA:
 📊 ${displayPicksCount} locks loaded${isProUser ? '' : ` (Free tier limit: ${maxPicks})`}
+🎲 ${latest20Count} recent predictions available for parlay building
 🏥 ${injuriesCount} injury reports tracked
 📰 ${newsCount} news stories monitored
 
@@ -422,13 +463,25 @@ MARKDOWN FORMATTING:
 ✅ Clean and minimal - let the content and picks shine
 
 PARLAY BUILDING EXPERTISE:
-When users ask for parlays (2-leg, 3-leg, 4-leg, etc.):
-✅ Select picks from available locks with highest confidence
-✅ Balance chalk (safe favorites) with value dogs for better payouts
-✅ Avoid correlated games (same sport, division rivals on same day)
-✅ Always mention bankroll management (1-2% max on parlays)
-✅ Give brief reasoning for each leg
-✅ Keep parlay recommendations concise but complete
+When users ask for parlays, you have access to the latest 20 AI predictions. Use your intelligence to:
+✅ **ANALYZE USER INTENT**: Safe parlay (higher confidence picks), risky parlay (higher odds), specific number of legs, etc.
+✅ **SMART SELECTION**: Choose from the 20 recent predictions based on:
+   • Confidence levels (balance high confidence with value)
+   • Bet types (mix moneylines, spreads, totals, player props)
+   • Game timing (avoid same games or correlated outcomes)
+   • Risk tolerance indicated by user
+✅ **INTELLIGENT COMBINATIONS**: 
+   • "Safe parlay" = 3-4 picks with 70%+ confidence
+   • "Risky parlay" = 2-3 picks with 60-65% confidence but better odds
+   • "2-leg", "3-leg" etc. = exact number requested
+✅ **BANKROLL WISDOM**: Always mention 1-2% max bankroll on parlays
+✅ **REASONING**: Brief explanation for each leg selection
+✅ **NO HARDCODED PICKS**: Use the actual latest 20 predictions data intelligently
+
+LATEST 20 PREDICTIONS FOR PARLAY BUILDING:
+${appData.latest20Predictions.map((pred: any, i: number) => 
+  `${i+1}. ${pred.match_teams}: ${pred.pick} (${pred.confidence}% confidence, ${pred.bet_type})`
+).join('\n')}
 
 ${isProUser ? '' : `
 FREE TIER UPGRADE PROMPTS:
