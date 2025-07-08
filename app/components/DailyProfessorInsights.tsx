@@ -86,7 +86,8 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       // Look for category 'intro' first, then fallback to insight_order = 1
       insight.category === 'intro' || 
       insight.insight_order === 1 ||
-      (insight.description.toLowerCase().includes('brother') && 
+      insight.title === 'Daily AI Greeting' ||
+      (insight.description && insight.description.toLowerCase().includes('brother') && 
        insight.description.length > 100 && 
        (insight.description.toLowerCase().includes('actionable') || 
         insight.description.toLowerCase().includes('intel') ||
@@ -97,7 +98,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       const introInsight = insights[introIndex];
       
       // Extract and clean up the intro message
-      let message = introInsight.description;
+      let message = introInsight.description || introInsight.insight_text || '';
       
       // Only process if we have a message
       if (!message) {

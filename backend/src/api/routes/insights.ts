@@ -96,6 +96,8 @@ interface DailyInsight {
   research_sources: string[];
   created_at: string;
   insight_order?: number;
+  insight_text?: string;
+  teams?: string[];
   game_info?: {
     home_team: string;
     away_team: string;
@@ -134,25 +136,18 @@ router.get('/daily-professor-lock', async (req, res) => {
 
     // Transform the data to match frontend interface
     const transformedInsights: DailyInsight[] = (insights || []).map(insight => {
-      // Extract title from insight_text
-      const title = insight.title || extractTitle(insight.insight_text);
-      
-      // Extract description from insight_text based on the extracted title
-      const description = insight.description || extractDescription(insight.insight_text, title);
-      
-      // Determine category based on insight text content
-      const category = insight.category || determineCategory(insight.insight_text);
-      
+      // Use the values directly from the database since the Python script sets them properly
       return {
         id: insight.id,
-        title: title,
-        description: description,
-        category: category,
+        title: insight.title || extractTitle(insight.insight_text),
+        description: insight.description || insight.insight_text || '',
+        category: insight.category || determineCategory(insight.insight_text),
         confidence: insight.confidence || 75,
         impact: insight.impact || 'medium',
         research_sources: insight.research_sources || [],
         created_at: insight.created_at,
         insight_order: insight.insight_order,
+        teams: insight.teams || [],
         game_info: insight.game_info || null
       };
     });
@@ -242,25 +237,18 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
 
         // Transform the data using the same logic as the GET endpoint
         const transformedInsights: DailyInsight[] = (newInsights || []).map(insight => {
-          // Extract title from insight_text
-          const title = insight.title || extractTitle(insight.insight_text);
-          
-          // Extract description from insight_text based on the extracted title
-          const description = insight.description || extractDescription(insight.insight_text, title);
-          
-          // Determine category based on insight text content
-          const category = insight.category || determineCategory(insight.insight_text);
-          
+          // Use the values directly from the database since the Python script sets them properly
           return {
             id: insight.id,
-            title: title,
-            description: description,
-            category: category,
+            title: insight.title || extractTitle(insight.insight_text),
+            description: insight.description || insight.insight_text || '',
+            category: insight.category || determineCategory(insight.insight_text),
             confidence: insight.confidence || 75,
             impact: insight.impact || 'medium',
             research_sources: insight.research_sources || [],
             created_at: insight.created_at,
             insight_order: insight.insight_order,
+            teams: insight.teams || [],
             game_info: insight.game_info || null
           };
         });
