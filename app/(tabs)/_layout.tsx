@@ -81,10 +81,7 @@ export default function TabLayout() {
           headerTitle: () => (
             <View>
               <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 24, textAlign: 'center' }}>
-                PREDICTIVE PLAY
-              </Text>
-              <Text style={{ color: '#94A3B8', fontSize: 14, textAlign: 'center', marginTop: 2 }}>
-                Smart Betting, Powered by AI
+                Predictions
               </Text>
             </View>
           ),

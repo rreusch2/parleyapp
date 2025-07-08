@@ -306,7 +306,7 @@ export default function HomeScreen() {
                   <View style={styles.statIconContainer}>
                     <Trophy size={20} color={isPro ? "#10B981" : "#64748B"} />
                   </View>
-                  <Text style={[styles.statValue, !isPro && styles.lockedStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, !isPro && styles.lockedStatValue]}>
                     {isPro ? userStats.winRate : '?'}
                   </Text>
                   <Text style={styles.statLabel}>Win Rate</Text>
@@ -322,7 +322,7 @@ export default function HomeScreen() {
                   <View style={styles.centerStatIconContainer}>
                     <Target size={24} color="#00E5FF" />
                   </View>
-                  <Text style={[styles.statValue, styles.centerStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue]}>
                     {isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel]}>
@@ -340,7 +340,7 @@ export default function HomeScreen() {
                   <View style={styles.statIconContainer}>
                     <TrendingUp size={20} color={isPro ? "#10B981" : "#64748B"} />
                   </View>
-                  <Text style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }, !isPro && styles.lockedStatValue]}>
                     {isPro ? userStats.roi : '?'}
                   </Text>
                   <Text style={styles.statLabel}>ROI</Text>
