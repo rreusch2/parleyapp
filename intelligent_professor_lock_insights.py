@@ -32,7 +32,7 @@ class IntelligentInsightsGenerator:
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         
         # Backend API settings
-        self.backend_url = os.getenv('BACKEND_URL', 'http://localhost:3001')
+        self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
         self.user_id = "admin_insights_generator"
 
     def fetch_upcoming_games_with_odds(self):
@@ -375,4 +375,4 @@ if __name__ == "__main__":
             print("❌ Intelligent insights generation failed!")
     except Exception as e:
         logger.error(f"Script failed: {e}")
-        print(f"❌ Script failed: {e}") 
+        print(f"❌ Script failed: {e}")

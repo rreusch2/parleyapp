@@ -8,6 +8,7 @@ import {
   Dimensions,
   Animated,
   Easing,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -248,11 +249,16 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
           colors={['rgba(15,23,42,0.95)', 'rgba(30,27,75,0.95)', 'rgba(49,46,129,0.95)']}
           style={styles.modalGradient}
         >
-          <View style={styles.container}>
-            {/* Close Button */}
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <X size={24} color="#fff" />
-            </TouchableOpacity>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <View style={styles.container}>
+              {/* Close Button */}
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <X size={24} color="#fff" />
+              </TouchableOpacity>
 
             {/* Header */}
             <View style={styles.header}>
@@ -464,7 +470,8 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
             <Text style={styles.footer}>
               🔥 Limited time welcome bonus - Premium picks usually cost $4.99 each!
             </Text>
-          </View>
+            </View>
+          </ScrollView>
         </LinearGradient>
       </View>
     </Modal>
@@ -476,6 +483,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40, // Add vertical padding to ensure content fits
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   modalGradient: {
     flex: 1,
@@ -486,10 +500,10 @@ const styles = StyleSheet.create({
   },
   container: {
     width: Math.min(screenWidth - 40, 400),
-    maxHeight: screenHeight * 0.9,
+    maxHeight: screenHeight * 0.85, // Reduced from 0.9 to 0.85 for more space
     backgroundColor: 'rgba(15,23,42,0.9)',
     borderRadius: 24,
-    padding: 24,
+    padding: 20, // Reduced padding from 24 to 20
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',

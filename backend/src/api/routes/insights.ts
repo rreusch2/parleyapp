@@ -34,15 +34,15 @@ router.get('/daily-professor-lock', async (req, res) => {
   try {
     logger.info('📊 Fetching Daily AI Insights');
 
-    // Get insights from today or last 24 hours
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
+    // Get insights from today (or most recent)
+    const today = new Date().toISOString().split('T')[0];
     
     const { data: insights, error } = await supabase
-      .from('ai_insights')
+      .from('daily_professor_insights')
       .select('*')
-      .gte('created_at', yesterday.toISOString())
-      .order('created_at', { ascending: false });
+      .gte('created_at', today)
+      .order('created_at', { ascending: false })
+      .order('insight_order', { ascending: true });
 
     if (error) {
       logger.error('Database error fetching insights:', error);
@@ -57,13 +57,13 @@ router.get('/daily-professor-lock', async (req, res) => {
       id: insight.id,
       title: insight.title,
       description: insight.description,
-      category: insight.data?.category || 'trends',
-      confidence: insight.data?.confidence || 75,
+      category: insight.category,
+      confidence: insight.confidence || 75,
       impact: insight.impact || 'medium',
-      research_sources: insight.data?.research_sources || [],
+      research_sources: insight.research_sources || [],
       created_at: insight.created_at,
-      insight_order: insight.data?.insight_order || 0,
-      game_info: insight.data?.game_info || null
+      insight_order: insight.insight_order,
+      game_info: insight.game_info || null
     }));
 
     logger.info(`✅ Found ${transformedInsights.length} AI insights`);
@@ -94,7 +94,7 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
     // Set longer timeout for this operation
     req.setTimeout(120000); // 2 minutes
 
-    const scriptPath = path.join(__dirname, '../../../../insights.py');
+    const scriptPath = path.join(__dirname, '../../../../enhanced_intelligent_insights.py');
     
     logger.info(`📁 Running Python script: ${scriptPath}`);
 
@@ -132,14 +132,14 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
 
       try {
         // Fetch the newly generated insights
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
+        const today = new Date().toISOString().split('T')[0];
         
         const { data: newInsights, error } = await supabase
-          .from('ai_insights')
+          .from('daily_professor_insights')
           .select('*')
-          .gte('created_at', yesterday.toISOString())
-          .order('created_at', { ascending: false });
+          .gte('created_at', today)
+          .order('created_at', { ascending: false })
+          .order('insight_order', { ascending: true });
 
         if (error) {
           logger.error('Database error fetching new insights:', error);
@@ -154,13 +154,13 @@ router.post('/generate-daily-professor-lock', async (req, res) => {
           id: insight.id,
           title: insight.title,
           description: insight.description,
-          category: insight.data?.category || 'trends',
-          confidence: insight.data?.confidence || 75,
+          category: insight.category,
+          confidence: insight.confidence || 75,
           impact: insight.impact || 'medium',
-          research_sources: insight.data?.research_sources || [],
+          research_sources: insight.research_sources || [],
           created_at: insight.created_at,
-          insight_order: insight.data?.insight_order || 0,
-          game_info: insight.data?.game_info || null
+          insight_order: insight.insight_order,
+          game_info: insight.game_info || null
         }));
 
         logger.info(`✅ Successfully generated ${transformedInsights.length} new insights`);
