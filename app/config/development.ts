@@ -18,13 +18,13 @@ export const DEV_CONFIG = {
    * 
    * ⚠️  WARNING: Must be false in production builds!
    */
-  FORCE_PRO_STATUS: true,
+  FORCE_PRO_STATUS: false,
 
   /**
    * API Configuration
    * Use local endpoints during development
    */
-  USE_LOCAL_API: true,
+  USE_LOCAL_API: false,
   LOCAL_API_URL: 'http://localhost:3001',
   PRODUCTION_API_URL: 'https://api.predictiveplay.com',
 
@@ -38,14 +38,14 @@ export const DEV_CONFIG = {
    * Test Pro Subscription Mode
    * Allow upgrading to Pro without payment for testing
    */
-  ENABLE_TEST_PRO_SUBSCRIPTION: true,
+  ENABLE_TEST_PRO_SUBSCRIPTION: false,
 
   /**
    * Debug Features
    */
-  SHOW_DEBUG_INFO: true,
-  LOG_API_CALLS: true,
-  LOG_SUBSCRIPTION_STATUS: true,
+  SHOW_DEBUG_INFO: false,
+  LOG_API_CALLS: false,
+  LOG_SUBSCRIPTION_STATUS: false,
 
   /**
    * Test User Configuration

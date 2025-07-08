@@ -1,11 +1,10 @@
 import app from './app';
-import { initGameStartScheduler } from './services/notifications/scheduler';
+// import { initGameStartScheduler } from './services/notifications/scheduler'; // [REMOVED] Game start notifications
 import { initScheduler } from './services/sportsData/scheduler';
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize notification scheduler
-initGameStartScheduler();
+// [REMOVED] Game start notification scheduler removed as per user request
 
 // Initialize sports data scheduler (for game status updates)
 initScheduler();

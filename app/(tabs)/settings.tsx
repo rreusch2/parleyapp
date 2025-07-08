@@ -11,7 +11,9 @@ import {
   Linking,
   Vibration,
   Modal,
-  TextInput
+  TextInput,
+  Keyboard,
+  KeyboardAvoidingView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -30,13 +32,14 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react-native';
-import { supabase } from '@/app/services/api/supabaseClient';
-import { aiService } from '@/app/services/api/aiService';
+import { supabase } from '../services/api/supabaseClient';
+import { aiService } from '../services/api/aiService';
 import { router } from 'expo-router';
-import { useSubscription } from '@/app/services/subscriptionContext';
-import HelpCenterModal from '@/app/components/HelpCenterModal';
-import FeedbackModal from '@/app/components/FeedbackModal';
-import AboutModal from '@/app/components/AboutModal';
+import { useSubscription } from '../services/subscriptionContext';
+import HelpCenterModal from '../components/HelpCenterModal';
+import FeedbackModal from '../components/FeedbackModal';
+import AboutModal from '../components/AboutModal';
+import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
 
 interface UserProfile {
   id: string;
@@ -63,6 +66,7 @@ export default function SettingsScreen() {
   const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -72,6 +76,7 @@ export default function SettingsScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -92,8 +97,32 @@ export default function SettingsScreen() {
 
   // Load user profile data
   useEffect(() => {
-    loadUserProfile();
+    fetchUserProfile();
+    checkAdminStatus();
     loadNotificationSettings();
+
+    // Set up keyboard listeners
+    const keyboardWillShowListener = Platform.OS === 'ios' ?
+      Keyboard.addListener('keyboardWillShow', (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }) :
+      Keyboard.addListener('keyboardDidShow', (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      });
+
+    const keyboardWillHideListener = Platform.OS === 'ios' ?
+      Keyboard.addListener('keyboardWillHide', () => {
+        setKeyboardHeight(0);
+      }) :
+      Keyboard.addListener('keyboardDidHide', () => {
+        setKeyboardHeight(0);
+      });
+
+    // Cleanup listeners
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
   }, []);
 
   const loadNotificationSettings = async () => {
@@ -118,7 +147,24 @@ export default function SettingsScreen() {
     }
   };
 
-  const loadUserProfile = async () => {
+  const checkAdminStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('admin_role')
+          .eq('id', user.id)
+          .single();
+        
+        setIsAdmin(data?.admin_role === true);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
+
+  const fetchUserProfile = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -176,13 +222,32 @@ export default function SettingsScreen() {
       return;
     }
 
+    // Check for password requirements (at least 8 chars with at least one letter and one number)
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      Alert.alert('Error', 'Password must be at least 8 characters long and include at least one letter and one number');
+      return;
+    }
+
     try {
       setChangePasswordLoading(true);
+      Keyboard.dismiss();
 
       // Verify user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         Alert.alert('Error', 'You must be logged in to change your password');
+        return;
+      }
+
+      // First, verify current password by attempting to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email || '',
+        password: currentPassword
+      });
+      
+      if (signInError) {
+        Alert.alert('Error', 'Current password is incorrect');
         return;
       }
 
@@ -554,7 +619,24 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {isAdmin && (
+        <TouchableOpacity 
+          style={[styles.settingsGroup, { marginBottom: 20, backgroundColor: '#1E3A8A' }]}
+          onPress={() => router.push('/admin-dashboard')}
+        >
+          <View style={styles.adminSettingItem}>
+            <View style={styles.settingIcon}>
+              <Crown size={24} color="#FFD700" />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={[styles.settingTitle, { color: '#FFFFFF' }]}>Admin Dashboard</Text>
+              <Text style={[styles.settingDescription, { color: '#CCCCCC' }]}>Access analytics and admin controls</Text>
+            </View>
+            <ChevronRight size={20} color="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
+      )}
       {/* Profile & Stats Section */}
       <View style={styles.profileSection}>
         <TouchableOpacity 
@@ -714,52 +796,106 @@ export default function SettingsScreen() {
         animationType="slide"
         onRequestClose={() => setShowChangePasswordModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Change Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Current Password"
-              secureTextEntry={!showCurrentPassword}
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              onFocus={() => setShowCurrentPassword(true)}
-              onBlur={() => setShowCurrentPassword(false)}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="New Password"
-              secureTextEntry={!showNewPassword}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              onFocus={() => setShowNewPassword(true)}
-              onBlur={() => setShowNewPassword(false)}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              secureTextEntry={!showConfirmPassword}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              onFocus={() => setShowConfirmPassword(true)}
-              onBlur={() => setShowConfirmPassword(false)}
-            />
-            <TouchableOpacity
-              style={styles.changePasswordButton}
-              onPress={handleChangePassword}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1} 
+            onPress={() => Keyboard.dismiss()}
+          >
+            <View 
+              style={[styles.modalContent, { marginBottom: keyboardHeight > 0 ? keyboardHeight * 0.5 : 0 }]}
             >
-              <Text style={styles.changePasswordText}>
-                {changePasswordLoading ? 'Changing...' : 'Change Password'}
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Current Password"
+                  placeholderTextColor="#888"
+                  secureTextEntry={!showCurrentPassword}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? 
+                    <Eye size={20} color="#666" /> : 
+                    <EyeOff size={20} color="#666" />}
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="New Password"
+                  placeholderTextColor="#888"
+                  secureTextEntry={!showNewPassword}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? 
+                    <Eye size={20} color="#666" /> : 
+                    <EyeOff size={20} color="#666" />}
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#888"
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? 
+                    <Eye size={20} color="#666" /> : 
+                    <EyeOff size={20} color="#666" />}
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.passwordRequirements}>
+                Password must be at least 8 characters with at least one number and one special character.
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => setShowChangePasswordModal(false)}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+              
+              <TouchableOpacity
+                style={styles.changePasswordButton}
+                onPress={handleChangePassword}
+                disabled={changePasswordLoading}
+              >
+                <Text style={styles.changePasswordText}>
+                  {changePasswordLoading ? 'Changing...' : 'Change Password'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowChangePasswordModal(false);
+                  // Clear form data when closing
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                disabled={changePasswordLoading}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Help Center Modal */}
@@ -874,6 +1010,93 @@ const styles = StyleSheet.create({
   profileMemberStatus: {
     fontSize: 14,
     color: '#E2E8F0',
+  },
+  containerAlt: {
+    flex: 1,
+    backgroundColor: '#111827',
+  },
+  contentContainerAlt: {
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  profileSectionAlt: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+      web: {
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+      },
+    }),
+    marginTop: 8,
+  },
+  profileCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  profileAvatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  profileAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#2E3C50',
+  },
+  profileBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#00E5FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1E293B',
+  },
+  profileBadgeIcon: {
+    color: '#0F172A',
+    fontSize: 12,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileNameAlt: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  profileMemberSince: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    marginBottom: 4,
+  },
+  profileMemberStatusAlt: {
+    fontSize: 14,
+    color: '#E2E8F0',
     marginBottom: 8,
   },
   profileDetailsSection: {
@@ -909,6 +1132,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+  },
+  settingsGroup: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  adminSettingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  settingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  settingContent: {
+    flex: 1,
+  },
+  settingDescription: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   statItem: {
     width: '48%',
@@ -1159,6 +1410,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: 10,
   },
+  comingSoonBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  comingSoonText: {
+    color: '#F59E0B',
+    fontSize: 10,
+    fontWeight: '600',
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1343,15 +1605,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-    minHeight: 300,
+    backgroundColor: '#1F2937',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -1400,10 +1662,33 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 15,
+    marginTop: 15,
+    color: '#FFFFFF',
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    color: '#FFFFFF',
+  },
+  passwordToggle: {
+    paddingHorizontal: 15,
+  },
+  passwordRequirements: {
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#9CA3AF',
+    fontSize: 12,
+    textAlign: 'center',
   },
   changePasswordButton: {
     backgroundColor: '#00E5FF',
@@ -1537,7 +1822,7 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
   },
   // Coming Soon Badge styles
-  comingSoonBadge: {
+  comingSoonBadgeAlt: {
     backgroundColor: 'rgba(249, 115, 22, 0.2)',
     borderWidth: 1,
     borderColor: '#F97316',
@@ -1545,10 +1830,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  comingSoonText: {
+  comingSoonTextAlt: {
     color: '#F97316',
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
-  },
+    textAlign: 'center'
+  }
 });

@@ -5,7 +5,7 @@ import { Expo } from 'expo-server-sdk';
 
 const expo = new Expo();
 
-async function getSubscribedUsersForGameStart() {
+// [REMOVED] Game start notifications logic has been removed as per user request.
   const { data, error } = await supabase
     .from('profiles')
     .select('id, push_token, notification_settings')
@@ -20,7 +20,7 @@ async function getSubscribedUsersForGameStart() {
   return data;
 }
 
-async function sendGameStartNotifications() {
+
   const users = await getSubscribedUsersForGameStart();
   if (users.length === 0) {
     return;
@@ -66,7 +66,7 @@ async function sendGameStartNotifications() {
   }
 }
 
-export function initGameStartScheduler() {
+
   // Run every minute
   cron.schedule('* * * * *', () => {
     console.log('Running game start notification scheduler...');

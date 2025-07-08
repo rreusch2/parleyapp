@@ -182,9 +182,13 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      console.log('❌ Validation failed: Password too short');
-      Alert.alert('Signup Error', 'Password must be at least 6 characters long');
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      console.log('❌ Validation failed: Password does not meet requirements');
+      Alert.alert(
+        'Signup Error',
+        'Password must be at least 8 characters and include at least one letter and one number.'
+      );
       return;
     }
 

@@ -40,12 +40,12 @@ else
 fi
 
 # Step 2: Daily Insights (depends on fresh game/odds data)
-log "Step 2/3: Running Daily Insights..."
+log "Step 2/3: Running Enhanced Daily Insights..."
 cd "$PROJECT_ROOT"
-if python insights.py >> "$LOG_FILE" 2>&1; then
-    log "✅ Daily insights completed successfully"
+if python enhanced_insights.py >> "$LOG_FILE" 2>&1; then
+    log "✅ Enhanced daily insights completed successfully"
 else
-    handle_error "Daily insights (insights.py)"
+    handle_error "Enhanced daily insights (enhanced_insights.py)"
 fi
 
 # Step 3: Generate 20 Total Picks (10 Team + 10 Player Props) - Unified Orchestrator
