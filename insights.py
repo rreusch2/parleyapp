@@ -571,27 +571,33 @@ Write ONE brief, professional greeting."""
         try:
             logger.info("💾 Storing AI-categorized insights...")
             
-            # Clear existing insights for today
+            # Clear existing insights for today from both tables
             today = date.today().isoformat()
+            self.supabase.table('ai_insights').delete().gte('created_at', today).execute()
             self.supabase.table('daily_professor_insights').delete().gte('created_at', today).execute()
             
-            # Store intro message first
+            # Store intro message first in ai_insights table
             if intro_message:
                 intro_record = {
-                    'insight_text': intro_message,
-                    'insight_order': 1,
+                    'user_id': 'admin_insights_generator',  # Required field for ai_insights table
                     'title': 'Daily AI Greeting',
                     'description': intro_message,
-                    'category': 'intro',
-                    'confidence': 90,
+                    'type': 'trend',  # Must be one of: trend, value, alert, prediction
                     'impact': 'high',
-                    'research_sources': ['AI Assistant'],
+                    'data': {
+                        'category': 'intro',
+                        'insight_text': intro_message,
+                        'insight_order': 1,
+                        'confidence': 90,
+                        'research_sources': ['AI Assistant']
+                    },
+                    'is_global': True,
                     'created_at': datetime.now().isoformat()
                 }
-                self.supabase.table('daily_professor_insights').insert(intro_record).execute()
-                logger.info("💾 Stored intro message")
+                self.supabase.table('ai_insights').insert(intro_record).execute()
+                logger.info("💾 Stored intro message to ai_insights table")
             
-            # Store insights
+            # Store insights in ai_insights table
             start_order = 2 if intro_message else 1
             
             for i, insight in enumerate(insights):
@@ -616,25 +622,39 @@ Write ONE brief, professional greeting."""
                         'game_time': 'TBD'
                     }
                 
+                # Map category to ai_insights type
+                ai_type = 'trend'  # Default
+                if category in ['pitcher', 'bullpen', 'matchup']:
+                    ai_type = 'value'
+                elif category in ['injury', 'weather']:
+                    ai_type = 'alert'
+                elif category in ['research']:
+                    ai_type = 'prediction'
+                
                 record = {
-                    'insight_text': insight_text,
-                    'insight_order': start_order + i,
+                    'user_id': 'admin_insights_generator',  # Required field for ai_insights table
                     'title': title[:100],
                     'description': insight_text,
-                    'category': category,  # Use AI-provided category
-                    'confidence': 85 if 'statmuse' in insight_text.lower() else 80,
+                    'type': ai_type,  # Must be one of: trend, value, alert, prediction
                     'impact': 'high' if any(word in insight_text.lower() for word in ['value', 'opportunity', 'edge']) else 'medium',
-                    'research_sources': ['AI Assistant', 'StatMuse'] if 'statmuse' in insight_text.lower() else ['AI Assistant'],
-                    'created_at': datetime.now().isoformat(),
-                    'teams': teams,
-                    'game_info': game_info
+                    'data': {
+                        'category': category,
+                        'insight_text': insight_text,
+                        'insight_order': start_order + i,
+                        'confidence': 85 if 'statmuse' in insight_text.lower() else 80,
+                        'research_sources': ['AI Assistant', 'StatMuse'] if 'statmuse' in insight_text.lower() else ['AI Assistant'],
+                        'teams': teams,
+                        'game_info': game_info
+                    },
+                    'is_global': True,
+                    'created_at': datetime.now().isoformat()
                 }
                 
-                self.supabase.table('daily_professor_insights').insert(record).execute()
-                logger.info(f"💾 Stored {category} insight: {insight_text[:80]}...")
+                self.supabase.table('ai_insights').insert(record).execute()
+                logger.info(f"💾 Stored {category} insight to ai_insights table: {insight_text[:80]}...")
             
             total_stored = len(insights) + (1 if intro_message else 0)
-            logger.info(f"💾 Stored {total_stored} total insights with AI categorization")
+            logger.info(f"💾 Stored {total_stored} total insights with AI categorization to ai_insights table")
             
         except Exception as e:
             logger.error(f"Error storing insights: {e}")
