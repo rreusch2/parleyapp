@@ -57,8 +57,9 @@ class InAppPurchaseService {
       this.isInitialized = true;
       console.log('✅ InAppPurchase service initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize InAppPurchase service:', error);
-      throw error;
+      console.error('❌ Failed to initialize InAppPurchase service. IAP will be disabled:', error);
+      // Do not re-throw the error. This allows the app to run
+      // without IAP functionality if initialization fails.
     }
   }
 

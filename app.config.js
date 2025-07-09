@@ -1,12 +1,12 @@
 module.exports = {
   expo: {
-    name: "Parley App",
+    name: "Predictive Play",
     slug: "parleyapp",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon.png",
-    scheme: "parleyapp",
+    scheme: "predictiveplay",
     userInterfaceStyle: "automatic",
+    icon: "./assets/images/icon.png", // ← ADDED THIS
     updates: {
       fallbackToCacheTimeout: 0
     },
@@ -14,14 +14,15 @@ module.exports = {
       "**/*"
     ],
     ios: {
-      supportsTablet: true,
-      bundleIdentifier: "com.parleyapp.mobile",
+      supportsTablet: false,
+      bundleIdentifier: "com.app.predictiveplay",
+      buildNumber: "1",
+      jsEngine: "hermes",
+      // REMOVED: useIconsFromAssetCatalog: true,
+      // Permission explanations refined based on app features
       infoPlist: {
-        NSCameraUsageDescription: "Parley App needs camera access to scan betting slips and QR codes for enhanced features.",
-        NSPhotoLibraryUsageDescription: "Parley App needs photo library access to save and share your winning picks and analysis.",
-        NSLocationWhenInUseUsageDescription: "Parley App uses your location to provide region-specific odds and legal sports betting information.",
-        NSUserTrackingUsageDescription: "Parley App uses tracking to provide personalized sports betting recommendations and improve your experience.",
-
+        // Only include permissions that your app actually uses
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     android: {
@@ -30,13 +31,11 @@ module.exports = {
         backgroundColor: "#111827"
       },
       package: "com.parleyapp.mobile",
+      versionCode: 1,
+      // Only include permissions that your app actually uses
       permissions: [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-
       ]
     },
     web: {
@@ -49,22 +48,20 @@ module.exports = {
       color: "#ffffff",
       iosDisplayInForeground: true,
       androidMode: "default",
-      androidCollapsedTitle: "#{unread_notifications} new interactions",
-      // VAPID keys for web push notifications
-      vapidPublicKey: "BECJqbsZfUznpo_xM6Rqz34r6gfXgNkDpTc8OQ7ovWO1KdSRKHn5NsrPWOFzEJy4WZq6vn039fpAnAz0uWWdS4s"
+      androidCollapsedTitle: "#{unread_notifications} new predictions",
     },
     plugins: ["expo-router", "expo-font", "expo-notifications", "react-native-iap", "expo-web-browser"],
     experiments: {
       typedRoutes: true
     },
     extra: {
-      apiUrl: process.env.EXPO_PUBLIC_API_URL,
+      apiUrl: process.env.EXPO_PUBLIC_BACKEND_URL, // ← Changed from EXPO_PUBLIC_API_URL
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       eas: {
-        projectId: "your-eas-project-id"
+        projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"
       }
     },
-    newArchEnabled: true
+    newArchEnabled: false
   }
-}; 
+};
