@@ -5,19 +5,12 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "node": "18.17.0",
-      "yarn": false
+      "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "node": "18.17.0",
-      "yarn": false
+      "distribution": "internal"
     },
-    "production": {
-      "node": "18.17.0",
-      "yarn": false
-    }
+    "production": {}
   },
   "submit": {
     "production": {}
