@@ -198,21 +198,51 @@ class AIService {
           ...(data.player_props_picks || [])
         ];
         
+        console.log('🔧 DEBUG - Raw pick sample BEFORE transformation:', {
+          pick: rawPicks[0],
+          fields: rawPicks[0] ? Object.keys(rawPicks[0]) : 'NO PICKS'
+        });
+        
         // Transform to match AIPrediction interface
-        const allPicks: AIPrediction[] = rawPicks.map(pick => ({
-          id: pick.id,
-          match: pick.match_teams || pick.match || 'TBD vs TBD',
-          pick: pick.pick,
-          odds: pick.odds,
-          confidence: pick.confidence,
-          sport: pick.sport,
-          eventTime: pick.created_at || new Date().toISOString(),
-          reasoning: pick.reasoning || 'AI-generated prediction',
-          value: pick.value_percentage,
-          roi_estimate: pick.roi_estimate,
-          status: pick.status as 'pending' | 'won' | 'lost',
-          created_at: pick.created_at
-        }));
+        const allPicks: AIPrediction[] = rawPicks.map((pick, index) => {
+          try {
+            const transformed = {
+              id: pick.id,
+              match: pick.match_teams || pick.match || 'TBD vs TBD',
+              pick: pick.pick,
+              odds: pick.odds,
+              confidence: pick.confidence,
+              sport: pick.sport,
+              eventTime: pick.created_at || new Date().toISOString(),
+              reasoning: pick.reasoning || 'AI-generated prediction',
+              value: pick.value_percentage,
+              roi_estimate: pick.roi_estimate,
+              status: pick.status as 'pending' | 'won' | 'lost',
+              created_at: pick.created_at
+            };
+            
+            if (index === 0) {
+              console.log('🔧 DEBUG - First pick transformation:', {
+                original: pick,
+                transformed: transformed
+              });
+            }
+            
+            return transformed;
+          } catch (error) {
+            console.error(`⚠️ Error transforming pick ${index}:`, error, pick);
+            return {
+              id: pick.id || 'unknown',
+              match: 'Error loading match',
+              pick: 'Error loading pick',
+              odds: '0',
+              confidence: 0,
+              sport: 'unknown',
+              eventTime: new Date().toISOString(),
+              reasoning: 'Error loading reasoning'
+            };
+          }
+        });
         
         console.log(`📚 Loaded ${allPicks.length} AI picks (${data.breakdown?.team_picks || 0} team + ${data.breakdown?.player_props_picks || 0} props)`);
         console.log('🔧 DEBUG - Transformed picks sample:', allPicks.slice(0, 2));
