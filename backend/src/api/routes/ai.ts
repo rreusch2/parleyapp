@@ -5,7 +5,7 @@ import enhancedDeepseekOrchestrator from '../../ai/orchestrator/enhancedDeepseek
 import { createLogger } from '../../utils/logger';
 import sportRadarService from '../../services/sportsData/sportRadarService';
 import { dailyInsightsService, DailyInsight } from '../../services/supabase/dailyInsightsService';
-import { supabase } from '../../services/supabase/client';
+import { supabase, supabaseAdmin } from '../../services/supabase/client';
 
 // Utility function to determine current sports seasons
 const getSportsInSeason = (): string[] => {
@@ -695,7 +695,7 @@ router.get('/picks', async (req, res) => {
     logger.info(`📚 Fetching most recent 20 predictions`);
     
     // Simple query: Get the most recent 20 predictions from ai_predictions table
-    const { data: predictions, error } = await supabase
+    const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
       .order('created_at', { ascending: false })
