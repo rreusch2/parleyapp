@@ -216,24 +216,19 @@ export class ChatbotOrchestrator {
    */
   private async getLatest20Predictions() {
     try {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrowEnd = new Date(todayStart);
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
+      // Log that we're attempting to fetch predictions
+      logger.info('Fetching latest predictions for chatbot');
       
+      // Simple query: just get the most recent 20 picks with no filtering
       const { data: predictions, error } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .eq('status', 'pending') // Only active predictions
-        .gte('event_time', todayStart.toISOString()) // Only current/future games
-        .lte('event_time', tomorrowEnd.toISOString()) // Not too far in future
-        .not('match_teams', 'ilike', '%sample%') // Exclude sample data
-        .not('match_teams', 'ilike', '%demo%') // Exclude demo data
-        .not('match_teams', 'ilike', '%test%') // Exclude test data
-        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Only picks from last 7 days
         .order('created_at', { ascending: false })
         .limit(20);
 
+      // Log the results for debugging
+      logger.info(`Found ${predictions?.length || 0} predictions`);
+      
       if (error) {
         logger.error(`Error fetching latest 20 predictions: ${error.message}`);
         return [];
@@ -251,27 +246,18 @@ export class ChatbotOrchestrator {
    */
   private async getAppData(userId: string) {
     try {
-      // Get today's AI predictions with improved filtering
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const tomorrowEnd = new Date(todayStart);
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
+      // Log that we're getting app data for the chatbot
+      logger.info('Getting app data for chatbot');
       
-      // Get recent high-quality predictions with better time range
+      // Get today's AI predictions with no filtering - just get most recent
       const { data: todaysPicks, error: picksError } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .eq('status', 'pending') // Only active predictions
-        .gte('confidence', 65) // Higher confidence threshold
-        .gte('event_time', todayStart.toISOString()) // Only current/future games
-        .lte('event_time', tomorrowEnd.toISOString()) // Not too far in future
-        .not('match_teams', 'ilike', '%sample%') // Exclude sample data
-        .not('match_teams', 'ilike', '%demo%') // Exclude demo data
-        .not('match_teams', 'ilike', '%test%') // Exclude test data
-        .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Only picks from last 7 days
-        .order('confidence', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(15);
+      
+      // Log the results for debugging
+      logger.info(`Found ${todaysPicks?.length || 0} picks for today`);
 
       // Get latest 20 predictions for parlay building
       const latest20Predictions = await this.getLatest20Predictions();
@@ -279,23 +265,13 @@ export class ChatbotOrchestrator {
       if (picksError) {
         logger.error(`Error fetching today's picks: ${picksError.message}`);
       }
-
-      // Remove duplicate games (keep highest confidence picks)
-      const uniqueGamePicks: any[] = [];
-      const gameIds = new Set();
       
-      if (todaysPicks) {
-        for (const pick of todaysPicks) {
-          // Use match_teams as unique identifier
-          if (!pick.match_teams) continue;
-          
-          const gameKey = pick.match_teams.toLowerCase().trim();
-          if (!gameIds.has(gameKey)) {
-            gameIds.add(gameKey);
-            uniqueGamePicks.push(pick);
-          }
-        }
-      }
+      // Log if we have predictions to use
+      logger.info(`Latest predictions for parlay building: ${latest20Predictions.length}`);
+
+      // Use all picks without filtering for duplicates
+      // This ensures we have maximum data available for the chatbot
+      const uniqueGamePicks = todaysPicks || [];
       
       // Get recent injury reports (handle if table doesn't exist)
       let injuries: any[] = [];
