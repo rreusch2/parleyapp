@@ -793,15 +793,14 @@ router.get('/picks', async (req, res) => {
         .gte('created_at', startOfDay.toISOString())
         .lte('created_at', endOfDay.toISOString());
     } else {
-      // Default to today's predictions
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(startOfDay);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Default to recent predictions (last 24 hours to account for timezone differences)
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       query = query
-        .gte('created_at', startOfDay.toISOString())
-        .lte('created_at', endOfDay.toISOString());
+        .gte('created_at', yesterday.toISOString());
+        
+      logger.info(`📅 Fetching predictions from ${yesterday.toISOString()} onwards`);
     }
 
     // Filter by sport if provided

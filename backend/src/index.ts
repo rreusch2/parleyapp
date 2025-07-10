@@ -4,7 +4,7 @@ import app from './app';
 // Load environment variables
 config();
 
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT || '3000', 10);
 
 // Log environment variables (excluding sensitive data)
 console.log('Environment variables:', {
