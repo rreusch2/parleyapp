@@ -58,6 +58,9 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [notificationSettings, setNotificationSettings] = useState({
     ai_picks: true,
+    bet_results: true,
+    weekly_summary: true,
+    promotions: false,
   });
 
   // Profile section state
@@ -538,6 +541,9 @@ export default function SettingsScreen() {
       iconColor: '#F59E0B',
       items: [
         { id: 'ai_picks', title: 'New AI Picks', type: 'toggle', value: notificationSettings.ai_picks },
+        { id: 'bet_results', title: 'Bet Results', type: 'toggle', value: notificationSettings.bet_results },
+        { id: 'weekly_summary', title: 'Weekly Summary', type: 'toggle', value: notificationSettings.weekly_summary },
+        { id: 'promotions', title: 'Promotions & Updates', type: 'toggle', value: notificationSettings.promotions },
       ]
     },
     {

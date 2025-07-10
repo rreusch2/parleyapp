@@ -18,7 +18,7 @@ import {
 
 // Types
 export interface SubscriptionPlan {
-  id: 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+  id: 'monthly' | 'yearly' | 'lifetime';
   productId: string; // Apple product ID
   title: string;
   price: string;
@@ -38,11 +38,11 @@ export interface PaymentResult {
 }
 
 // Apple App Store Product IDs (these need to be configured in App Store Connect)
+// ⚠️  CRITICAL: These MUST match exactly what's in App Store Connect
 const PRODUCT_IDS = {
-  weekly: 'com.Predictive Play.weekly_trial', 
-  monthly: 'com.Predictive Play.monthly_pro',
-  yearly: 'com.Predictive Play.yearly_pro', 
-  lifetime: 'com.Predictive Play.lifetime_pro'
+  monthly: 'com.parleyapp.premium_monthly',
+  yearly: 'com.parleyapp.premiumyearly', 
+  lifetime: 'com.parleyapp.premium_lifetime'
 };
 
 class ApplePaymentService {
@@ -53,24 +53,6 @@ class ApplePaymentService {
 
   // Subscription plans with Apple product IDs
   readonly subscriptionPlans: SubscriptionPlan[] = [
-    {
-      id: 'weekly',
-      productId: PRODUCT_IDS.weekly,
-      title: 'Weekly Trial',
-      price: '$8.99',
-      period: '/week',
-      features: [
-        'AI Predictions (5 per day)',
-        'Basic Chat Support', 
-        'Standard Sports Coverage',
-        'Mobile Access'
-      ],
-      limits: {
-        dailyPicks: 5,
-        sports: ['MLB', 'NBA'],
-        features: ['basic_chat', 'standard_odds']
-      }
-    },
     {
       id: 'monthly',
       productId: PRODUCT_IDS.monthly,
@@ -243,7 +225,7 @@ class ApplePaymentService {
       const productIds = Object.values(PRODUCT_IDS);
       
       // Get subscriptions (for recurring plans)
-      const subscriptions = await getSubscriptions({ skus: productIds.slice(0, 3) }); // weekly, monthly, yearly
+      const subscriptions = await getSubscriptions({ skus: productIds }); // monthly, yearly, lifetime
       
       // Get one-time products (for lifetime)
       const products = await getProducts({ skus: [PRODUCT_IDS.lifetime] });
@@ -259,7 +241,7 @@ class ApplePaymentService {
     }
   }
 
-  async purchaseSubscription(planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime', userId: string): Promise<PaymentResult> {
+  async purchaseSubscription(planId: 'monthly' | 'yearly' | 'lifetime', userId: string): Promise<PaymentResult> {
     try {
       if (Platform.OS !== 'ios') {
         throw new Error('Apple IAP only available on iOS');
@@ -355,7 +337,7 @@ class ApplePaymentService {
           transactionId: purchase.transactionId,
           productId: purchase.productId,
           planId: plan.id,
-          subscriptionTier: plan.id === 'weekly' ? 'pro' : plan.id,
+          subscriptionTier: plan.id,
           purchaseDate: purchase.transactionDate,
           platform: 'ios',
         }),
