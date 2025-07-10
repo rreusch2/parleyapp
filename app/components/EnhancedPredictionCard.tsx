@@ -99,6 +99,24 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     }
   };
 
+  const formatOdds = (odds: string) => {
+    // Handle cases where odds might already be formatted
+    if (odds.startsWith('+') || odds.startsWith('-')) {
+      return odds;
+    }
+    
+    // Convert to number to check if positive or negative
+    const numericOdds = parseFloat(odds);
+    
+    // If positive, add the "+" sign
+    if (numericOdds > 0) {
+      return `+${odds}`;
+    }
+    
+    // If negative, return as is (already has "-")
+    return odds;
+  };
+
   const handleAdvancedAnalysis = async () => {
     const hasAnalysisAccess = isPro || welcomeBonusActive;
     
@@ -203,7 +221,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
             <View style={styles.pickSection}>
               <Text style={styles.pickLabel}>AI Prediction</Text>
               <Text style={styles.pickValue}>{prediction.pick}</Text>
-              <Text style={styles.oddsText}>Odds: {prediction.odds}</Text>
+              <Text style={styles.oddsText}>Odds: {formatOdds(prediction.odds)}</Text>
             </View>
 
             {prediction.value && prediction.value > 0 && (

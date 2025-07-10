@@ -9,6 +9,8 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
@@ -262,8 +264,14 @@ export default function SignupScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
           <View style={styles.content}>
             <Text style={styles.title}>Create Your Account</Text>
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
@@ -271,7 +279,7 @@ export default function SignupScreen() {
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <User color={styles.inputIcon.color} size={20} style={styles.inputIcon} />
+                  <User color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Choose a username"
@@ -286,7 +294,7 @@ export default function SignupScreen() {
 
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Mail color={styles.inputIcon.color} size={20} style={styles.inputIcon} />
+                  <Mail color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
@@ -302,7 +310,7 @@ export default function SignupScreen() {
 
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Lock color={styles.inputIcon.color} size={20} style={styles.inputIcon} />
+                  <Lock color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Create a password (min. 6 characters)"
@@ -317,7 +325,7 @@ export default function SignupScreen() {
 
               <View style={styles.inputContainer}>
                 <View style={styles.inputWrapper}>
-                  <Lock color={styles.inputIcon.color} size={20} style={styles.inputIcon} />
+                  <Lock color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Confirm your password"
@@ -379,7 +387,8 @@ export default function SignupScreen() {
               </Link>
             </View>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
       {/* Subscription Modal */}
@@ -443,24 +452,26 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    paddingHorizontal: 15,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    minHeight: 60,
   },
   inputIcon: {
-    marginRight: 10,
     color: '#e0e0e0',
   },
   input: {
     flex: 1,
-    paddingVertical: 15,
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#ffffff',
+    marginLeft: 15,
+    paddingVertical: 0, // Prevents extra padding that can cause input jumping
   },
   inputSelectionColor: {
-    color: '#4169e1',
+    color: '#FFD700',
   },
   placeholderText: {
     color: '#cccccc',

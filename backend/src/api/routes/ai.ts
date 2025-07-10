@@ -686,13 +686,52 @@ router.get('/health', (req, res) => {
  */
 router.get('/picks', async (req, res) => {
   try {
-    const { userId } = req.query as { userId?: string };
+    const { userId, userTier } = req.query as { userId?: string; userTier?: string };
     
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    logger.info(`📚 Fetching global predictions (latest 20 for all users)`);
+    logger.info(`📚 Fetching predictions for user ${userId} with tier ${userTier}`);
+    
+    // First, check user's welcome bonus status and subscription tier
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) {
+      logger.error(`❌ Error fetching user profile: ${profileError.message}`);
+      // Continue with default behavior if profile fetch fails
+    }
+
+    // Determine user's actual tier and pick limit
+    let actualPickLimit = 2; // Default free tier
+    let isNewUser = false;
+    let welcomeBonusActive = false;
+    let bonusType = null;
+
+    if (profile) {
+      const now = new Date();
+      const expiresAt = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+      welcomeBonusActive = profile.welcome_bonus_claimed && expiresAt && now < expiresAt;
+      
+      // Check if user is brand new (created within last 5 minutes)
+      const createdAt = new Date(profile.created_at);
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      isNewUser = createdAt > fiveMinutesAgo;
+      
+      if (profile.subscription_tier === 'pro') {
+        actualPickLimit = 20; // Pro tier gets all picks
+        bonusType = 'pro_unlimited';
+      } else if (isNewUser || welcomeBonusActive) {
+        actualPickLimit = 5; // Welcome bonus
+        bonusType = welcomeBonusActive ? 'welcome_bonus' : 'new_user_auto';
+      }
+      
+      logger.info(`🎯 User status - New: ${isNewUser}, Welcome Bonus: ${welcomeBonusActive}, Tier: ${profile.subscription_tier}, Limit: ${actualPickLimit}`);
+    }
     
     // Get the latest 20 predictions - these are global picks shared by all users
     const { data: predictions, error } = await supabaseAdmin
@@ -716,6 +755,11 @@ router.get('/picks', async (req, res) => {
         predictions: [],
         metadata: {
           userId,
+          isNewUser,
+          welcomeBonusActive,
+          userTier: profile?.subscription_tier || 'free',
+          dailyPickLimit: actualPickLimit,
+          bonusType,
           generatedCount: 0,
           fetched_at: new Date().toISOString(),
           message: 'No predictions available.'
@@ -723,10 +767,13 @@ router.get('/picks', async (req, res) => {
       });
     }
 
-    logger.info(`📊 Found ${predictions.length} predictions`);
+    logger.info(`📊 Found ${predictions.length} total predictions, limiting to ${actualPickLimit} for user`);
+
+    // Apply tier-based limiting
+    const limitedPredictions = predictions.slice(0, actualPickLimit);
 
     // Transform database format to frontend format
-    const formattedPredictions = predictions.map(prediction => ({
+    const formattedPredictions = limitedPredictions.map(prediction => ({
       id: prediction.id,
       match: prediction.match_teams,
       pick: prediction.pick,
@@ -752,7 +799,13 @@ router.get('/picks', async (req, res) => {
       predictions: formattedPredictions,
       metadata: {
         userId,
+        isNewUser,
+        welcomeBonusActive,
+        userTier: profile?.subscription_tier || 'free',
+        dailyPickLimit: actualPickLimit,
+        bonusType,
         generatedCount: formattedPredictions.length,
+        totalAvailable: predictions.length,
         fetched_at: new Date().toISOString()
       }
     });

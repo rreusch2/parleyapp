@@ -8,6 +8,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
@@ -53,7 +56,14 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
         <View style={styles.content}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to continue your journey</Text>
@@ -117,6 +127,8 @@ export default function LoginScreen() {
             </Link>
           </View>
         </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -128,6 +140,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
   },
   content: {
     flex: 1,
@@ -156,11 +173,13 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 15,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    paddingHorizontal: 15,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    minHeight: 60,
   },
   inputIcon: {
     marginRight: 10,
@@ -168,10 +187,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    paddingVertical: 15,
+    color: '#FFFFFF',
     fontSize: 16,
-    color: '#ffffff',
-    selectionColor: '#00E5FF',
+    marginLeft: 15,
+    selectionColor: '#FFD700',
+    paddingVertical: 0,
   } as any,
   placeholderText: {
     color: '#cccccc',

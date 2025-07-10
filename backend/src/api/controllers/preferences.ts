@@ -6,7 +6,7 @@ export const getUserPreferences = async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('user_preferences')
       .select('*')
-      .eq('user_id', req.user!.id)
+      .eq('user_id', (req as any).user.id)
       .single();
 
     if (error) throw error;
@@ -21,7 +21,7 @@ export const getUserPreferences = async (req: Request, res: Response) => {
 export const createUserPreferences = async (req: Request, res: Response) => {
   try {
     const preferences = {
-      user_id: req.user!.id,
+      user_id: (req as any).user.id,
       ...req.body
     };
 
@@ -45,7 +45,7 @@ export const updateUserPreferences = async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('user_preferences')
       .update(req.body)
-      .eq('user_id', req.user!.id)
+      .eq('user_id', (req as any).user.id)
       .select()
       .single();
 
