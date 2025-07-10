@@ -2036,7 +2036,7 @@ router.get('/predictions/latest', async (req, res) => {
     
     logger.info(`📚 Fetching latest ${limit} predictions from database`);
     
-    const { data: predictions, error } = await supabase
+    const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
       .order('created_at', { ascending: false })

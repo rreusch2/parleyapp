@@ -391,6 +391,10 @@ export default function HomeScreen() {
 
 
         {/* AI Picks Section - Pro vs Free */}
+        {(() => {
+          console.log('🔴 RENDERING PRO/FREE BRANCH - isPro:', isPro, 'todaysPicks.length:', todaysPicks.length);
+          return null;
+        })()}
         {isPro ? (
           <View style={styles.section}>
             <ProAIPicksDisplay 
