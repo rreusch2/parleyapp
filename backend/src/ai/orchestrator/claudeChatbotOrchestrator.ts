@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import { createLogger } from '../../utils/logger';
-import { supabase } from '../../services/supabase/client';
+import { supabase, supabaseAdmin } from '../../services/supabase/client';
 import { webSearchPerformSearchTool } from '../tools/webSearch';
 import { freeDataTeamNewsTool, freeDataInjuryReportsTool } from '../tools/freeDataSources';
 
@@ -221,7 +221,7 @@ export class ChatbotOrchestrator {
       const tomorrowEnd = new Date(todayStart);
       tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
       
-      const { data: predictions, error } = await supabase
+      const { data: predictions, error } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .eq('status', 'pending') // Only active predictions
@@ -258,7 +258,7 @@ export class ChatbotOrchestrator {
       tomorrowEnd.setDate(tomorrowEnd.getDate() + 2); // Include tomorrow's games
       
       // Get recent high-quality predictions with better time range
-      const { data: todaysPicks, error: picksError } = await supabase
+      const { data: todaysPicks, error: picksError } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .eq('status', 'pending') // Only active predictions
@@ -300,7 +300,7 @@ export class ChatbotOrchestrator {
       // Get recent injury reports (handle if table doesn't exist)
       let injuries: any[] = [];
       try {
-        const { data: injuryData, error: injuryError } = await supabase
+        const { data: injuryData, error: injuryError } = await supabaseAdmin
           .from('injury_reports')
           .select('*')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
@@ -317,7 +317,7 @@ export class ChatbotOrchestrator {
       // Get recent news (handle if table doesn't exist)
       let news: any[] = [];
       try {
-        const { data: newsData, error: newsError } = await supabase
+        const { data: newsData, error: newsError } = await supabaseAdmin
           .from('news')
           .select('*')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
