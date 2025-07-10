@@ -2101,7 +2101,7 @@ router.get('/team-picks', async (req, res) => {
     logger.info(`🏈 Fetching team picks from database - Test Mode: ${test === 'true'}`);
     
     // Fetch team picks from database instead of generating new ones
-    const { data: teamPicks, error } = await supabase
+    const { data: teamPicks, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
       .in('bet_type', ['moneyline', 'spread', 'total'])
