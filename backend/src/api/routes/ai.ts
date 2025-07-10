@@ -2220,13 +2220,13 @@ router.get('/daily-picks-combined', async (req, res) => {
     
     // Fetch both types of picks from database in parallel
     const [teamPicksResult, playerPropsResult] = await Promise.all([
-      supabase
+      supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
         .limit(10),
-      supabase
+      supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .eq('bet_type', 'player_prop')
