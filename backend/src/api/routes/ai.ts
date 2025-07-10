@@ -692,28 +692,14 @@ router.get('/picks', async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    logger.info(`📚 Fetching predictions for user: ${userId}`);
+    logger.info(`📚 Fetching global predictions (latest 20 for all users)`);
     
-    // Try to get user-specific predictions first
-    let { data: predictions, error } = await supabaseAdmin
+    // Get the latest 20 predictions - these are global picks shared by all users
+    const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
-    
-    // If no user-specific predictions, get the most recent predictions from any user
-    if (!predictions || predictions.length === 0) {
-      logger.info(`No predictions for user ${userId}, getting latest predictions from any user`);
-      const fallbackResult = await supabaseAdmin
-        .from('ai_predictions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      
-      predictions = fallbackResult.data;
-      error = fallbackResult.error;
-    }
 
     if (error) {
       logger.error(`💥 Supabase error: ${error.message}`);
