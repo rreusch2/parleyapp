@@ -182,14 +182,40 @@ class AIService {
       // Use the picks endpoint that handles welcome bonus logic
       const data = await this.makeRequest(`${BACKEND_URL}/api/ai/daily-picks-combined`);
       
+      console.log('🔧 DEBUG - Raw API response:', {
+        success: data.success,
+        total_picks: data.total_picks,
+        team_picks_count: data.team_picks?.length || 0,
+        player_props_count: data.player_props_picks?.length || 0,
+        sample_team_pick: data.team_picks?.[0] || null,
+        sample_player_pick: data.player_props_picks?.[0] || null
+      });
+      
       if (data.success && data.total_picks > 0) {
         // Combine team picks and player props into a single array
-        const allPicks = [
+        const rawPicks = [
           ...(data.team_picks || []),
           ...(data.player_props_picks || [])
         ];
         
+        // Transform to match AIPrediction interface
+        const allPicks: AIPrediction[] = rawPicks.map(pick => ({
+          id: pick.id,
+          match: pick.match_teams || pick.match || 'TBD vs TBD',
+          pick: pick.pick,
+          odds: pick.odds,
+          confidence: pick.confidence,
+          sport: pick.sport,
+          eventTime: pick.created_at || new Date().toISOString(),
+          reasoning: pick.reasoning || 'AI-generated prediction',
+          value: pick.value_percentage,
+          roi_estimate: pick.roi_estimate,
+          status: pick.status as 'pending' | 'won' | 'lost',
+          created_at: pick.created_at
+        }));
+        
         console.log(`📚 Loaded ${allPicks.length} AI picks (${data.breakdown?.team_picks || 0} team + ${data.breakdown?.player_props_picks || 0} props)`);
+        console.log('🔧 DEBUG - Transformed picks sample:', allPicks.slice(0, 2));
         return allPicks;
       }
       

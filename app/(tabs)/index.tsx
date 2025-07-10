@@ -160,6 +160,11 @@ export default function HomeScreen() {
       } else {
         // Pro users or no user ID - use service method
         const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+        console.log('🏠 HOME TAB DEBUG - getTodaysPicks returned:', {
+          picksCount: picks.length,
+          samplePick: picks[0] || null,
+          allPickIds: picks.map(p => p.id)
+        });
         setTodaysPicks(picks);
       }
     } catch (error) {
