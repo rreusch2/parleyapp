@@ -180,7 +180,14 @@ class AIService {
       }
 
       // Use the picks endpoint that handles welcome bonus logic
-      const data = await this.makeRequest(`${BACKEND_URL}/api/ai/daily-picks-combined`);
+      const queryParams = new URLSearchParams();
+      if (userId) queryParams.append('userId', userId);
+      if (userTier) queryParams.append('userTier', userTier);
+      
+      const url = `${BACKEND_URL}/api/ai/daily-picks-combined?${queryParams.toString()}`;
+      console.log('🔗 Requesting URL:', url);
+      
+      const data = await this.makeRequest(url);
       
       console.log('🔧 DEBUG - Raw API response:', {
         success: data.success,

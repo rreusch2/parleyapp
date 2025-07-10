@@ -244,7 +244,17 @@ export default function HomeScreen() {
   // Backend now handles pick limits with welcome bonus logic
   // Display all picks returned by backend (could be 2, 5, or 20 depending on user tier/bonus)
   const displayPicks = todaysPicks;
-            const additionalPicksCount = isPro ? 0 : Math.max(0, 20 - displayPicks.length);
+  const additionalPicksCount = isPro ? 0 : Math.max(0, 20 - displayPicks.length);
+  
+  console.log('🏠 HOME TAB DISPLAY DEBUG:', {
+    isPro,
+    isNewUser,
+    welcomeBonusActive,
+    homeIsNewUser,
+    displayPicksLength: displayPicks.length,
+    additionalPicksCount,
+    willShowEmptyState: displayPicks.length === 0 && !isNewUser
+  });
 
   // Debug logging for pick display
   if (!isPro) {

@@ -2215,8 +2215,22 @@ router.get('/player-props-picks', async (req, res) => {
  */
 router.get('/daily-picks-combined', async (req, res) => {
   try {
-    const { test } = req.query;
-    logger.info(`🏆 Fetching combined daily picks from database - Test Mode: ${test === 'true'}`);
+    const { test, userId, userTier } = req.query;
+    logger.info(`🏆 Fetching combined daily picks from database - Test Mode: ${test === 'true'}, User: ${userId}, Tier: ${userTier}`);
+    
+    // Determine pick limits based on user tier
+    let teamPicksLimit = 1; // Default for free users
+    let playerPropsLimit = 1;
+    
+    if (userTier === 'pro') {
+      teamPicksLimit = 10;
+      playerPropsLimit = 10;
+    } else if (userTier === 'welcome_bonus') {
+      teamPicksLimit = 3;
+      playerPropsLimit = 2;
+    }
+    
+    logger.info(`📊 Pick limits for tier '${userTier}': ${teamPicksLimit} team + ${playerPropsLimit} props`);
     
     // Fetch both types of picks from database in parallel
     const [teamPicksResult, playerPropsResult] = await Promise.all([
@@ -2225,13 +2239,13 @@ router.get('/daily-picks-combined', async (req, res) => {
         .select('*')
         .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(teamPicksLimit),
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .eq('bet_type', 'player_prop')
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(playerPropsLimit)
     ]);
 
     if (teamPicksResult.error) {
