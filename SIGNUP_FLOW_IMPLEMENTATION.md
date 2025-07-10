@@ -16,7 +16,7 @@ We've implemented an optimized signup flow that presents subscription options im
 - **Clean, focused design** with:
   - Welcome message: "🎉 Welcome to Predictive Play!"
   - Top 4 features comparison (Free vs Pro)
-  - 3 subscription plans: Monthly ($26.70), Yearly ($149.99 - Most Popular), Lifetime ($349.99)
+  - 3 subscription plans: Monthly ($24.99), Yearly ($149.99 - Most Popular), Lifetime ($349.99)
   - **Two action buttons:**
     - **"Start [Plan] Pro"** - Subscribe to selected plan
     - **"Continue with Free Account"** - Proceed to free experience

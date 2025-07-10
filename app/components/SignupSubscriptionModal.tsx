@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -123,6 +124,38 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
       lifetime: '$349.99'
     };
     return prices[plan];
+  };
+
+  // Open Terms of Service (Apple required functional link)
+  const openTermsOfService = async () => {
+    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Terms of Service');
+      }
+    } catch (error) {
+      console.error('Error opening Terms of Service:', error);
+      Alert.alert('Error', 'Unable to open Terms of Service');
+    }
+  };
+
+  // Open Privacy Policy (Apple required functional link)
+  const openPrivacyPolicy = async () => {
+    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Privacy Policy');
+      }
+    } catch (error) {
+      console.error('Error opening Privacy Policy:', error);
+      Alert.alert('Error', 'Unable to open Privacy Policy');
+    }
   };
 
      const topFeatures = [
@@ -352,6 +385,30 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 ))}
               </View>
             </View>
+
+            {/* Apple Required Subscription Information - Inside ScrollView */}
+            <View style={styles.appleRequiredInfo}>
+              <Text style={styles.subscriptionInfoTitle}>Subscription Details</Text>
+              <Text style={styles.subscriptionInfoText}>
+                Monthly Pro: $24.99/month, auto-renewable{"\n"}
+                Yearly Pro: $149.99/year, auto-renewable{"\n"}
+                Lifetime Pro: $349.99 one-time payment
+              </Text>
+              
+              <View style={styles.termsRow}>
+                <Text style={[styles.subscriptionInfoText, { marginBottom: 8 }]}>By subscribing you agree to our:</Text>
+              </View>
+              
+              <View style={styles.termsLinksRow}>
+                <TouchableOpacity style={styles.linkButton} onPress={() => openTermsOfService()}>
+                  <Text style={styles.linkText}>Terms of Service</Text>
+                </TouchableOpacity>
+                <Text style={styles.subscriptionInfoText}> and </Text>
+                <TouchableOpacity style={styles.linkButton} onPress={() => openPrivacyPolicy()}>
+                  <Text style={styles.linkText}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
 
           {/* Footer with Action Buttons */}
@@ -396,18 +453,18 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Benefit Reminder */}
-             <View style={styles.benefitReminder}>
-               <Text style={styles.benefitText}>
-                 Free: 2 daily picks • Pro: 20 daily AI picks + advanced features
-               </Text>
-             </View>
-            
-            <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
-                Auto-renewable. Cancel anytime. By subscribing you agree to our Terms of Service.
-              </Text>
-            </View>
+             {/* Benefit Reminder */}
+              <View style={styles.benefitReminder}>
+                <Text style={styles.benefitText}>
+                  Free: 2 daily picks • Pro: 20 daily AI picks + advanced features
+                </Text>
+              </View>
+              
+              <View style={styles.termsContainer}>
+                <Text style={styles.termsText}>
+                  Auto-renewable. Cancel anytime in iTunes Account Settings.
+                </Text>
+              </View>
           </View>
         </LinearGradient>
       </View>
@@ -778,6 +835,50 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  // Apple-required subscription information styles
+  appleRequiredInfo: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  subscriptionInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subscriptionInfoText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  // Terms and Privacy Policy link styles
+  termsRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  termsLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  linkButton: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  linkText: {
+    fontSize: 12,
+    color: '#3B82F6',
+    textDecorationLine: 'underline',
+    fontWeight: '500',
   },
 });
 

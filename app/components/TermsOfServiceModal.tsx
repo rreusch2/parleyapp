@@ -141,7 +141,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
               </Text>
               <View style={styles.bulletPoints}>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Free Tier:</Text> Limited daily picks and basic features</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $26.70/month, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $24.99/month, auto-renewable</Text>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $149.99/year, auto-renewable</Text>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Lifetime Pro:</Text> $349.99 one-time payment</Text>
               </View>

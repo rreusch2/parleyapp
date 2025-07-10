@@ -9,6 +9,7 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import inAppPurchaseService from '../services/inAppPurchases';
 import Colors from '../constants/Colors';
@@ -117,6 +118,38 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     
     const subscription = subscriptions.find(sub => sub.productId === productId);
     return subscription?.localizedPrice || '$9.99'; // fallback
+  };
+
+  // Open Terms of Service (Apple required functional link)
+  const openTermsOfService = async () => {
+    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Terms of Service');
+      }
+    } catch (error) {
+      console.error('Error opening Terms of Service:', error);
+      Alert.alert('Error', 'Unable to open Terms of Service');
+    }
+  };
+
+  // Open Privacy Policy (Apple required functional link)
+  const openPrivacyPolicy = async () => {
+    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Privacy Policy');
+      }
+    } catch (error) {
+      console.error('Error opening Privacy Policy:', error);
+      Alert.alert('Error', 'Unable to open Privacy Policy');
+    }
   };
 
   const features = [
@@ -373,6 +406,36 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 <Text style={styles.testimonialAuthor}>- Marcus R., Lifetime Member</Text>
               </LinearGradient>
             </View>
+
+            {/* Apple-Required Subscription Information - Inside ScrollView */}
+            <View style={styles.appleRequiredInfo}>
+              <Text style={styles.subscriptionInfoTitle}>
+                {selectedPlan === 'monthly' ? 'Monthly Pro Subscription'
+                : selectedPlan === 'yearly' ? 'Yearly Pro Subscription'
+                : 'Lifetime Pro Purchase'}
+              </Text>
+              <Text style={styles.subscriptionInfoText}>
+                {selectedPlan === 'monthly' 
+                  ? '$24.99 per month, auto-renewable'
+                  : selectedPlan === 'yearly'
+                    ? '$149.99 per year, auto-renewable'
+                    : '$349.99 one-time payment'}
+              </Text>
+              
+              <View style={styles.termsRow}>
+                <Text style={[styles.subscriptionInfoText, { marginBottom: 8 }]}>By subscribing you agree to our:</Text>
+              </View>
+              
+              <View style={styles.termsLinksRow}>
+                <TouchableOpacity style={styles.linkButton} onPress={() => openTermsOfService()}>
+                  <Text style={styles.linkText}>Terms of Service</Text>
+                </TouchableOpacity>
+                <Text style={styles.subscriptionInfoText}> and </Text>
+                <TouchableOpacity style={styles.linkButton} onPress={() => openPrivacyPolicy()}>
+                  <Text style={styles.linkText}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </ScrollView>
 
           {/* Footer */}
@@ -412,8 +475,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <View style={styles.termsContainer}>
               <Text style={styles.termsText}>
                 {selectedPlan === 'lifetime' 
-                  ? 'One-time purchase. No recurring charges. By purchasing you agree to our Terms of Service and Privacy Policy.'
-                  : 'Auto-renewable. Cancel anytime. By subscribing you agree to our Terms of Service and Privacy Policy.'
+                  ? 'One-time purchase. No recurring charges.'
+                  : 'Auto-renewable. Cancel anytime in iTunes Account Settings.'
                 }
               </Text>
             </View>
@@ -432,9 +495,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -447,7 +510,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   crownContainer: {
     width: 80,
@@ -759,6 +822,50 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     lineHeight: 22,
+  },
+  // Apple-required subscription information styles
+  appleRequiredInfo: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.2)',
+  },
+  subscriptionInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subscriptionInfoText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  // Terms and Privacy Policy link styles
+  termsRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  termsLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  linkButton: {
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  linkText: {
+    fontSize: 12,
+    color: '#3B82F6',
+    textDecorationLine: 'underline',
+    fontWeight: '500',
   },
 });
 
