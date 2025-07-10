@@ -137,7 +137,7 @@ export default function SettingsScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notification-settings`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notification-settings`, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         }
@@ -311,7 +311,7 @@ export default function SettingsScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notification-settings`, {
+      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notification-settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

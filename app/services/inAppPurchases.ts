@@ -119,7 +119,7 @@ class InAppPurchaseService {
 
   private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/purchases/verify`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
