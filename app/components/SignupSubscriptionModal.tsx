@@ -177,19 +177,20 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
             {/* Main Header - Now inside ScrollView */}
             <View style={styles.headerContent}>
               <View style={styles.crownContainer}>
-                <Crown size={40} color="#F59E0B" />
+                <Crown size={42} color="#F59E0B" />
+                <View style={styles.crownGlow} />
               </View>
-              <Text style={styles.headerTitle}>🎉 Welcome to Predictive Play!</Text>
+              <Text style={styles.headerTitle}>🚀 Welcome to Predictive Play!</Text>
               <Text style={styles.headerSubtitle}>
-                Start your betting journey with Pro features
+                Join elite bettors using AI-powered predictions
               </Text>
             </View>
             
             {/* Value Proposition */}
             <View style={styles.valueSection}>
-              <Text style={styles.sectionTitle}>Choose Your Experience</Text>
+              <Text style={styles.sectionTitle}>⚡ Choose Your Experience</Text>
               <Text style={styles.valueText}>
-                Join thousands of winning bettors using our AI-powered predictions
+                Get started with AI-powered predictions and advanced betting tools
               </Text>
             </View>
 
@@ -375,7 +376,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 <Text style={styles.subscribeText}>
                   {loading 
                     ? 'Processing...' 
-                    : `Start ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
+                    : `Unlock ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
                   }
                 </Text>
                 <ChevronRight size={20} color="#FFFFFF" />
@@ -390,7 +391,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
             >
               <View style={styles.freeButtonContent}>
                 <Gift size={20} color="#94A3B8" />
-                <Text style={styles.freeButtonText}>Continue with Free Account</Text>
+                <Text style={styles.freeButtonText}>Try Free Account (Limited)</Text>
                 <ArrowRight size={16} color="#94A3B8" />
               </View>
             </TouchableOpacity>
@@ -422,9 +423,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 45 : 30,
     paddingHorizontal: 20,
-    paddingBottom: 0, // Reduced padding bottom
+    paddingBottom: 0,
   },
   closeButton: {
     alignSelf: 'flex-end',
@@ -437,18 +438,31 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
-    marginTop: 10, // Reduced margin
-    marginBottom: 10, // Added margin bottom
+    marginTop: 5,
+    marginBottom: 15,
     paddingHorizontal: 20,
   },
   crownContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    position: 'relative',
+  },
+  crownGlow: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(245, 158, 11, 0.05)',
+    top: -5,
+    left: -5,
+    zIndex: -1,
   },
   headerTitle: {
     fontSize: 26,
@@ -469,7 +483,7 @@ const styles = StyleSheet.create({
   },
   valueSection: {
     alignItems: 'center',
-    marginVertical: 16, // Adjusted vertical margin
+    marginVertical: 12,
   },
   sectionTitle: {
     fontSize: 20,

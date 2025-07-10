@@ -378,11 +378,20 @@ export default function HomeScreen() {
                 colors={['#00E5FF', '#0891B2']}
                 style={styles.upgradeGradient}
               >
-                <Crown size={16} color="#FFFFFF" />
-                <Text style={styles.upgradeText}>
-                  Unlock 20 daily picks & premium analytics
-                </Text>
-                <ChevronRight size={16} color="#FFFFFF" />
+                <View style={styles.upgradeLeftContent}>
+                  <Crown size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.upgradeRightContent}>
+                  <Text style={styles.upgradeMainText}>
+                    Unlock 20 daily picks
+                  </Text>
+                  <Text style={styles.upgradeSubText}>
+                    & premium analytics
+                  </Text>
+                </View>
+                <View style={styles.upgradeArrow}>
+                  <ChevronRight size={18} color="#FFFFFF" strokeWidth={2.5} />
+                </View>
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -794,9 +803,34 @@ const styles = StyleSheet.create({
   upgradeGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingVertical: 14,
     paddingHorizontal: 16,
+  },
+  upgradeLeftContent: {
+    flex: 0,
+    marginRight: 12,
+  },
+  upgradeRightContent: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  upgradeMainText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  upgradeSubText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
+    opacity: 0.9,
+    marginTop: 2,
+  },
+  upgradeArrow: {
+    flex: 0,
+    marginLeft: 8,
   },
   upgradeText: {
     color: '#FFFFFF',

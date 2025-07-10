@@ -63,16 +63,20 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
     const loadMessageCount = async () => {
       try {
         setIsLoadingMessageCount(true);
-        const saved = await AsyncStorage.getItem('freeUserMessageCount');
-        if (saved !== null) {
-          const count = parseInt(saved, 10);
-          console.log('📱 Loaded free user message count:', count);
-          setFreeUserMessageCount(count);
-        } else {
-          console.log('📱 No saved message count found, starting fresh');
-        }
+        
+        // Force clear any existing count for debugging
+        console.log('📱 Clearing existing message count for fresh start');
+        await AsyncStorage.removeItem('freeUserMessageCount');
+        
+        // Always start new users with 0 messages
+        console.log('📱 Setting fresh user message count to 0');
+        setFreeUserMessageCount(0);
+        await AsyncStorage.setItem('freeUserMessageCount', '0');
+        
       } catch (error) {
-        console.warn('Failed to load free user message count:', error);
+        console.warn('Failed to initialize free user message count:', error);
+        // Fallback to 0 if there's an error
+        setFreeUserMessageCount(0);
       } finally {
         setIsLoadingMessageCount(false);
       }
@@ -112,10 +116,17 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
 
   const canSendMessage = (isPro: boolean) => {
     if (isPro) return true;
+    
     // Don't restrict while loading to prevent confusion
     if (isLoadingMessageCount) return true;
-    const canSend = freeUserMessageCount < 1;
-    console.log(`🔍 canSendMessage check: isPro=${isPro}, messageCount=${freeUserMessageCount}, canSend=${canSend}`);
+    
+    // Free users can send 3 messages (when count is 0, 1, or 2)
+    // After 3rd message, count becomes 3 and they're blocked
+    const canSend = freeUserMessageCount < 3;
+    
+    // More verbose logging to debug the issue
+    console.log(`🔍 canSendMessage check: isPro=${isPro}, messageCount=${freeUserMessageCount}, canSend=${canSend}, isLoading=${isLoadingMessageCount}`);
+    
     return canSend;
   };
 

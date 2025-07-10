@@ -764,10 +764,23 @@ export default function ProAIChat({
                 {isLoadingMessageCount 
                   ? '⏳ Loading...' 
                   : canSendMessage(isPro) 
-                    ? '🎯 1 free message remaining' 
+                    ? `💬 ${3 - freeUserMessageCount} chat${(3 - freeUserMessageCount) === 1 ? '' : 's'} remaining` 
                     : '🔒 Upgrade for unlimited AI chat'
                 }
               </Text>
+              {canSendMessage(isPro) && (
+                <View style={styles.chatCounterDots}>
+                  {[1, 2, 3].map((dot) => (
+                    <View 
+                      key={dot} 
+                      style={[
+                        styles.counterDot, 
+                        freeUserMessageCount >= dot ? styles.counterDotUsed : styles.counterDotRemaining
+                      ]} 
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1234,5 +1247,24 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  chatCounterDots: {
+    flexDirection: 'row',
+    marginTop: 8,
+    justifyContent: 'center',
+  },
+  counterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 3,
+  },
+  counterDotUsed: {
+    backgroundColor: '#EF4444',
+    opacity: 0.8,
+  },
+  counterDotRemaining: {
+    backgroundColor: '#10B981',
+    opacity: 1,
   },
 }); 

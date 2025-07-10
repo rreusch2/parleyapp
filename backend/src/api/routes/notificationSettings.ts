@@ -36,7 +36,7 @@ router.put('/', authenticate, async (req, res) => {
   }
 
   // Validate allowed notification types
-  const allowedSettings = ['ai_picks', 'bet_results', 'weekly_summary', 'promotions'];
+  const allowedSettings = ['ai_picks'];
   const hasValidKeys = Object.keys(settings).every(key => allowedSettings.includes(key));
   
   if (!hasValidKeys) {

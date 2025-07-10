@@ -221,18 +221,17 @@ export default function WelcomeSpinningWheel({ visible, onClose, onComplete }: W
           style={styles.modalGradient}
         >
           <View style={styles.container}>
-            {/* Close Button */}
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <X size={24} color="#fff" />
-            </TouchableOpacity>
-
             {/* Header */}
             <View style={styles.header}>
               <Animated.View style={[styles.sparkleContainer, { opacity: sparkleOpacity }]}>
-                <Sparkles size={36} color="#fbbf24" />
+                <Sparkles size={40} color="#fbbf24" />
               </Animated.View>
-              <Text style={styles.title}>🎉 Welcome Bonus!</Text>
-              <Text style={styles.subtitle}>Spin the wheel to claim your free premium picks!</Text>
+              <Text style={styles.title}>🎊 Welcome to Predictive Play!</Text>
+              <Text style={styles.subtitle}>Spin to unlock your free premium AI picks</Text>
+              <View style={styles.bonusBadge}>
+                <Gift size={16} color="#fbbf24" />
+                <Text style={styles.bonusText}>BONUS PICKS</Text>
+              </View>
             </View>
 
             {/* Wheel Container */}
@@ -474,7 +473,7 @@ const styles = StyleSheet.create({
   },
   pointer: {
     position: 'absolute',
-    top: -5,
+    top: 10,
     alignItems: 'center',
     zIndex: 10,
   },
@@ -483,17 +482,17 @@ const styles = StyleSheet.create({
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderLeftWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 25,
+    borderLeftWidth: 18,
+    borderRightWidth: 18,
+    borderTopWidth: 30,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#fbbf24',
+    borderTopColor: '#fbbf24',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
   },
   confettiContainer: {
     position: 'absolute',

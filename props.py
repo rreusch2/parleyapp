@@ -64,7 +64,7 @@ class ResearchInsight:
 class StatMuseClient:
     """Client for StatMuse API server"""
     
-    def __init__(self, base_url: str = "https://feisty-nurturing-production-9c29.up.railway.app"):
+    def __init__(self, base_url: str = "http://127.0.0.1:5001"):
         self.base_url = base_url
         self.session = requests.Session()
         

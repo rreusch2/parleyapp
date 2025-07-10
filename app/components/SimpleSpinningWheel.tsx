@@ -258,18 +258,17 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.container}>
-              {/* Close Button */}
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <X size={24} color="#fff" />
-              </TouchableOpacity>
-
             {/* Header */}
             <View style={styles.header}>
               <Animated.View style={[styles.sparkleContainer, { opacity: sparkleOpacity }]}>
-                <Sparkles size={36} color="#fbbf24" />
+                <Sparkles size={40} color="#fbbf24" />
               </Animated.View>
-              <Text style={styles.title}>🎉 Welcome Bonus!</Text>
-              <Text style={styles.subtitle}>Spin the wheel to claim your free premium picks!</Text>
+              <Text style={styles.title}>🎊 Welcome to Predictive Play!</Text>
+              <Text style={styles.subtitle}>Spin to unlock your free premium AI picks</Text>
+              <View style={styles.bonusBadge}>
+                <Gift size={16} color="#fbbf24" />
+                <Text style={styles.bonusText}>FREE BONUS</Text>
+              </View>
             </View>
 
             {/* Wheel Container */}
@@ -470,9 +469,16 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
             </View>
 
             {/* Footer */}
-            <Text style={styles.footer}>
-              🔥 Limited time welcome bonus - Premium picks usually cost $4.99 each!
-            </Text>
+            <View style={styles.footerContainer}>
+              <Text style={styles.footer}>
+                🔥 Limited time welcome bonus - Premium picks usually cost $4.99 each!
+              </Text>
+              <View style={styles.footerDecoration}>
+                <Star size={12} color="#fbbf24" />
+                <Text style={styles.footerSubtext}>Exclusive new user offer</Text>
+                <Star size={12} color="#fbbf24" />
+              </View>
+            </View>
             
             {/* Add extra padding at the bottom */}
             <View style={{ height: 20 }} />
@@ -543,6 +549,29 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 22,
+    marginBottom: 12,
+  },
+  bonusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    borderWidth: 1,
+    borderColor: '#8b5cf6',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  bonusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fbbf24',
+    letterSpacing: 0.5,
   },
   wheelContainer: {
     position: 'relative',
@@ -552,11 +581,11 @@ const styles = StyleSheet.create({
   },
   wheelGlow: {
     position: 'absolute',
-    width: WHEEL_SIZE + 40,
-    height: WHEEL_SIZE + 40,
-    borderRadius: (WHEEL_SIZE + 40) / 2,
+    width: WHEEL_SIZE + 50,
+    height: WHEEL_SIZE + 50,
+    borderRadius: (WHEEL_SIZE + 50) / 2,
     backgroundColor: '#8b5cf6',
-    opacity: 0.3,
+    opacity: 0.4,
     shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
@@ -644,7 +673,7 @@ const styles = StyleSheet.create({
   },
   pointer: {
     position: 'absolute',
-    top: -20,
+    top: -15,
     zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -666,12 +695,12 @@ const styles = StyleSheet.create({
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderLeftWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 25,
+    borderLeftWidth: 14,
+    borderRightWidth: 14,
+    borderTopWidth: 24,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#fff',
+    borderTopColor: '#fff',
   },
   currentDisplay: {
     marginBottom: 16,
@@ -788,10 +817,26 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.7,
   },
+  footerContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
   footer: {
     fontSize: 12,
     color: '#64748b',
     textAlign: 'center',
     lineHeight: 16,
+    marginBottom: 8,
+  },
+  footerDecoration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerSubtext: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 }); 
