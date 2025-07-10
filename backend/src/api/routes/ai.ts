@@ -2160,7 +2160,7 @@ router.get('/player-props-picks', async (req, res) => {
     logger.info(`⚾ Fetching player props picks from database - Test Mode: ${test === 'true'}`);
     
     // Fetch player props picks from database instead of generating new ones
-    const { data: playerPropsPicks, error } = await supabase
+    const { data: playerPropsPicks, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
       .eq('bet_type', 'player_prop')
