@@ -1169,12 +1169,14 @@ router.post('/chat/stream', async (req, res) => {
 
     logger.info(`🎯 Grok Streaming Chat Request from user ${userId}: "${message}"`);
 
-    // Set up Server-Sent Events streaming
+    // Set up Server-Sent Events streaming with proper CORS
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     const sendStreamData = (data: any) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -1238,6 +1240,18 @@ router.post('/chat/stream', async (req, res) => {
 
     res.end();
   }
+});
+
+/**
+ * @route OPTIONS /api/ai/chat/stream
+ * @desc Handle CORS preflight for streaming endpoint
+ */
+router.options('/chat/stream', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.status(200).end();
 });
 
 /**

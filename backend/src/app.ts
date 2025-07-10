@@ -52,7 +52,7 @@ const corsOptions = {
     /^http:\/\/192\.168\.1\.99:\d+$/
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
   credentials: true,
   optionsSuccessStatus: 200
 };
