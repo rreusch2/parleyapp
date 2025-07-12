@@ -98,35 +98,51 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
   
   const subscribeToPro = async (planId: 'monthly' | 'yearly' | 'lifetime'): Promise<boolean> => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-
-    // Get the product ID for the plan
-    const productIds = {
-      monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
-      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly', 
-      lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
-    };
+    console.log('🔥 DEBUG: subscribeToPro called with planId:', planId);
     
-    const productId = productIds[planId];
-    if (!productId) {
-      console.error('Invalid plan ID:', planId);
+    try {
+      console.log('🔥 DEBUG: Getting user from Supabase...');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('❌ DEBUG: No user found');
+        return false;
+      }
+      console.log('✅ DEBUG: User found:', user.id);
+
+      // Get the product ID for the plan
+      const productIds = {
+        monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
+        yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly', 
+        lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
+      };
+      
+      const productId = productIds[planId];
+      console.log('🔥 DEBUG: Platform:', Platform.OS);
+      console.log('🔥 DEBUG: Selected productId:', productId);
+      
+      if (!productId) {
+        console.error('Invalid plan ID:', planId);
+        Alert.alert('Error', 'Invalid subscription plan');
+        return false;
+      }
+
+      console.log('🔥 DEBUG: Initializing IAP service...');
+      await inAppPurchaseService.initialize();
+      
+      console.log('🔥 DEBUG: Calling purchaseSubscription...');
+      await inAppPurchaseService.purchaseSubscription(productId);
+      
+      console.log('✅ DEBUG: purchaseSubscription call completed');
+      // Success handling is done in the purchase listeners
+      // The backend verification will update the user's pro status
+      return true;
+    } catch (error) {
+      console.error('❌ DEBUG: Error in subscribeToPro:', error);
+      console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
+      Alert.alert('Purchase Error', `Failed to start purchase: ${error.message || error}`);
       return false;
     }
-
-    // Initialize and purchase using IAP service
-    await inAppPurchaseService.initialize();
-    await inAppPurchaseService.purchaseSubscription(productId);
-    
-    // Success handling is done in the purchase listeners
-    // The backend verification will update the user's pro status
-    return true;
-  } catch (error) {
-    console.error('Error subscribing to Pro:', error);
-    return false;
-  }
-};
+  };
   
   const restorePurchases = async () => {
     try {

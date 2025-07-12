@@ -78,8 +78,11 @@ class InAppPurchaseService {
   }
 
   private setupPurchaseListeners(): void {
+    console.log('🔥 DEBUG: Setting up purchase listeners...');
+    
     this.purchaseUpdateSubscription = purchaseUpdatedListener(
       async (purchase: ProductPurchase) => {
+        console.log('🔥 DEBUG: Purchase listener triggered!');
         console.log('✅ Purchase successful:', purchase);
         
         try {
@@ -100,6 +103,7 @@ class InAppPurchaseService {
 
     this.purchaseErrorSubscription = purchaseErrorListener(
       (error: PurchaseError) => {
+        console.log('🔥 DEBUG: Purchase error listener triggered!');
         console.error('❌ Purchase error:', error);
         this.onPurchaseError(new Error(error.message));
       }
@@ -107,15 +111,26 @@ class InAppPurchaseService {
   }
 
   async purchaseSubscription(productId: string): Promise<void> {
+    console.log('🔥 DEBUG: purchaseSubscription called with productId:', productId);
+    
     if (!this.isInitialized) {
+      console.log('❌ DEBUG: Service not initialized!');
       throw new Error('InAppPurchase service not initialized');
     }
 
+    console.log('✅ DEBUG: Service is initialized');
+    console.log('🛒 DEBUG: Available subscriptions:', this.subscriptions.map(s => s.productId));
+    
     try {
       console.log('🛒 Requesting subscription:', productId);
-      await requestSubscription({ sku: productId });
+      console.log('🔥 DEBUG: About to call requestSubscription...');
+      
+      const result = await requestSubscription({ sku: productId });
+      console.log('✅ DEBUG: requestSubscription completed:', result);
+      
     } catch (error) {
       console.error('❌ Failed to request subscription:', error);
+      console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
   }
