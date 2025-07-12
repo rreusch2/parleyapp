@@ -112,7 +112,7 @@ export class ChatbotOrchestrator {
       } else {
         // Stream the response in real-time
         const stream = await this.openai.chat.completions.create({
-          model: "grok-4-0709",
+          model: "grok-3-mini",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7,
@@ -183,7 +183,7 @@ export class ChatbotOrchestrator {
       } else {
         // Simple AI response for basic queries
         response = await this.openai.chat.completions.create({
-          model: "grok-4-0709",
+          model: "grok-3-mini",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7
@@ -552,7 +552,7 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "grok-4-0709",
+        model: "grok-3-mini",
         max_tokens: 1500,
         messages: messages,
         tools: tools,
@@ -586,7 +586,7 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
 
         // Get final response with tool results
         const finalResponse = await this.openai.chat.completions.create({
-          model: "grok-4-0709",
+          model: "grok-3-mini",
           max_tokens: 1500,
           messages: [
             ...messages,
@@ -604,7 +604,7 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
       logger.error(`Error with tools: ${error}`);
       // Fallback to simple response
       return await this.openai.chat.completions.create({
-        model: "grok-4-0709",
+        model: "grok-3-mini",
         max_tokens: 1000,
         messages: messages,
         temperature: 0.7
