@@ -236,14 +236,15 @@ async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boole
   try {
     console.log('🍎 Verifying Apple receipt...');
     
-    if (!process.env.APPLE_SHARED_SECRET) {
+    const appleSharedSecret = process.env.APPLE_SHARED_SECRET;
+    if (!appleSharedSecret) {
       console.error('❌ APPLE_SHARED_SECRET not configured');
       throw new Error('Apple shared secret not configured');
     }
 
     const requestBody = {
       'receipt-data': receiptData,
-      'password': process.env.APPLE_SHARED_SECRET,
+      'password': appleSharedSecret,
       'exclude-old-transactions': true,
     };
 

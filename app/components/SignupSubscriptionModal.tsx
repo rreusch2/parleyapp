@@ -35,7 +35,6 @@ import {
 } from 'lucide-react-native';
 import inAppPurchaseService from '../services/inAppPurchases';
 import { useSubscription } from '../services/subscriptionContext';
-import { DEV_CONFIG } from '../config/development';
 import Colors from '../constants/Colors';
 
 
@@ -83,31 +82,47 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
     try {
       setLoading(true);
       
-      // Production mode: Use IAP service
       const productId = getProductId(selectedPlan);
       
       if (!productId) {
-        throw new Error('Product not available');
+        Alert.alert('Error', 'Product not available');
+        return;
       }
 
+      console.log('🔄 Starting subscription purchase for:', productId);
+      
       // Initialize IAP service first
-      console.log('🔥 DEBUG: Initializing IAP service in signup modal...');
       await inAppPurchaseService.initialize();
       
-      // Use IAP service to purchase
-      console.log('🔥 DEBUG: Calling purchaseSubscription with productId:', productId);
-      await inAppPurchaseService.purchaseSubscription(productId);
+      // Call the IAP service to start the purchase process
+      // This will trigger the Apple purchase dialog
+      await inAppPurchaseService.purchaseSubscription(productId, (purchase) => {
+        // Success callback - close the modal
+        onClose();
+      });
       
-      // Call the optional callback if provided
-      if (onSubscribe) {
-        await onSubscribe(selectedPlan);
-      }
+      // If we reach here, the purchase dialog was shown
+      // The actual purchase completion is handled by the IAP service listeners
+      console.log('✅ Purchase dialog shown successfully');
       
-      // Close modal on success
-      onClose();
     } catch (error) {
-      console.error('Subscription error:', error);
-      Alert.alert('Error', 'Failed to process subscription. Please try again.');
+      console.error('❌ Subscription error:', error);
+      
+      // Handle different error types
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled') || error.message.includes('canceled')) {
+          // User cancelled - don't show error
+          console.log('ℹ️ User cancelled purchase');
+        } else if (error.message.includes('not available')) {
+          Alert.alert('Product Unavailable', 'This subscription is not available right now. Please try again later.');
+        } else if (error.message.includes('Network')) {
+          Alert.alert('Network Error', 'Please check your internet connection and try again.');
+        } else {
+          Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+        }
+      } else {
+        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

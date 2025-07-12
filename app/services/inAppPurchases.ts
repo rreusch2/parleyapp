@@ -11,8 +11,13 @@ import RNIap, {
   getProducts,
   getSubscriptions,
   flushFailedPurchasesCachedAsPendingAndroid,
+  validateReceiptIos,
+  validateReceiptAndroid,
+  getAvailablePurchases,
+  getPurchaseHistory,
 } from 'react-native-iap';
 import { Platform, Alert } from 'react-native';
+import { supabase } from './api/supabaseClient';
 
 // Your subscription product IDs from App Store Connect
 const subscriptionSkus = Platform.select({
@@ -28,24 +33,37 @@ const subscriptionSkus = Platform.select({
   ],
 }) as string[];
 
+// Apple shared secret for receipt verification
+const APPLE_SHARED_SECRET = '4ec3c5802f414f928e515bc70f16005c';
+
 class InAppPurchaseService {
   private isInitialized = false;
   private subscriptions: Subscription[] = [];
   private purchaseUpdateSubscription: any;
   private purchaseErrorSubscription: any;
+  private purchaseSuccessCallback: ((purchase: ProductPurchase) => void) | null = null;
 
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      console.log('✅ IAP service already initialized');
+      return;
+    }
 
     try {
-      await RNIap.initConnection();
+      console.log('🔄 Initializing IAP service...');
+      
+      // Initialize connection
+      const result = await RNIap.initConnection();
+      console.log('📱 IAP connection result:', result);
       
       if (Platform.OS === 'ios') {
         await RNIap.clearTransactionIOS();
+        console.log('✅ iOS transactions cleared');
       }
 
       if (Platform.OS === 'android') {
         await flushFailedPurchasesCachedAsPendingAndroid();
+        console.log('✅ Android failed purchases flushed');
       }
 
       // Load available subscriptions
@@ -56,444 +74,410 @@ class InAppPurchaseService {
       
       this.isInitialized = true;
       console.log('✅ InAppPurchase service initialized successfully');
+      console.log('📦 Available subscriptions:', this.subscriptions.length);
+      
     } catch (error) {
-      console.error('❌ Failed to initialize InAppPurchase service. IAP will be disabled:', error);
-      // Do not re-throw the error. This allows the app to run
-      // without IAP functionality if initialization fails.
-    }
-  }
-
-  private async loadSubscriptions(): Promise<void> {
-    try {
-      const subs = await getSubscriptions({ skus: subscriptionSkus });
-      this.subscriptions = subs;
-      console.log('📦 Loaded subscriptions:', subs.map(s => ({ 
-        id: s.productId, 
-        price: 'localizedPrice' in s ? s.localizedPrice : ('price' in s ? s.price : 'N/A') 
-      })));
-    } catch (error) {
-      console.error('❌ Failed to load subscriptions:', error);
+      console.error('❌ Failed to initialize InAppPurchase service:', error);
+      
+      // Show user-friendly error
+      Alert.alert(
+        'Purchase System Unavailable',
+        'In-app purchases are not available right now. Please try again later.',
+        [{ text: 'OK' }]
+      );
+      
       throw error;
     }
   }
 
   private setupPurchaseListeners(): void {
-    console.log('🔥 DEBUG: Setting up purchase listeners...');
+    console.log('🔄 Setting up purchase listeners...');
     
     this.purchaseUpdateSubscription = purchaseUpdatedListener(
       async (purchase: ProductPurchase) => {
-        console.log('🔥 DEBUG: Purchase listener triggered!');
-        console.log('✅ Purchase successful:', purchase);
+        console.log('✅ Purchase successful:', {
+          productId: purchase.productId,
+          transactionId: purchase.transactionId,
+          purchaseToken: purchase.purchaseToken,
+          platform: Platform.OS
+        });
         
         try {
-          // Verify purchase with your backend
+          // Verify purchase with backend
           await this.verifyPurchaseWithBackend(purchase);
           
           // Finish the transaction
           await finishTransaction({ purchase });
+          console.log('✅ Transaction finished successfully');
           
           // Notify success
           this.onPurchaseSuccess(purchase);
+          
         } catch (error) {
           console.error('❌ Purchase verification failed:', error);
-          this.onPurchaseError(error as Error);
+          Alert.alert(
+            'Purchase Verification Failed',
+            'Your purchase was processed but could not be verified. Please contact support.',
+            [{ text: 'OK' }]
+          );
+          
+          // Still finish the transaction to avoid duplicate charges
+          await finishTransaction({ purchase });
         }
       }
     );
 
     this.purchaseErrorSubscription = purchaseErrorListener(
       (error: PurchaseError) => {
-        console.log('🔥 DEBUG: Purchase error listener triggered!');
         console.error('❌ Purchase error:', error);
-        this.onPurchaseError(new Error(error.message));
+        
+        // Handle different error types
+        let errorMessage = 'Purchase failed. Please try again.';
+        
+        if (error.code === 'E_USER_CANCELLED') {
+          errorMessage = 'Purchase was cancelled.';
+        } else if (error.code === 'E_NETWORK_ERROR') {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.code === 'E_SERVICE_ERROR') {
+          errorMessage = 'App Store service error. Please try again later.';
+        }
+        
+        Alert.alert('Purchase Error', errorMessage, [{ text: 'OK' }]);
       }
     );
   }
 
-  async purchaseSubscription(productId: string): Promise<void> {
-    console.log('🔥 DEBUG: purchaseSubscription called with productId:', productId);
+  async purchaseSubscription(productId: string, onSuccess?: (purchase: ProductPurchase) => void): Promise<void> {
+    console.log('🛒 Starting purchase for product:', productId);
     
     if (!this.isInitialized) {
-      console.log('❌ DEBUG: Service not initialized!');
+      console.error('❌ IAP service not initialized');
       throw new Error('InAppPurchase service not initialized');
     }
 
-    console.log('✅ DEBUG: Service is initialized');
-    console.log('🛒 DEBUG: Available subscriptions:', this.subscriptions.map(s => s.productId));
-    
     // Check if product exists in available subscriptions
     const subscription = this.subscriptions.find(sub => sub.productId === productId);
     if (!subscription) {
-      console.error('❌ DEBUG: Product not found in available subscriptions:', productId);
-      console.error('❌ DEBUG: Available products:', this.subscriptions.map(s => s.productId));
+      console.error('❌ Product not found:', productId);
+      console.error('Available products:', this.subscriptions.map(s => s.productId));
       throw new Error(`Product ${productId} not found in available subscriptions`);
     }
     
+    // Set the success callback if provided
+    if (onSuccess) {
+      this.purchaseSuccessCallback = onSuccess;
+    }
+    
     try {
-      console.log('🛒 Requesting subscription:', productId);
-      console.log('🔥 DEBUG: About to call requestSubscription...');
+      console.log('🔄 Requesting subscription purchase...');
       
-      // requestSubscription triggers the purchase flow
-      // The actual purchase handling happens in purchaseUpdatedListener
-      await requestSubscription({ sku: productId });
-      console.log('✅ DEBUG: requestSubscription call completed (purchase dialog should show)');
+      // Check if this is a lifetime product (non-renewable)
+      if (productId.includes('lifetime')) {
+        // Use requestPurchase for one-time purchases
+        await requestPurchase({ sku: productId });
+      } else {
+        // Use requestSubscription for recurring subscriptions
+        await requestSubscription({ sku: productId });
+      }
       
-      // Note: The actual verification happens in purchaseUpdatedListener
-      // This method just initiates the purchase flow
+      console.log('✅ Purchase request sent to App Store');
       
     } catch (error) {
-      console.error('❌ Failed to request subscription:', error);
-      console.error('❌ DEBUG: Error type:', typeof error);
-      console.error('❌ DEBUG: Error message:', error instanceof Error ? error.message : 'Unknown error');
-      console.error('❌ DEBUG: Full error object:', JSON.stringify(error, null, 2));
+      console.error('❌ Purchase request failed:', error);
       
-      // Show user-friendly error
-      Alert.alert(
-        'Purchase Failed',
-        `Unable to start purchase process. ${error instanceof Error ? error.message : 'Please try again.'}`
-      );
+      // Clear the callback on error
+      this.purchaseSuccessCallback = null;
       
+      let errorMessage = 'Failed to start purchase process.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('User cancelled')) {
+          errorMessage = 'Purchase was cancelled.';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (error.message.includes('Not available')) {
+          errorMessage = 'This product is not available for purchase.';
+        }
+      }
+      
+      Alert.alert('Purchase Error', errorMessage, [{ text: 'OK' }]);
       throw error;
     }
   }
 
-  private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<any> {
-    console.log('🔥 DEBUG: Starting backend verification...');
-    console.log('🔥 DEBUG: Purchase object:', JSON.stringify(purchase, null, 2));
-    
-    console.log('🔍 DEBUG: Backend URL FROM PROCESS.ENV:', process.env.EXPO_PUBLIC_BACKEND_URL);
-    console.log('🔍 DEBUG: All environment variables:', {
-      EXPO_PUBLIC_BACKEND_URL: process.env.EXPO_PUBLIC_BACKEND_URL,
-      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      NODE_ENV: process.env.NODE_ENV
-    });
-
+  private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<void> {
     try {
-      // Get Supabase auth token
-      console.log('🔍 DEBUG: Getting Supabase session...');
-      const { supabase } = await import('./api/supabaseClient');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('🔄 Verifying purchase with backend...');
       
-      if (sessionError) {
-        console.error('🔍 DEBUG: Session error:', sessionError);
-        throw new Error('Session error: ' + sessionError.message);
-      }
-      
-      if (!session?.access_token) {
-        console.error('🔍 DEBUG: No session or access token');
-        throw new Error('User not authenticated - no session');
-      }
-      
-      console.log('🔍 DEBUG: Session OK, user ID:', session.user?.id);
-      console.log('🔍 DEBUG: Access token preview:', session.access_token.substring(0, 20) + '...');
-
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-      console.log('🔍 DEBUG: Backend URL:', backendUrl);
-      
-      if (!backendUrl) {
-        console.error('❌ EXPO_PUBLIC_BACKEND_URL is not set!');
-        throw new Error('Backend URL not configured - check your .env file');
-      }
-      
-      // Validate backend URL format
-      if (backendUrl.includes('localhost') || backendUrl.includes('192.168') || backendUrl.includes('127.0.0.1')) {
-        console.error('❌ Backend URL points to localhost:', backendUrl);
-        console.error('❌ This will fail on device/TestFlight. Use production Railway URL!');
-        throw new Error('Backend URL misconfigured - using localhost instead of production');
-      }
-      
-      if (!backendUrl.startsWith('https://')) {
-        console.error('❌ Backend URL must use HTTPS for production:', backendUrl);
-        throw new Error('Backend URL must use HTTPS protocol');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const requestBody = {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      // Prepare verification payload
+      const verificationPayload = {
         platform: Platform.OS,
-        purchaseToken: purchase.purchaseToken,
-        receipt: purchase.transactionReceipt,
         productId: purchase.productId,
         transactionId: purchase.transactionId,
+        ...(Platform.OS === 'ios' ? {
+          receipt: purchase.transactionReceipt
+        } : {
+          purchaseToken: purchase.purchaseToken
+        })
       };
-      
-      console.log('🔍 DEBUG: Request body (sanitized):', {
-        platform: requestBody.platform,
-        productId: requestBody.productId,
-        transactionId: requestBody.transactionId,
-        hasReceipt: !!requestBody.receipt,
-        hasPurchaseToken: !!requestBody.purchaseToken,
-        receiptLength: requestBody.receipt?.length || 0
-      });
-      
-      const fullUrl = `${backendUrl}/api/purchases/verify`;
-      console.log('🔍 DEBUG: Making request to:', fullUrl);
 
-      console.log('🔍 DEBUG: Request headers:', {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`,
-      });
-
-      const response = await fetch(fullUrl, {
+      // Call backend verification endpoint
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(verificationPayload)
       });
-      
-      console.log('🔍 DEBUG: Response status:', response.status);
-      console.log('🔍 DEBUG: Response ok:', response.ok);
-      console.log('🔍 DEBUG: Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('🔍 DEBUG: Error response body:', errorText);
-        
-        // Special handling for common errors
-        if (response.status === 401) {
-          console.error('❌ Authentication failed - user session may be expired');
-          throw new Error(`Authentication failed (401). Please log out and log back in.`);
-        } else if (response.status === 404) {
-          console.error('❌ Backend endpoint not found');
-          throw new Error(`Backend endpoint not found (404). Check backend deployment.`);
-        } else if (response.status >= 500) {
-          console.error('❌ Backend server error');
-          throw new Error(`Backend server error (${response.status}). Please try again later.`);
-        }
-        
-        throw new Error(`Backend verification failed: ${response.status} - ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Backend verification failed');
       }
 
       const result = await response.json();
-      console.log('✅ Purchase verified with backend:', result);
+      console.log('✅ Purchase verified by backend:', result);
       
-      // Additional success logging
-      console.log('✅ Verification successful - subscription tier:', result.subscriptionTier);
-      console.log('✅ Expires at:', result.expiresAt);
-      
-      return result;
     } catch (error) {
       console.error('❌ Backend verification error:', error);
-      console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
-      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
-      
-      // Show user-friendly error with more context
-      Alert.alert(
-        'Purchase Verification Failed',
-        `We couldn't verify your purchase with our servers. ${error instanceof Error ? error.message : 'Please try again.'}\n\nIf this persists, contact support.`,
-        [{ text: 'OK', style: 'default' }]
-      );
-      
       throw error;
     }
   }
 
-  private onPurchaseSuccess = (purchase: ProductPurchase) => {
-    console.log('🎉 Purchase completed successfully:', purchase.productId);
+  private onPurchaseSuccess(purchase: ProductPurchase): void {
+    console.log('🎉 Purchase completed successfully!');
     
-    // Show success alert
     Alert.alert(
       'Purchase Successful!',
-      'Welcome to Parley Pro! Your subscription is now active.',
-      [{ text: 'Great!', style: 'default' }]
+      'Thank you for your purchase. You now have access to all Pro features.',
+      [{ text: 'Great!' }]
     );
-  };
-
-  private onPurchaseError = (error: Error) => {
-    console.error('💥 Purchase failed:', error);
     
-    // Show error alert
-    Alert.alert(
-      'Purchase Failed',
-      error.message || 'Something went wrong. Please try again.',
-      [{ text: 'OK', style: 'default' }]
-    );
-  };
+    // Call the success callback if one is set
+    if (this.purchaseSuccessCallback) {
+      this.purchaseSuccessCallback(purchase);
+      this.purchaseSuccessCallback = null; // Clear the callback after use
+    }
+  }
 
-  getSubscription(productId: string): Subscription | undefined {
-    return this.subscriptions.find(sub => sub.productId === productId);
+  async loadSubscriptions(): Promise<void> {
+    try {
+      console.log('📦 Loading subscriptions from App Store...');
+      
+      const subscriptions = await getSubscriptions({ skus: subscriptionSkus });
+      this.subscriptions = subscriptions;
+      
+      console.log(`✅ Loaded ${subscriptions.length} subscriptions:`);
+      subscriptions.forEach(sub => {
+        console.log(`  - ${sub.productId}: ${sub.localizedPrice} (${sub.localizedTitle})`);
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to load subscriptions:', error);
+      throw error;
+    }
   }
 
   getAllSubscriptions(): Subscription[] {
     return this.subscriptions;
   }
 
+  getSubscriptionByProductId(productId: string): Subscription | undefined {
+    return this.subscriptions.find(sub => sub.productId === productId);
+  }
+
   async restorePurchases(): Promise<void> {
     try {
       console.log('🔄 Restoring purchases...');
       
-      // This will trigger purchaseUpdatedListener for any existing valid subscriptions
-      if (Platform.OS === 'ios') {
-        await RNIap.clearTransactionIOS();
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Get purchase history
+      const purchases = await getAvailablePurchases();
+      console.log(`📋 Found ${purchases.length} available purchases`);
+      
+      if (purchases.length === 0) {
+        Alert.alert(
+          'No Purchases Found',
+          'No previous purchases were found on this Apple ID.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Verify each purchase with backend
+      for (const purchase of purchases) {
+        try {
+          await this.verifyPurchaseWithBackend(purchase);
+        } catch (error) {
+          console.warn('Failed to verify restored purchase:', purchase.productId);
+        }
       }
       
       Alert.alert(
         'Restore Complete',
-        'Any existing subscriptions have been restored.',
-        [{ text: 'OK', style: 'default' }]
+        'Your previous purchases have been restored.',
+        [{ text: 'OK' }]
       );
+      
     } catch (error) {
       console.error('❌ Failed to restore purchases:', error);
       Alert.alert(
         'Restore Failed',
         'Could not restore purchases. Please try again.',
-        [{ text: 'OK', style: 'default' }]
+        [{ text: 'OK' }]
       );
     }
   }
 
-  // TEST METHOD - Add this for debugging
+  async checkSubscriptionStatus(): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check subscription status');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Failed to check subscription status:', error);
+      return null;
+    }
+  }
+
   async testBackendConnection(): Promise<void> {
     try {
       console.log('🧪 Testing backend connection...');
       
-      const { supabase } = await import('./api/supabaseClient');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        Alert.alert('Test Failed', 'No valid user session found');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'Please log in first');
         return;
       }
 
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      console.log('🧪 Testing backend at:', backendUrl);
-
-      // First test the debug endpoint
-      console.log('🧪 Testing debug endpoint...');
-      const debugResponse = await fetch(`${backendUrl}/api/purchases/debug-env`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (debugResponse.ok) {
-        const debugResult = await debugResponse.json();
-        console.log('✅ Debug endpoint response:', debugResult);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert('Error', 'No active session');
+        return;
       }
 
-      // Now test the actual purchase endpoint with auth
-      console.log('🧪 Testing purchase endpoint with auth...');
-      const response = await fetch(`${backendUrl}/api/purchases/test-purchase`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/test-purchase`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           test: true,
-          timestamp: new Date().toISOString()
-        }),
+          userId: user.id
+        })
       });
 
-      console.log('🧪 Response status:', response.status);
-      const responseText = await response.text();
-      console.log('🧪 Response body:', responseText);
-
+      const result = await response.json();
+      
       if (response.ok) {
-        const result = JSON.parse(responseText);
-        console.log('✅ Backend test successful:', result);
         Alert.alert(
-          'Backend Test SUCCESS!', 
-          `✅ Backend is reachable\n✅ Auth working: User ${result.userId}\n✅ Apple secret configured: ${result.hasAppleSecret}\n✅ Environment: ${result.environment}`,
-          [{ text: 'Great!', style: 'default' }]
+          'Backend Test Successful ✅',
+          `Connection working!\n\nEnvironment: ${result.environment}\nApple Secret: ${result.hasAppleSecret ? 'Configured' : 'Missing'}\nTimestamp: ${result.timestamp}`,
+          [{ text: 'Great!' }]
         );
       } else {
-        const errorResult = JSON.parse(responseText);
-        throw new Error(`HTTP ${response.status}: ${errorResult.error || 'Unknown error'}`);
+        Alert.alert(
+          'Backend Test Failed ❌',
+          `Error: ${result.error}\nDebug: ${result.debug}`,
+          [{ text: 'OK' }]
+        );
       }
+      
     } catch (error) {
-      console.error('❌ Backend test failed:', error);
+      console.error('❌ Backend test error:', error);
       Alert.alert(
-        'Backend Test Failed',
-        `❌ Could not reach backend: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your internet connection and try again.`,
-        [{ text: 'OK', style: 'default' }]
+        'Backend Test Failed ❌',
+        `Could not connect to backend: ${error.message}`,
+        [{ text: 'OK' }]
       );
     }
   }
 
-  // DIAGNOSTIC METHOD - Test IAP product loading
   async runDiagnostics(): Promise<void> {
     try {
-      console.log('🔍 Starting IAP Diagnostics...');
+      console.log('🔍 Running IAP diagnostics...');
       
-      // 1. Check initialization
-      console.log('1️⃣ Checking initialization status:', this.isInitialized);
+      const diagnostics = {
+        initialized: this.isInitialized,
+        platform: Platform.OS,
+        subscriptionsLoaded: this.subscriptions.length,
+        productIds: subscriptionSkus,
+        availableProducts: this.subscriptions.map(s => ({
+          id: s.productId,
+          title: s.localizedTitle,
+          price: s.localizedPrice
+        }))
+      };
+
+      console.log('📊 IAP Diagnostics:', diagnostics);
       
-      if (!this.isInitialized) {
-        console.log('   Initializing IAP...');
-        await this.initialize();
-      }
-
-      // 2. Check if we can make payments
-      const canMakePayments = await RNIap.canMakePayments();
-      console.log('2️⃣ Can make payments:', canMakePayments);
-
-      // 3. Get available products
-      console.log('3️⃣ Fetching products...');
-      const products = await RNIap.getProducts({ skus: subscriptionSkus });
-      console.log('   Raw products response:', products);
-      console.log('   Product count:', products.length);
-      
-      // 4. Display each product
-      products.forEach((product, index) => {
-        console.log(`   Product ${index + 1}:`, {
-          identifier: product.identifier,
-          localizedTitle: product.localizedTitle,
-          price: product.price,
-          localizedPrice: product.localizedPrice,
-          currency: product.currency,
-          type: product.type,
-          localizedDescription: product.localizedDescription
-        });
-      });
-
-      // 5. Check purchase history
-      console.log('4️⃣ Checking purchase history...');
-      const purchases = await RNIap.getAvailablePurchases();
-      console.log('   Available purchases:', purchases.length);
-      purchases.forEach((purchase, index) => {
-        console.log(`   Purchase ${index + 1}:`, {
-          productId: purchase.productId,
-          transactionId: purchase.transactionId,
-          transactionDate: purchase.transactionDate
-        });
-      });
-
-      // 6. Show results in alert
       Alert.alert(
         'IAP Diagnostics',
-        `Initialized: ${this.isInitialized}\n` +
-        `Can Make Payments: ${canMakePayments}\n` +
-        `Products Found: ${products.length}\n` +
-        `${products.map(p => `- ${p.localizedTitle}: ${p.localizedPrice}`).join('\n')}\n` +
-        `Purchase History: ${purchases.length} items`,
+        `Initialized: ${diagnostics.initialized}\nPlatform: ${diagnostics.platform}\nProducts: ${diagnostics.subscriptionsLoaded}\nExpected: ${diagnostics.productIds.length}`,
         [{ text: 'OK' }]
       );
-
-    } catch (error: any) {
+      
+    } catch (error) {
       console.error('❌ Diagnostics error:', error);
-      Alert.alert(
-        'Diagnostics Error',
-        `${error.message}\nCode: ${error.code || 'N/A'}`,
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Diagnostics Failed', error.message, [{ text: 'OK' }]);
     }
   }
 
-  cleanup(): void {
-    if (this.purchaseUpdateSubscription) {
-      this.purchaseUpdateSubscription.remove();
+  async cleanup(): Promise<void> {
+    try {
+      console.log('🧹 Cleaning up IAP service...');
+      
+      if (this.purchaseUpdateSubscription) {
+        this.purchaseUpdateSubscription.remove();
+      }
+      
+      if (this.purchaseErrorSubscription) {
+        this.purchaseErrorSubscription.remove();
+      }
+      
+      await RNIap.endConnection();
+      
+      this.isInitialized = false;
+      this.subscriptions = [];
+      
+      console.log('✅ IAP service cleaned up');
+      
+    } catch (error) {
+      console.error('❌ Cleanup error:', error);
     }
-    if (this.purchaseErrorSubscription) {
-      this.purchaseErrorSubscription.remove();
-    }
-    
-    RNIap.endConnection();
-    this.isInitialized = false;
-    console.log('🧹 InAppPurchase service cleaned up');
   }
 }
 
-export const inAppPurchaseService = new InAppPurchaseService();
+// Export singleton instance
+const inAppPurchaseService = new InAppPurchaseService();
 export default inAppPurchaseService;

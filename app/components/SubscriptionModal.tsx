@@ -35,8 +35,6 @@ import {
   Gift,
 } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
-import { DEV_CONFIG } from '../config/development';
-import { BlurView } from 'expo-blur';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -55,7 +53,6 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const { subscribeToPro } = useSubscription();
-  const [showDebugModal, setShowDebugModal] = useState(false);
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -80,40 +77,53 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     try {
       setLoading(true);
       
-      // Production mode: Use IAP service
       const productId = getProductId(selectedPlan);
       
       if (!productId) {
-        throw new Error('Product not available');
+        Alert.alert('Error', 'Product not available');
+        return;
       }
 
+      console.log('🔄 Starting subscription purchase for:', productId);
+      
       // Initialize IAP service first
-      console.log('🔥 DEBUG: Initializing IAP service in modal...');
       await inAppPurchaseService.initialize();
       
-      // Use IAP service to purchase
-      console.log('🔥 DEBUG: Calling purchaseSubscription with productId:', productId);
-      await inAppPurchaseService.purchaseSubscription(productId);
+      // Call the IAP service to start the purchase process
+      // This will trigger the Apple purchase dialog
+      await inAppPurchaseService.purchaseSubscription(productId, (purchase) => {
+        // Success callback - close the modal
+        onClose();
+      });
       
-      // Call the optional callback if provided
-      if (onSubscribe) {
-        await onSubscribe(selectedPlan);
-      }
+      // If we reach here, the purchase dialog was shown
+      // The actual purchase completion is handled by the IAP service listeners
+      console.log('✅ Purchase dialog shown successfully');
       
-      // Close modal on success
-      onClose();
     } catch (error) {
-      console.error('Subscription error:', error);
-      Alert.alert('Error', 'Failed to process subscription. Please try again.');
+      console.error('❌ Subscription error:', error);
+      
+      // Handle different error types
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled') || error.message.includes('canceled')) {
+          // User cancelled - don't show error
+          console.log('ℹ️ User cancelled purchase');
+        } else if (error.message.includes('not available')) {
+          Alert.alert('Product Unavailable', 'This subscription is not available right now. Please try again later.');
+        } else if (error.message.includes('Network')) {
+          Alert.alert('Network Error', 'Please check your internet connection and try again.');
+        } else {
+          Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+        }
+      } else {
+        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // DEBUG: Test backend connection
-  const handleTestBackend = async () => {
-    setShowDebugModal(true);
-  };
+
 
   const getProductId = (plan: 'monthly' | 'yearly' | 'lifetime'): string | null => {
     const productIds = {
@@ -485,14 +495,6 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 </LinearGradient>
               </TouchableOpacity>
               
-              {/* DEBUG: Test Backend Button - Remove before production */}
-              <TouchableOpacity
-                style={styles.testButton}
-                onPress={handleTestBackend}
-              >
-                <Text style={styles.testButtonText}>🧪 Test Backend Connection</Text>
-              </TouchableOpacity>
-              
               <View style={styles.termsContainer}>
                 <Text style={styles.termsText}>
                   {selectedPlan === 'lifetime' 
@@ -505,72 +507,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           </LinearGradient>
         </View>
       </Modal>
-      
-      {/* Debug Modal - Add more diagnostic options */}
-      <Modal
-        visible={showDebugModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDebugModal(false)}
-      >
-        <BlurView intensity={80} style={styles.debugModalOverlay}>
-          <View style={styles.debugModalContent}>
-            <Text style={styles.debugModalTitle}>🔧 Debug Menu</Text>
-            
-            <TouchableOpacity 
-              style={styles.debugButton}
-              onPress={async () => {
-                setShowDebugModal(false);
-                await inAppPurchaseService.testBackendConnection();
-              }}
-            >
-              <Text style={styles.debugButtonText}>Test Backend Connection</Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.debugButton}
-              onPress={async () => {
-                setShowDebugModal(false);
-                await inAppPurchaseService.runDiagnostics();
-              }}
-            >
-              <Text style={styles.debugButtonText}>Run IAP Diagnostics</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.debugButton}
-              onPress={async () => {
-                setShowDebugModal(false);
-                // Force refresh products
-                await inAppPurchaseService.cleanup();
-                await inAppPurchaseService.initialize();
-                Alert.alert('Success', 'IAP service reinitialized');
-              }}
-            >
-              <Text style={styles.debugButtonText}>Reinitialize IAP</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.debugButton}
-              onPress={async () => {
-                setShowDebugModal(false);
-                // Check subscription status directly
-                const status = await inAppPurchaseService.checkSubscriptionStatus();
-                Alert.alert('Subscription Status', JSON.stringify(status, null, 2));
-              }}
-            >
-              <Text style={styles.debugButtonText}>Check Subscription Status</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.debugButton, { backgroundColor: '#FF6B6B' }]}
-              onPress={() => setShowDebugModal(false)}
-            >
-              <Text style={styles.debugButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </BlurView>
-      </Modal>
     </>
   );
 };
@@ -955,56 +892,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     fontWeight: '500',
   },
-  testButton: {
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  testButtonText: {
-    fontSize: 14,
-    color: '#00E5FF',
-    fontWeight: '600',
-  },
-  debugModalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-  debugModalContent: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
-    width: '80%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-  },
-  debugModalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
-  },
-  debugButton: {
-    backgroundColor: 'rgba(148, 163, 184, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  debugButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
+
 });
 
 export default SubscriptionModal; 
