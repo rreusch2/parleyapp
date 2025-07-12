@@ -412,6 +412,75 @@ class InAppPurchaseService {
     }
   }
 
+  // DIAGNOSTIC METHOD - Test IAP product loading
+  async runDiagnostics(): Promise<void> {
+    try {
+      console.log('🔍 Starting IAP Diagnostics...');
+      
+      // 1. Check initialization
+      console.log('1️⃣ Checking initialization status:', this.isInitialized);
+      
+      if (!this.isInitialized) {
+        console.log('   Initializing IAP...');
+        await this.initialize();
+      }
+
+      // 2. Check if we can make payments
+      const canMakePayments = await RNIap.canMakePayments();
+      console.log('2️⃣ Can make payments:', canMakePayments);
+
+      // 3. Get available products
+      console.log('3️⃣ Fetching products...');
+      const products = await RNIap.getProducts({ skus: subscriptionSkus });
+      console.log('   Raw products response:', products);
+      console.log('   Product count:', products.length);
+      
+      // 4. Display each product
+      products.forEach((product, index) => {
+        console.log(`   Product ${index + 1}:`, {
+          identifier: product.identifier,
+          localizedTitle: product.localizedTitle,
+          price: product.price,
+          localizedPrice: product.localizedPrice,
+          currency: product.currency,
+          type: product.type,
+          localizedDescription: product.localizedDescription
+        });
+      });
+
+      // 5. Check purchase history
+      console.log('4️⃣ Checking purchase history...');
+      const purchases = await RNIap.getAvailablePurchases();
+      console.log('   Available purchases:', purchases.length);
+      purchases.forEach((purchase, index) => {
+        console.log(`   Purchase ${index + 1}:`, {
+          productId: purchase.productId,
+          transactionId: purchase.transactionId,
+          transactionDate: purchase.transactionDate
+        });
+      });
+
+      // 6. Show results in alert
+      Alert.alert(
+        'IAP Diagnostics',
+        `Initialized: ${this.isInitialized}\n` +
+        `Can Make Payments: ${canMakePayments}\n` +
+        `Products Found: ${products.length}\n` +
+        `${products.map(p => `- ${p.localizedTitle}: ${p.localizedPrice}`).join('\n')}\n` +
+        `Purchase History: ${purchases.length} items`,
+        [{ text: 'OK' }]
+      );
+
+    } catch (error: any) {
+      console.error('❌ Diagnostics error:', error);
+      Alert.alert(
+        'Diagnostics Error',
+        `${error.message}\nCode: ${error.code || 'N/A'}`,
+        [{ text: 'OK' }]
+      );
+    }
+  }
+
   cleanup(): void {
     if (this.purchaseUpdateSubscription) {
       this.purchaseUpdateSubscription.remove();
