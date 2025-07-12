@@ -19,6 +19,8 @@ import { Mail, Lock, User, CheckSquare, Square, UserPlus } from 'lucide-react-na
 import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -256,6 +258,71 @@ export default function SignupScreen() {
     setShowTermsModal(false);
   };
 
+  const handleGoogleSignUp = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'parleyapp://auth/callback',
+        },
+      });
+
+      if (error) throw error;
+      
+      // If successful, show subscription modal for new user
+      setShowSubscriptionModal(true);
+    } catch (error: any) {
+      Alert.alert('Google Sign-Up Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAppleSignUp = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if Apple Sign-In is available on this device
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Apple Sign-In', 'Apple Sign-In is not available on this device');
+        return;
+      }
+
+      // Request Apple Sign-In
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Sign in with Supabase using Apple credentials
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken!,
+        nonce: credential.nonce,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Show subscription modal for new user
+        setShowSubscriptionModal(true);
+      }
+    } catch (error: any) {
+      console.log('Apple Sign-Up Error:', error);
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled Apple Sign-In
+        return;
+      }
+      Alert.alert('Apple Sign-Up Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#1a2a6c', '#b21f1f']}
@@ -376,6 +443,36 @@ export default function SignupScreen() {
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Social Authentication Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or continue with</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Social Authentication Buttons */}
+            <View style={styles.socialButtonsContainer}>
+              {/* Google Sign-Up Button */}
+              <TouchableOpacity
+                style={[styles.socialButton, styles.googleButton, loading && styles.buttonDisabled]}
+                onPress={handleGoogleSignUp}
+                disabled={loading}
+              >
+                <Text style={styles.socialButtonText}>Sign up with Google</Text>
+              </TouchableOpacity>
+
+              {/* Apple Sign-Up Button (iOS only) */}
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={[styles.socialButton, styles.appleButton, loading && styles.buttonDisabled]}
+                  onPress={handleAppleSignUp}
+                  disabled={loading}
+                >
+                  <Text style={[styles.socialButtonText, styles.appleButtonText]}>Sign up with Apple</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.footer}>
@@ -539,5 +636,48 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 30,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  dividerText: {
+    color: '#e0e0e0',
+    fontSize: 14,
+    marginHorizontal: 15,
+  },
+  socialButtonsContainer: {
+    marginBottom: 20,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    borderRadius: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  googleButton: {
+    backgroundColor: 'rgba(66, 133, 244, 0.1)',
+    borderColor: 'rgba(66, 133, 244, 0.3)',
+  },
+  appleButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  socialButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  appleButtonText: {
+    color: '#ffffff',
   },
 }); 

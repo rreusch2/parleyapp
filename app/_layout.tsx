@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from '@/app/services/subscriptionContext';
+import { AuthProvider } from '@/app/services/AuthContext';
 import SubscriptionModal from '@/app/components/SubscriptionModal';
 
 function AppContent() {
@@ -27,8 +28,10 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <SubscriptionProvider>
-      <AppContent />
-    </SubscriptionProvider>
+    <AuthProvider>
+      <SubscriptionProvider>
+        <AppContent />
+      </SubscriptionProvider>
+    </AuthProvider>
   );
 }

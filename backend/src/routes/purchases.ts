@@ -48,6 +48,16 @@ interface AppleReceiptVerificationResponse {
   }>;
 }
 
+// TEMPORARY DEBUG ENDPOINT - REMOVE BEFORE PRODUCTION
+router.get('/debug-env', (req, res) => {
+  res.json({
+    hasAppleSecret: !!process.env.APPLE_SHARED_SECRET,
+    appleSecretLength: process.env.APPLE_SHARED_SECRET?.length || 0,
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Verify purchase endpoint
 router.post('/verify', async (req, res) => {
   try {

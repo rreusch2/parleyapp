@@ -121,24 +121,53 @@ class InAppPurchaseService {
     console.log('✅ DEBUG: Service is initialized');
     console.log('🛒 DEBUG: Available subscriptions:', this.subscriptions.map(s => s.productId));
     
+    // Check if product exists in available subscriptions
+    const subscription = this.subscriptions.find(sub => sub.productId === productId);
+    if (!subscription) {
+      console.error('❌ DEBUG: Product not found in available subscriptions:', productId);
+      console.error('❌ DEBUG: Available products:', this.subscriptions.map(s => s.productId));
+      throw new Error(`Product ${productId} not found in available subscriptions`);
+    }
+    
     try {
       console.log('🛒 Requesting subscription:', productId);
       console.log('🔥 DEBUG: About to call requestSubscription...');
       
-      const result = await requestSubscription({ sku: productId });
-      console.log('✅ DEBUG: requestSubscription completed:', result);
+      // requestSubscription triggers the purchase flow
+      // The actual purchase handling happens in purchaseUpdatedListener
+      await requestSubscription({ sku: productId });
+      console.log('✅ DEBUG: requestSubscription call completed (purchase dialog should show)');
+      
+      // Note: The actual verification happens in purchaseUpdatedListener
+      // This method just initiates the purchase flow
       
     } catch (error) {
       console.error('❌ Failed to request subscription:', error);
-      console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ DEBUG: Error type:', typeof error);
+      console.error('❌ DEBUG: Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('❌ DEBUG: Full error object:', JSON.stringify(error, null, 2));
+      
+      // Show user-friendly error
+      Alert.alert(
+        'Purchase Failed',
+        `Unable to start purchase process. ${error instanceof Error ? error.message : 'Please try again.'}`
+      );
+      
       throw error;
     }
   }
 
-  private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<void> {
-    console.log('🔍 DEBUG: Starting backend verification...');
-    console.log('🔍 DEBUG: Purchase object:', JSON.stringify(purchase, null, 2));
+  private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<any> {
+    console.log('🔥 DEBUG: Starting backend verification...');
+    console.log('🔥 DEBUG: Purchase object:', JSON.stringify(purchase, null, 2));
     
+    console.log('🔍 DEBUG: Backend URL FROM PROCESS.ENV:', process.env.EXPO_PUBLIC_BACKEND_URL);
+    console.log('🔍 DEBUG: All environment variables:', {
+      EXPO_PUBLIC_BACKEND_URL: process.env.EXPO_PUBLIC_BACKEND_URL,
+      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      NODE_ENV: process.env.NODE_ENV
+    });
+
     try {
       // Get Supabase auth token
       console.log('🔍 DEBUG: Getting Supabase session...');

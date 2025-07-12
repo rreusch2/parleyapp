@@ -90,7 +90,12 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
         throw new Error('Product not available');
       }
 
+      // Initialize IAP service first
+      console.log('🔥 DEBUG: Initializing IAP service in signup modal...');
+      await inAppPurchaseService.initialize();
+      
       // Use IAP service to purchase
+      console.log('🔥 DEBUG: Calling purchaseSubscription with productId:', productId);
       await inAppPurchaseService.purchaseSubscription(productId);
       
       // Call the optional callback if provided
