@@ -1,6 +1,6 @@
 import express from 'express';
 import { createLogger } from '../../utils/logger';
-import { supabase } from '../../services/supabase/client';
+import { supabase, supabaseAdmin } from '../../services/supabase/client';
 
 const router = express.Router();
 const logger = createLogger('userRoutes');
@@ -279,7 +279,7 @@ router.delete('/delete-account', async (req, res) => {
       }
       
       // 5. Delete from Supabase Auth (this should be done last)
-      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
       
       if (authError) {
         logger.error('Error deleting from auth:', authError);
