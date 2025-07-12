@@ -58,6 +58,55 @@ router.get('/debug-env', (req, res) => {
   });
 });
 
+// TEMPORARY TEST PURCHASE ENDPOINT FOR TESTFLIGHT DEBUGGING
+router.post('/test-purchase', async (req, res) => {
+  try {
+    console.log('🧪 TEST PURCHASE ENDPOINT HIT');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    
+    // Get auth header
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Missing or invalid authorization header',
+        debug: 'No Bearer token found'
+      });
+    }
+
+    const token = authHeader.substring(7);
+    console.log('Token preview:', token.substring(0, 20) + '...');
+
+    // Verify with Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ 
+        error: 'Invalid or expired token',
+        debug: authError?.message || 'User not found'
+      });
+    }
+
+    console.log('✅ User authenticated:', user.id);
+    
+    // Return success response
+    res.json({
+      success: true,
+      message: 'Test purchase endpoint working correctly',
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'unknown',
+      hasAppleSecret: !!process.env.APPLE_SHARED_SECRET
+    });
+    
+  } catch (error) {
+    console.error('❌ Test purchase error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      debug: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Verify purchase endpoint
 router.post('/verify', async (req, res) => {
   try {

@@ -355,32 +355,58 @@ class InAppPurchaseService {
         return;
       }
 
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       console.log('🧪 Testing backend at:', backendUrl);
 
-      const response = await fetch(`${backendUrl}/api/purchases/debug-env`, {
+      // First test the debug endpoint
+      console.log('🧪 Testing debug endpoint...');
+      const debugResponse = await fetch(`${backendUrl}/api/purchases/debug-env`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
+      if (debugResponse.ok) {
+        const debugResult = await debugResponse.json();
+        console.log('✅ Debug endpoint response:', debugResult);
+      }
+
+      // Now test the actual purchase endpoint with auth
+      console.log('🧪 Testing purchase endpoint with auth...');
+      const response = await fetch(`${backendUrl}/api/purchases/test-purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          test: true,
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      console.log('🧪 Response status:', response.status);
+      const responseText = await response.text();
+      console.log('🧪 Response body:', responseText);
+
       if (response.ok) {
-        const result = await response.json();
+        const result = JSON.parse(responseText);
         console.log('✅ Backend test successful:', result);
         Alert.alert(
           'Backend Test SUCCESS!', 
-          `✅ Backend is reachable\n✅ Apple secret configured: ${result.hasAppleSecret}\n✅ Environment: ${result.environment}`,
+          `✅ Backend is reachable\n✅ Auth working: User ${result.userId}\n✅ Apple secret configured: ${result.hasAppleSecret}\n✅ Environment: ${result.environment}`,
           [{ text: 'Great!', style: 'default' }]
         );
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        const errorResult = JSON.parse(responseText);
+        throw new Error(`HTTP ${response.status}: ${errorResult.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Backend test failed:', error);
       Alert.alert(
         'Backend Test Failed',
-        `❌ Could not reach backend: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `❌ Could not reach backend: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your internet connection and try again.`,
         [{ text: 'OK', style: 'default' }]
       );
     }
