@@ -121,32 +121,63 @@ class InAppPurchaseService {
   }
 
   private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<void> {
+    console.log('🔍 DEBUG: Starting backend verification...');
+    console.log('🔍 DEBUG: Purchase object:', JSON.stringify(purchase, null, 2));
+    
     try {
       // Get Supabase auth token
+      console.log('🔍 DEBUG: Getting Supabase session...');
       const { supabase } = await import('./api/supabaseClient');
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session?.access_token) {
-        throw new Error('User not authenticated');
+      if (sessionError) {
+        console.error('🔍 DEBUG: Session error:', sessionError);
+        throw new Error('Session error: ' + sessionError.message);
+      }
+      
+      if (!session?.access_token) {
+        console.error('🔍 DEBUG: No session or access token');
+        throw new Error('User not authenticated - no session');
+      }
+      
+      console.log('🔍 DEBUG: Session OK, user ID:', session.user?.id);
+
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      console.log('🔍 DEBUG: Backend URL:', backendUrl);
+      
+      if (!backendUrl) {
+        throw new Error('Backend URL not configured');
       }
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/verify`, {
+      const requestBody = {
+        platform: Platform.OS,
+        purchaseToken: purchase.purchaseToken,
+        receipt: purchase.transactionReceipt,
+        productId: purchase.productId,
+        transactionId: purchase.transactionId,
+      };
+      
+      console.log('🔍 DEBUG: Request body:', JSON.stringify(requestBody, null, 2));
+      
+      const fullUrl = `${backendUrl}/api/purchases/verify`;
+      console.log('🔍 DEBUG: Making request to:', fullUrl);
+
+      const response = await fetch(fullUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          platform: Platform.OS,
-          purchaseToken: purchase.purchaseToken,
-          receipt: purchase.transactionReceipt,
-          productId: purchase.productId,
-          transactionId: purchase.transactionId,
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
+      console.log('🔍 DEBUG: Response status:', response.status);
+      console.log('🔍 DEBUG: Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
 
       if (!response.ok) {
-        throw new Error(`Backend verification failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('🔍 DEBUG: Error response body:', errorText);
+        throw new Error(`Backend verification failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -155,6 +186,7 @@ class InAppPurchaseService {
       return result;
     } catch (error) {
       console.error('❌ Backend verification error:', error);
+      console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   }
