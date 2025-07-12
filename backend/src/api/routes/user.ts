@@ -1,6 +1,7 @@
 import express from 'express';
 import { createLogger } from '../../utils/logger';
 import { supabase } from '../../services/supabase/client';
+import { authenticateUser } from '../middleware/auth';
 
 const router = express.Router();
 const logger = createLogger('userRoutes');
@@ -193,6 +194,108 @@ router.get('/welcome-bonus-status', async (req, res) => {
     logger.error(`💥 Error checking welcome bonus status: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to check welcome bonus status',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+/**
+ * @route DELETE /api/user/account
+ * @desc Delete user account and all associated data
+ * @access Private
+ */
+router.delete('/account', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    logger.info(`🗑️ Deleting account for user ${userId}`);
+
+    // 1. Verify this user exists
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      logger.error(`❌ User not found: ${userId}`);
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // 2. Delete user data from various tables in order
+    // These operations should be performed in order of dependencies
+    
+    // Delete user preferences
+    const { error: prefError } = await supabase
+      .from('user_preferences')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (prefError) {
+      logger.warn(`Warning deleting user preferences: ${prefError.message}`);
+      // Continue with deletion process even if this fails
+    }
+
+    // Delete user predictions/picks
+    const { error: predictionsError } = await supabase
+      .from('ai_predictions')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (predictionsError) {
+      logger.warn(`Warning deleting user predictions: ${predictionsError.message}`);
+      // Continue with deletion process even if this fails
+    }
+
+    // Delete user bet history if it exists
+    const { error: betHistoryError } = await supabase
+      .from('bet_history')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (betHistoryError) {
+      logger.warn(`Warning deleting bet history: ${betHistoryError.message}`);
+      // Continue with deletion process even if this fails
+    }
+
+    // Delete user profile
+    const { error: deleteProfileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (deleteProfileError) {
+      logger.error(`❌ Error deleting user profile: ${deleteProfileError.message}`);
+      return res.status(500).json({ success: false, error: 'Failed to delete user profile' });
+    }
+
+    // 3. Delete the actual auth user using Supabase Admin API
+    const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(userId);
+
+    if (deleteAuthError) {
+      logger.error(`❌ Error deleting auth account: ${deleteAuthError.message}`);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to delete authentication record',
+        message: 'Your profile data was deleted, but there was an issue removing your authentication record. Please contact support.'
+      });
+    }
+
+    logger.info(`✅ Successfully deleted user account: ${userId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+  } catch (error: any) {
+    logger.error(`💥 Error deleting account: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to delete account',
       details: error instanceof Error ? error.message : String(error)
     });
   }

@@ -353,6 +353,102 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be removed.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Show a final confirmation to prevent accidental deletion
+              Alert.alert(
+                'Confirm Deletion',
+                'Your account and all associated data will be permanently deleted. This cannot be undone. Are you absolutely sure?',
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Yes, Delete My Account',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        console.log('🗑️ Deleting user account...');
+                        
+                        // Get current user
+                        const { data: { user } } = await supabase.auth.getUser();
+                        
+                        if (!user) {
+                          console.error('No user found to delete');
+                          Alert.alert('Error', 'Unable to find your account. Please try again.');
+                          return;
+                        }
+                        
+                        // Get session for auth header
+                        const { data: { session } } = await supabase.auth.getSession();
+                        
+                        if (!session) {
+                          console.error('No active session found');
+                          Alert.alert('Error', 'Please log in again to delete your account.');
+                          return;
+                        }
+                        
+                        // Call backend API to delete account
+                        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/user/account`, {
+                          method: 'DELETE',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                          },
+                          body: JSON.stringify({ userId: user.id }),
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (!response.ok) {
+                          console.error('Error deleting account:', result);
+                          Alert.alert('Error', result.message || 'Failed to delete your account. Please try again later.');
+                          return;
+                        }
+                        
+                        console.log('✅ Account successfully deleted');
+                        
+                        // Sign out the user after deletion
+                        await supabase.auth.signOut();
+                        
+                        // Navigate to landing screen
+                        Alert.alert(
+                          'Account Deleted',
+                          'Your account and all data have been permanently deleted.',
+                          [{ text: 'OK', onPress: () => router.replace('/') }]
+                        );
+                        
+                      } catch (error) {
+                        console.error('Account deletion error:', error);
+                        Alert.alert('Error', 'Failed to delete your account. Please try again or contact support.');
+                      }
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Account deletion error:', error);
+              Alert.alert('Error', 'Failed to delete your account. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       'Log Out',
@@ -529,6 +625,13 @@ export default function SettingsScreen() {
               Alert.alert('Error', 'Failed to restore purchases. Please try again.');
             }
           }
+        },
+        {
+          id: 'delete_account',
+          title: 'Delete Account',
+          type: 'link',
+          labelColor: '#EF4444',  // Red color for warning
+          action: handleDeleteAccount
         }
       ]
     },
@@ -598,7 +701,7 @@ export default function SettingsScreen() {
         }}
       >
         <View style={styles.settingLeft}>
-          <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked]}>
+          <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked, item.labelColor && { color: item.labelColor }]}>
             {item.title}
           </Text>
           {item.locked && (
