@@ -1,50 +1,17 @@
-// Import with fallback for development environments
-let RNIap: any;
-let purchaseErrorListener: any;
-let purchaseUpdatedListener: any;
-let requestPurchase: any;
-let requestSubscription: any;
-let finishTransaction: any;
-let clearTransactionIOS: any;
-let getProducts: any;
-let getSubscriptions: any;
-let flushFailedPurchasesCachedAsPendingAndroid: any;
-
-try {
-  const iapModule = require('react-native-iap');
-  RNIap = iapModule.default || iapModule;
-  purchaseErrorListener = iapModule.purchaseErrorListener;
-  purchaseUpdatedListener = iapModule.purchaseUpdatedListener;
-  requestPurchase = iapModule.requestPurchase;
-  requestSubscription = iapModule.requestSubscription;
-  finishTransaction = iapModule.finishTransaction;
-  clearTransactionIOS = iapModule.clearTransactionIOS;
-  getProducts = iapModule.getProducts;
-  getSubscriptions = iapModule.getSubscriptions;
-  flushFailedPurchasesCachedAsPendingAndroid = iapModule.flushFailedPurchasesCachedAsPendingAndroid;
-  console.log('✅ react-native-iap module loaded successfully');
-} catch (error) {
-  console.warn('⚠️ react-native-iap not available:', error);
-  // Create mock functions for development
-  RNIap = {
-    initConnection: () => Promise.resolve(),
-    endConnection: () => Promise.resolve(),
-    clearTransactionIOS: () => Promise.resolve(),
-  };
-  purchaseErrorListener = () => ({ remove: () => {} });
-  purchaseUpdatedListener = () => ({ remove: () => {} });
-  requestPurchase = () => Promise.reject(new Error('IAP not available'));
-  requestSubscription = () => Promise.reject(new Error('IAP not available'));
-  finishTransaction = () => Promise.resolve();
-  clearTransactionIOS = () => Promise.resolve();
-  getProducts = () => Promise.resolve([]);
-  getSubscriptions = () => Promise.resolve([]);
-  flushFailedPurchasesCachedAsPendingAndroid = () => Promise.resolve();
-}
-
-type ProductPurchase = any;
-type PurchaseError = any;
-type Subscription = any;
+import RNIap, {
+  purchaseErrorListener,
+  purchaseUpdatedListener,
+  type ProductPurchase,
+  type PurchaseError,
+  type Subscription,
+  requestPurchase,
+  requestSubscription,
+  finishTransaction,
+  clearTransactionIOS,
+  getProducts,
+  getSubscriptions,
+  flushFailedPurchasesCachedAsPendingAndroid,
+} from 'react-native-iap';
 import { Platform, Alert } from 'react-native';
 
 // Your subscription product IDs from App Store Connect
@@ -68,49 +35,31 @@ class InAppPurchaseService {
   private purchaseErrorSubscription: any;
 
   async initialize(): Promise<void> {
-    console.log('🔥 DEBUG: Starting IAP initialization...');
-    
-    if (this.isInitialized) {
-      console.log('✅ IAP already initialized');
-      return;
-    }
-
-    // Check if RNIap is available
-    if (!RNIap || !RNIap.initConnection) {
-      throw new Error('react-native-iap module not available. Are you running in Expo Go? Use a dev build instead.');
-    }
+    if (this.isInitialized) return;
 
     try {
-      console.log('🔥 DEBUG: Calling RNIap.initConnection()...');
       await RNIap.initConnection();
-      console.log('✅ IAP connection initialized');
       
       if (Platform.OS === 'ios') {
-        console.log('🔥 DEBUG: Clearing iOS transactions...');
         await RNIap.clearTransactionIOS();
-        console.log('✅ iOS transactions cleared');
       }
 
       if (Platform.OS === 'android') {
-        console.log('🔥 DEBUG: Flushing Android failed purchases...');
         await flushFailedPurchasesCachedAsPendingAndroid();
-        console.log('✅ Android failed purchases flushed');
       }
 
-      console.log('🔥 DEBUG: Loading subscriptions...');
+      // Load available subscriptions
       await this.loadSubscriptions();
-      console.log('✅ Subscriptions loaded');
       
       // Set up listeners
-      console.log('🔥 DEBUG: Setting up purchase listeners...');
       this.setupPurchaseListeners();
-      console.log('✅ Purchase listeners set up');
       
       this.isInitialized = true;
       console.log('✅ InAppPurchase service initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize InAppPurchase service. IAP will be disabled:', error);
-      throw error; // Re-throw so caller knows initialization failed
+      // Do not re-throw the error. This allows the app to run
+      // without IAP functionality if initialization fails.
     }
   }
 
