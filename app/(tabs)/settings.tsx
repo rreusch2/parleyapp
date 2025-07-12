@@ -30,10 +30,12 @@ import {
   Lock,
   Brain,
   Eye,
-  EyeOff
+  EyeOff,
+  Trash2
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import { aiService } from '../services/api/aiService';
+import { userApi } from '../services/api/client';
 import { router } from 'expo-router';
 import { useSubscription } from '../services/subscriptionContext';
 import HelpCenterModal from '../components/HelpCenterModal';
@@ -80,6 +82,7 @@ export default function SettingsScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Profile and preference states
@@ -353,102 +356,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be removed.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete Account',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Show a final confirmation to prevent accidental deletion
-              Alert.alert(
-                'Confirm Deletion',
-                'Your account and all associated data will be permanently deleted. This cannot be undone. Are you absolutely sure?',
-                [
-                  {
-                    text: 'Cancel',
-                    style: 'cancel',
-                  },
-                  {
-                    text: 'Yes, Delete My Account',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        console.log('🗑️ Deleting user account...');
-                        
-                        // Get current user
-                        const { data: { user } } = await supabase.auth.getUser();
-                        
-                        if (!user) {
-                          console.error('No user found to delete');
-                          Alert.alert('Error', 'Unable to find your account. Please try again.');
-                          return;
-                        }
-                        
-                        // Get session for auth header
-                        const { data: { session } } = await supabase.auth.getSession();
-                        
-                        if (!session) {
-                          console.error('No active session found');
-                          Alert.alert('Error', 'Please log in again to delete your account.');
-                          return;
-                        }
-                        
-                        // Call backend API to delete account
-                        const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/user/account`, {
-                          method: 'DELETE',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
-                          },
-                          body: JSON.stringify({ userId: user.id }),
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (!response.ok) {
-                          console.error('Error deleting account:', result);
-                          Alert.alert('Error', result.message || 'Failed to delete your account. Please try again later.');
-                          return;
-                        }
-                        
-                        console.log('✅ Account successfully deleted');
-                        
-                        // Sign out the user after deletion
-                        await supabase.auth.signOut();
-                        
-                        // Navigate to landing screen
-                        Alert.alert(
-                          'Account Deleted',
-                          'Your account and all data have been permanently deleted.',
-                          [{ text: 'OK', onPress: () => router.replace('/') }]
-                        );
-                        
-                      } catch (error) {
-                        console.error('Account deletion error:', error);
-                        Alert.alert('Error', 'Failed to delete your account. Please try again or contact support.');
-                      }
-                    }
-                  }
-                ]
-              );
-            } catch (error) {
-              console.error('Account deletion error:', error);
-              Alert.alert('Error', 'Failed to delete your account. Please try again.');
-            }
-          }
-        }
-      ]
-    );
-  };
-
   const handleLogout = async () => {
     Alert.alert(
       'Log Out',
@@ -482,6 +389,56 @@ export default function SettingsScreen() {
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to log out. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleteAccountLoading(true);
+              console.log('🗑️ Deleting user account...');
+              
+              if (!userProfile?.id) {
+                Alert.alert('Error', 'User not found. Please try logging out and back in.');
+                return;
+              }
+              
+              // Call the delete account API
+              await userApi.deleteAccount(userProfile.id);
+              
+              console.log('✅ Account successfully deleted');
+              
+              // Sign out and navigate to login
+              const { error } = await supabase.auth.signOut();
+              if (error) {
+                console.error('Signout after account deletion error:', error);
+              }
+              
+              // Navigate to login screen
+              router.replace('/(auth)/login');
+              
+              Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+              
+            } catch (error) {
+              console.error('Delete account error:', error);
+              Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
+            } finally {
+              setDeleteAccountLoading(false);
             }
           },
         },
@@ -625,13 +582,6 @@ export default function SettingsScreen() {
               Alert.alert('Error', 'Failed to restore purchases. Please try again.');
             }
           }
-        },
-        {
-          id: 'delete_account',
-          title: 'Delete Account',
-          type: 'link',
-          labelColor: '#EF4444',  // Red color for warning
-          action: handleDeleteAccount
         }
       ]
     },
@@ -701,7 +651,7 @@ export default function SettingsScreen() {
         }}
       >
         <View style={styles.settingLeft}>
-          <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked, item.labelColor && { color: item.labelColor }]}>
+          <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked]}>
             {item.title}
           </Text>
           {item.locked && (
@@ -899,6 +849,17 @@ export default function SettingsScreen() {
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <LogOut size={18} color="#EF4444" />
         <Text style={styles.logoutText}>Log Out</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={[styles.deleteAccountButton, deleteAccountLoading && styles.buttonDisabled]} 
+        onPress={handleDeleteAccount}
+        disabled={deleteAccountLoading}
+      >
+        <Trash2 size={18} color="#DC2626" />
+        <Text style={styles.deleteAccountText}>
+          {deleteAccountLoading ? 'Deleting Account...' : 'Delete Account'}
+        </Text>
       </TouchableOpacity>
 
       <View style={styles.versionInfo}>
@@ -1565,6 +1526,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#EF4444',
     marginLeft: 8,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  deleteAccountText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginLeft: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   versionInfo: {
     alignItems: 'center',

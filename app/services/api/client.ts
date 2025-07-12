@@ -66,4 +66,13 @@ export const userPreferencesApi = {
   },
 };
 
+export const userApi = {
+  deleteAccount: async (userId: string) => {
+    const response = await apiClient.delete('/user/delete-account', {
+      data: { userId }
+    });
+    return response.data;
+  },
+};
+
 export default apiClient; 
