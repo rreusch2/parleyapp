@@ -28,30 +28,50 @@ app.set('trust proxy', 1);
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'http://localhost:19006',
-    'exp://localhost:19000',
-    'http://localhost:19000',
-    'http://localhost:8081',
-    'http://localhost:8082',
-    'http://192.168.1.58:8081',
-    'http://192.168.1.58:8082',
-    'exp://192.168.1.58:8081',
-    'exp://192.168.1.58:8082',
-    'exp://192.168.1.58:19000',
-    'exp://192.168.1.58:19006',
-    'http://192.168.1.99:8081',
-    'http://192.168.1.99:8082', 
-    'exp://192.168.1.99:8081',
-    'exp://192.168.1.99:8082',
-    'exp://192.168.1.99:19000',
-    'exp://192.168.1.99:19006',
+  origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // In production, allow any origin since mobile apps don't send origin headers
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+    
+    // In development, allow specific origins
+    const allowedOrigins = [
+      'http://localhost:19006',
+      'exp://localhost:19000',
+      'http://localhost:19000',
+      'http://localhost:8081',
+      'http://localhost:8082',
+      'http://192.168.1.58:8081',
+      'http://192.168.1.58:8082',
+      'exp://192.168.1.58:8081',
+      'exp://192.168.1.58:8082',
+      'exp://192.168.1.58:19000',
+      'exp://192.168.1.58:19006',
+      'http://192.168.1.99:8081',
+      'http://192.168.1.99:8082', 
+      'exp://192.168.1.99:8081',
+      'exp://192.168.1.99:8082',
+      'exp://192.168.1.99:19000',
+      'exp://192.168.1.99:19006',
+    ];
+    
     // Allow all expo go clients in development
-    /^exp:\/\/192\.168\.1\.58:\d+$/,
-    /^http:\/\/192\.168\.1\.58:\d+$/,
-    /^exp:\/\/192\.168\.1\.99:\d+$/,
-    /^http:\/\/192\.168\.1\.99:\d+$/
-  ],
+    if (origin.match(/^exp:\/\/192\.168\.1\.\d+:\d+$/) || 
+        origin.match(/^http:\/\/192\.168\.1\.\d+:\d+$/)) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
   credentials: true,
