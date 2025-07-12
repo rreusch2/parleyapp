@@ -111,7 +111,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   const getProductId = (plan: 'monthly' | 'yearly' | 'lifetime'): string | null => {
     const productIds = {
       monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
-      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premium_yearly' : 'premium_yearly',
+      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly',
       lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
     };
     return productIds[plan];

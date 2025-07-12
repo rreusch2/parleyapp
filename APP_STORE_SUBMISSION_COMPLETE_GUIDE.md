@@ -17,9 +17,9 @@
 ```bash
 # 1. Create IAP products in App Store Connect
 Products to create:
-- com.parleyapp.premium_monthly ($9.99/month) 
-- com.parleyapp.premium_yearly ($99.99/year)
-- com.parleyapp.premium_lifetime ($299.99 one-time)
+- com.parleyapp.premium_monthly ($24.99/month) 
+- com.parleyapp.premiumyearly ($199.99/year)
+- com.parleyapp.premium_lifetime ($349.99 one-time)
 
 # 2. Set up Sandbox testing
 - Create test users in App Store Connect
@@ -262,9 +262,9 @@ npx ts-node scripts/validate-production-build.ts
 #### **11. Subscription Tiers**
 ```typescript
 // Your current setup ✅
-Monthly: $9.99/month (com.parleyapp.premium_monthly)
-Yearly: $99.99/year (com.parleyapp.premium_yearly) - 16% savings
-Lifetime: $299.99 one-time (com.parleyapp.premium_lifetime)
+Monthly: $24.99/month (com.parleyapp.premium_monthly)
+Yearly: $199.99/year (com.parleyapp.premiumyearly) - 17% savings
+Lifetime: $349.99 one-time (com.parleyapp.premium_lifetime)
 ```
 
 #### **12. Admin Revenue Dashboard**

@@ -4,10 +4,16 @@ import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
-// Initialize Supabase client
-const supabase = createClient(
+// Initialize Supabase client with service role
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Regular client for user operations
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
 );
 
 interface PurchaseVerificationRequest {
@@ -16,6 +22,30 @@ interface PurchaseVerificationRequest {
   receipt?: string; // iOS
   productId: string;
   transactionId: string;
+}
+
+// Apple receipt verification types
+interface AppleReceiptVerificationResponse {
+  status: number;
+  environment?: string;
+  receipt?: {
+    in_app: Array<{
+      product_id: string;
+      transaction_id: string;
+      purchase_date_ms: string;
+      expires_date_ms?: string;
+    }>;
+  };
+  latest_receipt_info?: Array<{
+    product_id: string;
+    transaction_id: string;
+    expires_date_ms: string;
+    purchase_date_ms: string;
+  }>;
+  pending_renewal_info?: Array<{
+    product_id: string;
+    auto_renew_status: string;
+  }>;
 }
 
 // Verify purchase endpoint
@@ -34,7 +64,7 @@ router.post('/verify', async (req, res) => {
       transactionId: transactionId?.substring(0, 10) + '...',
     });
 
-    // Get user from JWT token
+    // Get user from Supabase auth token
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
@@ -44,10 +74,15 @@ router.post('/verify', async (req, res) => {
     let userId: string;
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-      userId = decoded.sub || decoded.userId;
+      // Verify with Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      userId = user.id;
     } catch (error) {
-      return res.status(401).json({ error: 'Invalid token' });
+      console.error('❌ Auth verification error:', error);
+      return res.status(401).json({ error: 'Authentication failed' });
     }
 
     // Verify the purchase with Apple/Google
@@ -72,8 +107,8 @@ router.post('/verify', async (req, res) => {
     // Map product ID to subscription tier
     const subscriptionTier = getSubscriptionTier(productId);
     
-    // Store purchase in database
-    const { error: purchaseError } = await supabase
+    // Store purchase in database using admin client
+    const { error: purchaseError } = await supabaseAdmin
       .from('user_purchases')
       .upsert({
         user_id: userId,
@@ -94,15 +129,28 @@ router.post('/verify', async (req, res) => {
       return res.status(500).json({ error: 'Failed to store purchase' });
     }
 
-    // Update user's subscription status
-    const { error: userError } = await supabase
+    // Update user's subscription status using admin client
+    const updateData: any = {
+      subscription_tier: subscriptionTier,
+      subscription_status: 'active',
+      updated_at: new Date().toISOString(),
+    };
+    
+    // Only set expiration for non-lifetime subscriptions
+    if (subscriptionTier !== 'pro_lifetime') {
+      updateData.subscription_expires_at = expirationDate;
+    }
+    
+    // Store receipt data for future verification
+    if (platform === 'ios' && receipt) {
+      updateData.apple_receipt_data = receipt;
+    } else if (platform === 'android' && purchaseToken) {
+      updateData.google_purchase_token = purchaseToken;
+    }
+
+    const { error: userError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        subscription_tier: subscriptionTier,
-        subscription_status: 'active',
-        subscription_expires_at: expirationDate,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', userId);
 
     if (userError) {
@@ -127,18 +175,25 @@ router.post('/verify', async (req, res) => {
 // Apple receipt verification
 async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boolean; expirationDate: Date | null }> {
   try {
+    console.log('🍎 Verifying Apple receipt...');
+    
+    if (!process.env.APPLE_SHARED_SECRET) {
+      console.error('❌ APPLE_SHARED_SECRET not configured');
+      throw new Error('Apple shared secret not configured');
+    }
+
     // First try production environment
     let response = await fetch('https://buy.itunes.apple.com/verifyReceipt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         'receipt-data': receiptData,
-        'password': process.env.APPLE_SHARED_SECRET, // Your App Store Connect shared secret
+        'password': process.env.APPLE_SHARED_SECRET,
         'exclude-old-transactions': true,
       }),
     });
 
-    let result = await response.json();
+    let result = await response.json() as AppleReceiptVerificationResponse;
 
     // If status is 21007, try sandbox environment
     if (result.status === 21007) {
@@ -151,15 +206,27 @@ async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boole
           'exclude-old-transactions': true,
         }),
       });
-      result = await response.json();
+      result = await response.json() as AppleReceiptVerificationResponse;
     }
 
     if (result.status === 0) {
-      // Find the latest subscription
-      const latestReceipt = result.latest_receipt_info?.[0];
-      const expirationDate = latestReceipt?.expires_date_ms 
-        ? new Date(parseInt(latestReceipt.expires_date_ms))
-        : null;
+      console.log('✅ Apple receipt verified successfully');
+      
+      // Handle both auto-renewable subscriptions and non-consumable purchases
+      let expirationDate: Date | null = null;
+      
+      if (result.latest_receipt_info && result.latest_receipt_info.length > 0) {
+        // Auto-renewable subscription
+        const latestReceipt = result.latest_receipt_info[0];
+        if (latestReceipt.expires_date_ms) {
+          expirationDate = new Date(parseInt(latestReceipt.expires_date_ms));
+        }
+      } else if (result.receipt && result.receipt.in_app && result.receipt.in_app.length > 0) {
+        // Non-consumable purchase (lifetime)
+        const purchase = result.receipt.in_app[0];
+        // Lifetime purchases don't expire
+        expirationDate = null;
+      }
 
       return {
         isValid: true,
@@ -202,9 +269,30 @@ async function verifyGooglePurchase(productId: string, purchaseToken: string): P
 
 // Map product ID to subscription tier
 function getSubscriptionTier(productId: string): string {
+  console.log('🏷️ Mapping product ID to tier:', productId);
+  
+  // Handle exact product IDs
+  const tierMapping: { [key: string]: string } = {
+    'com.parleyapp.premium_monthly': 'pro_monthly',
+    'com.parleyapp.premiumyearly': 'pro_yearly', 
+    'com.parleyapp.premium_lifetime': 'pro_lifetime',
+    'premium_monthly': 'pro_monthly', // Android
+    'premium_yearly': 'pro_yearly',   // Android
+    'premium_lifetime': 'pro_lifetime' // Android
+  };
+  
+  const tier = tierMapping[productId];
+  if (tier) {
+    console.log('✅ Mapped to tier:', tier);
+    return tier;
+  }
+  
+  // Fallback to pattern matching
   if (productId.includes('monthly')) return 'pro_monthly';
   if (productId.includes('yearly')) return 'pro_yearly';
   if (productId.includes('lifetime')) return 'pro_lifetime';
+  
+  console.warn('⚠️ Unknown product ID, defaulting to free:', productId);
   return 'free';
 }
 
@@ -255,6 +343,92 @@ router.post('/restore', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Purchase restore error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user subscription status
+router.get('/status', async (req, res) => {
+  try {
+    console.log('🔍 Checking subscription status...');
+
+    // Get user from Supabase auth token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    }
+
+    const token = authHeader.substring(7);
+    let userId: string;
+
+    try {
+      // Verify with Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+      userId = user.id;
+    } catch (error) {
+      console.error('❌ Auth verification error:', error);
+      return res.status(401).json({ error: 'Authentication failed' });
+    }
+
+    // Get user profile with subscription info
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('subscription_tier, subscription_status, subscription_expires_at')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('❌ Failed to fetch user profile:', profileError);
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    // Calculate subscription status
+    const tier = profile.subscription_tier || 'free';
+    const status = profile.subscription_status || 'inactive';
+    const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+    
+    const isLifetime = tier === 'pro_lifetime';
+    const now = new Date();
+    
+    let isActive = false;
+    let isPro = false;
+    let daysRemaining: number | null = null;
+
+    if (isLifetime) {
+      // Lifetime subscriptions never expire
+      isActive = status === 'active';
+      isPro = true;
+      daysRemaining = null;
+    } else if (tier.startsWith('pro_') && expiresAt) {
+      // Time-based subscriptions
+      isActive = status === 'active' && expiresAt > now;
+      isPro = isActive;
+      daysRemaining = isActive ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    } else {
+      // Free tier or invalid subscription
+      isActive = false;
+      isPro = false;
+      daysRemaining = null;
+    }
+
+    const response = {
+      isActive,
+      isPro,
+      tier,
+      status,
+      expiresAt: expiresAt?.toISOString() || null,
+      daysRemaining,
+      isLifetime
+    };
+
+    console.log('✅ Subscription status:', { tier, isActive, isPro, daysRemaining });
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Subscription status check error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

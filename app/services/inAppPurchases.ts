@@ -18,7 +18,7 @@ import { Platform, Alert } from 'react-native';
 const subscriptionSkus = Platform.select({
   ios: [
     'com.parleyapp.premium_monthly',
-    'com.parleyapp.premium_yearly',
+    'com.parleyapp.premiumyearly',
     'com.parleyapp.premium_lifetime',
   ],
   android: [
@@ -67,7 +67,10 @@ class InAppPurchaseService {
     try {
       const subs = await getSubscriptions({ skus: subscriptionSkus });
       this.subscriptions = subs;
-      console.log('📦 Loaded subscriptions:', subs.map(s => ({ id: s.productId, price: s.localizedPrice })));
+      console.log('📦 Loaded subscriptions:', subs.map(s => ({ 
+        id: s.productId, 
+        price: 'localizedPrice' in s ? s.localizedPrice : ('price' in s ? s.price : 'N/A') 
+      })));
     } catch (error) {
       console.error('❌ Failed to load subscriptions:', error);
       throw error;
@@ -119,10 +122,19 @@ class InAppPurchaseService {
 
   private async verifyPurchaseWithBackend(purchase: ProductPurchase): Promise<void> {
     try {
+      // Get Supabase auth token
+      const { supabase } = await import('./api/supabaseClient');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('User not authenticated');
+      }
+
       const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/purchases/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           platform: Platform.OS,

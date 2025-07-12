@@ -95,7 +95,7 @@ Your terms.html already includes:
 - Your website already has comprehensive terms with subscription details
 - Make sure your IAP products in App Store Connect match these prices:
   - Monthly: $24.99 (com.parleyapp.premium_monthly)
-  - Yearly: $199.99 (com.parleyapp.premium_yearly)  
+  - Yearly: $199.99 (com.parleyapp.premiumyearly)  
   - Lifetime: $399.99 (com.parleyapp.premium_lifetime)
 
 ## CONTACT SUPPORT IF NEEDED

@@ -1,0 +1,143 @@
+{
+  "identifier" : "65432A8F",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "349.99",
+      "familyShareable" : false,
+      "internalID" : "1234567890",
+      "localizations" : [
+        {
+          "description" : "Get unlimited access to Pro features forever with a one-time payment.",
+          "displayName" : "Lifetime Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.parleyapp.premium_lifetime",
+      "referenceName" : "Lifetime Pro",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "1234567890",
+    "_developerTeamID" : "ABCD123456",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 738552061.81967402,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "12345678",
+      "localizations" : [
+
+      ],
+      "name" : "Pro Subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "24.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "1234567891",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Get unlimited access to Pro features with monthly billing.",
+              "displayName" : "Monthly Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.parleyapp.premium_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Pro",
+          "subscriptionGroupID" : "12345678",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "199.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "1234567892",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Get unlimited access to Pro features with yearly billing. Save 33%!",
+              "displayName" : "Yearly Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.parleyapp.premiumyearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly Pro",
+          "subscriptionGroupID" : "12345678",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

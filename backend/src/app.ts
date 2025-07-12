@@ -18,6 +18,7 @@ import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
 import automationRoutes from './routes/automation';
 import purchasesRouter from './routes/purchases';
+import webhooksRouter from './routes/webhooks';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
@@ -93,6 +94,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/notification-settings', notificationSettingsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/purchases', purchasesRouter);
+app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
 
 // Health check endpoints
