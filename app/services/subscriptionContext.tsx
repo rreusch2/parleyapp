@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { applePaymentService } from './paymentService';
+import inAppPurchaseService from './inAppPurchases';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -81,13 +81,13 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           return;
         }
         
-        // Then verify with payment service as a fallback
-        const subscriptionStatus = await applePaymentService.validateSubscription(user.id);
-        const isSubscribed = subscriptionStatus.isActive && subscriptionStatus.tier !== 'free';
-        setIsPro(isSubscribed);
+        // Initialize IAP service and check subscription status via backend
+        await inAppPurchaseService.initialize();
+        // Note: Subscription validation now happens via purchase verification
+        // The backend will update user status when purchases are verified
         
-        // Update local storage
-        await AsyncStorage.setItem('subscriptionStatus', isSubscribed ? 'pro' : 'free');
+        // Default to current isPro state for storage
+        await AsyncStorage.setItem('subscriptionStatus', isPro ? 'pro' : 'free');
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
@@ -102,14 +102,26 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
-    // Production mode: Use actual payment service
-    const result = await applePaymentService.purchaseSubscription(planId, user.id);
-    if (result.success) {
-      setIsPro(true);
-      await AsyncStorage.setItem('subscriptionStatus', 'pro');
-      setShowSubscriptionModal(false);
+    // Get the product ID for the plan
+    const productIds = {
+      monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
+      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly', 
+      lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
+    };
+    
+    const productId = productIds[planId];
+    if (!productId) {
+      console.error('Invalid plan ID:', planId);
+      return false;
     }
-    return result.success;
+
+    // Initialize and purchase using IAP service
+    await inAppPurchaseService.initialize();
+    await inAppPurchaseService.purchaseSubscription(productId);
+    
+    // Success handling is done in the purchase listeners
+    // The backend verification will update the user's pro status
+    return true;
   } catch (error) {
     console.error('Error subscribing to Pro:', error);
     return false;
@@ -121,11 +133,9 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const restored = await applePaymentService.restorePurchases(user.id);
-      if (restored) {
-        setIsPro(true);
-        await AsyncStorage.setItem('subscriptionStatus', 'pro');
-      }
+      await inAppPurchaseService.initialize();
+      await inAppPurchaseService.restorePurchases();
+      // Restore success will be handled by purchase listeners
     } catch (error) {
       console.error('Error restoring purchases:', error);
       throw error;
