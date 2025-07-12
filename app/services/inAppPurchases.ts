@@ -161,7 +161,20 @@ class InAppPurchaseService {
       console.log('🔍 DEBUG: Backend URL:', backendUrl);
       
       if (!backendUrl) {
-        throw new Error('Backend URL not configured');
+        console.error('❌ EXPO_PUBLIC_BACKEND_URL is not set!');
+        throw new Error('Backend URL not configured - check your .env file');
+      }
+      
+      // Validate backend URL format
+      if (backendUrl.includes('localhost') || backendUrl.includes('192.168') || backendUrl.includes('127.0.0.1')) {
+        console.error('❌ Backend URL points to localhost:', backendUrl);
+        console.error('❌ This will fail on device/TestFlight. Use production Railway URL!');
+        throw new Error('Backend URL misconfigured - using localhost instead of production');
+      }
+      
+      if (!backendUrl.startsWith('https://')) {
+        console.error('❌ Backend URL must use HTTPS for production:', backendUrl);
+        throw new Error('Backend URL must use HTTPS protocol');
       }
 
       const requestBody = {
