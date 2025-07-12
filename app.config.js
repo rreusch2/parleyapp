@@ -16,16 +16,13 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "39",
+      buildNumber: "40",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
         "ITSAppUsesNonExemptEncryption": false
-      },
-      entitlements: {
-        "com.apple.developer.in-app-payments": ["Default"]
       }
     },
     android: {
