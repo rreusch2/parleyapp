@@ -51,14 +51,48 @@ class InAppPurchaseService {
 
     try {
       console.log('🔄 Initializing IAP service...');
+      console.log('📱 Platform:', Platform.OS);
+      console.log('📱 iOS Version:', Platform.Version);
       
-      // Initialize connection
-      const result = await RNIap.initConnection();
-      console.log('📱 IAP connection result:', result);
+      // Initialize connection with proper error handling
+      let connectionAttempts = 0;
+      let connected = false;
       
+      while (!connected && connectionAttempts < 3) {
+        try {
+          connectionAttempts++;
+          console.log(`🔄 Connection attempt ${connectionAttempts}/3...`);
+          
+          const result = await RNIap.initConnection();
+          console.log('📱 IAP connection result:', result);
+          connected = true;
+          
+        } catch (connectionError) {
+          console.error(`❌ Connection attempt ${connectionAttempts} failed:`, connectionError);
+          
+          if (connectionAttempts < 3) {
+            console.log('⏳ Waiting 2 seconds before retry...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            throw connectionError;
+          }
+        }
+      }
+      
+      if (!connected) {
+        throw new Error('Failed to connect to App Store after 3 attempts');
+      }
+      
+      // Clear any pending transactions on iOS
       if (Platform.OS === 'ios') {
-        await RNIap.clearTransactionIOS();
-        console.log('✅ iOS transactions cleared');
+        console.log('🔄 Clearing iOS transactions...');
+        try {
+          await RNIap.clearTransactionIOS();
+          console.log('✅ iOS transactions cleared');
+        } catch (clearError) {
+          console.warn('⚠️ Failed to clear iOS transactions:', clearError);
+          // Non-fatal, continue
+        }
       }
 
       if (Platform.OS === 'android') {
@@ -66,11 +100,42 @@ class InAppPurchaseService {
         console.log('✅ Android failed purchases flushed');
       }
 
-      // Load available subscriptions
-      await this.loadSubscriptions();
-      
-      // Set up listeners
+      // Set up listeners before loading products
       this.setupPurchaseListeners();
+      
+      // Load available subscriptions with retry
+      let loadAttempts = 0;
+      let loaded = false;
+      
+      while (!loaded && loadAttempts < 3) {
+        try {
+          loadAttempts++;
+          console.log(`🔄 Loading subscriptions attempt ${loadAttempts}/3...`);
+          
+          await this.loadSubscriptions();
+          loaded = true;
+          
+        } catch (loadError) {
+          console.error(`❌ Load attempt ${loadAttempts} failed:`, loadError);
+          
+          if (loadAttempts < 3) {
+            console.log('⏳ Waiting 3 seconds before retry...');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } else {
+            // Show more specific error message
+            const errorMessage = this.getDetailedErrorMessage(loadError);
+            Alert.alert(
+              'Store Connection Failed',
+              errorMessage,
+              [
+                { text: 'Retry', onPress: () => this.initialize() },
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+            throw loadError;
+          }
+        }
+      }
       
       this.isInitialized = true;
       console.log('✅ InAppPurchase service initialized successfully');
@@ -78,12 +143,17 @@ class InAppPurchaseService {
       
     } catch (error) {
       console.error('❌ Failed to initialize InAppPurchase service:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       
-      // Show user-friendly error
+      // More specific error handling
+      const errorMessage = this.getDetailedErrorMessage(error);
+      
       Alert.alert(
-        'Purchase System Unavailable',
-        'In-app purchases are not available right now. Please try again later.',
-        [{ text: 'OK' }]
+        'Purchase System Error',
+        errorMessage,
+        [
+          { text: 'OK' }
+        ]
       );
       
       throw error;
@@ -170,20 +240,49 @@ class InAppPurchaseService {
     
     try {
       console.log('🔄 Requesting subscription purchase...');
+      console.log('📱 Product details:', {
+        productId: subscription.productId,
+        price: subscription.localizedPrice,
+        title: subscription.localizedTitle
+      });
+      
+      // iOS 18.2+ requires different handling
+      const iosVersion = parseInt(Platform.Version.split('.')[0]);
+      console.log('📱 iOS Version:', Platform.Version, 'Major:', iosVersion);
       
       // Check if this is a lifetime product (non-renewable)
       if (productId.includes('lifetime')) {
-        // Use requestPurchase for one-time purchases
-        await requestPurchase({ sku: productId });
+        console.log('🔄 Requesting one-time purchase (lifetime)...');
+        
+        if (Platform.OS === 'ios' && iosVersion >= 18) {
+          // iOS 18+ requires andDangerouslyFinishTransactionAutomaticallyIOS to be false
+          await requestPurchase({ 
+            sku: productId,
+            andDangerouslyFinishTransactionAutomaticallyIOS: false
+          });
+        } else {
+          await requestPurchase({ sku: productId });
+        }
       } else {
-        // Use requestSubscription for recurring subscriptions
-        await requestSubscription({ sku: productId });
+        console.log('🔄 Requesting recurring subscription...');
+        
+        if (Platform.OS === 'ios' && iosVersion >= 18) {
+          // iOS 18+ requires andDangerouslyFinishTransactionAutomaticallyIOS to be false
+          await requestSubscription({ 
+            sku: productId,
+            andDangerouslyFinishTransactionAutomaticallyIOS: false,
+            // For subscriptions, we can also pass the subscription offer if available
+          });
+        } else {
+          await requestSubscription({ sku: productId });
+        }
       }
       
       console.log('✅ Purchase request sent to App Store');
       
     } catch (error) {
       console.error('❌ Purchase request failed:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       
       // Clear the callback on error
       this.purchaseSuccessCallback = null;
@@ -191,12 +290,22 @@ class InAppPurchaseService {
       let errorMessage = 'Failed to start purchase process.';
       
       if (error instanceof Error) {
-        if (error.message.includes('User cancelled')) {
-          errorMessage = 'Purchase was cancelled.';
-        } else if (error.message.includes('Network')) {
+        // Check for specific error codes
+        const errorString = error.message || error.toString();
+        
+        if (errorString.includes('cancelled') || errorString.includes('E_USER_CANCELLED')) {
+          console.log('ℹ️ User cancelled the purchase');
+          return; // Don't show alert for cancellation
+        } else if (errorString.includes('Network') || errorString.includes('E_NETWORK_ERROR')) {
           errorMessage = 'Network error. Please check your connection.';
-        } else if (error.message.includes('Not available')) {
-          errorMessage = 'This product is not available for purchase.';
+        } else if (errorString.includes('Not available') || errorString.includes('E_IAP_NOT_AVAILABLE')) {
+          errorMessage = 'This product is not available for purchase. Please ensure you\'re using a sandbox account.';
+        } else if (errorString.includes('E_ALREADY_OWNED')) {
+          errorMessage = 'You already own this subscription.';
+        } else if (errorString.includes('E_DEFERRED')) {
+          errorMessage = 'Purchase requires approval. Please check with the account holder.';
+        } else if (errorString.includes('unknown')) {
+          errorMessage = 'An unknown error occurred. Please ensure:\n\n1. You\'re signed into a sandbox account\n2. The app is properly configured for testing\n3. Products are approved in App Store Connect';
         }
       }
       
@@ -503,6 +612,28 @@ class InAppPurchaseService {
     } catch (error) {
       console.error('❌ Cleanup error:', error);
     }
+  }
+
+  private getDetailedErrorMessage(error: any): string {
+    // Check for specific error patterns
+    if (error?.message?.includes('Network')) {
+      return 'Network connection issue. Please check your internet connection and try again.';
+    }
+    
+    if (error?.message?.includes('SKErrorDomain')) {
+      return 'App Store connection failed. Please ensure you\'re signed into the App Store and try again.';
+    }
+    
+    if (error?.code === 'E_IAP_NOT_AVAILABLE') {
+      return 'In-app purchases are not available. Please check:\n\n1. You\'re signed into the App Store\n2. In-app purchases are enabled\n3. You have a valid payment method';
+    }
+    
+    if (error?.code === 'E_UNKNOWN') {
+      return 'Unknown error occurred. Please try:\n\n1. Sign out of App Store\n2. Restart the app\n3. Sign in with your sandbox account';
+    }
+    
+    // Default message
+    return 'Unable to connect to the App Store. Please ensure:\n\n1. You\'re using a sandbox account (Settings > App Store > Sandbox Account)\n2. You\'re not signed into production App Store\n3. In-app purchases are enabled for this app';
   }
 }
 

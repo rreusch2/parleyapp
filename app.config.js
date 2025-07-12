@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "41",
+      buildNumber: "46",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
@@ -24,9 +24,7 @@ module.exports = {
         // Only include permissions that your app actually uses
         "ITSAppUsesNonExemptEncryption": false
       },
-      entitlements: {
-        "com.apple.developer.in-app-purchases": true
-      }
+
     },
     android: {
       adaptiveIcon: {
@@ -60,7 +58,8 @@ module.exports = {
       [
         "react-native-iap",
         {
-          enableAutoConfiguration: true
+          enableAutoConfiguration: true,
+          enableBitcode: false
         }
       ],
       "expo-web-browser"
