@@ -275,6 +275,7 @@ class InAppPurchaseService {
     try {
       console.log('📦 Loading subscriptions from App Store...');
       
+      // First try to get subscriptions
       const subscriptions = await getSubscriptions({ skus: subscriptionSkus });
       this.subscriptions = subscriptions;
       
@@ -282,9 +283,36 @@ class InAppPurchaseService {
       subscriptions.forEach(sub => {
         console.log(`  - ${sub.productId}: ${sub.localizedPrice} (${sub.localizedTitle})`);
       });
+
+      // If no subscriptions loaded, this might be because products are "Waiting for Review"
+      if (subscriptions.length === 0) {
+        console.warn('⚠️ No subscriptions loaded from App Store');
+        console.warn('⚠️ This may be because products are "Waiting for Review" in App Store Connect');
+        console.warn('⚠️ Expected products:', subscriptionSkus);
+        
+        // Show user-friendly message
+        Alert.alert(
+          'Products Loading',
+          'Subscription products are being loaded from App Store. This may take a moment in sandbox mode.',
+          [{ text: 'OK' }]
+        );
+      }
       
     } catch (error) {
       console.error('❌ Failed to load subscriptions:', error);
+      console.error('❌ This usually means:');
+      console.error('   1. App Store connection failed');
+      console.error('   2. Products not yet approved in App Store Connect');
+      console.error('   3. Wrong product IDs or bundle ID mismatch');
+      console.error('   4. Device not configured for sandbox testing');
+      
+      // Show detailed error to user
+      Alert.alert(
+        'Store Connection Error',
+        'Cannot load products from App Store. Please ensure you\'re using a sandbox account and try again.',
+        [{ text: 'OK' }]
+      );
+      
       throw error;
     }
   }

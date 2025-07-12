@@ -16,13 +16,16 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "40",
+      buildNumber: "41",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
         "ITSAppUsesNonExemptEncryption": false
+      },
+      entitlements: {
+        "com.apple.developer.in-app-purchases": true
       }
     },
     android: {
@@ -50,7 +53,18 @@ module.exports = {
       androidMode: "default",
       androidCollapsedTitle: "#{unread_notifications} new predictions",
     },
-    plugins: ["expo-router", "expo-font", "expo-notifications", "react-native-iap", "expo-web-browser"],
+    plugins: [
+      "expo-router", 
+      "expo-font", 
+      "expo-notifications", 
+      [
+        "react-native-iap",
+        {
+          enableAutoConfiguration: true
+        }
+      ],
+      "expo-web-browser"
+    ],
     experiments: {
       typedRoutes: true
     },
