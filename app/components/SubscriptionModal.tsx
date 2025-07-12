@@ -108,6 +108,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
+  // DEBUG: Test backend connection
+  const handleTestBackend = async () => {
+    try {
+      await inAppPurchaseService.testBackendConnection();
+    } catch (error) {
+      console.error('Backend test error:', error);
+    }
+  };
+
   const getProductId = (plan: 'monthly' | 'yearly' | 'lifetime'): string | null => {
     const productIds = {
       monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
@@ -475,6 +484,14 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 </Text>
                 <ChevronRight size={20} color="#FFFFFF" />
               </LinearGradient>
+            </TouchableOpacity>
+            
+            {/* DEBUG: Test Backend Button - Remove before production */}
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={handleTestBackend}
+            >
+              <Text style={styles.testButtonText}>🧪 Test Backend Connection</Text>
             </TouchableOpacity>
             
             <View style={styles.termsContainer}>
@@ -871,6 +888,20 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     textDecorationLine: 'underline',
     fontWeight: '500',
+  },
+  testButton: {
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  testButtonText: {
+    fontSize: 14,
+    color: '#00E5FF',
+    fontWeight: '600',
   },
 });
 

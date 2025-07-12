@@ -192,35 +192,54 @@ async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boole
       throw new Error('Apple shared secret not configured');
     }
 
-    // First try production environment
+    const requestBody = {
+      'receipt-data': receiptData,
+      'password': process.env.APPLE_SHARED_SECRET,
+      'exclude-old-transactions': true,
+    };
+
+    // First try production environment (recommended by Apple)
+    console.log('🍎 Attempting production verification first...');
     let response = await fetch('https://buy.itunes.apple.com/verifyReceipt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        'receipt-data': receiptData,
-        'password': process.env.APPLE_SHARED_SECRET,
-        'exclude-old-transactions': true,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     let result = await response.json() as AppleReceiptVerificationResponse;
+    console.log('🍎 Production verification result:', { status: result.status, environment: result.environment });
 
-    // If status is 21007, try sandbox environment
+    // Handle different status codes according to Apple's documentation
     if (result.status === 21007) {
+      // "Sandbox receipt used in production" - try sandbox environment
+      console.log('🍎 Sandbox receipt detected, trying sandbox environment...');
+      
       response = await fetch('https://sandbox.itunes.apple.com/verifyReceipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          'receipt-data': receiptData,
-          'password': process.env.APPLE_SHARED_SECRET,
-          'exclude-old-transactions': true,
-        }),
+        body: JSON.stringify(requestBody),
       });
+      
       result = await response.json() as AppleReceiptVerificationResponse;
+      console.log('🍎 Sandbox verification result:', { status: result.status, environment: result.environment });
+    } else if (result.status === 21008) {
+      // "Production receipt used in sandbox" - this shouldn't happen in production but handle gracefully
+      console.log('🍎 Production receipt in sandbox environment detected');
+      return { isValid: false, expirationDate: null };
+    } else if (result.status === 21010) {
+      // "Receipt could not be authenticated" - invalid receipt
+      console.log('🍎 Receipt could not be authenticated');
+      return { isValid: false, expirationDate: null };
+    } else if (result.status !== 0) {
+      // Other error codes
+      console.log('🍎 Apple receipt verification failed with status:', result.status);
+      return { isValid: false, expirationDate: null };
     }
 
+    // Success case (status === 0)
     if (result.status === 0) {
       console.log('✅ Apple receipt verified successfully');
+      console.log('🍎 Verification environment:', result.environment);
       
       // Handle both auto-renewable subscriptions and non-consumable purchases
       let expirationDate: Date | null = null;
@@ -228,14 +247,23 @@ async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boole
       if (result.latest_receipt_info && result.latest_receipt_info.length > 0) {
         // Auto-renewable subscription
         const latestReceipt = result.latest_receipt_info[0];
+        console.log('🍎 Processing auto-renewable subscription:', latestReceipt.product_id);
+        
         if (latestReceipt.expires_date_ms) {
           expirationDate = new Date(parseInt(latestReceipt.expires_date_ms));
+          console.log('🍎 Subscription expires at:', expirationDate);
         }
       } else if (result.receipt && result.receipt.in_app && result.receipt.in_app.length > 0) {
         // Non-consumable purchase (lifetime)
         const purchase = result.receipt.in_app[0];
+        console.log('🍎 Processing non-consumable purchase:', purchase.product_id);
+        
         // Lifetime purchases don't expire
         expirationDate = null;
+        console.log('🍎 Lifetime purchase - no expiration date');
+      } else {
+        console.log('⚠️ No purchase information found in receipt');
+        return { isValid: false, expirationDate: null };
       }
 
       return {
@@ -244,11 +272,11 @@ async function verifyAppleReceipt(receiptData: string): Promise<{ isValid: boole
       };
     }
 
-    console.log('Apple receipt verification failed:', result);
+    console.log('❌ Apple receipt verification failed:', result);
     return { isValid: false, expirationDate: null };
 
   } catch (error) {
-    console.error('Apple receipt verification error:', error);
+    console.error('❌ Apple receipt verification error:', error);
     return { isValid: false, expirationDate: null };
   }
 }

@@ -185,6 +185,7 @@ class InAppPurchaseService {
       }
       
       console.log('🔍 DEBUG: Session OK, user ID:', session.user?.id);
+      console.log('🔍 DEBUG: Access token preview:', session.access_token.substring(0, 20) + '...');
 
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
       console.log('🔍 DEBUG: Backend URL:', backendUrl);
@@ -214,10 +215,22 @@ class InAppPurchaseService {
         transactionId: purchase.transactionId,
       };
       
-      console.log('🔍 DEBUG: Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('🔍 DEBUG: Request body (sanitized):', {
+        platform: requestBody.platform,
+        productId: requestBody.productId,
+        transactionId: requestBody.transactionId,
+        hasReceipt: !!requestBody.receipt,
+        hasPurchaseToken: !!requestBody.purchaseToken,
+        receiptLength: requestBody.receipt?.length || 0
+      });
       
       const fullUrl = `${backendUrl}/api/purchases/verify`;
       console.log('🔍 DEBUG: Making request to:', fullUrl);
+
+      console.log('🔍 DEBUG: Request headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`,
+      });
 
       const response = await fetch(fullUrl, {
         method: 'POST',
@@ -229,21 +242,48 @@ class InAppPurchaseService {
       });
       
       console.log('🔍 DEBUG: Response status:', response.status);
+      console.log('🔍 DEBUG: Response ok:', response.ok);
       console.log('🔍 DEBUG: Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('🔍 DEBUG: Error response body:', errorText);
+        
+        // Special handling for common errors
+        if (response.status === 401) {
+          console.error('❌ Authentication failed - user session may be expired');
+          throw new Error(`Authentication failed (401). Please log out and log back in.`);
+        } else if (response.status === 404) {
+          console.error('❌ Backend endpoint not found');
+          throw new Error(`Backend endpoint not found (404). Check backend deployment.`);
+        } else if (response.status >= 500) {
+          console.error('❌ Backend server error');
+          throw new Error(`Backend server error (${response.status}). Please try again later.`);
+        }
+        
         throw new Error(`Backend verification failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
       console.log('✅ Purchase verified with backend:', result);
       
+      // Additional success logging
+      console.log('✅ Verification successful - subscription tier:', result.subscriptionTier);
+      console.log('✅ Expires at:', result.expiresAt);
+      
       return result;
     } catch (error) {
       console.error('❌ Backend verification error:', error);
       console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+      
+      // Show user-friendly error with more context
+      Alert.alert(
+        'Purchase Verification Failed',
+        `We couldn't verify your purchase with our servers. ${error instanceof Error ? error.message : 'Please try again.'}\n\nIf this persists, contact support.`,
+        [{ text: 'OK', style: 'default' }]
+      );
+      
       throw error;
     }
   }
@@ -297,6 +337,50 @@ class InAppPurchaseService {
       Alert.alert(
         'Restore Failed',
         'Could not restore purchases. Please try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  }
+
+  // TEST METHOD - Add this for debugging
+  async testBackendConnection(): Promise<void> {
+    try {
+      console.log('🧪 Testing backend connection...');
+      
+      const { supabase } = await import('./api/supabaseClient');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        Alert.alert('Test Failed', 'No valid user session found');
+        return;
+      }
+
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      console.log('🧪 Testing backend at:', backendUrl);
+
+      const response = await fetch(`${backendUrl}/api/purchases/debug-env`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Backend test successful:', result);
+        Alert.alert(
+          'Backend Test SUCCESS!', 
+          `✅ Backend is reachable\n✅ Apple secret configured: ${result.hasAppleSecret}\n✅ Environment: ${result.environment}`,
+          [{ text: 'Great!', style: 'default' }]
+        );
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Backend test failed:', error);
+      Alert.alert(
+        'Backend Test Failed',
+        `❌ Could not reach backend: ${error instanceof Error ? error.message : 'Unknown error'}`,
         [{ text: 'OK', style: 'default' }]
       );
     }
