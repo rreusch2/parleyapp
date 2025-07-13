@@ -13,7 +13,8 @@ import {
   Dimensions,
   ActivityIndicator,
   ScrollView,
-  Keyboard
+  Keyboard,
+  Vibration
 } from 'react-native';
 import EventSource from 'react-native-sse';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +31,12 @@ import {
   Shield,
   Clock,
   Globe,
-  Search
+  Search,
+  Lightbulb,
+  Trophy,
+  DollarSign,
+  BarChart,
+  AlertCircle
 } from 'lucide-react-native';
 import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '@/app/services/subscriptionContext';
@@ -40,103 +46,123 @@ import { supabase } from '@/app/services/api/supabaseClient';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-// Markdown styles for Professor Lock's responses
+// Enhanced Markdown styles for Professor Lock's responses
 const markdownStyles = StyleSheet.create({
   body: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#E2E8F0',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
     fontWeight: '400',
   },
   strong: {
-    fontWeight: '600',
-    color: '#00E5FF', // Same blue as Professor Lock header
+    fontWeight: '700',
+    color: '#00E5FF', // Bright blue for picks
+    fontSize: 17,
   },
   em: {
-    fontStyle: 'normal', // Remove italic style
-    color: '#00E5FF', // Blue for emphasis
-    fontWeight: '600', // Make it bold instead
+    fontStyle: 'normal',
+    color: '#FBBF24', // Gold for emphasis
+    fontWeight: '600',
   },
   code_inline: {
-    backgroundColor: 'transparent',
-    color: '#E2E8F0', // Same as body text - no special styling
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderRadius: 0,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    color: '#00E5FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     fontSize: 15,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-    fontWeight: '400',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontWeight: '500',
   },
   code_block: {
-    backgroundColor: 'transparent',
-    color: '#E2E8F0', // Same as body text - no special styling
-    padding: 0,
-    borderRadius: 0,
-    fontSize: 15,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    color: '#E2E8F0',
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontWeight: '400',
-    marginVertical: 2,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
   },
   bullet_list: {
-    marginVertical: 6,
+    marginVertical: 8,
   },
   ordered_list: {
-    marginVertical: 6,
+    marginVertical: 8,
   },
   list_item: {
     flexDirection: 'row',
-    marginVertical: 3,
+    marginVertical: 4,
     alignItems: 'flex-start',
   },
   bullet_list_icon: {
     color: '#00E5FF',
-    fontSize: 12,
+    fontSize: 16,
     marginRight: 12,
-    marginTop: 5,
-    fontWeight: '400',
+    marginTop: 4,
+    fontWeight: '700',
   },
   ordered_list_icon: {
     color: '#00E5FF',
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 10,
-    marginTop: 2,
-    minWidth: 22,
+    fontSize: 15,
+    fontWeight: '600',
+    marginRight: 12,
+    marginTop: 3,
+    minWidth: 24,
   },
   bullet_list_content: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#E2E8F0',
   },
   ordered_list_content: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
     color: '#E2E8F0',
   },
   heading1: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginVertical: 8,
+    marginVertical: 12,
+    letterSpacing: -0.5,
   },
   heading2: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFFFFF',
-    marginVertical: 6,
+    marginVertical: 10,
+    letterSpacing: -0.3,
   },
   paragraph: {
-    marginVertical: 3,
-    fontSize: 15,
-    lineHeight: 22,
+    marginVertical: 4,
+    fontSize: 16,
+    lineHeight: 24,
   },
   link: {
     color: '#00E5FF',
-    textDecorationLine: 'none', // Remove underline for cleaner look
+    textDecorationLine: 'underline',
     fontWeight: '500',
+  },
+  hr: {
+    backgroundColor: '#334155',
+    height: 1,
+    marginVertical: 16,
+  },
+  blockquote: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#00E5FF',
+    paddingLeft: 16,
+    marginVertical: 12,
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingRight: 12,
   },
 });
 
@@ -148,6 +174,7 @@ interface ChatMessage {
   toolsUsed?: string[];
   isSearching?: boolean;
   searchQuery?: string;
+  isTyping?: boolean;
 }
 
 interface ProAIChatProps {
@@ -155,7 +182,7 @@ interface ProAIChatProps {
 }
 
 export default function ProAIChat({ 
-  placeholder = "Ask me anything about betting strategies, picks, or analysis..."
+  placeholder = "Ask about picks, parlays, odds, insights, or betting strategies..."
 }: ProAIChatProps) {
   const { isPro, openSubscriptionModal } = useSubscription();
   const { 
@@ -194,16 +221,17 @@ export default function ProAIChat({
   const [dotAnimation3] = useState(new Animated.Value(0));
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [messageAnimation] = useState(new Animated.Value(0));
+  const [welcomeAnimation] = useState(new Animated.Value(0));
+  const [buttonScaleAnimation] = useState(new Animated.Value(1));
 
   // Add keyboard listeners with height detection
   useEffect(() => {
     const keyboardWillShowListener = Keyboard.addListener(
       'keyboardWillShow',
       (e) => {
-        // Store keyboard height
         setKeyboardHeight(e.endCoordinates.height);
         setKeyboardVisible(true);
-        // Scroll to bottom with a small delay to ensure the keyboard is fully shown
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
@@ -213,7 +241,6 @@ export default function ProAIChat({
     const keyboardDidShowListener = Keyboard.addListener(
       'keyboardDidShow',
       (e) => {
-        // Fallback for Android
         if (Platform.OS !== 'ios') {
           setKeyboardHeight(e.endCoordinates.height);
           setKeyboardVisible(true);
@@ -235,7 +262,6 @@ export default function ProAIChat({
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
       () => {
-        // Fallback for Android
         if (Platform.OS !== 'ios') {
           setKeyboardVisible(false);
           setKeyboardHeight(0);
@@ -251,6 +277,7 @@ export default function ProAIChat({
     };
   }, []);
 
+  // Enhanced animations
   useEffect(() => {
     if (showAIChat && isPro) {
       // Start pulse animation for chat bubble
@@ -258,98 +285,114 @@ export default function ProAIChat({
         Animated.sequence([
           Animated.timing(pulseAnimation, {
             toValue: 1,
-            duration: 2000,
+            duration: 1500,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnimation, {
             toValue: 0,
-            duration: 2000,
+            duration: 1500,
             useNativeDriver: true,
           }),
         ])
       ).start();
+
+      // Welcome animation
+      if (messages.length === 0) {
+        Animated.spring(welcomeAnimation, {
+          toValue: 1,
+          tension: 40,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+      }
     }
-  }, [showAIChat, isPro]);
+  }, [showAIChat, isPro, messages.length]);
 
   // Pre-fill input with custom prompt when chat opens
   useEffect(() => {
     if (showAIChat && chatContext?.customPrompt) {
       setInputText(chatContext.customPrompt);
     } else if (!showAIChat) {
-      // Clear input when chat is closed
       setInputText('');
     }
   }, [showAIChat, chatContext?.customPrompt]);
 
-  // Debug logging for free user state
-  useEffect(() => {
-    if (!isPro && showAIChat) {
-      console.log(`🐛 Free user chat state: messageCount=${freeUserMessageCount}, canSend=${canSendMessage(isPro)}, isLoading=${isLoadingMessageCount}`);
-    }
-  }, [isPro, showAIChat, freeUserMessageCount, isLoadingMessageCount]);
-
+  // Enhanced search animations
   useEffect(() => {
     if (isSearching) {
-      // Gentle search loading animation (less bouncy)
+      // Smooth search loading animation
       Animated.loop(
         Animated.sequence([
           Animated.timing(searchAnimation, {
             toValue: 1,
-            duration: 2000,
+            duration: 1800,
             useNativeDriver: true,
           }),
           Animated.timing(searchAnimation, {
             toValue: 0,
-            duration: 2000,
+            duration: 1800,
             useNativeDriver: true,
           }),
         ])
       ).start();
 
-      // Subtle staggered dot animations
+      // Enhanced dot animations
       const animateDots = () => {
         Animated.loop(
-          Animated.stagger(300, [
+          Animated.stagger(250, [
             Animated.sequence([
-              Animated.timing(dotAnimation1, { toValue: 1, duration: 600, useNativeDriver: true }),
-              Animated.timing(dotAnimation1, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+              Animated.spring(dotAnimation1, { toValue: 1, tension: 120, friction: 5, useNativeDriver: true }),
+              Animated.timing(dotAnimation1, { toValue: 0.3, duration: 400, useNativeDriver: true }),
             ]),
             Animated.sequence([
-              Animated.timing(dotAnimation2, { toValue: 1, duration: 600, useNativeDriver: true }),
-              Animated.timing(dotAnimation2, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+              Animated.spring(dotAnimation2, { toValue: 1, tension: 120, friction: 5, useNativeDriver: true }),
+              Animated.timing(dotAnimation2, { toValue: 0.3, duration: 400, useNativeDriver: true }),
             ]),
             Animated.sequence([
-              Animated.timing(dotAnimation3, { toValue: 1, duration: 600, useNativeDriver: true }),
-              Animated.timing(dotAnimation3, { toValue: 0.4, duration: 600, useNativeDriver: true }),
+              Animated.spring(dotAnimation3, { toValue: 1, tension: 120, friction: 5, useNativeDriver: true }),
+              Animated.timing(dotAnimation3, { toValue: 0.3, duration: 400, useNativeDriver: true }),
             ]),
           ])
         ).start();
       };
       animateDots();
     } else {
-      // Stop all animations
       searchAnimation.stopAnimation();
       dotAnimation1.stopAnimation();
       dotAnimation2.stopAnimation();
       dotAnimation3.stopAnimation();
       searchAnimation.setValue(0);
-      dotAnimation1.setValue(0.4);
-      dotAnimation2.setValue(0.4);
-      dotAnimation3.setValue(0.4);
+      dotAnimation1.setValue(0.3);
+      dotAnimation2.setValue(0.3);
+      dotAnimation3.setValue(0.3);
     }
   }, [isSearching]);
 
   const sendMessage = async () => {
     if (!inputText.trim() || isTyping) return;
 
-    // Check if user can send message (free users limited to 1 message)
+    // Haptic feedback
+    Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+
+    // Button press animation
+    Animated.sequence([
+      Animated.timing(buttonScaleAnimation, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScaleAnimation, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Check if user can send message (free users limited to 3 messages)
     if (!canSendMessage(isPro)) {
       console.log('🔒 Free user reached message limit, opening subscription modal');
-      // Clear input to prevent confusion
       setInputText('');
-      // Close AI chat modal first, then open subscription modal
       setShowAIChat(false);
-      // Small delay to ensure AI chat closes before opening subscription modal
       setTimeout(() => {
         openSubscriptionModal();
       }, 300);
@@ -386,12 +429,13 @@ export default function ProAIChat({
         text: '',
         isUser: false,
         timestamp: new Date(),
-        toolsUsed: []
+        toolsUsed: [],
+        isTyping: true
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
-      // Call the streaming Grok chatbot API using SSE for real-time streaming
+      // Call the streaming Grok chatbot API using SSE
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
       
       try {
@@ -415,7 +459,7 @@ export default function ProAIChat({
 
         console.log('🌊 Starting SSE connection for chat streaming');
         
-        // Create a new EventSource connection to the server
+        // Create a new EventSource connection
         const eventSource = new EventSource(`${baseUrl}/api/ai/chat/stream`, {
           headers: {
             'Content-Type': 'application/json',
@@ -434,11 +478,10 @@ export default function ProAIChat({
             console.log('📩 SSE message received:', data.type);
             
             if (data.type === 'start') {
-              // Initial status - keep typing indicator
               setIsTyping(true);
               setIsSearching(false);
             } else if (data.type === 'web_search') {
-              // Web search started - add search bubble
+              // Enhanced search bubble
               const searchMessageId = `search_${Date.now()}`;
               searchMessage = {
                 id: searchMessageId,
@@ -446,14 +489,16 @@ export default function ProAIChat({
                 isUser: false,
                 timestamp: new Date(),
                 isSearching: true,
-                searchQuery: data.message || 'Searching for latest sports news...'
+                searchQuery: data.message || 'Searching for latest sports intel...'
               };
               
               setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
               setIsSearching(true);
               setIsTyping(false);
               
-              // Scroll to show the search message
+              // Haptic feedback for search
+              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+              
               setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
               }, 100);
@@ -465,11 +510,11 @@ export default function ProAIChat({
                 setIsSearching(false);
               }
               
-              // Add content chunk
+              // Update message and remove typing indicator
               if (data.content) {
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMessageId 
-                    ? { ...msg, text: msg.text + data.content }
+                    ? { ...msg, text: msg.text + data.content, isTyping: false }
                     : msg
                 ));
                 
@@ -482,26 +527,35 @@ export default function ProAIChat({
               // Final message with metadata
               setMessages(prev => prev.map(msg => 
                 msg.id === aiMessageId 
-                  ? { ...msg, toolsUsed: data.toolsUsed || [] }
+                  ? { ...msg, toolsUsed: data.toolsUsed || [], isTyping: false }
                   : msg
               ));
               setIsTyping(false);
               setIsSearching(false);
               
-              // Close the connection when complete
+              // Success haptic
+              if (Platform.OS === 'ios') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }
+              
+              // Close the connection
               eventSource.close();
               console.log('✅ SSE connection closed - message complete');
             } else if (data.type === 'error') {
               // Error occurred
               setMessages(prev => prev.map(msg => 
                 msg.id === aiMessageId 
-                  ? { ...msg, text: data.content || "An error occurred" }
+                  ? { ...msg, text: data.content || "Hit a snag there, champ! Give it another shot in a moment. 🔧", isTyping: false }
                   : msg
               ));
               setIsTyping(false);
               setIsSearching(false);
               
-              // Close the connection on error
+              // Error haptic
+              if (Platform.OS === 'ios') {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              }
+              
               eventSource.close();
               console.log('❌ SSE connection closed - error occurred');
             }
@@ -522,14 +576,13 @@ export default function ProAIChat({
           // Update the message with error information
           setMessages(prev => prev.map(msg => 
             msg.id === aiMessageId 
-              ? { ...msg, text: "Sorry, hit a technical issue with streaming. Try again in a sec! 🔧" }
+              ? { ...msg, text: "Technical timeout, friend! Let's try that again in a sec. 🔧", isTyping: false }
               : msg
           ));
           
           setIsTyping(false);
           setIsSearching(false);
           
-          // Close the connection on error
           eventSource.close();
           console.log('❌ SSE connection closed due to error');
         });
@@ -539,7 +592,7 @@ export default function ProAIChat({
         // Add error message
         const errorMessage: ChatMessage = {
           id: (Date.now() + 2).toString(),
-          text: "Sorry, hit a technical issue with streaming. Try again in a sec! 🔧",
+          text: "Connection fumbled! Give me another shot in a moment, ace. 🔧",
           isUser: false,
           timestamp: new Date()
         };
@@ -554,7 +607,7 @@ export default function ProAIChat({
       // Add error message
       const errorMessage: ChatMessage = {
         id: (Date.now() + 2).toString(),
-        text: "Sorry, hit a technical issue. Try again in a sec! 🔧",
+        text: "Oops, technical difficulties! Try again in a sec, champion. 🔧",
         isUser: false,
         timestamp: new Date()
       };
@@ -566,97 +619,145 @@ export default function ProAIChat({
     }
   };
 
+  // Enhanced quick actions with better variety
   const quickActions = [
-    { icon: '🔒', text: "Today's Locks", action: "Show me today's locks, Professor" },
-    { icon: '🎲', text: "Build Parlay", action: "Build me a smart parlay from your latest predictions" },
-    { icon: '🌐', text: "Latest Sports News", action: "What's the latest news in sports?" },
-    { icon: '🎯', text: "Bankroll Tips", action: "Give me your top bankroll management tips" }
+    { icon: <Trophy size={16} color="#FBBF24" />, text: "Today's Best", action: "What are your top confidence picks today?" },
+    { icon: <Zap size={16} color="#00E5FF" />, text: "Smart Parlay", action: "Build me a balanced 3-leg parlay with good value" },
+    { icon: <Globe size={16} color="#10B981" />, text: "Breaking News", action: "Any breaking news that could affect today's games?" },
+    { icon: <Lightbulb size={16} color="#F59E0B" />, text: "Pro Insights", action: "Show me today's most important betting insights" }
+  ];
+
+  const parlayOptions = [
+    { icon: <Shield size={16} color="#10B981" />, text: "Safe 2-Leg", action: "Give me your safest 2-leg parlay for today" },
+    { icon: <Target size={16} color="#00E5FF" />, text: "Balanced 3-Leg", action: "Build a balanced 3-leg parlay mixing teams and props" },
+    { icon: <DollarSign size={16} color="#FBBF24" />, text: "Value 4-Leg", action: "Create a 4-leg parlay with good odds and value" },
+    { icon: <BarChart size={16} color="#EF4444" />, text: "Lottery Ticket", action: "Give me a risky 5-leg parlay for a big payout" }
   ];
 
   const pulseOpacity = pulseAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.4, 1],
+    outputRange: [0.6, 1],
   });
 
   const searchOpacity = searchAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.6, 1],
+    outputRange: [0.7, 1],
   });
 
   const searchScale = searchAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.98, 1.02],
+    outputRange: [0.95, 1.05],
   });
 
+  const welcomeScale = welcomeAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.8, 1],
+  });
 
-
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    // Special rendering for search bubble messages
+  const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
+    // Enhanced search bubble
     if (item.isSearching) {
       return (
-        <View style={[styles.messageContainer, styles.aiMessage]}>
+        <Animated.View 
+          style={[
+            styles.messageContainer, 
+            styles.aiMessage,
+            {
+              opacity: Animated.add(0.8, Animated.multiply(searchOpacity, 0.2)),
+              transform: [{
+                translateY: searchAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -2]
+                })
+              }]
+            }
+          ]}
+        >
           <View style={styles.aiIcon}>
-            <Animated.View style={{ opacity: searchOpacity }}>
-              <Search size={16} color="#00E5FF" />
+            <Animated.View style={{ 
+              opacity: searchOpacity,
+              transform: [{ scale: searchScale }]
+            }}>
+              <Search size={18} color="#00E5FF" />
             </Animated.View>
           </View>
           <Animated.View 
             style={[
               styles.searchBubbleMessage,
-              {
-                opacity: searchOpacity,
-                transform: [
-                  { scale: searchScale },
-                  { translateY: searchAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [2, -1]
-                  })}
-                ]
-              }
+              { transform: [{ scale: searchScale }] }
             ]}
           >
             <LinearGradient
-              colors={['#00E5FF', '#0EA5E9']}
+              colors={['rgba(0, 229, 255, 0.15)', 'rgba(14, 165, 233, 0.15)']}
               style={styles.searchBubbleGradient}
             >
               <View style={styles.searchBubbleContent}>
                 <View style={styles.searchBubbleHeader}>
                   <Animated.View style={{ opacity: searchOpacity }}>
-                    <Globe size={14} color="#FFFFFF" />
+                    <Globe size={16} color="#00E5FF" />
                   </Animated.View>
                   <Text style={styles.searchBubbleTitle}>Searching the web</Text>
                 </View>
                 <Text style={styles.searchBubbleQuery}>
-                  {item.searchQuery || 'Looking for latest sports news...'}
+                  {item.searchQuery}
                 </Text>
                 <View style={styles.searchBubbleDots}>
-                  <Animated.View style={[styles.searchBubbleDot, { opacity: dotAnimation1 }]} />
-                  <Animated.View style={[styles.searchBubbleDot, { opacity: dotAnimation2 }]} />
-                  <Animated.View style={[styles.searchBubbleDot, { opacity: dotAnimation3 }]} />
+                  <Animated.View style={[styles.searchBubbleDot, { 
+                    opacity: dotAnimation1,
+                    transform: [{ scale: dotAnimation1 }]
+                  }]} />
+                  <Animated.View style={[styles.searchBubbleDot, { 
+                    opacity: dotAnimation2,
+                    transform: [{ scale: dotAnimation2 }]
+                  }]} />
+                  <Animated.View style={[styles.searchBubbleDot, { 
+                    opacity: dotAnimation3,
+                    transform: [{ scale: dotAnimation3 }]
+                  }]} />
                 </View>
               </View>
             </LinearGradient>
           </Animated.View>
-        </View>
+        </Animated.View>
       );
     }
 
-    // Regular message rendering
+    // Enhanced regular message rendering with animations
+    const isNewMessage = index === messages.length - 1 && !item.isUser;
+    
     return (
-      <View style={[
-        styles.messageContainer,
-        item.isUser ? styles.userMessage : styles.aiMessage
-      ]}>
+      <Animated.View 
+        style={[
+          styles.messageContainer,
+          item.isUser ? styles.userMessage : styles.aiMessage,
+          isNewMessage && {
+            opacity: messageAnimation,
+            transform: [{
+              translateY: messageAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [10, 0]
+              })
+            }]
+          }
+        ]}
+      >
         {!item.isUser && (
-          <View style={styles.aiIcon}>
-            <Brain size={16} color="#00E5FF" />
+          <View style={[styles.aiIcon, item.isTyping && styles.aiIconTyping]}>
+            <Brain size={18} color="#00E5FF" />
           </View>
         )}
         <View style={[
           styles.messageBubble,
-          item.isUser ? styles.userBubble : styles.aiBubble
+          item.isUser ? styles.userBubble : styles.aiBubble,
+          item.isTyping && styles.typingBubble
         ]}>
-          {item.isUser ? (
+          {item.isTyping ? (
+            <View style={styles.typingIndicator}>
+              <Animated.View style={[styles.typingDot, { opacity: dotAnimation1 }]} />
+              <Animated.View style={[styles.typingDot, { opacity: dotAnimation2 }]} />
+              <Animated.View style={[styles.typingDot, { opacity: dotAnimation3 }]} />
+            </View>
+          ) : item.isUser ? (
             <Text style={[
               styles.messageText,
               styles.userText
@@ -668,40 +769,98 @@ export default function ProAIChat({
               {item.text || ' '}
             </Markdown>
           )}
-          {item.toolsUsed && item.toolsUsed.length > 0 && (
+          {!item.isTyping && item.toolsUsed && item.toolsUsed.length > 0 && (
             <View style={styles.toolsUsedContainer}>
-              <Zap size={12} color="#00E5FF" />
-              <Text style={styles.toolsUsedText}>
-                Tools: {item.toolsUsed.join(', ')}
-              </Text>
+              {item.toolsUsed.includes('web_search') && (
+                <View style={styles.toolBadge}>
+                  <Globe size={12} color="#00E5FF" />
+                  <Text style={styles.toolBadgeText}>Web</Text>
+                </View>
+              )}
+              {item.toolsUsed.includes('daily_insights') && (
+                <View style={styles.toolBadge}>
+                  <Lightbulb size={12} color="#FBBF24" />
+                  <Text style={styles.toolBadgeText}>Insights</Text>
+                </View>
+              )}
+              {item.toolsUsed.includes('live_odds') && (
+                <View style={styles.toolBadge}>
+                  <BarChart size={12} color="#10B981" />
+                  <Text style={styles.toolBadgeText}>Odds</Text>
+                </View>
+              )}
             </View>
           )}
-          <Text style={styles.timestamp}>
-            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+          {!item.isTyping && (
+            <Text style={styles.timestamp}>
+              {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          )}
         </View>
-      </View>
+      </Animated.View>
     );
   };
 
-  // Welcome message to display when no messages
+  // Enhanced welcome message
   const renderWelcomeMessage = () => {
     if (messages.length === 0) {
       return (
-        <View style={styles.welcomeContainer}>
-          <View style={styles.welcomeIconContainer}>
-            <Brain size={32} color="#00E5FF" />
-          </View>
-          <Text style={styles.welcomeTitle}>Professor Lock</Text>
-          <Text style={styles.welcomeSubtitle}>Your AI Betting Advisor</Text>
-          <Text style={styles.welcomeText}>
-            Ask me about picks, betting strategies, or latest sports news. I'll help you make sharp plays.
-          </Text>
-        </View>
+        <Animated.View style={[
+          styles.welcomeContainer,
+          {
+            opacity: welcomeAnimation,
+            transform: [{ scale: welcomeScale }]
+          }
+        ]}>
+          <LinearGradient
+            colors={['rgba(0, 229, 255, 0.1)', 'rgba(0, 229, 255, 0.05)']}
+            style={styles.welcomeGradient}
+          >
+            <View style={styles.welcomeIconContainer}>
+              <Animated.View style={{ opacity: pulseOpacity }}>
+                <Brain size={40} color="#00E5FF" />
+              </Animated.View>
+              <View style={styles.welcomeSparkles}>
+                <Sparkles size={20} color="#FBBF24" />
+              </View>
+            </View>
+            <Text style={styles.welcomeTitle}>Professor Lock</Text>
+            <Text style={styles.welcomeSubtitle}>Your AI Betting Expert</Text>
+            <Text style={styles.welcomeText}>
+              I analyze picks, build parlays, track odds, and deliver real-time insights. Let's find some value!
+            </Text>
+            <View style={styles.welcomeFeatures}>
+              <View style={styles.welcomeFeature}>
+                <Trophy size={16} color="#FBBF24" />
+                <Text style={styles.welcomeFeatureText}>Daily Picks</Text>
+              </View>
+              <View style={styles.welcomeFeature}>
+                <Zap size={16} color="#00E5FF" />
+                <Text style={styles.welcomeFeatureText}>Smart Parlays</Text>
+              </View>
+              <View style={styles.welcomeFeature}>
+                <Globe size={16} color="#10B981" />
+                <Text style={styles.welcomeFeatureText}>Live Updates</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
       );
     }
     return null;
   };
+
+  useEffect(() => {
+    // Animate new messages
+    if (messages.length > 0) {
+      messageAnimation.setValue(0);
+      Animated.timing(messageAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [messages.length]);
 
   return (
     <Modal visible={showAIChat} animationType="slide" presentationStyle="pageSheet">
@@ -710,24 +869,38 @@ export default function ProAIChat({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-        {/* Header */}
+        {/* Enhanced Header */}
         <LinearGradient
-          colors={['#1E40AF', '#7C3AED']}
+          colors={['#1E40AF', '#7C3AED', '#1E40AF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <TouchableOpacity onPress={() => setShowAIChat(false)} style={styles.closeButton}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (Platform.OS === 'ios') {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              setShowAIChat(false);
+            }} 
+            style={styles.closeButton}
+          >
             <X size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
             <View style={styles.headerTitleContainer}>
               <Animated.View style={{ opacity: pulseOpacity }}>
-                <Brain size={24} color="#FFFFFF" />
+                <Brain size={26} color="#FFFFFF" />
               </Animated.View>
               <Text style={styles.headerTitle}>Professor Lock</Text>
+              <View style={styles.proBadge}>
+                <Sparkles size={12} color="#0F172A" />
+                <Text style={styles.proBadgeText}>AI</Text>
+              </View>
             </View>
           </View>
           <View style={styles.statusIndicator}>
-            <View style={styles.onlineIndicator} />
+            <Animated.View style={[styles.onlineIndicator, { opacity: pulseOpacity }]} />
             <Text style={styles.statusText}>Online</Text>
           </View>
         </LinearGradient>
@@ -751,23 +924,26 @@ export default function ProAIChat({
             }
           }}
           ListEmptyComponent={renderWelcomeMessage}
-          // Remove the keyboard dismiss on scroll which caused the keyboard to disappear
         />
 
-
-
-        {/* Free User Message Limit Indicator */}
+        {/* Enhanced Free User Indicator */}
         {!isPro && (
-          <View style={styles.freeUserIndicator}>
+          <LinearGradient
+            colors={['rgba(0, 229, 255, 0.1)', 'rgba(0, 229, 255, 0.05)']}
+            style={styles.freeUserIndicator}
+          >
             <View style={styles.freeUserContent}>
-              <Text style={styles.freeUserText}>
-                {isLoadingMessageCount 
-                  ? '⏳ Loading...' 
-                  : canSendMessage(isPro) 
-                    ? `💬 ${3 - freeUserMessageCount} chat${(3 - freeUserMessageCount) === 1 ? '' : 's'} remaining` 
-                    : '🔒 Upgrade for unlimited AI chat'
-                }
-              </Text>
+              <View style={styles.freeUserTextContainer}>
+                <AlertCircle size={16} color="#00E5FF" />
+                <Text style={styles.freeUserText}>
+                  {isLoadingMessageCount 
+                    ? 'Loading...' 
+                    : canSendMessage(isPro) 
+                      ? `${3 - freeUserMessageCount} message${(3 - freeUserMessageCount) === 1 ? '' : 's'} left` 
+                      : 'Upgrade for unlimited AI access'
+                  }
+                </Text>
+              </View>
               {canSendMessage(isPro) && (
                 <View style={styles.chatCounterDots}>
                   {[1, 2, 3].map((dot) => (
@@ -782,67 +958,78 @@ export default function ProAIChat({
                 </View>
               )}
             </View>
-          </View>
+          </LinearGradient>
         )}
 
-        {/* Quick Actions - Hide when keyboard is visible on iOS */}
+        {/* Enhanced Quick Actions */}
         {messages.length <= 1 && !keyboardVisible && (
-          <View style={[styles.quickActionsContainer, { maxHeight: 200, overflow: 'scroll' }]}>
-            <Text style={styles.quickActionsTitle}>Quick Plays:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          <View style={styles.quickActionsContainer}>
+            <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.quickActionsScroll}
+            >
               {quickActions.map((action, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
+                  style={styles.quickActionButton}
                   onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      Haptics.selectionAsync();
+                    }
                     setInputText(action.action);
                   }}
                 >
-                  <Text style={styles.quickActionIcon}>{action.icon}</Text>
+                  {action.icon}
                   <Text style={styles.quickActionText}>{action.text}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
             
-            {/* Parlay Quick Options */}
-            <Text style={[styles.quickActionsTitle, { marginTop: 8, marginBottom: 8 }]}>Parlay Builder:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <TouchableOpacity
-                style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
-                onPress={() => {
-                  setInputText("Build me a safe 2-leg parlay");
-                }}
-              >
-                <Text style={styles.quickActionIcon}>🎯</Text>
-                <Text style={styles.quickActionText}>2-Leg Safe</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickActionButton, { width: 'auto', marginRight: 8 }]}
-                onPress={() => {
-                  setInputText("Give me a 4-leg parlay for bigger payout");
-                }}
-              >
-                <Text style={styles.quickActionIcon}>🔥</Text>
-                <Text style={styles.quickActionText}>4-Leg Risky</Text>
-              </TouchableOpacity>
+            {/* Parlay Builder Section */}
+            <Text style={styles.quickActionsTitle}>Parlay Builder</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.quickActionsScroll}
+            >
+              {parlayOptions.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.quickActionButton, styles.parlayButton]}
+                  onPress={() => {
+                    if (Platform.OS === 'ios') {
+                      Haptics.selectionAsync();
+                    }
+                    setInputText(option.action);
+                  }}
+                >
+                  {option.icon}
+                  <Text style={styles.quickActionText}>{option.text}</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         )}
 
-        {/* AI Disclaimer */}
+        {/* Enhanced AI Disclaimer */}
         <View style={styles.disclaimerContainer}>
-          <View style={styles.disclaimerContent}>
-            <Shield size={12} color="#64748B" />
+          <LinearGradient
+            colors={['rgba(100, 116, 139, 0.1)', 'rgba(100, 116, 139, 0.05)']}
+            style={styles.disclaimerGradient}
+          >
+            <Shield size={14} color="#64748B" />
             <Text style={styles.disclaimerText}>
-              AI can make mistakes. Verify important info and bet responsibly.
+              AI analysis for entertainment. Always bet responsibly.
             </Text>
-          </View>
+          </LinearGradient>
         </View>
 
-        {/* Input */}
+        {/* Enhanced Input */}
         <View style={[
           styles.inputContainer, 
-          keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0, paddingTop: 8 }
+          keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0 }
         ]}>
           <View style={styles.inputWrapper}>
             <TextInput
@@ -855,22 +1042,28 @@ export default function ProAIChat({
               maxLength={500}
             />
             <TouchableOpacity
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-              onPress={() => {
-                console.log(`🔘 Send button clicked: isPro=${isPro}, canSend=${canSendMessage(isPro)}, inputText="${inputText.trim()}", isTyping=${isTyping}`);
-                sendMessage();
-              }}
+              style={[
+                styles.sendButton, 
+                !inputText.trim() && styles.sendButtonDisabled
+              ]}
+              onPress={sendMessage}
               disabled={!inputText.trim() || isTyping}
             >
-              <Send size={20} color={inputText.trim() ? "#FFFFFF" : "#64748B"} />
+              <Animated.View style={{ transform: [{ scale: buttonScaleAnimation }] }}>
+                <Send size={22} color={inputText.trim() ? "#0F172A" : "#64748B"} />
+              </Animated.View>
             </TouchableOpacity>
           </View>
+          {inputText.length > 400 && (
+            <Text style={styles.charCount}>{500 - inputText.length}</Text>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
+// Enhanced styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -884,11 +1077,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: 'rgba(51, 65, 85, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   closeButton: {
-    padding: 8,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerContent: {
@@ -900,15 +1098,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     marginLeft: 12,
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 2,
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#00E5FF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  proBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginLeft: 3,
   },
   statusIndicator: {
     flexDirection: 'row',
@@ -922,44 +1131,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
-  },
-  upgradeContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 32,
-  },
-  upgradeContent: {
-    alignItems: 'center',
-  },
-  upgradeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  upgradeText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 32,
-  },
-  upgradeButton: {
-    backgroundColor: '#00E5FF',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 25,
-  },
-  upgradeButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
   },
   messagesList: {
     flex: 1,
@@ -970,7 +1144,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   messageContainer: {
-    marginBottom: 18,
+    marginBottom: 20,
   },
   userMessage: {
     alignItems: 'flex-end',
@@ -980,14 +1154,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   aiIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+  },
+  aiIconTyping: {
+    backgroundColor: 'rgba(0, 229, 255, 0.25)',
   },
   messageBubble: {
     maxWidth: screenWidth * 0.75,
@@ -995,13 +1174,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 20,
     shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   userBubble: {
     backgroundColor: '#00E5FF',
@@ -1011,126 +1187,75 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderBottomLeftRadius: 6,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  typingBubble: {
+    paddingVertical: 16,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
   },
   userText: {
     color: '#0F172A',
     fontWeight: '500',
   },
+  typingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00E5FF',
+    marginHorizontal: 3,
+  },
   toolsUsedContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: 'rgba(51, 65, 85, 0.5)',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  toolsUsedText: {
+  toolBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  toolBadgeText: {
     fontSize: 11,
-    color: '#00E5FF',
-    marginLeft: 4,
-    fontWeight: '500',
+    color: '#E2E8F0',
+    marginLeft: 5,
+    fontWeight: '600',
   },
   timestamp: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 6,
-  },
-
-  quickActionsContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0F172A',
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-  },
-  quickActionsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  quickActionButton: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 8,
-    minWidth: 120,
-  },
-  quickActionIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  quickActionText: {
     fontSize: 12,
-    color: '#E2E8F0',
-    fontWeight: '500',
-  },
-  inputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#0F172A',
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#1E293B',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    marginBottom: Platform.OS === 'ios' ? 0 : 0,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#E2E8F0',
-    maxHeight: 100,
-    paddingVertical: 8,
-    paddingRight: 12,
-    lineHeight: 22,
-    fontWeight: '400',
-  },
-  sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#00E5FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#334155',
+    color: '#64748B',
+    marginTop: 8,
   },
   
-  // Search Bubble Message Styles (in conversation flow)
+  // Enhanced search bubble styles
   searchBubbleMessage: {
     maxWidth: screenWidth * 0.75,
     borderRadius: 20,
     borderBottomLeftRadius: 6,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
   },
   searchBubbleGradient: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   searchBubbleContent: {
     alignItems: 'flex-start',
@@ -1138,126 +1263,191 @@ const styles = StyleSheet.create({
   searchBubbleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   searchBubbleTitle: {
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: 15,
+    color: '#00E5FF',
     fontWeight: '700',
     marginLeft: 8,
+    letterSpacing: -0.3,
   },
   searchBubbleQuery: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontStyle: 'italic',
-    marginBottom: 8,
-    lineHeight: 16,
+    fontSize: 14,
+    color: 'rgba(226, 232, 240, 0.9)',
+    marginBottom: 10,
+    lineHeight: 18,
   },
   searchBubbleDots: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   searchBubbleDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#FFFFFF',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00E5FF',
+    marginRight: 6,
+  },
+  
+  // Enhanced quick actions
+  quickActionsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#0F172A',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  quickActionsTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  quickActionsScroll: {
+    marginBottom: 12,
+  },
+  quickActionButton: {
+    backgroundColor: '#1E293B',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+    marginRight: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  parlayButton: {
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+  },
+  quickActionText: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  
+  // Enhanced input styles
+  inputContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#0F172A',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#1E293B',
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#E2E8F0',
+    maxHeight: 120,
+    paddingVertical: 10,
+    paddingRight: 12,
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#00E5FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sendButtonDisabled: {
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
+    shadowOpacity: 0,
+  },
+  charCount: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'right',
+    marginTop: 4,
     marginRight: 4,
   },
   
-  // AI Disclaimer Styles
+  // Enhanced disclaimer
   disclaimerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingVertical: 10,
     backgroundColor: '#0F172A',
   },
-  disclaimerContent: {
+  disclaimerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(100, 116, 139, 0.1)',
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(100, 116, 139, 0.2)',
   },
   disclaimerText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginLeft: 6,
-    fontWeight: '400',
-    textAlign: 'center',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   
-  // Free User Indicator Styles
+  // Enhanced free user indicator
   freeUserIndicator: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: '#0F172A',
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: 'rgba(51, 65, 85, 0.5)',
   },
   freeUserContent: {
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.3)',
     alignItems: 'center',
   },
+  freeUserTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   freeUserText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#00E5FF',
     fontWeight: '600',
-    textAlign: 'center',
-  },
-  
-  // Welcome message styles
-  welcomeContainer: {
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  welcomeIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(0, 229, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#00E5FF',
-    marginBottom: 16,
-  },
-  welcomeText: {
-    fontSize: 15,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 22,
+    marginLeft: 8,
   },
   chatCounterDots: {
     flexDirection: 'row',
-    marginTop: 8,
+    marginTop: 10,
     justifyContent: 'center',
   },
   counterDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 3,
+    marginHorizontal: 4,
   },
   counterDotUsed: {
     backgroundColor: '#EF4444',
@@ -1266,5 +1456,72 @@ const styles = StyleSheet.create({
   counterDotRemaining: {
     backgroundColor: '#10B981',
     opacity: 1,
+  },
+  
+  // Enhanced welcome message
+  welcomeContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  welcomeGradient: {
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    width: '100%',
+  },
+  welcomeIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    position: 'relative',
+  },
+  welcomeSparkles: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    letterSpacing: -0.5,
+  },
+  welcomeSubtitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#00E5FF',
+    marginBottom: 16,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  welcomeFeatures: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  welcomeFeature: {
+    alignItems: 'center',
+  },
+  welcomeFeatureText: {
+    fontSize: 13,
+    color: '#E2E8F0',
+    marginTop: 6,
+    fontWeight: '600',
   },
 }); 

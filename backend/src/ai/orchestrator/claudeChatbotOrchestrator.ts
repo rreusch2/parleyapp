@@ -92,6 +92,10 @@ export class ChatbotOrchestrator {
             searchMessage = 'Scanning latest sports news and breaking developments...';
           } else if (needsTools.intent === 'team_analysis') {
             searchMessage = 'Gathering real-time team intel and injury reports...';
+          } else if (needsTools.intent === 'odds_lookup') {
+            searchMessage = 'Checking current betting lines and odds movements...';
+          } else if (needsTools.intent === 'insights_analysis') {
+            searchMessage = 'Analyzing today\'s Professor Lock insights...';
           }
           
           onEvent({ type: 'web_search', message: searchMessage });
@@ -153,9 +157,9 @@ export class ChatbotOrchestrator {
     }
   }
 
-      /**
-     * Process a chat message with AI and tool access (non-streaming)
-     */
+  /**
+   * Process a chat message with AI and tool access (non-streaming)
+   */
   async processMessage(request: ChatRequest): Promise<ChatResponse> {
     const startTime = Date.now();
     const toolsUsed: string[] = [];
@@ -202,7 +206,7 @@ export class ChatbotOrchestrator {
       };
 
     } catch (error) {
-      logger.error(`❌ Error in Claude chat: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error(`❌ Error in Grok chat: ${error instanceof Error ? error.message : String(error)}`);
       return {
         message: "I'm experiencing some technical difficulties. Please try again in a moment!",
         toolsUsed: [],
@@ -216,17 +220,15 @@ export class ChatbotOrchestrator {
    */
   private async getLatest20Predictions() {
     try {
-      // Log that we're attempting to fetch predictions
       logger.info('Fetching latest predictions for chatbot');
       
-      // Simple query: just get the most recent 20 picks with no filtering
+      // Get all predictions including player props
       const { data: predictions, error } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      // Log the results for debugging
       logger.info(`Found ${predictions?.length || 0} predictions`);
       
       if (error) {
@@ -242,38 +244,134 @@ export class ChatbotOrchestrator {
   }
 
   /**
-   * Get current app data (the 10 daily picks, trends, etc.)
+   * Get today's AI insights from daily_professor_insights table
+   */
+  private async getTodaysInsights() {
+    try {
+      logger.info('Fetching today\'s Professor Lock insights');
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { data: insights, error } = await supabaseAdmin
+        .from('daily_professor_insights')
+        .select('*')
+        .gte('created_at', today.toISOString())
+        .order('confidence', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        logger.error(`Error fetching insights: ${error.message}`);
+        return [];
+      }
+
+      logger.info(`Found ${insights?.length || 0} insights for today`);
+      return insights || [];
+    } catch (error) {
+      logger.error(`Error in getTodaysInsights: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get upcoming games with odds
+   */
+  private async getUpcomingGamesWithOdds() {
+    try {
+      logger.info('Fetching upcoming games with odds');
+      
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      // Get upcoming games
+      const { data: games, error: gamesError } = await supabaseAdmin
+        .from('sports_events')
+        .select(`
+          *,
+          home_team:teams!sports_events_home_team_id_fkey(name, abbreviation),
+          away_team:teams!sports_events_away_team_id_fkey(name, abbreviation)
+        `)
+        .eq('status', 'scheduled')
+        .gte('start_time', now.toISOString())
+        .lte('start_time', nextWeek.toISOString())
+        .order('start_time', { ascending: true })
+        .limit(20);
+
+      if (gamesError) {
+        logger.error(`Error fetching games: ${gamesError.message}`);
+        return [];
+      }
+
+      // Get odds for these games
+      if (games && games.length > 0) {
+        const eventIds = games.map(g => g.id);
+        
+        const { data: odds, error: oddsError } = await supabaseAdmin
+          .from('odds_data')
+          .select(`
+            *,
+            market_type:market_types(name, description),
+            bookmaker:bookmakers(name)
+          `)
+          .in('event_id', eventIds)
+          .eq('is_best_odds', true);
+
+        if (!oddsError && odds) {
+          // Attach odds to games
+          return games.map(game => ({
+            ...game,
+            odds: odds.filter(o => o.event_id === game.id)
+          }));
+        }
+      }
+
+      return games || [];
+    } catch (error) {
+      logger.error(`Error in getUpcomingGamesWithOdds: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get current app data (enhanced with more sources)
    */
   private async getAppData(userId: string) {
     try {
-      // Log that we're getting app data for the chatbot
-      logger.info('Getting app data for chatbot');
+      logger.info('Getting enhanced app data for chatbot');
       
-      // Get today's AI predictions with no filtering - just get most recent
+      // Get today's AI predictions
       const { data: todaysPicks, error: picksError } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(15);
       
-      // Log the results for debugging
       logger.info(`Found ${todaysPicks?.length || 0} picks for today`);
 
       // Get latest 20 predictions for parlay building
       const latest20Predictions = await this.getLatest20Predictions();
 
+      // Separate team picks and player props
+      const teamPicks = latest20Predictions.filter(p => 
+        p.bet_type && ['spread', 'moneyline', 'total'].includes(p.bet_type.toLowerCase())
+      );
+      const playerProps = latest20Predictions.filter(p => 
+        p.bet_type && p.bet_type.toLowerCase().includes('player')
+      );
+
+      logger.info(`Team picks: ${teamPicks.length}, Player props: ${playerProps.length}`);
+
+      // Get today's insights
+      const todaysInsights = await this.getTodaysInsights();
+
+      // Get upcoming games with odds
+      const upcomingGames = await this.getUpcomingGamesWithOdds();
+
       if (picksError) {
         logger.error(`Error fetching today's picks: ${picksError.message}`);
       }
       
-      // Log if we have predictions to use
-      logger.info(`Latest predictions for parlay building: ${latest20Predictions.length}`);
-
-      // Use all picks without filtering for duplicates
-      // This ensures we have maximum data available for the chatbot
-      const uniqueGamePicks = todaysPicks || [];
-      
-      // Get recent injury reports (handle if table doesn't exist)
+      // Get recent injury reports
       let injuries: any[] = [];
       try {
         const { data: injuryData, error: injuryError } = await supabaseAdmin
@@ -290,7 +388,7 @@ export class ChatbotOrchestrator {
         logger.warn(`Injury reports table not available: ${injuryError}`);
       }
 
-      // Get recent news (handle if table doesn't exist)
+      // Get recent news
       let news: any[] = [];
       try {
         const { data: newsData, error: newsError } = await supabaseAdmin
@@ -308,8 +406,12 @@ export class ChatbotOrchestrator {
       }
 
       return {
-        todaysPicks: uniqueGamePicks || [],
+        todaysPicks: todaysPicks || [],
         latest20Predictions: latest20Predictions,
+        teamPicks: teamPicks,
+        playerProps: playerProps,
+        todaysInsights: todaysInsights,
+        upcomingGames: upcomingGames,
         injuries: injuries,
         news: news,
         timestamp: new Date().toISOString()
@@ -319,6 +421,11 @@ export class ChatbotOrchestrator {
       logger.error(`Error getting app data: ${error}`);
       return {
         todaysPicks: [],
+        latest20Predictions: [],
+        teamPicks: [],
+        playerProps: [],
+        todaysInsights: [],
+        upcomingGames: [],
         injuries: [],
         news: [],
         timestamp: new Date().toISOString()
@@ -327,7 +434,7 @@ export class ChatbotOrchestrator {
   }
 
   /**
-   * Determine if the message needs tool usage
+   * Determine if the message needs tool usage (enhanced)
    */
   private shouldUseTools(message: string): { useTools: boolean; intent: string } {
     const lowerMessage = message.toLowerCase();
@@ -337,22 +444,44 @@ export class ChatbotOrchestrator {
         lowerMessage.includes('breaking') ||
         lowerMessage.includes('latest') ||
         lowerMessage.includes('search') ||
-        lowerMessage.includes('injury') ||
-        lowerMessage.includes('roster') ||
-        lowerMessage.includes('lineup') ||
-        lowerMessage.includes('trade') ||
         lowerMessage.includes('what happened') ||
-        lowerMessage.includes('recent')) {
+        lowerMessage.includes('recent') ||
+        lowerMessage.includes('update')) {
       return { useTools: true, intent: 'news_search' };
     }
 
-    // Team-specific analysis that might need current info
-    if (lowerMessage.includes('dodgers') ||
-        lowerMessage.includes('yankees') ||
-        lowerMessage.includes('lakers') ||
-        lowerMessage.includes('warriors') ||
-        lowerMessage.includes('analyze') ||
-        lowerMessage.includes('should i bet')) {
+    // Team-specific analysis
+    if (lowerMessage.includes('injury') ||
+        lowerMessage.includes('injured') ||
+        lowerMessage.includes('roster') ||
+        lowerMessage.includes('lineup') ||
+        lowerMessage.includes('trade') ||
+        lowerMessage.includes('weather')) {
+      return { useTools: true, intent: 'team_analysis' };
+    }
+
+    // Odds and lines lookup
+    if (lowerMessage.includes('odds') ||
+        lowerMessage.includes('line') ||
+        lowerMessage.includes('spread') ||
+        lowerMessage.includes('total') ||
+        lowerMessage.includes('o/u') ||
+        lowerMessage.includes('current price')) {
+      return { useTools: true, intent: 'odds_lookup' };
+    }
+
+    // Daily insights analysis
+    if (lowerMessage.includes('insight') ||
+        lowerMessage.includes('research') ||
+        lowerMessage.includes('analysis') ||
+        lowerMessage.includes('deep dive')) {
+      return { useTools: true, intent: 'insights_analysis' };
+    }
+
+    // Specific team mentions that might need current info
+    const teams = ['dodgers', 'yankees', 'lakers', 'warriors', 'celtics', 'chiefs', 'bills', 'heat', 'nuggets'];
+    if (teams.some(team => lowerMessage.includes(team)) && 
+        (lowerMessage.includes('should') || lowerMessage.includes('bet') || lowerMessage.includes('play'))) {
       return { useTools: true, intent: 'team_analysis' };
     }
 
@@ -360,13 +489,16 @@ export class ChatbotOrchestrator {
   }
 
   /**
-   * Build system prompt with current app data
+   * Build system prompt with current app data (enhanced)
    */
   private buildSystemPrompt(appData: any, context: ChatContext): string {
     const picksCount = appData.todaysPicks.length;
+    const teamPicksCount = appData.teamPicks.length;
+    const playerPropsCount = appData.playerProps.length;
+    const insightsCount = appData.todaysInsights.length;
+    const upcomingGamesCount = appData.upcomingGames.length;
     const injuriesCount = appData.injuries.length;
     const newsCount = appData.news.length;
-    const latest20Count = appData.latest20Predictions.length;
     
     // Determine user tier and pick limits
     const userTier = context.userTier || 'free';
@@ -377,100 +509,94 @@ export class ChatbotOrchestrator {
     const allowedPicks = appData.todaysPicks.slice(0, maxPicks);
     const displayPicksCount = isProUser ? picksCount : Math.min(picksCount, maxPicks);
 
-    return `You are "Professor Lock" - Predictive Play's sharp AI betting expert. Keep responses CONCISE and punchy. You're confident, use gambling slang, and always hunt for value.
+    return `You are "Professor Lock" - the most advanced AI sports betting assistant. You're sharp, witty, and slightly cocky, but always back it up with data and intelligence. You adapt your personality naturally - sometimes funny, sometimes serious, always professional.
 
-CORE PERSONALITY:
-🎯 Sharp, confident, straight to the point
-💰 Money-focused, smart bankroll management
-🔥 Gambling slang: "locks", "chalk", "dog", "fade the public", "easy money", "bankroll", "cashed", "donate", "grind", "parlay", "value"
-😎 Cocky but backs it up with data
-🎲 PARLAY EXPERT - builds smart multi-leg bets with calculated risk
-- Cycle through gambling slang naturally
-- Cycle through refering to the user as "brother", "boss", and "money man" naturally
+CORE IDENTITY:
+🎯 Sharp, intelligent, and adaptable
+💰 Expert in value betting and bankroll management
+🎲 Master of parlays and advanced betting strategies
+😎 Confident with a sense of humor - can be a smartass when appropriate
+📊 Data-driven but explains complex concepts simply
 
-${isProUser ? '' : `
-🔒 USER RESTRICTIONS: This user is on the FREE tier
-⚠️ CRITICAL: When asked for picks/locks, ONLY provide ${maxPicks} picks maximum
-⚠️ DO NOT mention having more picks available - only show the ${maxPicks} allowed picks
-⚠️ When they ask for "more picks" or "deeper value", suggest upgrading to Pro for full access
+COMMUNICATION STYLE:
+• GENDER-AWARE: Naturally rotate between these addresses:
+  - Neutral: "friend", "champion", "legend", "ace", "genius", "winner"
+  - Male-leaning: "brother", "boss", "chief", "king"
+  - Female-leaning: "queen", "star", "pro"
+  - Sports-generic: "champ", "MVP", "all-star", "captain"
+• Use context clues to adapt - if they mention wife/girlfriend, lean masculine; if they mention husband/boyfriend, lean feminine
+• When unsure, stick to neutral options
+• Mix in gambling slang naturally: "locks", "chalk", "dog", "fade", "juice", "sharp", "square", "handle", "cover", "push"
+• Be conversational - sometimes witty, sometimes serious, always smart
+• Don't force personality - let it flow naturally based on the conversation
+
+${isProUser ? '🌟 PRO USER - Full access to all features and data' : `
+🔒 FREE TIER USER:
+⚠️ Limited to ${maxPicks} picks when asked for recommendations
+⚠️ Mention Pro benefits naturally when relevant (not pushy)
+⚠️ Focus on value within their limits
 `}
 
-CURRENT DATA:
-📊 ${displayPicksCount} locks loaded${isProUser ? '' : ` (Free tier limit: ${maxPicks})`}
-🎲 ${latest20Count} recent predictions available for parlay building
-🏥 ${injuriesCount} injury reports tracked
-📰 ${newsCount} news stories monitored
+CURRENT DATA OVERVIEW:
+📊 ${displayPicksCount} picks available${isProUser ? '' : ` (Free tier: showing ${maxPicks})`}
+🎯 ${teamPicksCount} team picks | ${playerPropsCount} player props ready
+💡 ${insightsCount} Professor Lock insights analyzed today
+🏟️ ${upcomingGamesCount} upcoming games with live odds
+🏥 ${injuriesCount} injury updates | 📰 ${newsCount} news stories
 
-TOP LOCKS TODAY:
-${allowedPicks.map((pick: any, i: number) => 
-  `${i+1}. ${pick.match_teams}: ${pick.pick} (${pick.confidence}% lock)`
+TOP PICKS SNAPSHOT:
+${allowedPicks.slice(0, 3).map((pick: any, i: number) => 
+  `${i+1}. ${pick.match_teams}: ${pick.pick} (${pick.confidence}% confidence)`
 ).join('\n')}
-${isProUser && picksCount > 3 ? `...${picksCount - 3} more in the vault` : ''}
 
-INJURY WATCH:
-${appData.injuries.slice(0, 2).map((injury: any) => 
-  `• ${injury.player_name} (${injury.team}): ${injury.injury_status}`
-).join('\n') || '• All clear, no concerns'}
+PARLAY INTELLIGENCE:
+You have access to ${appData.latest20Predictions.length} recent predictions:
+- ${teamPicksCount} team-based picks (ML, spread, totals)
+- ${playerPropsCount} player props (points, rebounds, assists, etc.)
+
+When building parlays:
+✅ Analyze risk tolerance from user's request
+✅ Mix bet types intelligently (don't just pick highest confidence)
+✅ Consider correlation (avoid same-game conflicts)
+✅ 2-leg "safe" = 75%+ confidence picks
+✅ 3-4 leg "balanced" = mix of 65-80% confidence
+✅ "Risky/lottery" = include some 60-70% dogs for value
+✅ ALWAYS include both team picks AND player props when available
+✅ Explain WHY each leg makes sense
+
+ADVANCED FEATURES:
+${insightsCount > 0 ? `
+📈 TODAY'S INSIGHTS: ${appData.todaysInsights.slice(0, 3).map((i: any) => 
+  `${i.title} (${i.impact} impact)`
+).join(' | ')}
+` : ''}
+
+${upcomingGamesCount > 0 ? `
+🎮 LIVE ODDS AVAILABLE: Can check current lines and movements
+` : ''}
+
+INTELLIGENCE GUIDELINES:
+1. READ THE ROOM - Adapt tone to user's vibe
+2. BE SPECIFIC - Use actual data, not generic statements
+3. THINK AHEAD - Anticipate follow-up questions
+4. ADD VALUE - Don't just list picks, explain the edge
+5. STAY CURRENT - Use web search for breaking news when needed
+6. BE HONEST - If something is risky, say it
+
+TOOL USAGE INTELLIGENCE:
+• Web search: Breaking news, trades, weather, specific team updates
+• Insights: When discussing strategy or deep analysis
+• Odds lookup: For line shopping or current prices
+• Combine tools for comprehensive answers
 
 RESPONSE STYLE:
-✅ KEEP IT SHORT - 2-4 sentences max unless asked for deep analysis
-✅ Lead with the pick/answer, explain briefly why
-✅ Use gambling slang naturally 
-✅ Call users "brother", "boss", "money man" - cycle through these naturally
-✅ End with action - what's next?
-✅ Minimal emojis - only 🔥 💰 🎯 when needed
-✅ Get to the point fast - no fluff
+✅ Keep initial responses concise (2-4 sentences)
+✅ Expand when asked for details
+✅ **Bold** actual picks and key numbers
+✅ Use bullet points for multiple items
+✅ End with actionable next steps
 
-WEB SEARCH GUIDANCE:
-✅ Use web search to get current, specific information the user requests
-✅ Craft smart search queries based on user intent (team names, injury reports, trades, etc.)
-✅ Provide SPECIFIC news from actual search results - no generic responses
-✅ Focus on actionable betting intel with real details from search results
-✅ Connect findings back to betting opportunities or cautions
-✅ If search results are limited, say so honestly - don't redirect to other apps
-
-MARKDOWN FORMATTING:
-✅ **ALWAYS use markdown formatting** for better readability
-✅ **Bold** for actual PICKS only (e.g. **Braves ML**, **UNDER 12**, **Lakers +7.5**)
-✅ *Italics* for emphasis on key insights, warnings, or important terms
-✅ Use • bullet points for multiple options or quick lists
-✅ Use 1. numbered lists for step-by-step advice or rankings
-✅ Keep percentages and odds as plain text - no special formatting needed
-✅ Clean and minimal - let the content and picks shine
-
-PARLAY BUILDING EXPERTISE:
-When users ask for parlays, you have access to the latest 20 AI predictions. Use your intelligence to:
-✅ **ANALYZE USER INTENT**: Safe parlay (higher confidence picks), risky parlay (higher odds), specific number of legs, etc.
-✅ **SMART SELECTION**: Choose from the 20 recent predictions based on:
-   • Confidence levels (balance high confidence with value)
-   • Bet types (mix moneylines, spreads, totals, player props)
-   • Game timing (avoid same games or correlated outcomes)
-   • Risk tolerance indicated by user
-✅ **INTELLIGENT COMBINATIONS**: 
-   • "Safe parlay" = 3-4 picks with 70%+ confidence
-   • "Risky parlay" = 2-3 picks with 60-65% confidence but better odds
-   • "2-leg", "3-leg" etc. = exact number requested
-✅ **BANKROLL WISDOM**: Always mention 1-2% max bankroll on parlays
-✅ **REASONING**: Brief explanation for each leg selection
-✅ **NO HARDCODED PICKS**: Use the actual latest 20 predictions data intelligently
-
-LATEST 20 PREDICTIONS FOR PARLAY BUILDING:
-${appData.latest20Predictions.map((pred: any, i: number) => 
-  `${i+1}. ${pred.match_teams}: ${pred.pick} (${pred.confidence}% confidence, ${pred.bet_type})`
-).join('\n')}
-
-${isProUser ? '' : `
-FREE TIER UPGRADE PROMPTS:
-When free users ask for "more picks", "deeper value", "show me more", or similar:
-✅ Say something like: "That's all the locks for free users, brother! Upgrade to Pro for the full vault of picks"
-✅ Be friendly but direct about the limitation
-✅ Don't apologize - position Pro as the premium experience
-✅ Keep it short and natural within your Professor Lock personality
-`}
-
-${context.selectedPick ? `\nUSER VIEWING: ${context.selectedPick.match} - ${context.selectedPick.pick}` : ''}
-
-REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professional.`;
+Remember: You're not just listing picks - you're a betting advisor who happens to be brilliant, adaptable, and occasionally hilarious. Let your personality shine through naturally while delivering expert analysis.`;
   }
 
   /**
@@ -503,24 +629,24 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
   }
 
   /**
-   * Process message with tools (web search, etc.)
+   * Process message with tools (enhanced with more intelligence)
    */
   private async processWithTools(messages: any[], intent: string, toolsUsed: string[], appData: any) {
     logger.info(`🔧 Using tools for intent: ${intent}`);
 
-    // Use function calling with AI model
+    // Enhanced tools with more capabilities
     const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       {
         type: "function" as const,
         function: {
           name: "web_search",
-          description: "Search the web for current sports information. Use this when users ask about recent news, injuries, trades, weather, or any current sports developments that could impact betting.",
+          description: "Search the web for current sports information, breaking news, trades, injuries, weather, or any real-time updates. Use specific queries with team names, player names, and relevant keywords.",
           parameters: {
             type: "object",
             properties: {
               query: {
                 type: "string",
-                description: "Search query tailored to the user's specific request. Be specific and include relevant keywords like team names, dates, or topics (e.g., 'Lakers injury report today', 'NFL trade deadline news', 'MLB weather postponements')"
+                description: "Specific search query with relevant keywords (e.g., 'Lakers injury report today', 'Yankees starting pitcher weather', 'NFL trade deadline news')"
               }
             },
             required: ["query"]
@@ -531,7 +657,7 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
         type: "function" as const,
         function: {
           name: "get_team_news",
-          description: "Get recent news for a specific team",
+          description: "Get recent news and updates for a specific team",
           parameters: {
             type: "object",
             properties: {
@@ -545,6 +671,54 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
               }
             },
             required: ["teamName", "sport"]
+          }
+        }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "analyze_daily_insights",
+          description: "Access Professor Lock's daily research insights for deep analysis on games, trends, and betting opportunities",
+          parameters: {
+            type: "object",
+            properties: {
+              category: {
+                type: "string",
+                description: "Category to filter by: weather, injury, pitcher, bullpen, trends, matchup, research, or all"
+              },
+              teams: {
+                type: "array",
+                items: { type: "string" },
+                description: "Optional: specific teams to filter insights for"
+              }
+            },
+            required: ["category"]
+          }
+        }
+      },
+      {
+        type: "function" as const,
+        function: {
+          name: "check_live_odds",
+          description: "Get current betting lines and odds for specific games or teams",
+          parameters: {
+            type: "object",
+            properties: {
+              gameId: {
+                type: "string",
+                description: "Optional: specific game ID"
+              },
+              teams: {
+                type: "array",
+                items: { type: "string" },
+                description: "Team names to check odds for"
+              },
+              betType: {
+                type: "string",
+                description: "Type of bet: spread, moneyline, total, all"
+              }
+            },
+            required: ["betType"]
           }
         }
       }
@@ -575,6 +749,51 @@ REMEMBER: Be Professor Lock - sharp, concise, profitable, and funny but professi
             toolsUsed.push('team_news');
             const args = JSON.parse(toolCall.function.arguments);
             toolResult = await freeDataTeamNewsTool.func(args.teamName, args.sport);
+          } else if (toolCall.function.name === 'analyze_daily_insights') {
+            toolsUsed.push('daily_insights');
+            const args = JSON.parse(toolCall.function.arguments);
+            // Filter and return relevant insights
+            const filteredInsights = appData.todaysInsights.filter((insight: any) => {
+              if (args.category !== 'all' && insight.category !== args.category) return false;
+              if (args.teams && args.teams.length > 0) {
+                return args.teams.some((team: string) => 
+                  insight.teams?.includes(team) || 
+                  insight.title?.toLowerCase().includes(team.toLowerCase()) ||
+                  insight.description?.toLowerCase().includes(team.toLowerCase())
+                );
+              }
+              return true;
+            });
+            toolResult = {
+              insights: filteredInsights,
+              count: filteredInsights.length,
+              categories: [...new Set(filteredInsights.map((i: any) => i.category))]
+            };
+          } else if (toolCall.function.name === 'check_live_odds') {
+            toolsUsed.push('live_odds');
+            const args = JSON.parse(toolCall.function.arguments);
+            // Filter games and odds based on request
+            const relevantGames = appData.upcomingGames.filter((game: any) => {
+              if (args.gameId && game.id !== args.gameId) return false;
+              if (args.teams && args.teams.length > 0) {
+                return args.teams.some((team: string) => 
+                  game.home_team?.name?.toLowerCase().includes(team.toLowerCase()) ||
+                  game.away_team?.name?.toLowerCase().includes(team.toLowerCase())
+                );
+              }
+              return true;
+            });
+            toolResult = {
+              games: relevantGames.map((game: any) => ({
+                id: game.id,
+                matchup: `${game.away_team?.name} @ ${game.home_team?.name}`,
+                startTime: game.start_time,
+                odds: game.odds?.filter((o: any) => 
+                  args.betType === 'all' || o.market_type?.name?.toLowerCase().includes(args.betType)
+                ) || []
+              })),
+              timestamp: new Date().toISOString()
+            };
           }
 
           toolMessages.push({
