@@ -216,6 +216,7 @@ export default function ProAIChat({
   const [isSearching, setIsSearching] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [pulseAnimation] = useState(new Animated.Value(0));
   const [searchAnimation] = useState(new Animated.Value(0));
   const [dotAnimation1] = useState(new Animated.Value(0));
@@ -509,14 +510,14 @@ export default function ProAIChat({
                 flatListRef.current?.scrollToEnd({ animated: true });
               }, 100);
             } else if (data.type === 'chunk') {
-              // Remove search bubble if it exists
+              // Remove search bubble if it exists (only once)
               if (searchMessage) {
                 setMessages(prev => prev.filter(msg => !msg.isSearching));
                 searchMessage = null;
                 setIsSearching(false);
               }
               
-              // Update message and remove typing indicator
+              // Batch content updates for smoother streaming
               if (data.content) {
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMessageId 
@@ -524,10 +525,13 @@ export default function ProAIChat({
                     : msg
                 ));
                 
-                // Scroll as content comes in
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: false });
-                }, 50);
+                // Throttled scrolling for better performance
+                if (!scrollTimeoutRef.current) {
+                  scrollTimeoutRef.current = setTimeout(() => {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                    scrollTimeoutRef.current = null;
+                  }, 100);
+                }
               }
             } else if (data.type === 'complete') {
               // Final message with metadata
@@ -878,14 +882,23 @@ export default function ProAIChat({
     }
   }, [messages.length]);
 
+  // Cleanup scroll timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <Modal visible={showAIChat} animationType="slide" presentationStyle="pageSheet">
-      <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-        <KeyboardAvoidingView 
-          style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-        >
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
         {/* Enhanced Header */}
         <LinearGradient
           colors={['#1E40AF', '#7C3AED', '#1E40AF']}
@@ -1038,10 +1051,11 @@ export default function ProAIChat({
         </View>
 
         {/* Enhanced Input */}
-        <View style={[
-          styles.inputContainer, 
-          keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0 }
-        ]}>
+        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+          <View style={[
+            styles.inputContainer, 
+            keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0 }
+          ]}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.textInput}
@@ -1051,6 +1065,8 @@ export default function ProAIChat({
               placeholderTextColor="#64748B"
               multiline
               maxLength={500}
+              blurOnSubmit={false}
+              onSubmitEditing={sendMessage}
             />
             <TouchableOpacity
               style={[
@@ -1068,9 +1084,9 @@ export default function ProAIChat({
           {inputText.length > 400 && (
             <Text style={styles.charCount}>{500 - inputText.length}</Text>
           )}
-        </View>
-        </KeyboardAvoidingView>
-      </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
