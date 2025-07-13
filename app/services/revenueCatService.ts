@@ -163,26 +163,43 @@ class RevenueCatService {
       console.log('🛒 Starting purchase for plan:', planId);
       
       if (!this.isInitialized) {
+        console.log('🔄 RevenueCat not initialized, initializing now...');
         await this.initialize();
       }
 
       // Find the package for this plan
       const targetPackage = this.findPackageForPlan(planId);
       if (!targetPackage) {
+        console.error('❌ No package found for plan:', planId);
+        console.log('📦 Available packages:', this.currentOffering?.availablePackages.map(pkg => ({
+          identifier: pkg.identifier,
+          packageType: pkg.packageType,
+          productId: pkg.product.identifier
+        })));
+        
         throw new Error(`No package found for plan: ${planId}`);
       }
 
-      console.log('📦 Found package:', targetPackage.identifier, '-', targetPackage.product.priceString);
+      console.log('📦 Found package:', {
+        identifier: targetPackage.identifier,
+        packageType: targetPackage.packageType,
+        productId: targetPackage.product.identifier,
+        price: targetPackage.product.priceString
+      });
 
       // Make the purchase
+      console.log('💳 Attempting to purchase package...');
       const { customerInfo, productIdentifier } = await Purchases.purchasePackage(targetPackage);
       
       console.log('✅ Purchase successful!', {
         productIdentifier,
         entitlements: Object.keys(customerInfo.entitlements.active),
+        activeEntitlements: customerInfo.entitlements.active,
+        originalAppUserId: customerInfo.originalAppUserId
       });
 
       // Update user's subscription status in Supabase
+      console.log('🔄 Updating user subscription status in Supabase...');
       await this.updateUserSubscriptionStatus(customerInfo);
 
       return {
@@ -190,17 +207,25 @@ class RevenueCatService {
         customerInfo,
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Purchase failed:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        underlyingErrorMessage: error?.underlyingErrorMessage,
+        type: typeof error,
+        constructor: error?.constructor?.name
+      });
       
       // Handle specific RevenueCat errors
-      if (error instanceof PurchasesError) {
+      if (error && typeof error === 'object' && error.code) {
         return this.handlePurchaseError(error);
       }
       
+      // Handle generic errors
       return {
         success: false,
-        error: error.message || 'Purchase failed',
+        error: error?.message || error?.toString() || 'Purchase failed',
       };
     }
   }
@@ -294,8 +319,43 @@ class RevenueCatService {
         throw new Error('User not authenticated');
       }
 
-      // Check if user has active entitlements  
-      const hasActiveSubscription = customerInfo.entitlements.active["predictiveplaypro"]?.isActive === true;
+      console.log('🔍 Checking user entitlements:', {
+        allEntitlements: Object.keys(customerInfo.entitlements.all),
+        activeEntitlements: Object.keys(customerInfo.entitlements.active),
+        entitlementDetails: customerInfo.entitlements.active
+      });
+
+      // Check if user has active entitlements - try multiple possible entitlement names
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
+      let hasActiveSubscription = false;
+      let activeEntitlementName = null;
+
+      for (const entitlementName of possibleEntitlements) {
+        const entitlement = customerInfo.entitlements.active[entitlementName];
+        if (entitlement?.isActive === true) {
+          hasActiveSubscription = true;
+          activeEntitlementName = entitlementName;
+          console.log(`✅ Found active entitlement: ${entitlementName}`);
+          break;
+        }
+      }
+
+      // If no specific entitlement found, check if there are any active entitlements at all
+      if (!hasActiveSubscription && Object.keys(customerInfo.entitlements.active).length > 0) {
+        console.log('🔍 No specific entitlement found, checking all active entitlements...');
+        const firstActiveEntitlement = Object.values(customerInfo.entitlements.active)[0];
+        if (firstActiveEntitlement?.isActive === true) {
+          hasActiveSubscription = true;
+          activeEntitlementName = Object.keys(customerInfo.entitlements.active)[0];
+          console.log(`✅ Using first active entitlement: ${activeEntitlementName}`);
+        }
+      }
+
+      console.log('📊 Subscription status determination:', {
+        hasActiveSubscription,
+        activeEntitlementName,
+        willSetTier: hasActiveSubscription ? 'pro' : 'free'
+      });
       
       // Update user profile
       const { error } = await supabase
@@ -311,7 +371,7 @@ class RevenueCatService {
         throw error;
       }
 
-      console.log('✅ User subscription status updated in Supabase');
+      console.log(`✅ User subscription status updated in Supabase to: ${hasActiveSubscription ? 'pro' : 'free'}`);
       
     } catch (error) {
       console.error('❌ Failed to update subscription status:', error);
@@ -347,7 +407,37 @@ class RevenueCatService {
   async hasActiveSubscription(): Promise<boolean> {
     try {
       const customerInfo = await this.getCustomerInfo();
-      return customerInfo.entitlements.active["predictiveplaypro"]?.isActive === true;
+      
+      console.log('🔍 Checking for active subscription:', {
+        allEntitlements: Object.keys(customerInfo.entitlements.all),
+        activeEntitlements: Object.keys(customerInfo.entitlements.active),
+        entitlementDetails: customerInfo.entitlements.active
+      });
+
+      // Check if user has active entitlements - try multiple possible entitlement names
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
+      
+      for (const entitlementName of possibleEntitlements) {
+        const entitlement = customerInfo.entitlements.active[entitlementName];
+        if (entitlement?.isActive === true) {
+          console.log(`✅ Found active subscription via entitlement: ${entitlementName}`);
+          return true;
+        }
+      }
+
+      // If no specific entitlement found, check if there are any active entitlements at all
+      if (Object.keys(customerInfo.entitlements.active).length > 0) {
+        console.log('🔍 No specific entitlement found, checking all active entitlements...');
+        const firstActiveEntitlement = Object.values(customerInfo.entitlements.active)[0];
+        if (firstActiveEntitlement?.isActive === true) {
+          const entitlementName = Object.keys(customerInfo.entitlements.active)[0];
+          console.log(`✅ Found active subscription via first entitlement: ${entitlementName}`);
+          return true;
+        }
+      }
+
+      console.log('ℹ️ No active subscription found');
+      return false;
     } catch (error) {
       console.error('❌ Failed to check subscription status:', error);
       return false;
@@ -421,6 +511,53 @@ class RevenueCatService {
     // Try to find by matching product identifier
     const productId = PRODUCT_IDENTIFIERS[planId];
     return this.packages.find(pkg => pkg.product.identifier === productId) || null;
+  }
+
+  /**
+   * Debug method to log all subscription info
+   */
+  async debugSubscriptionStatus(): Promise<void> {
+    try {
+      console.log('🔍 DEBUG: Starting subscription status check...');
+      
+      if (!this.isInitialized) {
+        console.log('🔄 RevenueCat not initialized, initializing...');
+        await this.initialize();
+      }
+
+      const customerInfo = await this.getCustomerInfo();
+      
+      console.log('📊 DEBUG: Full customer info:', {
+        originalAppUserId: customerInfo.originalAppUserId,
+        firstSeen: customerInfo.firstSeen,
+        allEntitlements: Object.keys(customerInfo.entitlements.all),
+        activeEntitlements: Object.keys(customerInfo.entitlements.active),
+        entitlementDetails: customerInfo.entitlements.active,
+        allPurchases: Object.keys(customerInfo.allPurchasedProductIdentifiers || {}),
+        latestExpirationDate: customerInfo.latestExpirationDate,
+        managementURL: customerInfo.managementURL,
+        requestDate: customerInfo.requestDate
+      });
+
+      console.log('📦 DEBUG: Available packages:', this.packages.map(pkg => ({
+        identifier: pkg.identifier,
+        packageType: pkg.packageType,
+        productId: pkg.product.identifier,
+        price: pkg.product.priceString
+      })));
+
+      console.log('🎯 DEBUG: Current offering:', {
+        identifier: this.currentOffering?.identifier,
+        serverDescription: this.currentOffering?.serverDescription,
+        packagesCount: this.currentOffering?.availablePackages.length || 0
+      });
+
+      const hasActive = await this.hasActiveSubscription();
+      console.log('✅ DEBUG: Has active subscription:', hasActive);
+      
+    } catch (error) {
+      console.error('❌ DEBUG: Error checking subscription status:', error);
+    }
   }
 
   /**

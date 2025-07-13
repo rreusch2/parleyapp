@@ -116,28 +116,38 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
           console.log('ℹ️ User cancelled purchase');
           // Don't show error for cancellation
         } else {
+          console.error('❌ Purchase failed with error:', result.error);
           Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
         }
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Subscription error:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error constructor:', error?.constructor?.name);
       
-      // Handle different error types
-      if (error instanceof Error) {
-        if (error.message.includes('cancelled') || error.message.includes('canceled')) {
-          // User cancelled - don't show error
+      // More robust error handling without instanceof
+      let errorMessage = 'Unable to process purchase. Please try again.';
+      
+      if (error && typeof error === 'object') {
+        const errorStr = error.message || error.toString() || '';
+        
+        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
           console.log('ℹ️ User cancelled purchase');
-        } else if (error.message.includes('not available')) {
-          Alert.alert('Product Unavailable', 'This subscription is not available right now. Please try again later.');
-        } else if (error.message.includes('Network')) {
-          Alert.alert('Network Error', 'Please check your internet connection and try again.');
-        } else {
-          Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+          // Don't show error for cancellation
+          return;
+        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
+          errorMessage = 'This subscription is not available right now. Please try again later.';
+        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
+          errorMessage = 'Please check your internet connection and try again.';
+        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
+          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-      } else {
-        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
       }
+      
+      Alert.alert('Purchase Error', errorMessage);
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, User, CheckSquare, Square, UserPlus } from 'lucide-react-native';
+import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lucide-react-native';
 import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
@@ -32,8 +32,94 @@ export default function SignupScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
+  
+  // Focus states for better UX
+  const [usernameFocused, setUsernameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
+  
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const router = useRouter();
   const { checkSubscriptionStatus } = useSubscription();
+
+  // Optimized handlers using useCallback to prevent unnecessary re-renders
+  const handleUsernameChange = useCallback((text: string) => {
+    // Allow alphanumeric and underscores, remove spaces and special chars for username
+    const cleanText = text.replace(/[^a-zA-Z0-9_]/g, '');
+    setUsername(cleanText);
+  }, []);
+
+  const handleEmailChange = useCallback((text: string) => {
+    setEmail(text.trim().toLowerCase()); // Trim and lowercase for email
+  }, []);
+
+  const handlePasswordChange = useCallback((text: string) => {
+    setPassword(text); // Allow ALL characters including special characters
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((text: string) => {
+    setConfirmPassword(text); // Allow ALL characters including special characters
+  }, []);
+
+  // Focus handlers
+  const handleUsernameFocus = useCallback(() => setUsernameFocused(true), []);
+  const handleUsernameBlur = useCallback(() => setUsernameFocused(false), []);
+  const handleEmailFocus = useCallback(() => setEmailFocused(true), []);
+  const handleEmailBlur = useCallback(() => setEmailFocused(false), []);
+  const handlePasswordFocus = useCallback(() => setPasswordFocused(true), []);
+  const handlePasswordBlur = useCallback(() => setPasswordFocused(false), []);
+  const handleConfirmPasswordFocus = useCallback(() => setConfirmPasswordFocused(true), []);
+  const handleConfirmPasswordBlur = useCallback(() => setConfirmPasswordFocused(false), []);
+
+  // Password visibility toggles
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword(prev => !prev);
+  }, []);
+
+  const toggleConfirmPasswordVisibility = useCallback(() => {
+    setShowConfirmPassword(prev => !prev);
+  }, []);
+
+  const toggleTermsAgreement = useCallback(() => {
+    setAgreeToTerms(prev => !prev);
+  }, []);
+
+  // Memoized styles for better performance
+  const usernameInputWrapperStyle = useMemo(() => [
+    styles.inputWrapper,
+    usernameFocused && styles.inputWrapperFocused
+  ], [usernameFocused]);
+
+  const emailInputWrapperStyle = useMemo(() => [
+    styles.inputWrapper,
+    emailFocused && styles.inputWrapperFocused
+  ], [emailFocused]);
+
+  const passwordInputWrapperStyle = useMemo(() => [
+    styles.inputWrapper,
+    passwordFocused && styles.inputWrapperFocused
+  ], [passwordFocused]);
+
+  const confirmPasswordInputWrapperStyle = useMemo(() => [
+    styles.inputWrapper,
+    confirmPasswordFocused && styles.inputWrapperFocused
+  ], [confirmPasswordFocused]);
+
+  // Validation states
+  const isValidEmail = useMemo(() => {
+    if (!email) return true; // Don't show error for empty email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }, [email]);
+
+  const passwordsMatch = useMemo(() => {
+    if (!confirmPassword) return true; // Don't show error for empty confirm password
+    return password === confirmPassword;
+  }, [password, confirmPassword]);
 
   const handleSpinningWheelComplete = async (picks: number) => {
     console.log(`🎊 User won ${picks} picks! Activating welcome bonus...`);
@@ -99,11 +185,23 @@ export default function SignupScreen() {
       
       console.log('🔄 Processing subscription with RevenueCat...');
       
+      // Add debug logging for yearly subscriptions
+      if (planId === 'yearly') {
+        console.log('🔍 DEBUG: Yearly subscription detected, running debug check...');
+        await revenueCatService.debugSubscriptionStatus();
+      }
+      
       const result = await revenueCatService.purchasePackage(planId);
       
       if (result.success) {
         console.log('✅ User successfully subscribed to Pro!');
         setHasSubscribedToPro(true); // Mark that user has subscribed
+        
+        // Add debug logging after successful purchase
+        if (planId === 'yearly') {
+          console.log('🔍 DEBUG: Yearly subscription successful, checking final status...');
+          await revenueCatService.debugSubscriptionStatus();
+        }
         
         // Update subscription status in context and wait for it to complete
         console.log('🔄 Updating subscription status...');
@@ -125,15 +223,44 @@ export default function SignupScreen() {
           }]
         );
       } else {
+        console.error('❌ Purchase failed with error:', result.error);
         if (result.error !== 'cancelled') {
-          throw new Error(result.error || 'Subscription failed');
+          Alert.alert(
+            'Purchase Error',
+            result.error || 'Failed to process subscription. Please try again.',
+            [{ text: 'OK' }]
+          );
         }
       }
     } catch (error: any) {
       console.error('❌ Subscription error:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error constructor:', error?.constructor?.name);
+      
+      // More robust error handling
+      let errorMessage = 'Failed to process subscription. Please try again.';
+      
+      if (error && typeof error === 'object') {
+        const errorStr = error.message || error.toString() || '';
+        
+        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
+          console.log('ℹ️ User cancelled purchase');
+          // Don't show error for cancellation
+          return;
+        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
+          errorMessage = 'This subscription is not available right now. Please try again later.';
+        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
+          errorMessage = 'Please check your internet connection and try again.';
+        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
+          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
       Alert.alert(
         'Subscription Error',
-        error.message || 'Failed to process subscription. Please try again.',
+        errorMessage,
         [{ text: 'OK' }]
       );
     } finally {
@@ -174,18 +301,24 @@ export default function SignupScreen() {
       return;
     }
 
+    if (!isValidEmail) {
+      console.log('❌ Validation failed: Invalid email');
+      Alert.alert('Signup Error', 'Please enter a valid email address');
+      return;
+    }
+
     if (password !== confirmPassword) {
       console.log('❌ Validation failed: Passwords do not match');
       Alert.alert('Signup Error', 'Passwords do not match');
       return;
     }
 
-    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      console.log('❌ Validation failed: Password does not meet requirements');
+    // Updated password validation - removed special character requirement
+    if (password.length < 8) {
+      console.log('❌ Validation failed: Password too short');
       Alert.alert(
         'Signup Error',
-        'Password must be at least 8 characters and include at least one letter and one number.'
+        'Password must be at least 8 characters long.'
       );
       return;
     }
@@ -240,10 +373,6 @@ export default function SignupScreen() {
     }
   };
 
-  const toggleTermsAgreement = () => {
-    setAgreeToTerms(!agreeToTerms);
-  };
-
   const openTermsModal = () => {
     setShowTermsModal(true);
   };
@@ -273,65 +402,128 @@ export default function SignupScreen() {
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
 
             <View style={styles.form}>
+              {/* Username Input */}
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
+                <View style={usernameInputWrapperStyle}>
                   <User color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Choose a username"
-                    placeholderTextColor={styles.placeholderText.color}
+                    placeholderTextColor="#cccccc"
                     value={username}
-                    onChangeText={setUsername}
+                    onChangeText={handleUsernameChange}
+                    onFocus={handleUsernameFocus}
+                    onBlur={handleUsernameBlur}
                     autoCapitalize="none"
-                    selectionColor={styles.inputSelectionColor.color}
+                    autoCorrect={false}
+                    returnKeyType="next"
+                    selectionColor="#FFD700"
+                    maxLength={20}
+                    autoComplete="username"
+                    textContentType="username"
                   />
                 </View>
+                {username.length > 0 && username.length < 3 && (
+                  <Text style={styles.errorText}>Username must be at least 3 characters</Text>
+                )}
               </View>
 
+              {/* Email Input */}
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
+                <View style={emailInputWrapperStyle}>
                   <Mail color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your email"
-                    placeholderTextColor={styles.placeholderText.color}
+                    placeholderTextColor="#cccccc"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={handleEmailChange}
+                    onFocus={handleEmailFocus}
+                    onBlur={handleEmailBlur}
                     autoCapitalize="none"
+                    autoCorrect={false}
                     keyboardType="email-address"
-                    selectionColor={styles.inputSelectionColor.color}
+                    returnKeyType="next"
+                    selectionColor="#FFD700"
+                    autoComplete="email"
+                    textContentType="emailAddress"
                   />
                 </View>
+                {email.length > 0 && !isValidEmail && (
+                  <Text style={styles.errorText}>Please enter a valid email address</Text>
+                )}
               </View>
 
+              {/* Password Input */}
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
+                <View style={passwordInputWrapperStyle}>
                   <Lock color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
-                    placeholder="Create a password (min. 6 characters)"
-                    placeholderTextColor={styles.placeholderText.color}
+                    placeholder="Create a password (min. 8 characters)"
+                    placeholderTextColor="#cccccc"
                     value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    selectionColor={styles.inputSelectionColor.color}
+                    onChangeText={handlePasswordChange}
+                    onFocus={handlePasswordFocus}
+                    onBlur={handlePasswordBlur}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="next"
+                    selectionColor="#FFD700"
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    autoCorrect={false}
+                    autoCapitalize="none"
                   />
+                  <TouchableOpacity
+                    onPress={togglePasswordVisibility}
+                    style={styles.passwordToggle}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    {showPassword ? (
+                      <EyeOff color="#e0e0e0" size={20} />
+                    ) : (
+                      <Eye color="#e0e0e0" size={20} />
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
 
+              {/* Confirm Password Input */}
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
+                <View style={confirmPasswordInputWrapperStyle}>
                   <Lock color="#e0e0e0" size={20} />
                   <TextInput
                     style={styles.input}
                     placeholder="Confirm your password"
-                    placeholderTextColor={styles.placeholderText.color}
+                    placeholderTextColor="#cccccc"
                     value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    selectionColor={styles.inputSelectionColor.color}
+                    onChangeText={handleConfirmPasswordChange}
+                    onFocus={handleConfirmPasswordFocus}
+                    onBlur={handleConfirmPasswordBlur}
+                    secureTextEntry={!showConfirmPassword}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSignup}
+                    selectionColor="#FFD700"
+                    autoComplete="new-password"
+                    textContentType="newPassword"
+                    autoCorrect={false}
+                    autoCapitalize="none"
                   />
+                  <TouchableOpacity
+                    onPress={toggleConfirmPasswordVisibility}
+                    style={styles.passwordToggle}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff color="#e0e0e0" size={20} />
+                    ) : (
+                      <Eye color="#e0e0e0" size={20} />
+                    )}
+                  </TouchableOpacity>
                 </View>
+                {confirmPassword.length > 0 && !passwordsMatch && (
+                  <Text style={styles.errorText}>Passwords do not match</Text>
+                )}
               </View>
 
               {/* Terms of Service Agreement */}
@@ -340,6 +532,7 @@ export default function SignupScreen() {
                   style={styles.checkboxContainer} 
                   onPress={toggleTermsAgreement}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {agreeToTerms ? (
                     <CheckSquare size={24} color="#4169e1" />
@@ -365,9 +558,9 @@ export default function SignupScreen() {
                 ]}
                 onPress={handleSignup}
                 disabled={loading || !agreeToTerms}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <UserPlus color={styles.buttonText.color} size={20} style={styles.buttonIcon} />
+                <UserPlus color="#000000" size={20} style={styles.buttonIcon} />
                 <Text style={styles.buttonText}>
                   {loading ? 'Creating Account...' : 'Create Account'}
                 </Text>
@@ -377,7 +570,7 @@ export default function SignupScreen() {
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account?</Text>
               <Link href="/login" asChild>
-                <TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.7}>
                   <Text style={styles.footerLink}>Sign In</Text>
                 </TouchableOpacity>
               </Link>
@@ -452,25 +645,31 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     paddingHorizontal: 20,
     paddingVertical: 18,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     minHeight: 60,
   },
-  inputIcon: {
-    color: '#e0e0e0',
+  inputWrapperFocused: {
+    borderColor: '#00E5FF',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   input: {
     flex: 1,
     color: '#FFFFFF',
     fontSize: 16,
     marginLeft: 15,
-    paddingVertical: 0, // Prevents extra padding that can cause input jumping
+    paddingVertical: 0,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
-  inputSelectionColor: {
-    color: '#FFD700',
+  passwordToggle: {
+    padding: 5,
+    marginLeft: 10,
   },
-  placeholderText: {
-    color: '#cccccc',
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    marginTop: 5,
+    marginLeft: 5,
   },
   termsContainer: {
     flexDirection: 'row',
@@ -505,9 +704,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderRadius: 30,
     marginTop: 20,
+    shadowColor: '#ffffff',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonIcon: {
     marginRight: 10,
@@ -519,6 +726,7 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
   },
   footer: {
     flexDirection: 'row',
