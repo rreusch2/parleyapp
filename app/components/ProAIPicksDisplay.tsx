@@ -343,34 +343,6 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                     {pick.reasoning}
                   </Text>
                 </View>
-
-                {/* Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity 
-                    style={styles.actionButton}
-                    onPress={() => onPickPress?.(pick)}
-                  >
-                    <Zap size={14} color="#00E5FF" />
-                    <Text style={styles.actionButtonText}>View Details</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.trackButton]}
-                    onPress={() => {
-                      Alert.alert(
-                        'Track This Pick',
-                        'Add this pick to your betting tracker?',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Track', onPress: () => console.log('Track pick:', pick.id) }
-                        ]
-                      );
-                    }}
-                  >
-                    <BarChart3 size={14} color="#00E676" />
-                    <Text style={[styles.actionButtonText, { color: '#00E676' }]}>Track</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             )}
           </View>

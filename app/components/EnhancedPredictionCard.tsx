@@ -62,6 +62,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedAnalysis | null>(null);
   const [glowAnimation] = useState(new Animated.Value(0));
+  const [showFullReasoning, setShowFullReasoning] = useState(false);
 
   React.useEffect(() => {
     if (isPro) {
@@ -271,9 +272,29 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
           )}
 
           {/* Reasoning */}
-          <Text style={styles.reasoningText} numberOfLines={(isPro || welcomeBonusActive) ? 4 : 2}>
-            {(isPro || welcomeBonusActive) ? prediction.reasoning : `${prediction.reasoning.substring(0, 100)}...`}
-          </Text>
+          <View style={styles.reasoningSection}>
+            <Text 
+              style={styles.reasoningText} 
+              numberOfLines={showFullReasoning ? undefined : ((isPro || welcomeBonusActive) ? 4 : 2)}
+            >
+              {(isPro || welcomeBonusActive) ? prediction.reasoning : `${prediction.reasoning.substring(0, 100)}...`}
+            </Text>
+            {(isPro || welcomeBonusActive) && prediction.reasoning.length > 200 && (
+              <TouchableOpacity 
+                onPress={() => setShowFullReasoning(!showFullReasoning)}
+                style={styles.showMoreButton}
+              >
+                <Text style={styles.showMoreText}>
+                  {showFullReasoning ? 'Show Less' : 'Show More'}
+                </Text>
+                <ChevronRight 
+                  size={14} 
+                  color="#00E5FF" 
+                  style={{ transform: [{ rotate: showFullReasoning ? '-90deg' : '90deg' }] }}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
@@ -388,15 +409,6 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                     <Text style={styles.factorText}>{advancedAnalysis.factors.valueAssessment}</Text>
                   </View>
                 </ScrollView>
-
-                <TouchableOpacity style={styles.placeButton}>
-                  <LinearGradient
-                    colors={['#00E5FF', '#0891B2']}
-                    style={styles.placeButtonGradient}
-                  >
-                    <Text style={styles.placeButtonText}>Place Bet with Confidence</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </LinearGradient>
             </View>
           </View>
@@ -579,6 +591,21 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     lineHeight: 18,
     marginBottom: 12,
+  },
+  reasoningSection: {
+    marginBottom: 12,
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  showMoreText: {
+    fontSize: 12,
+    color: '#00E5FF',
+    fontWeight: '600',
+    marginRight: 4,
   },
   actionButtons: {
     flexDirection: 'row',

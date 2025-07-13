@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Sparkles, Target, Brain } from 'lucide-react-native';
 import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
+import { useAIChat } from '../services/aiChatContext';
 
 interface Pick {
   id: string;
@@ -34,14 +35,15 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   const [activeTab, setActiveTab] = useState<'team' | 'props'>('team');
   const [teamPicks, setTeamPicks] = useState<Pick[]>([]);
   const [playerPropsPicks, setPlayerPropsPicks] = useState<Pick[]>([]);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(true);
+  const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [teamLoading, setTeamLoading] = useState(false);
-  const [propsLoading, setPropsLoading] = useState(false);
+  const { openChatWithContext } = useAIChat();
 
   const fetchTeamPicks = async () => {
     if (teamPicks.length > 0) return; // Already loaded
     
-    setTeamLoading(true);
+    setIsLoadingTeam(true);
     try {
       // Use the correct API endpoint for team picks
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
@@ -59,14 +61,14 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
       console.error('Error fetching team picks:', error);
       Alert.alert('Error', 'Network error loading team picks');
     } finally {
-      setTeamLoading(false);
+      setIsLoadingTeam(false);
     }
   };
 
   const fetchPlayerPropsPicks = async () => {
     if (playerPropsPicks.length > 0) return; // Already loaded
     
-    setPropsLoading(true);
+    setIsLoadingProps(true);
     try {
       // Use the correct API endpoint for player props picks
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
@@ -84,7 +86,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
       console.error('Error fetching player props:', error);
       Alert.alert('Error', 'Network error loading player props');
     } finally {
-      setPropsLoading(false);
+      setIsLoadingProps(false);
     }
   };
 
@@ -117,6 +119,46 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handlePickAnalyze = (pick: Pick) => {
+    // Transform pick to match AIPrediction interface and create custom prompt
+    const customPrompt = `Analyze this AI prediction in detail:
+
+🏟️ Match: ${pick.match_teams}
+🏈 Sport: ${pick.sport}
+🎯 Pick: ${pick.pick}
+📊 Odds: ${pick.odds}
+🔥 Confidence: ${pick.confidence}%
+${pick.value_percentage ? `💰 Edge: +${pick.value_percentage}%` : ''}
+
+💭 AI Reasoning: ${pick.reasoning}
+
+Please provide deeper analysis on:
+- Why this pick has potential
+- Key factors that could affect the outcome
+- Risk assessment and betting strategy
+- Any additional insights you can provide
+
+What are your thoughts on this prediction?`;
+    
+    const predictionForChat = {
+      id: pick.id,
+      match: pick.match_teams,
+      sport: pick.sport,
+      eventTime: new Date().toISOString(),
+      pick: pick.pick,
+      odds: pick.odds,
+      confidence: pick.confidence,
+      reasoning: pick.reasoning,
+      value: pick.value_percentage
+    };
+    
+    openChatWithContext({ 
+      screen: 'predictions', 
+      selectedPrediction: predictionForChat,
+      customPrompt: customPrompt
+    }, predictionForChat);
   };
 
   const TabButton = ({ 
@@ -203,6 +245,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
             key={pick.id}
             prediction={pick}
             index={index}
+            onAnalyze={() => handlePickAnalyze(pick)}
           />
         ))}
       </ScrollView>
@@ -277,8 +320,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
       {/* Content */}
       <View style={styles.contentContainer}>
         {activeTab === 'team' 
-          ? renderPicks(teamPicks, teamLoading, 'team')
-          : renderPicks(playerPropsPicks, propsLoading, 'player props')
+          ? renderPicks(teamPicks, isLoadingTeam, 'team')
+          : renderPicks(playerPropsPicks, isLoadingProps, 'player props')
         }
       </View>
     </View>

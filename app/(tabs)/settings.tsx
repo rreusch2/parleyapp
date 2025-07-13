@@ -58,9 +58,6 @@ export default function SettingsScreen() {
   const { isPro, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notificationSettings, setNotificationSettings] = useState({
-    ai_picks: true
-  });
 
   // Profile section state
   const [showProfileDetails, setShowProfileDetails] = useState(false);
@@ -117,7 +114,6 @@ export default function SettingsScreen() {
   useEffect(() => {
     fetchUserProfile();
     checkAdminStatus();
-    loadNotificationSettings();
     checkAuthMethods();
 
     // Set up keyboard listeners
@@ -170,28 +166,6 @@ export default function SettingsScreen() {
       console.error('Error checking auth methods:', error);
       // Assume password auth if we can't check
       setHasPasswordAuth(true);
-    }
-  };
-
-  const loadNotificationSettings = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notification-settings`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch notification settings');
-      }
-
-      const settings = await response.json();
-      setNotificationSettings(settings);
-    } catch (error) {
-      console.error('Error loading notification settings:', error);
     }
   };
 
@@ -473,30 +447,6 @@ export default function SettingsScreen() {
     { icon: Shield, title: 'Exclusive Insights', description: 'Access all premium research content' }
   ];
 
-  const toggleSwitch = async (setting) => {
-    const newSettings = { ...notificationSettings, [setting]: !notificationSettings[setting] };
-    setNotificationSettings(newSettings);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/notification-settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ settings: newSettings }),
-      });
-    } catch (error) {
-      console.error('Error saving notification settings:', error);
-      // Revert on error
-      setNotificationSettings({ ...notificationSettings, [setting]: !notificationSettings[setting] });
-      Alert.alert('Error', 'Failed to save your settings. Please try again.');
-    }
-  };
-
   const handleSavePreferences = async () => {
     try {
       // Convert selectedSports IDs to sport names
@@ -772,7 +722,19 @@ export default function SettingsScreen() {
       icon: Bell,
       iconColor: '#F59E0B',
       items: [
-        { id: 'ai_picks', title: 'New AI Picks', type: 'toggle', value: notificationSettings.ai_picks },
+        { 
+          id: 'notifications_coming_soon', 
+          title: 'Notifications', 
+          type: 'coming-soon',
+          subtitle: 'Coming Soon',
+          action: () => {
+            Alert.alert(
+              'Coming Soon! 🔔',
+              'Notification preferences will be available in a future update. Stay tuned!',
+              [{ text: 'Got it!', style: 'default' }]
+            );
+          }
+        },
       ]
     },
     {
@@ -834,7 +796,7 @@ export default function SettingsScreen() {
           if (item.action) {
             item.action();
           } else if (item.type === 'toggle' && !item.locked) {
-            toggleSwitch(item.id);
+            // toggleSwitch(item.id); // This function is removed
           } else if (item.type === 'link' && !item.locked) {
             handleLinkPress(item.id);
           } else if (item.locked) {
@@ -869,15 +831,15 @@ export default function SettingsScreen() {
         <View style={styles.settingRight}>
           {item.type === 'toggle' && !item.locked && (
             <Switch
-              value={item.value}
-              onValueChange={() => toggleSwitch(item.id)}
+              value={false} // No toggle functionality for this section
+              onValueChange={() => {}}
               trackColor={{ false: '#374151', true: '#00E5FF' }}
-              thumbColor={item.value ? '#FFFFFF' : '#9CA3AF'}
+              thumbColor={false ? '#FFFFFF' : '#9CA3AF'}
             />
           )}
           {item.type === 'coming-soon' && (
             <View style={styles.comingSoonBadge}>
-              <Text style={styles.comingSoonText}>Coming Soon</Text>
+              <Text style={styles.comingSoonText}>{item.subtitle || 'Coming Soon'}</Text>
             </View>
           )}
           {item.type === 'link' && (
@@ -1448,14 +1410,18 @@ const styles = StyleSheet.create({
   proBadge: {
     backgroundColor: '#F59E0B',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 12,
     marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   proBadgeText: {
     color: '#0F172A',
     fontSize: 10,
     fontWeight: '600',
+    lineHeight: 12,
   },
   profileStatus: {
     fontSize: 14,
@@ -1767,10 +1733,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: 'rgba(51, 65, 85, 0.3)',
   },
   settingItemLocked: {
     opacity: 0.6,
@@ -1793,14 +1759,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   badge: {
-    backgroundColor: '#00E5FF',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     marginLeft: 8,
   },
   badgeText: {
-    color: '#0F172A',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -1867,13 +1831,15 @@ const styles = StyleSheet.create({
   },
   comingSoonBadge: {
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
   comingSoonText: {
     color: '#F59E0B',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
   },
   logoutButton: {

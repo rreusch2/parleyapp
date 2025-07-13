@@ -1,7 +1,4 @@
 import { Tabs } from 'expo-router';
-import { useEffect } from 'react';
-import { supabase } from '@/app/services/api/supabaseClient';
-import { registerForPushNotificationsAsync, savePushToken } from '@/app/services/notificationService';
 import { View, useColorScheme, Text } from 'react-native';
 import { Settings, Calendar, Zap, Home } from 'lucide-react-native';
 import { AIChatProvider } from '@/app/services/aiChatContext';
@@ -10,20 +7,6 @@ import ProAIChat from '@/app/components/ProAIChat';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-
-  useEffect(() => {
-    const setupNotifications = async () => {
-      const token = await registerForPushNotificationsAsync();
-      if (token) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await savePushToken(user.id, token);
-        }
-      }
-    };
-
-    setupNotifications();
-  }, []);
 
   return (
     <AIChatProvider>
