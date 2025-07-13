@@ -63,28 +63,47 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         // Check database for subscription_tier first - this is the source of truth
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('subscription_tier')
+          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at')
           .eq('id', user.id)
           .single();
         
-        // If the database says the user is pro, respect that
-        if (!profileError && profile && profile.subscription_tier === 'pro') {
-          console.log('✅ User is Pro according to database');
-          setIsPro(true);
-          await AsyncStorage.setItem('subscriptionStatus', 'pro');
+        const now = new Date(); // Define now here for use throughout the function
+        
+        if (!profileError && profile) {
+          // CRITICAL: Check if user has active welcome bonus
+          const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+          const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+          
+          // CRITICAL FIX: Users with welcome bonus should ALWAYS be treated as Free tier
+          if (hasActiveWelcomeBonus) {
+            console.log('🎁 User has active welcome bonus - keeping as FREE tier');
+            setIsPro(false);
+            await AsyncStorage.setItem('subscriptionStatus', 'free');
+          } else if (profile.subscription_tier === 'pro') {
+            console.log('✅ User is Pro according to database');
+            setIsPro(true);
+            await AsyncStorage.setItem('subscriptionStatus', 'pro');
+          } else {
+            console.log('ℹ️ User is Free according to database');
+            setIsPro(false);
+            await AsyncStorage.setItem('subscriptionStatus', 'free');
+          }
         } else {
-          console.log('ℹ️ User is Free according to database');
+          console.log('⚠️ Could not fetch user profile, defaulting to Free');
           setIsPro(false);
           await AsyncStorage.setItem('subscriptionStatus', 'free');
         }
         
-        // Also check with RevenueCat for subscription validation
+        // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
         try {
           await revenueCatService.initialize();
           const hasActive = await revenueCatService.hasActiveSubscription();
           
-          // If RevenueCat says they have an active subscription but DB doesn't, update DB
-          if (hasActive && profile?.subscription_tier !== 'pro') {
+          // Only sync with RevenueCat if user doesn't have active welcome bonus
+          const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+          const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+          
+          if (!hasActiveWelcomeBonus && hasActive && profile?.subscription_tier !== 'pro') {
             console.log('🔄 Syncing Pro status from RevenueCat to database');
             await supabase
               .from('profiles')

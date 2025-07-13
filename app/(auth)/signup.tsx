@@ -135,10 +135,11 @@ export default function SignupScreen() {
         
         console.log(`🕛 Setting welcome bonus to expire at: ${expiration.toISOString()} (24 hours from signup)`);
         
-        // Update user profile to activate welcome bonus
+        // CRITICAL: Update user profile to activate welcome bonus BUT ensure they stay FREE tier
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
+            subscription_tier: 'free',  // EXPLICITLY set to free (critical!)
             welcome_bonus_claimed: true,
             welcome_bonus_expires_at: expiration.toISOString(),
             updated_at: new Date().toISOString()
@@ -149,17 +150,20 @@ export default function SignupScreen() {
           console.error('❌ Failed to activate welcome bonus:', updateError);
           console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
         } else {
-          console.log(`✅ Welcome bonus activated! User gets ${picks} picks until ${expiration.toISOString()}`);
+          console.log(`✅ Welcome bonus activated! User stays FREE tier with ${picks} picks until ${expiration.toISOString()}`);
+          
+          // Force refresh the subscription context to ensure isPro stays false
+          await checkSubscriptionStatus();
           
           // Verify the update worked
           const { data: verifyProfile, error: verifyError } = await supabase
             .from('profiles')
-            .select('welcome_bonus_claimed, welcome_bonus_expires_at')
+            .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at')
             .eq('id', userData.user.id)
             .single();
             
           if (!verifyError && verifyProfile) {
-            console.log(`✅ Verification: bonus_claimed=${verifyProfile.welcome_bonus_claimed}, expires_at=${verifyProfile.welcome_bonus_expires_at}`);
+            console.log(`✅ Verification: tier=${verifyProfile.subscription_tier}, bonus_claimed=${verifyProfile.welcome_bonus_claimed}, expires_at=${verifyProfile.welcome_bonus_expires_at}`);
           }
         }
       }
@@ -473,11 +477,17 @@ export default function SignupScreen() {
                     textContentType="newPassword"
                     autoCorrect={false}
                     autoCapitalize="none"
+                    keyboardType="default"
+                    blurOnSubmit={false}
+                    enablesReturnKeyAutomatically={false}
+                    clearButtonMode="never"
+                    spellCheck={false}
                   />
                   <TouchableOpacity
                     onPress={togglePasswordVisibility}
                     style={styles.passwordToggle}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.6}
                   >
                     {showPassword ? (
                       <EyeOff color="#e0e0e0" size={20} />
@@ -508,11 +518,17 @@ export default function SignupScreen() {
                     textContentType="newPassword"
                     autoCorrect={false}
                     autoCapitalize="none"
+                    keyboardType="default"
+                    blurOnSubmit={false}
+                    enablesReturnKeyAutomatically={false}
+                    clearButtonMode="never"
+                    spellCheck={false}
                   />
                   <TouchableOpacity
                     onPress={toggleConfirmPasswordVisibility}
                     style={styles.passwordToggle}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.6}
                   >
                     {showConfirmPassword ? (
                       <EyeOff color="#e0e0e0" size={20} />
