@@ -14,7 +14,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Keyboard,
-  Vibration
+  Vibration,
+  TouchableWithoutFeedback
 } from 'react-native';
 import EventSource from 'react-native-sse';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -372,8 +373,10 @@ export default function ProAIChat({
   const sendMessage = async () => {
     if (!inputText.trim() || isTyping) return;
 
-    // Haptic feedback
-    Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+    // Dismiss keyboard when sending message
+    Keyboard.dismiss();
+    
+    // No vibration for send button - removed per user request
 
     // Button press animation
     Animated.sequence([
@@ -481,6 +484,8 @@ export default function ProAIChat({
             if (data.type === 'start') {
               setIsTyping(true);
               setIsSearching(false);
+              // Auto-dismiss keyboard when AI starts responding
+              Keyboard.dismiss();
             } else if (data.type === 'web_search' || data.type === 'news_search' || data.type === 'team_analysis' || data.type === 'odds_lookup' || data.type === 'insights_analysis') {
               // Enhanced search bubble with proper titles
               const searchMessageId = `search_${Date.now()}`;
@@ -875,11 +880,12 @@ export default function ProAIChat({
 
   return (
     <Modal visible={showAIChat} animationType="slide" presentationStyle="pageSheet">
-      <KeyboardAvoidingView 
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      >
+      <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+        <KeyboardAvoidingView 
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+        >
         {/* Enhanced Header */}
         <LinearGradient
           colors={['#1E40AF', '#7C3AED', '#1E40AF']}
@@ -889,7 +895,7 @@ export default function ProAIChat({
         >
           <TouchableOpacity 
             onPress={() => {
-              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+              // No vibration for close button - removed per user request
               setShowAIChat(false);
             }} 
             style={styles.closeButton}
@@ -1063,7 +1069,8 @@ export default function ProAIChat({
             <Text style={styles.charCount}>{500 - inputText.length}</Text>
           )}
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
