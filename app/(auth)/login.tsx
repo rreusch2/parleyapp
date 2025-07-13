@@ -110,10 +110,13 @@ export default function LoginScreen() {
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
-          nonce: credential.authorizationCode ? 'nonce' : undefined, // You might want to implement proper nonce handling
+          // Remove the nonce parameter - let Supabase handle it
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase Apple Sign In error:', error);
+          throw error;
+        }
 
         if (data.user) {
           // Check if this is a new user (first time sign in with Apple)
@@ -161,8 +164,24 @@ export default function LoginScreen() {
         // User canceled the sign-in
         console.log('User canceled Apple Sign In');
       } else {
-        Alert.alert('Sign In Error', 'Failed to sign in with Apple. Please try again.');
-        console.error('Apple Sign In error:', error);
+        console.error('Apple Sign In error details:', {
+          code: error.code,
+          message: error.message,
+          error: error
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to sign in with Apple. Please try again.';
+        
+        if (error.message?.includes('provider')) {
+          errorMessage = 'Apple Sign In is not properly configured. Please contact support.';
+        } else if (error.message?.includes('token')) {
+          errorMessage = 'Invalid authentication token. Please try again.';
+        } else if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        Alert.alert('Sign In Error', errorMessage);
       }
     } finally {
       setLoading(false);

@@ -326,10 +326,13 @@ export default function SignupScreen() {
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
-          nonce: credential.authorizationCode ? 'nonce' : undefined,
+          // Remove the nonce parameter - let Supabase handle it
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase Apple Sign Up error:', error);
+          throw error;
+        }
 
         if (data.user) {
           // For new sign ups, Apple provides the name and email
@@ -358,8 +361,24 @@ export default function SignupScreen() {
         // User canceled the sign-in
         console.log('User canceled Apple Sign Up');
       } else {
-        Alert.alert('Sign Up Error', 'Failed to sign up with Apple. Please try again.');
-        console.error('Apple Sign Up error:', error);
+        console.error('Apple Sign Up error details:', {
+          code: error.code,
+          message: error.message,
+          error: error
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to sign up with Apple. Please try again.';
+        
+        if (error.message?.includes('provider')) {
+          errorMessage = 'Apple Sign In is not properly configured. Please contact support.';
+        } else if (error.message?.includes('token')) {
+          errorMessage = 'Invalid authentication token. Please try again.';
+        } else if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        Alert.alert('Sign Up Error', errorMessage);
       }
     } finally {
       setLoading(false);
@@ -726,13 +745,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40, // Add safe padding for the title
+    paddingBottom: 20,
   },
   content: {
     padding: 25,
     justifyContent: 'center',
   },
   title: {
-    fontSize: 36,
+    fontSize: 32, // Slightly reduced from 36 for better fit
     fontWeight: 'bold',
     marginBottom: 10,
     color: '#ffffff',
