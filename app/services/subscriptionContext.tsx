@@ -60,13 +60,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // Check local storage first
-        const storedStatus = await AsyncStorage.getItem('subscriptionStatus');
-        if (storedStatus) {
-          setIsPro(storedStatus === 'pro');
-        }
-        
-        // Check database for subscription_tier
+        // Check database for subscription_tier first - this is the source of truth
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('subscription_tier')
@@ -75,24 +69,34 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         
         // If the database says the user is pro, respect that
         if (!profileError && profile && profile.subscription_tier === 'pro') {
+          console.log('✅ User is Pro according to database');
           setIsPro(true);
           await AsyncStorage.setItem('subscriptionStatus', 'pro');
-          setIsLoading(false);
-          return;
+        } else {
+          console.log('ℹ️ User is Free according to database');
+          setIsPro(false);
+          await AsyncStorage.setItem('subscriptionStatus', 'free');
         }
         
-        // Initialize RevenueCat service and check subscription status
-        await revenueCatService.initialize();
-        // Check RevenueCat subscription status
-        const hasActiveSubscription = await revenueCatService.hasActiveSubscription();
-        if (hasActiveSubscription) {
-          setIsPro(true);
-          await AsyncStorage.setItem('subscriptionStatus', 'pro');
-          console.log('✅ RevenueCat confirms active subscription');
+        // Also check with RevenueCat for subscription validation
+        try {
+          await revenueCatService.initialize();
+          const hasActive = await revenueCatService.hasActiveSubscription();
+          
+          // If RevenueCat says they have an active subscription but DB doesn't, update DB
+          if (hasActive && profile?.subscription_tier !== 'pro') {
+            console.log('🔄 Syncing Pro status from RevenueCat to database');
+            await supabase
+              .from('profiles')
+              .update({ subscription_tier: 'pro' })
+              .eq('id', user.id);
+            setIsPro(true);
+            await AsyncStorage.setItem('subscriptionStatus', 'pro');
+          }
+        } catch (rcError) {
+          console.log('⚠️ RevenueCat check failed, using database status:', rcError);
+          // Continue with database status
         }
-        
-        // Default to current isPro state for storage
-        await AsyncStorage.setItem('subscriptionStatus', isPro ? 'pro' : 'free');
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);
@@ -122,6 +126,14 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       
       if (result.success) {
         console.log('✅ DEBUG: Purchase completed successfully');
+        
+        // Immediately update local state
+        setIsPro(true);
+        await AsyncStorage.setItem('subscriptionStatus', 'pro');
+        
+        // Force a full subscription status check to ensure everything is synced
+        await checkSubscriptionStatus();
+        
         return true;
       } else {
         console.error('❌ DEBUG: Purchase failed:', result.error);
@@ -146,7 +158,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       await revenueCatService.initialize();
       await revenueCatService.restorePurchases();
       
-      // Refresh subscription status after restore
+      // After restore, check subscription status again
       await checkSubscriptionStatus();
     } catch (error) {
       console.error('Error restoring purchases:', error);

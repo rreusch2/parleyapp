@@ -94,9 +94,22 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
       if (result.success) {
         console.log('✅ Purchase completed successfully!');
         
-        // Show success message
-        // Don't call onClose for successful subscriptions - let parent handle it
-        console.log('✅ Subscription successful in modal, parent will handle navigation');
+        // If parent provided onSubscribe callback, use it
+        if (onSubscribe) {
+          await onSubscribe(selectedPlan);
+        } else {
+          // Otherwise show success message here
+          Alert.alert(
+            '🎉 Welcome to Pro!',
+            `You've successfully subscribed to the ${selectedPlan} plan. Welcome to the premium experience!`,
+            [{ 
+              text: 'Let\'s Go!', 
+              onPress: () => {
+                onClose();
+              }
+            }]
+          );
+        }
       } else {
         // Handle purchase failure
         if (result.error === 'cancelled') {

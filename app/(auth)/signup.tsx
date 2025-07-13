@@ -31,7 +31,7 @@ export default function SignupScreen() {
   const [showSpinningWheel, setShowSpinningWheel] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [subscriptionSuccessful, setSubscriptionSuccessful] = useState(false);
+  const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
   const router = useRouter();
   const { checkSubscriptionStatus } = useSubscription();
 
@@ -102,35 +102,25 @@ export default function SignupScreen() {
       const result = await revenueCatService.purchasePackage(planId);
       
       if (result.success) {
-        console.log('✅ Pro subscription successful! Bypassing welcome wheel...');
+        console.log('✅ User successfully subscribed to Pro!');
+        setHasSubscribedToPro(true); // Mark that user has subscribed
         
-        // Mark subscription as successful to prevent welcome wheel
-        setSubscriptionSuccessful(true);
+        // Update subscription status in context and wait for it to complete
+        console.log('🔄 Updating subscription status...');
+        await checkSubscriptionStatus();
         
-        // Close subscription modal immediately
-        setShowSubscriptionModal(false);
+        // Small delay to ensure context is fully updated
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Show success message and go directly to Pro experience
         Alert.alert(
           '🎉 Welcome to Pro!',
           `You've successfully subscribed to ${planId} plan. Welcome to the premium experience!`,
           [{ 
             text: 'Let\'s Go!', 
-            onPress: async () => {
-              console.log('🚀 Refreshing subscription status and navigating to Pro experience...');
-              
-              // Refresh subscription status to ensure Pro UI shows
-              try {
-                await checkSubscriptionStatus();
-                console.log('✅ Subscription status refreshed for Pro user');
-              } catch (error) {
-                console.warn('⚠️ Failed to refresh subscription status:', error);
-              }
-              
-              // Small delay to ensure everything is updated
-              setTimeout(() => {
-                router.replace('/(tabs)');
-              }, 500);
+            onPress: () => {
+              setShowSubscriptionModal(false);
+              // Navigate directly to app without showing spinning wheel
+              router.replace('/(tabs)');
             }
           }]
         );
@@ -152,21 +142,19 @@ export default function SignupScreen() {
   };
 
   const handleContinueFree = () => {
-    console.log('🎯 User chose to continue with free account, showing welcome wheel...');
+    console.log('🎯 User chose to continue with free account');
     setShowSubscriptionModal(false);
     setShowSpinningWheel(true);
   };
 
   const handleSubscriptionModalClose = () => {
-    console.log('🔄 Subscription modal closing...');
-    setShowSubscriptionModal(false);
-    
-    // Only show welcome wheel if subscription wasn't successful
-    if (!subscriptionSuccessful) {
-      console.log('🎯 No subscription detected, showing welcome wheel for free experience');
+    // Only show spinning wheel if user hasn't subscribed to Pro
+    if (!hasSubscribedToPro) {
+      setShowSubscriptionModal(false);
       setShowSpinningWheel(true);
     } else {
-      console.log('✅ Subscription was successful, skipping welcome wheel');
+      // If user subscribed to Pro, just close modal and navigate
+      setShowSubscriptionModal(false);
     }
   };
 
