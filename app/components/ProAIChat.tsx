@@ -174,6 +174,7 @@ interface ChatMessage {
   toolsUsed?: string[];
   isSearching?: boolean;
   searchQuery?: string;
+  searchType?: string;
   isTyping?: boolean;
 }
 
@@ -480,8 +481,8 @@ export default function ProAIChat({
             if (data.type === 'start') {
               setIsTyping(true);
               setIsSearching(false);
-            } else if (data.type === 'web_search') {
-              // Enhanced search bubble
+            } else if (data.type === 'web_search' || data.type === 'news_search' || data.type === 'team_analysis' || data.type === 'odds_lookup' || data.type === 'insights_analysis') {
+              // Enhanced search bubble with proper titles
               const searchMessageId = `search_${Date.now()}`;
               searchMessage = {
                 id: searchMessageId,
@@ -489,15 +490,15 @@ export default function ProAIChat({
                 isUser: false,
                 timestamp: new Date(),
                 isSearching: true,
-                searchQuery: data.message || 'Searching for latest sports intel...'
+                searchQuery: data.message || 'Analyzing data...',
+                searchType: data.type
               };
               
               setMessages(prev => [...prev.slice(0, -1), searchMessage, prev[prev.length - 1]]);
               setIsSearching(true);
               setIsTyping(false);
               
-              // Haptic feedback for search
-              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+              // No vibration for search actions - too frequent
               
               setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
@@ -533,8 +534,7 @@ export default function ProAIChat({
               setIsTyping(false);
               setIsSearching(false);
               
-              // Success haptic
-              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+              // No vibration for message completion - too frequent
               
               // Close the connection
               eventSource.close();
@@ -549,8 +549,7 @@ export default function ProAIChat({
               setIsTyping(false);
               setIsSearching(false);
               
-              // Error haptic
-              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
+              // No vibration for errors - already disruptive enough
               
               eventSource.close();
               console.log('❌ SSE connection closed - error occurred');
@@ -690,9 +689,25 @@ export default function ProAIChat({
               <View style={styles.searchBubbleContent}>
                 <View style={styles.searchBubbleHeader}>
                   <Animated.View style={{ opacity: searchOpacity }}>
-                    <Globe size={16} color="#00E5FF" />
+                    {item.searchType === 'news_search' ? (
+                      <AlertCircle size={16} color="#FF6B6B" />
+                    ) : item.searchType === 'team_analysis' ? (
+                      <Target size={16} color="#4ECDC4" />
+                    ) : item.searchType === 'odds_lookup' ? (
+                      <BarChart size={16} color="#45B7D1" />
+                    ) : item.searchType === 'insights_analysis' ? (
+                      <Lightbulb size={16} color="#FFA726" />
+                    ) : (
+                      <Globe size={16} color="#00E5FF" />
+                    )}
                   </Animated.View>
-                  <Text style={styles.searchBubbleTitle}>Searching the web</Text>
+                  <Text style={styles.searchBubbleTitle}>
+                    {item.searchType === 'news_search' ? 'Breaking News Scan' : 
+                     item.searchType === 'team_analysis' ? 'Team Intel Gathering' :
+                     item.searchType === 'odds_lookup' ? 'Live Odds Check' :
+                     item.searchType === 'insights_analysis' ? 'Insights Analysis' :
+                     'Web Search'}
+                  </Text>
                 </View>
                 <Text style={styles.searchBubbleQuery}>
                   {item.searchQuery}
