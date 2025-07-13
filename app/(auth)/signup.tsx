@@ -315,6 +315,8 @@ export default function SignupScreen() {
     try {
       setLoading(true);
       
+      console.log('🍎 Starting Apple Sign Up...');
+      
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -322,7 +324,21 @@ export default function SignupScreen() {
         ],
       });
 
+      console.log('🍎 Apple credential received:', {
+        identityToken: credential.identityToken ? 'Present' : 'Missing',
+        authorizationCode: credential.authorizationCode ? 'Present' : 'Missing',
+        user: credential.user,
+        email: credential.email,
+        fullName: credential.fullName,
+        state: credential.state,
+        realUserStatus: credential.realUserStatus
+      });
+
       if (credential.identityToken) {
+        console.log('🍎 Attempting Supabase signInWithIdToken...');
+        console.log('🍎 Identity token length:', credential.identityToken.length);
+        
+        // First attempt with identity token
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'apple',
           token: credential.identityToken,
@@ -331,6 +347,25 @@ export default function SignupScreen() {
 
         if (error) {
           console.error('Supabase Apple Sign Up error:', error);
+          console.error('Error details:', {
+            message: error.message,
+            status: error.status,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          
+          // If identity token fails, try with user + email as fallback
+          if (credential.email && error.message?.includes('token')) {
+            console.log('🍎 Attempting email-based fallback...');
+            // This is just for debugging - remove in production
+            Alert.alert(
+              'Debug Info',
+              `Apple ID: ${credential.user}\nEmail: ${credential.email || 'Not provided'}\nError: ${error.message}`,
+              [{ text: 'OK' }]
+            );
+          }
+          
           throw error;
         }
 
