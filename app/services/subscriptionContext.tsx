@@ -55,11 +55,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   const checkSubscriptionStatus = async () => {
+    console.log('🔄 DEBUG: checkSubscriptionStatus called');
+    
     try {
       setIsLoading(true);
       
+      console.log('🔄 DEBUG: Getting user from Supabase...');
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        console.log('✅ DEBUG: User found:', user.id);
+        
         // Check database for subscription_tier first - this is the source of truth
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -70,9 +75,13 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         const now = new Date(); // Define now here for use throughout the function
         
         if (!profileError && profile) {
+          console.log('🔄 DEBUG: Profile found:', profile);
+          
           // CRITICAL: Check if user has active welcome bonus
           const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
           const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+          
+          console.log('🔄 DEBUG: Welcome bonus check:', { hasActiveWelcomeBonus, expires: welcomeBonusExpires });
           
           // CRITICAL FIX: Users with welcome bonus should ALWAYS be treated as Free tier
           if (hasActiveWelcomeBonus) {
@@ -96,8 +105,11 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         
         // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
         try {
+          console.log('🔄 DEBUG: Checking RevenueCat subscription...');
           await revenueCatService.initialize();
           const hasActive = await revenueCatService.hasActiveSubscription();
+          
+          console.log('🔄 DEBUG: RevenueCat active subscription:', hasActive);
           
           // Only sync with RevenueCat if user doesn't have active welcome bonus
           const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
@@ -116,10 +128,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           console.log('⚠️ RevenueCat check failed, using database status:', rcError);
           // Continue with database status
         }
+      } else {
+        console.log('❌ DEBUG: No user found, setting isPro to false');
+        setIsPro(false);
+        await AsyncStorage.setItem('subscriptionStatus', 'free');
       }
     } catch (error) {
-      console.error('Error checking subscription status:', error);
+      console.error('❌ DEBUG: Error checking subscription:', error);
+      console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
       setIsPro(false);
+      await AsyncStorage.setItem('subscriptionStatus', 'free');
     } finally {
       setIsLoading(false);
     }
@@ -147,11 +165,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         console.log('✅ DEBUG: Purchase completed successfully');
         
         // Immediately update local state
+        console.log('🔄 DEBUG: Setting isPro to true immediately...');
         setIsPro(true);
         await AsyncStorage.setItem('subscriptionStatus', 'pro');
+        console.log('✅ DEBUG: Local Pro status updated');
         
         // Force a full subscription status check to ensure everything is synced
+        console.log('🔄 DEBUG: Running full subscription status check...');
         await checkSubscriptionStatus();
+        console.log('✅ DEBUG: Full subscription check completed');
         
         return true;
       } else {

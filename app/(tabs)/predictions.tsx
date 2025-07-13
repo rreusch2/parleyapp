@@ -57,7 +57,7 @@ export default function PredictionsScreen() {
 
   useEffect(() => {
     loadPredictions();
-  }, []);
+  }, [isPro]); // Added isPro to dependencies to re-render when subscription changes
 
   const loadPredictions = async () => {
     setLoading(true);

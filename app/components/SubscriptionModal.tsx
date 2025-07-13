@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
+import { useSubscription } from '../services/subscriptionContext';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -34,7 +35,7 @@ import {
   Gem,
   Gift,
 } from 'lucide-react-native';
-import { useSubscription } from '../services/subscriptionContext';
+import { supabase } from '../services/api/supabaseClient';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -52,7 +53,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly'); // Default to yearly (best value)
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
-  const { subscribeToPro } = useSubscription();
+  const { subscribeToPro, checkSubscriptionStatus } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -89,6 +90,30 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
       if (result.success) {
         console.log('✅ Purchase completed successfully!');
         
+        // CRITICAL FIX: Update subscription context immediately after purchase
+        console.log('🔄 Updating subscription context to Pro status...');
+        
+        // Update database to mark user as Pro
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            console.log('🔄 Updating user subscription_tier to Pro in database...');
+            await supabase
+              .from('profiles')
+              .update({ subscription_tier: 'pro' })
+              .eq('id', user.id);
+            console.log('✅ Database updated with Pro status');
+          }
+        } catch (dbError) {
+          console.error('⚠️ Database update failed, but RevenueCat should sync:', dbError);
+        }
+        
+        // Use the subscription context hook to refresh status
+        await checkSubscriptionStatus();
+        
+        // Small delay to ensure context is fully updated
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Show success message
         Alert.alert(
           '🎉 Welcome to Pro!',
@@ -97,6 +122,13 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             text: 'Great!', 
             onPress: () => {
               onClose();
+              // Force app refresh by triggering re-render
+              console.log('✅ Pro subscription activated - UI should update to Pro layout');
+              
+              // If parent provided onSubscribe callback, use it for additional actions
+              if (onSubscribe) {
+                onSubscribe(selectedPlan);
+              }
             }
           }]
         );
@@ -110,24 +142,33 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
         }
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Subscription error:', error);
+      console.error('❌ Error type:', typeof error);
+      console.error('❌ Error constructor:', error?.constructor?.name);
       
-      // Handle different error types
-      if (error instanceof Error) {
-        if (error.message.includes('cancelled') || error.message.includes('canceled')) {
-          // User cancelled - don't show error
+      // More robust error handling
+      let errorMessage = 'Unable to process purchase. Please try again.';
+      
+      if (error && typeof error === 'object') {
+        const errorStr = error.message || error.toString() || '';
+        
+        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
           console.log('ℹ️ User cancelled purchase');
-        } else if (error.message.includes('not available')) {
-          Alert.alert('Product Unavailable', 'This subscription is not available right now. Please try again later.');
-        } else if (error.message.includes('Network')) {
-          Alert.alert('Network Error', 'Please check your internet connection and try again.');
-        } else {
-          Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+          // Don't show error for cancellation
+          return;
+        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
+          errorMessage = 'This subscription is not available right now. Please try again later.';
+        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
+          errorMessage = 'Please check your internet connection and try again.';
+        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
+          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-      } else {
-        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
       }
+      
+      Alert.alert('Purchase Error', errorMessage);
     } finally {
       setLoading(false);
     }
