@@ -88,7 +88,7 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: `🎯 **What's good, brother!** Professor Lock here with the inside intel:\n\n• **Fire parlays** built with expert analysis 🎲\n• **Live web search** for breaking news and line moves 🌐\n• **Sharp money tracking** and **value hunts** 🔍\n• Today's **highest confidence locks** 🔒\n\nWhat play we making today? 🔥`,
+      text: `🎯 **What's good, legend!** Professor Lock here with the inside intel:\n\n• **Fire parlays** built with expert analysis 🎲\n• **Live web search** for breaking news and line moves 🌐\n• **Sharp money tracking** and **value hunts** 🔍\n• Today's **highest confidence locks** 🔒\n\nWhat play we making today? 🔥`,
       isUser: false,
       timestamp: new Date()
     }
@@ -134,7 +134,7 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
     setMessages([
       {
         id: '1',
-        text: `🎯 **What's good, brother!** Professor Lock here with the inside intel:\n\n• **Fire parlays** built with expert analysis 🎲\n• **Live web search** for breaking news and line moves 🌐\n• **Sharp money tracking** and **value hunts** 🔍\n• Today's **highest confidence locks** 🔒\n\nWhat play we making today? 🔥`,
+        text: `🎯 **What's good, legend!** Professor Lock here with the inside intel:\n\n• **Fire parlays** built with expert analysis 🎲\n• **Live web search** for breaking news and line moves 🌐\n• **Sharp money tracking** and **value hunts** 🔍\n• Today's **highest confidence locks** 🔒\n\nWhat play we making today? 🔥`,
         isUser: false,
         timestamp: new Date()
       }

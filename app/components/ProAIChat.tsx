@@ -534,9 +534,7 @@ export default function ProAIChat({
               setIsSearching(false);
               
               // Success haptic
-              if (Platform.OS === 'ios') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
+              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
               
               // Close the connection
               eventSource.close();
@@ -552,9 +550,7 @@ export default function ProAIChat({
               setIsSearching(false);
               
               // Error haptic
-              if (Platform.OS === 'ios') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              }
+              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
               
               eventSource.close();
               console.log('❌ SSE connection closed - error occurred');
@@ -878,9 +874,7 @@ export default function ProAIChat({
         >
           <TouchableOpacity 
             onPress={() => {
-              if (Platform.OS === 'ios') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
+              Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
               setShowAIChat(false);
             }} 
             style={styles.closeButton}
@@ -975,9 +969,7 @@ export default function ProAIChat({
                   key={index}
                   style={styles.quickActionButton}
                   onPress={() => {
-                    if (Platform.OS === 'ios') {
-                      Haptics.selectionAsync();
-                    }
+                    Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
                     setInputText(action.action);
                   }}
                 >
@@ -999,9 +991,7 @@ export default function ProAIChat({
                   key={index}
                   style={[styles.quickActionButton, styles.parlayButton]}
                   onPress={() => {
-                    if (Platform.OS === 'ios') {
-                      Haptics.selectionAsync();
-                    }
+                    Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
                     setInputText(option.action);
                   }}
                 >
@@ -1073,7 +1063,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     borderBottomWidth: 1,
@@ -1092,6 +1082,7 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
   headerTitleContainer: {
     flexDirection: 'row',
@@ -1108,10 +1099,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#00E5FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 6,
   },
   proBadgeText: {
     fontSize: 11,
