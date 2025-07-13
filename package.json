@@ -34,8 +34,8 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
-    "react-native-iap": "^12.16.4",
     "react-native-markdown-display": "^7.0.2",
+    "react-native-purchases": "^8.11.9",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
@@ -48,6 +48,7 @@
     "@babel/core": "^7.20.0",
     "@babel/preset-env": "^7.28.0",
     "@types/react": "~19.0.10",
+    "babel-plugin-module-resolver": "^5.0.2",
     "metro-react-native-babel-transformer": "^0.77.0",
     "typescript": "~5.8.3"
   },

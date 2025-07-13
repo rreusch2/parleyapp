@@ -19,6 +19,7 @@ import { Mail, Lock, User, CheckSquare, Square, UserPlus } from 'lucide-react-na
 import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
+import { useSubscription } from '@/app/services/subscriptionContext';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -30,7 +31,9 @@ export default function SignupScreen() {
   const [showSpinningWheel, setShowSpinningWheel] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [subscriptionSuccessful, setSubscriptionSuccessful] = useState(false);
   const router = useRouter();
+  const { checkSubscriptionStatus } = useSubscription();
 
   const handleSpinningWheelComplete = async (picks: number) => {
     console.log(`🎊 User won ${picks} picks! Activating welcome bonus...`);
@@ -91,51 +94,48 @@ export default function SignupScreen() {
       console.log(`🚀 User attempting to subscribe to ${planId} plan`);
       setLoading(true);
 
-      // Import payment service dynamically to avoid loading issues
-      const { applePaymentService } = await import('@/app/services/paymentService');
+      // Use RevenueCat for purchase processing
+      const revenueCatService = (await import('@/app/services/revenueCatService')).default;
       
-      // For demo purposes, we'll simulate a successful subscription
-      // In production, this would process the actual payment
-      if (__DEV__) {
-        console.log('🔧 Development mode: simulating subscription success');
+      console.log('🔄 Processing subscription with RevenueCat...');
+      
+      const result = await revenueCatService.purchasePackage(planId);
+      
+      if (result.success) {
+        console.log('✅ Pro subscription successful! Bypassing welcome wheel...');
         
-        // Update user profile to Pro status in Supabase
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ 
-              subscription_tier: 'pro', // Set to 'pro' for all paid plans
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', userData.user.id);
-
-          if (updateError) {
-            console.error('❌ Failed to update user profile:', updateError);
-            throw new Error('Failed to update subscription status');
-          }
-        }
-
+        // Mark subscription as successful to prevent welcome wheel
+        setSubscriptionSuccessful(true);
+        
+        // Close subscription modal immediately
+        setShowSubscriptionModal(false);
+        
+        // Show success message and go directly to Pro experience
         Alert.alert(
           '🎉 Welcome to Pro!',
           `You've successfully subscribed to ${planId} plan. Welcome to the premium experience!`,
           [{ 
             text: 'Let\'s Go!', 
-            onPress: () => {
-              setShowSubscriptionModal(false);
-              router.replace('/(tabs)');
+            onPress: async () => {
+              console.log('🚀 Refreshing subscription status and navigating to Pro experience...');
+              
+              // Refresh subscription status to ensure Pro UI shows
+              try {
+                await checkSubscriptionStatus();
+                console.log('✅ Subscription status refreshed for Pro user');
+              } catch (error) {
+                console.warn('⚠️ Failed to refresh subscription status:', error);
+              }
+              
+              // Small delay to ensure everything is updated
+              setTimeout(() => {
+                router.replace('/(tabs)');
+              }, 500);
             }
           }]
         );
       } else {
-        // Production: Process actual payment
-        const { data: userData } = await supabase.auth.getUser();
-        const result = await applePaymentService.purchaseSubscription(planId, userData.user?.id || '');
-        
-        if (result.success) {
-          setShowSubscriptionModal(false);
-          router.replace('/(tabs)');
-        } else {
+        if (result.error !== 'cancelled') {
           throw new Error(result.error || 'Subscription failed');
         }
       }
@@ -152,14 +152,22 @@ export default function SignupScreen() {
   };
 
   const handleContinueFree = () => {
-    console.log('🎯 User chose to continue with free account');
+    console.log('🎯 User chose to continue with free account, showing welcome wheel...');
     setShowSubscriptionModal(false);
     setShowSpinningWheel(true);
   };
 
   const handleSubscriptionModalClose = () => {
+    console.log('🔄 Subscription modal closing...');
     setShowSubscriptionModal(false);
-    setShowSpinningWheel(true);
+    
+    // Only show welcome wheel if subscription wasn't successful
+    if (!subscriptionSuccessful) {
+      console.log('🎯 No subscription detected, showing welcome wheel for free experience');
+      setShowSpinningWheel(true);
+    } else {
+      console.log('✅ Subscription was successful, skipping welcome wheel');
+    }
   };
 
   const handleSignup = async () => {

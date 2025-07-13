@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "46",
+      buildNumber: "60",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
@@ -55,13 +55,6 @@ module.exports = {
       "expo-router", 
       "expo-font", 
       "expo-notifications", 
-      [
-        "react-native-iap",
-        {
-          enableAutoConfiguration: true,
-          enableBitcode: false
-        }
-      ],
       "expo-web-browser"
     ],
     experiments: {
@@ -71,6 +64,7 @@ module.exports = {
       apiUrl: process.env.EXPO_PUBLIC_BACKEND_URL, // ← Changed from EXPO_PUBLIC_API_URL
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      revenueCatApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"
       }

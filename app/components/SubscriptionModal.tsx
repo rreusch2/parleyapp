@@ -11,7 +11,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import inAppPurchaseService from '../services/inAppPurchases';
+import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -41,7 +41,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface SubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe?: (planId: 'monthly' | 'yearly' | 'lifetime') => Promise<void>;
+  onSubscribe?: (planId: SubscriptionPlan) => Promise<void>;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
@@ -49,9 +49,9 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onClose,
   onSubscribe,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly'); // Default to yearly (best value)
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly'); // Default to yearly (best value)
   const [loading, setLoading] = useState(false);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [packages, setPackages] = useState<any[]>([]);
   const { subscribeToPro } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
@@ -63,12 +63,12 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
   const initializeIAP = async () => {
     try {
-      await inAppPurchaseService.initialize();
-      const subs = inAppPurchaseService.getAllSubscriptions();
-      setSubscriptions(subs);
-      console.log('📱 IAP initialized, loaded subscriptions:', subs.length);
+      await revenueCatService.initialize();
+      const availablePackages = revenueCatService.getAvailablePackages();
+      setPackages(availablePackages);
+      console.log('📱 RevenueCat initialized, loaded packages:', availablePackages.length);
     } catch (error) {
-      console.error('❌ Failed to initialize IAP:', error);
+      console.error('❌ Failed to initialize RevenueCat:', error);
       Alert.alert('Error', 'Unable to load subscription options. Please try again.');
     }
   };
@@ -77,28 +77,38 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     try {
       setLoading(true);
       
-      const productId = getProductId(selectedPlan);
+      console.log('🔄 Starting subscription purchase for:', selectedPlan);
       
-      if (!productId) {
-        Alert.alert('Error', 'Product not available');
-        return;
-      }
-
-      console.log('🔄 Starting subscription purchase for:', productId);
+      // Initialize RevenueCat service first
+      await revenueCatService.initialize();
       
-      // Initialize IAP service first
-      await inAppPurchaseService.initialize();
-      
-      // Call the IAP service to start the purchase process
+      // Call RevenueCat to start the purchase process
       // This will trigger the Apple purchase dialog
-      await inAppPurchaseService.purchaseSubscription(productId, (purchase) => {
-        // Success callback - close the modal
-        onClose();
-      });
+      const result = await revenueCatService.purchasePackage(selectedPlan);
       
-      // If we reach here, the purchase dialog was shown
-      // The actual purchase completion is handled by the IAP service listeners
-      console.log('✅ Purchase dialog shown successfully');
+      if (result.success) {
+        console.log('✅ Purchase completed successfully!');
+        
+        // Show success message
+        Alert.alert(
+          '🎉 Welcome to Pro!',
+          `You've successfully subscribed to the ${selectedPlan} plan. Welcome to the premium experience!`,
+          [{ 
+            text: 'Great!', 
+            onPress: () => {
+              onClose();
+            }
+          }]
+        );
+      } else {
+        // Handle purchase failure
+        if (result.error === 'cancelled') {
+          console.log('ℹ️ User cancelled purchase');
+          // Don't show error for cancellation
+        } else {
+          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
+        }
+      }
       
     } catch (error) {
       console.error('❌ Subscription error:', error);
@@ -125,21 +135,22 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
 
 
-  const getProductId = (plan: 'monthly' | 'yearly' | 'lifetime'): string | null => {
-    const productIds = {
-      monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
-      yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly',
-      lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
-    };
-    return productIds[plan];
-  };
-
   const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
-    const productId = getProductId(plan);
-    if (!productId) return '$9.99'; // fallback
+    // Use RevenueCat packages to get pricing
+    const packageForPlan = packages.find(pkg => {
+      const productId = pkg.product.identifier;
+      return (
+        (plan === 'monthly' && productId.includes('monthly')) ||
+        (plan === 'yearly' && productId.includes('yearly')) ||
+        (plan === 'lifetime' && productId.includes('lifetime'))
+      );
+    });
     
-    const subscription = subscriptions.find(sub => sub.productId === productId);
-    return subscription?.localizedPrice || '$9.99'; // fallback
+    return packageForPlan?.product.priceString || (
+      plan === 'monthly' ? '$24.99' : 
+      plan === 'yearly' ? '$199.99' : 
+      '$349.99'
+    );
   };
 
   // Open Terms of Service (Apple required functional link)

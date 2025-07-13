@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import inAppPurchaseService from './inAppPurchases';
+import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
@@ -81,10 +81,15 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           return;
         }
         
-        // Initialize IAP service and check subscription status via backend
-        await inAppPurchaseService.initialize();
-        // Note: Subscription validation now happens via purchase verification
-        // The backend will update user status when purchases are verified
+        // Initialize RevenueCat service and check subscription status
+        await revenueCatService.initialize();
+        // Check RevenueCat subscription status
+        const hasActiveSubscription = await revenueCatService.hasActiveSubscription();
+        if (hasActiveSubscription) {
+          setIsPro(true);
+          await AsyncStorage.setItem('subscriptionStatus', 'pro');
+          console.log('✅ RevenueCat confirms active subscription');
+        }
         
         // Default to current isPro state for storage
         await AsyncStorage.setItem('subscriptionStatus', isPro ? 'pro' : 'free');
@@ -97,7 +102,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
   
-  const subscribeToPro = async (planId: 'monthly' | 'yearly' | 'lifetime'): Promise<boolean> => {
+  const subscribeToPro = async (planId: SubscriptionPlan): Promise<boolean> => {
     console.log('🔥 DEBUG: subscribeToPro called with planId:', planId);
     
     try {
@@ -109,33 +114,22 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       console.log('✅ DEBUG: User found:', user.id);
 
-      // Get the product ID for the plan
-      const productIds = {
-        monthly: Platform.OS === 'ios' ? 'com.parleyapp.premium_monthly' : 'premium_monthly',
-        yearly: Platform.OS === 'ios' ? 'com.parleyapp.premiumyearly' : 'premium_yearly', 
-        lifetime: Platform.OS === 'ios' ? 'com.parleyapp.premium_lifetime' : 'premium_lifetime',
-      };
+      console.log('🔥 DEBUG: Initializing RevenueCat service...');
+      await revenueCatService.initialize();
       
-      const productId = productIds[planId];
-      console.log('🔥 DEBUG: Platform:', Platform.OS);
-      console.log('🔥 DEBUG: Selected productId:', productId);
+      console.log('🔥 DEBUG: Calling purchasePackage...');
+      const result = await revenueCatService.purchasePackage(planId);
       
-      if (!productId) {
-        console.error('Invalid plan ID:', planId);
-        Alert.alert('Error', 'Invalid subscription plan');
+      if (result.success) {
+        console.log('✅ DEBUG: Purchase completed successfully');
+        return true;
+      } else {
+        console.error('❌ DEBUG: Purchase failed:', result.error);
+        if (result.error !== 'cancelled') {
+          Alert.alert('Purchase Error', result.error || 'Failed to complete purchase');
+        }
         return false;
       }
-
-      console.log('🔥 DEBUG: Initializing IAP service...');
-      await inAppPurchaseService.initialize();
-      
-      console.log('🔥 DEBUG: Calling purchaseSubscription...');
-      await inAppPurchaseService.purchaseSubscription(productId);
-      
-      console.log('✅ DEBUG: purchaseSubscription call completed');
-      // Success handling is done in the purchase listeners
-      // The backend verification will update the user's pro status
-      return true;
     } catch (error) {
       console.error('❌ DEBUG: Error in subscribeToPro:', error);
       console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
@@ -149,9 +143,11 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      await inAppPurchaseService.initialize();
-      await inAppPurchaseService.restorePurchases();
-      // Restore success will be handled by purchase listeners
+      await revenueCatService.initialize();
+      await revenueCatService.restorePurchases();
+      
+      // Refresh subscription status after restore
+      await checkSubscriptionStatus();
     } catch (error) {
       console.error('Error restoring purchases:', error);
       throw error;
