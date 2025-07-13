@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "72",
+      buildNumber: "77",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
@@ -24,6 +24,7 @@ module.exports = {
         // Only include permissions that your app actually uses
         "ITSAppUsesNonExemptEncryption": false
       },
+      usesAppleSignIn: true
 
     },
     android: {
@@ -55,7 +56,8 @@ module.exports = {
       "expo-router", 
       "expo-font", 
       "expo-notifications", 
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     experiments: {
       typedRoutes: true

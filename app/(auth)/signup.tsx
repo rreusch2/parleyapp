@@ -12,7 +12,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lucide-react-native';
@@ -20,6 +20,7 @@ import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
 import { useSubscription } from '@/app/services/subscriptionContext';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -32,6 +33,7 @@ export default function SignupScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
+  const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
   
   // Focus states for better UX
   const [usernameFocused, setUsernameFocused] = useState(false);
@@ -44,7 +46,22 @@ export default function SignupScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { checkSubscriptionStatus } = useSubscription();
+
+  // Check if Apple Auth is available on mount
+  React.useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+    
+    // Check if user was redirected from login after Apple Sign In
+    if (params.appleSignInComplete === 'true' && params.userId) {
+      console.log('User redirected from Apple Sign In, showing subscription modal');
+      // Automatically agree to terms since they already authenticated
+      setAgreeToTerms(true);
+      // Show subscription modal immediately
+      setShowSubscriptionModal(true);
+    }
+  }, [params]);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
   const handleUsernameChange = useCallback((text: string) => {
@@ -289,6 +306,66 @@ export default function SignupScreen() {
     }
   };
 
+  const handleAppleSignUp = async () => {
+    if (!agreeToTerms) {
+      Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: credential.authorizationCode ? 'nonce' : undefined,
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          // For new sign ups, Apple provides the name and email
+          const fullName = credential.fullName;
+          const displayName = [fullName?.givenName, fullName?.familyName]
+            .filter(Boolean)
+            .join(' ') || credential.email?.split('@')[0] || 'AppleUser';
+
+          // Update the user's profile with their name
+          await supabase
+            .from('profiles')
+            .update({
+              username: displayName,
+              email: credential.email || data.user.email,
+            })
+            .eq('id', data.user.id);
+
+          console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
+          
+          // Show the subscription modal first, then spinning wheel or main app
+          setShowSubscriptionModal(true);
+        }
+      }
+    } catch (error: any) {
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled the sign-in
+        console.log('User canceled Apple Sign Up');
+      } else {
+        Alert.alert('Sign Up Error', 'Failed to sign up with Apple. Please try again.');
+        console.error('Apple Sign Up error:', error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSignup = async () => {
     console.log('🔥 Signup button clicked!');
     console.log('Form data:', { username, email, password: password ? '***' : '', confirmPassword: confirmPassword ? '***' : '', agreeToTerms });
@@ -406,6 +483,25 @@ export default function SignupScreen() {
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
 
             <View style={styles.form}>
+              {/* Apple Sign Up Button - Show first for better UX */}
+              {isAppleAuthAvailable && (
+                <View style={styles.appleButtonContainer}>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={30}
+                    style={styles.appleButton}
+                    onPress={handleAppleSignUp}
+                  />
+                  
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                </View>
+              )}
+
               {/* Username Input */}
               <View style={styles.inputContainer}>
                 <View style={usernameInputWrapperStyle}>
@@ -759,5 +855,33 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  appleButtonContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  appleButton: {
+    width: '100%',
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 30,
+    marginBottom: 15,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#e0e0e0',
+    fontSize: 16,
   },
 }); 

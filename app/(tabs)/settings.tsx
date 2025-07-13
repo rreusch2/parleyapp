@@ -67,12 +67,19 @@ export default function SettingsScreen() {
   
   // Modal states
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
+  const [showSetUsernameModal, setShowSetUsernameModal] = useState(false);
   const [showHelpCenterModal, setShowHelpCenterModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Auth state - check if user has Apple auth and/or password
+  const [hasAppleAuth, setHasAppleAuth] = useState(false);
+  const [hasPasswordAuth, setHasPasswordAuth] = useState(false);
+  const [hasUsername, setHasUsername] = useState(false);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -84,6 +91,10 @@ export default function SettingsScreen() {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Set username state
+  const [newUsername, setNewUsername] = useState('');
+  const [setUsernameLoading, setSetUsernameLoading] = useState(false);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -107,6 +118,7 @@ export default function SettingsScreen() {
     fetchUserProfile();
     checkAdminStatus();
     loadNotificationSettings();
+    checkAuthMethods();
 
     // Set up keyboard listeners
     const keyboardWillShowListener = Platform.OS === 'ios' ?
@@ -131,6 +143,35 @@ export default function SettingsScreen() {
       keyboardWillHideListener.remove();
     };
   }, []);
+
+  // Check what auth methods the user has
+  const checkAuthMethods = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check app_metadata for provider info
+      const provider = user.app_metadata?.provider || 'email';
+      const providers = user.app_metadata?.providers || [provider];
+      
+      // Apple users will have 'apple' in their providers array or as their main provider
+      setHasAppleAuth(providers.includes('apple') || provider === 'apple');
+      
+      // If they have Apple auth, check if they also have a password set
+      // We'll assume they don't have a password if they only have Apple auth
+      // and no other providers
+      if (providers.includes('apple') && providers.length === 1) {
+        setHasPasswordAuth(false);
+      } else {
+        // They either don't have Apple auth or have multiple auth methods
+        setHasPasswordAuth(true);
+      }
+    } catch (error) {
+      console.error('Error checking auth methods:', error);
+      // Assume password auth if we can't check
+      setHasPasswordAuth(true);
+    }
+  };
 
   const loadNotificationSettings = async () => {
     try {
@@ -195,6 +236,7 @@ export default function SettingsScreen() {
             subscription_tier: 'free',
             created_at: user.created_at
           });
+          setHasUsername(!!user.user_metadata?.username);
         } else {
           setUserProfile({
             id: profile.id,
@@ -204,12 +246,140 @@ export default function SettingsScreen() {
             subscription_tier: profile.subscription_tier || 'free',
             created_at: profile.created_at
           });
+          setHasUsername(!!profile.username && profile.username.trim() !== '');
         }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    // Check for password requirements (at least 8 chars)
+    if (newPassword.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+
+    try {
+      setChangePasswordLoading(true);
+      Keyboard.dismiss();
+
+      // For Apple users setting a password for the first time
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        Alert.alert('Error', updateError.message);
+        return;
+      }
+
+      Alert.alert(
+        'Success',
+        'Password set successfully! You can now sign in with your email and password.',
+        [{ 
+          text: 'OK', 
+          onPress: () => {
+            setShowSetPasswordModal(false);
+            setHasPasswordAuth(true);
+            // Clear form
+            setNewPassword('');
+            setConfirmPassword('');
+          }
+        }]
+      );
+    } catch (error: any) {
+      console.error('Set password error:', error);
+      Alert.alert('Error', error.message || 'Failed to set password');
+    } finally {
+      setChangePasswordLoading(false);
+    }
+  };
+
+  const handleSetUsername = async () => {
+    if (!newUsername || newUsername.trim() === '') {
+      Alert.alert('Error', 'Please enter a username');
+      return;
+    }
+
+    if (newUsername.length < 3) {
+      Alert.alert('Error', 'Username must be at least 3 characters long');
+      return;
+    }
+
+    // Clean username (alphanumeric and underscores only)
+    const cleanUsername = newUsername.replace(/[^a-zA-Z0-9_]/g, '');
+    if (cleanUsername !== newUsername) {
+      Alert.alert('Error', 'Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+    try {
+      setSetUsernameLoading(true);
+      Keyboard.dismiss();
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to set username');
+        return;
+      }
+
+      // Update username in profiles table
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          username: cleanUsername,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        if (updateError.message.includes('duplicate') || updateError.message.includes('unique')) {
+          Alert.alert('Error', 'This username is already taken. Please choose another.');
+        } else {
+          Alert.alert('Error', updateError.message);
+        }
+        return;
+      }
+
+      Alert.alert(
+        'Success',
+        'Username set successfully!',
+        [{ 
+          text: 'OK', 
+          onPress: () => {
+            setShowSetUsernameModal(false);
+            setHasUsername(true);
+            // Update local profile
+            if (userProfile) {
+              setUserProfile({
+                ...userProfile,
+                username: cleanUsername
+              });
+            }
+            // Clear form
+            setNewUsername('');
+          }
+        }]
+      );
+    } catch (error: any) {
+      console.error('Set username error:', error);
+      Alert.alert('Error', error.message || 'Failed to set username');
+    } finally {
+      setSetUsernameLoading(false);
     }
   };
 
@@ -488,6 +658,14 @@ export default function SettingsScreen() {
         setShowChangePasswordModal(true);
         break;
       
+      case 'setPassword':
+        setShowSetPasswordModal(true);
+        break;
+      
+      case 'setUsername':
+        setShowSetUsernameModal(true);
+        break;
+      
       case 'help':
         setShowHelpCenterModal(true);
         break;
@@ -516,8 +694,12 @@ export default function SettingsScreen() {
 
   // Get user display name and initials
   const getUserDisplayName = () => {
-    if (userProfile?.username) return userProfile.username;
-    if (userProfile?.email) return userProfile.email.split('@')[0];
+    if (userProfile?.username && userProfile.username.trim() !== '') {
+      return userProfile.username;
+    }
+    if (userProfile?.email) {
+      return userProfile.email.split('@')[0];
+    }
     return 'User';
   };
 
@@ -598,7 +780,28 @@ export default function SettingsScreen() {
       icon: Shield,
       iconColor: '#10B981',
       items: [
-        { id: 'password', title: 'Change Password', type: 'link' },
+        // Conditionally show Set Username if user doesn't have one
+        ...(!hasUsername ? [{
+          id: 'setUsername',
+          title: 'Set Username',
+          type: 'link',
+          badge: 'NEW',
+          badgeColor: '#00E5FF'
+        }] : []),
+        
+        // Show either Set Password (for Apple users) or Change Password
+        ...(hasAppleAuth && !hasPasswordAuth ? [{
+          id: 'setPassword',
+          title: 'Set Password',
+          type: 'link',
+          badge: 'OPTIONAL',
+          badgeColor: '#F59E0B'
+        }] : (hasPasswordAuth ? [{
+          id: 'password',
+          title: 'Change Password',
+          type: 'link'
+        }] : [])),
+        
         { 
           id: 'biometricLogin', 
           title: 'Biometric Login', 
@@ -968,6 +1171,168 @@ export default function SettingsScreen() {
                   setConfirmPassword('');
                 }}
                 disabled={changePasswordLoading}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Set Password Modal (for Apple Sign In users) */}
+      <Modal
+        visible={showSetPasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowSetPasswordModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1} 
+            onPress={() => Keyboard.dismiss()}
+          >
+            <View 
+              style={[styles.modalContent, { marginBottom: keyboardHeight > 0 ? keyboardHeight * 0.5 : 0 }]}
+            >
+              <Text style={styles.modalTitle}>Set Password</Text>
+              <Text style={styles.modalSubtitle}>
+                Create a password to sign in with email in addition to Apple Sign In
+              </Text>
+              
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="New Password"
+                  placeholderTextColor="#888"
+                  secureTextEntry={!showNewPassword}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? 
+                    <Eye size={20} color="#666" /> : 
+                    <EyeOff size={20} color="#666" />}
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#888"
+                  secureTextEntry={!showConfirmPassword}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.passwordToggle}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? 
+                    <Eye size={20} color="#666" /> : 
+                    <EyeOff size={20} color="#666" />}
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.passwordRequirements}>
+                Password must be at least 8 characters long.
+              </Text>
+              
+              <TouchableOpacity
+                style={styles.changePasswordButton}
+                onPress={handleSetPassword}
+                disabled={changePasswordLoading}
+              >
+                <Text style={styles.changePasswordText}>
+                  {changePasswordLoading ? 'Setting Password...' : 'Set Password'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowSetPasswordModal(false);
+                  // Clear form data when closing
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                disabled={changePasswordLoading}
+              >
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Set Username Modal */}
+      <Modal
+        visible={showSetUsernameModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowSetUsernameModal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1} 
+            onPress={() => Keyboard.dismiss()}
+          >
+            <View 
+              style={[styles.modalContent, { marginBottom: keyboardHeight > 0 ? keyboardHeight * 0.5 : 0 }]}
+            >
+              <Text style={styles.modalTitle}>Set Username</Text>
+              <Text style={styles.modalSubtitle}>
+                Choose a username for your profile
+              </Text>
+              
+              <TextInput
+                style={styles.usernameInput}
+                placeholder="Enter username"
+                placeholderTextColor="#888"
+                value={newUsername}
+                onChangeText={(text) => {
+                  // Allow only alphanumeric and underscores
+                  const cleanText = text.replace(/[^a-zA-Z0-9_]/g, '');
+                  setNewUsername(cleanText);
+                }}
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              
+              <Text style={styles.usernameRequirements}>
+                Username must be 3-20 characters, letters, numbers, and underscores only
+              </Text>
+              
+              <TouchableOpacity
+                style={styles.changePasswordButton}
+                onPress={handleSetUsername}
+                disabled={setUsernameLoading}
+              >
+                <Text style={styles.changePasswordText}>
+                  {setUsernameLoading ? 'Setting Username...' : 'Set Username'}
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowSetUsernameModal(false);
+                  // Clear form data when closing
+                  setNewUsername('');
+                }}
+                disabled={setUsernameLoading}
               >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
@@ -1731,6 +2096,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
   modalOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1777,6 +2148,13 @@ const styles = StyleSheet.create({
     marginTop: 15,
     color: '#FFFFFF',
   },
+  usernameInput: {
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 15,
+    marginTop: 15,
+    color: '#FFFFFF',
+  },
   passwordInputContainer: {
     flexDirection: 'row',
     backgroundColor: '#374151',
@@ -1793,6 +2171,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   passwordRequirements: {
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#9CA3AF',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  usernameRequirements: {
     marginTop: 12,
     marginBottom: 8,
     color: '#9CA3AF',

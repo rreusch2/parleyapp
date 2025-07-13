@@ -17,6 +17,7 @@ import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -25,7 +26,13 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
   const router = useRouter();
+
+  // Check if Apple Auth is available on mount
+  React.useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+  }, []);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
   const handleEmailChange = useCallback((text: string) => {
@@ -88,6 +95,80 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    try {
+      setLoading(true);
+      
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: credential.authorizationCode ? 'nonce' : undefined, // You might want to implement proper nonce handling
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          // Check if this is a new user (first time sign in with Apple)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username, created_at')
+            .eq('id', data.user.id)
+            .single();
+
+          const isNewUser = !profile || !profile.username || 
+            (profile.created_at && new Date(profile.created_at) > new Date(Date.now() - 60000)); // Created within last minute
+
+          if (isNewUser) {
+            // New user - update their profile with Apple-provided info
+            const fullName = credential.fullName;
+            const displayName = [fullName?.givenName, fullName?.familyName]
+              .filter(Boolean)
+              .join(' ') || credential.email?.split('@')[0] || 'User';
+
+            await supabase
+              .from('profiles')
+              .update({
+                username: displayName,
+                email: credential.email || data.user.email,
+              })
+              .eq('id', data.user.id);
+
+            // Redirect new users to signup page to go through subscription flow
+            // Pass a flag to indicate they're already authenticated
+            router.replace({
+              pathname: '/signup',
+              params: { 
+                appleSignInComplete: 'true',
+                userId: data.user.id 
+              }
+            });
+          } else {
+            // Existing user - go to main app
+            router.replace('/(tabs)');
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        // User canceled the sign-in
+        console.log('User canceled Apple Sign In');
+      } else {
+        Alert.alert('Sign In Error', 'Failed to sign in with Apple. Please try again.');
+        console.error('Apple Sign In error:', error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#1a2a6c', '#b21f1f']}
@@ -109,6 +190,25 @@ export default function LoginScreen() {
               <Text style={styles.subtitle}>Sign in to continue your journey</Text>
 
               <View style={styles.form}>
+                {/* Apple Sign In Button - Show first for better UX */}
+                {isAppleAuthAvailable && (
+                  <View style={styles.appleButtonContainer}>
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                      cornerRadius={30}
+                      style={styles.appleButton}
+                      onPress={handleAppleSignIn}
+                    />
+                    
+                    <View style={styles.divider}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>OR</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
+                  </View>
+                )}
+
                 {/* Email Input */}
                 <View style={styles.inputContainer}>
                   <View style={emailInputWrapperStyle}>
@@ -320,5 +420,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
+  },
+  appleButtonContainer: {
+    marginBottom: 20,
+  },
+  appleButton: {
+    width: '100%',
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 30,
+    marginTop: 10,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    paddingHorizontal: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e0e0e0',
+  },
+  dividerText: {
+    color: '#e0e0e0',
+    fontSize: 16,
+    marginHorizontal: 10,
   },
 }); 

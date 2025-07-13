@@ -23,6 +23,9 @@ export default function LandingPage() {
   }));
   
   useEffect(() => {
+    // Check for existing session first
+    checkSession();
+    
     // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -71,6 +74,20 @@ export default function LandingPage() {
       animateParticle(particle);
     });
   }, []);
+  
+  // Check if user has an active session
+  const checkSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // User is already logged in, redirect to main app
+        router.replace('/(tabs)');
+      }
+    } catch (error) {
+      console.error('Error checking session:', error);
+      // Continue showing landing page if there's an error
+    }
+  };
   
   const animateParticle = (particle) => {
     const newX = Math.random() * Dimensions.get('window').width;
