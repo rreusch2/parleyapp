@@ -288,17 +288,15 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                       <Text style={styles.planName}>Yearly Pro</Text>
                       <View style={styles.yearlyPricing}>
                         <View style={styles.priceContainer}>
-                        <Text style={styles.originalPriceText}>$399.98</Text>
-                        <Text style={styles.planPrice}>$199.99</Text>
-                        <View style={styles.discountBadge}>
-                          <Text style={styles.discountText}>50% OFF</Text>
+                          <Text style={styles.planPrice}>$199.99</Text>
+                          <Text style={styles.planPeriod}>per year</Text>
                         </View>
-                      </View>
                         <View style={styles.savingsBadge}>
-                          <Text style={styles.savingsText}>Save 53%</Text>
+                          <Text style={styles.savingsText}>Save 50%</Text>
                         </View>
                       </View>
-                      <Text style={styles.planPeriod}>$16.67/month • billed annually</Text>
+                      <Text style={styles.billingDetails}>$16.67/month • billed annually</Text>
+                      <Text style={styles.originalPriceText}>Regular price: $399.98</Text>
                     </View>
                     {selectedPlan === 'yearly' && (
                       <View style={styles.selectedIndicator}>
@@ -329,14 +327,11 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>Monthly Pro</Text>
                       <View style={styles.priceContainer}>
-                        <Text style={styles.originalPriceText}>$49.98</Text>
                         <Text style={styles.planPrice}>$24.99</Text>
-                        <View style={styles.discountBadge}>
-                          <Text style={styles.discountText}>50% OFF</Text>
-                        </View>
+                        <Text style={styles.planPeriod}>per month</Text>
                       </View>
-                      <Text style={styles.planPeriod}>per month</Text>
-                      <Text style={styles.dailyPrice}>($0.83 / day)</Text>
+                      <Text style={styles.billingDetails}>$0.83 per day</Text>
+                      <Text style={styles.originalPriceText}>Regular price: $49.98 (Save 50%)</Text>
                     </View>
                     {selectedPlan === 'monthly' && (
                       <View style={styles.selectedIndicator}>
@@ -375,13 +370,10 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                         <Infinity size={18} color="#F59E0B" style={{ marginLeft: 8 }} />
                       </View>
                       <View style={styles.priceContainer}>
-                        <Text style={styles.originalPriceText}>$699.98</Text>
                         <Text style={styles.planPrice}>$349.99</Text>
-                        <View style={styles.discountBadge}>
-                          <Text style={styles.discountText}>50% OFF</Text>
-                        </View>
+                        <Text style={styles.planPeriod}>one-time payment</Text>
                       </View>
-                      <Text style={styles.planPeriod}>one-time payment</Text>
+                      <Text style={styles.originalPriceText}>Regular price: $699.98 (Save 50%)</Text>
                     </View>
                     {selectedPlan === 'lifetime' && (
                       <View style={styles.selectedIndicator}>
@@ -427,7 +419,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               <Text style={styles.subscriptionInfoTitle}>Subscription Details</Text>
               <Text style={styles.subscriptionInfoText}>
                 Monthly Pro: $24.99/month, auto-renewable{"\n"}
-                Yearly Pro: $149.99/year, auto-renewable{"\n"}
+                Yearly Pro: $199.99/year, auto-renewable{"\n"}
                 Lifetime Pro: $349.99 one-time payment
               </Text>
               
@@ -479,8 +471,17 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
             {/* Continue Free Button */}
             <TouchableOpacity
               style={styles.freeButton}
-              onPress={onContinueFree}
+              onPress={() => {
+                console.log('🎯 Try Free Account button pressed');
+                if (onContinueFree) {
+                  console.log('🎯 Calling onContinueFree callback');
+                  onContinueFree();
+                } else {
+                  console.error('❌ onContinueFree callback is missing!');
+                }
+              }}
               disabled={loading}
+              activeOpacity={0.7}
             >
               <View style={styles.freeButtonContent}>
                 <Gift size={20} color="#94A3B8" />
@@ -723,46 +724,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   planPrice: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#FFFFFF', // Changed to white for better contrast
+    color: '#FFFFFF',
     letterSpacing: 0.5,
+    textAlign: 'left',
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Removed justifyContent: 'center' to align left
-    marginTop: 10,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    marginBottom: 4,
   },
   originalPriceText: {
-    fontSize: 20,
-    color: '#E2E8F0', // Slightly lighter grey for better contrast
-    textDecorationLine: 'line-through',
-    marginRight: 8,
-    fontWeight: '600',
-  },
-  discountBadge: {
-    backgroundColor: '#FFD700', // Gold color for discount
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  discountText: {
-    color: Colors.light.background,
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '400',
   },
   planPeriod: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#E2E8F0',
-    textAlign: 'left', // Align to left
-  },
-  dailyPrice: {
-    fontSize: 12,
-    color: '#A0AEC0',
-    textAlign: 'left',
+    fontWeight: '600',
     marginTop: 2,
+  },
+  billingDetails: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '400',
   },
   yearlyPricing: {
     flexDirection: 'row',

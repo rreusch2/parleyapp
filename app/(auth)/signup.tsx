@@ -291,18 +291,49 @@ export default function SignupScreen() {
 
   const handleContinueFree = () => {
     console.log('🎯 User chose to continue with free account');
-    setShowSubscriptionModal(false);
-    setShowSpinningWheel(true);
+    console.log('🎯 Current state - showSubscriptionModal:', showSubscriptionModal, 'showSpinningWheel:', showSpinningWheel);
+    
+    try {
+      setShowSubscriptionModal(false);
+      console.log('🎯 Subscription modal closed, showing spinning wheel...');
+      
+      // Add a small delay to ensure modal closes properly before showing spinning wheel
+      setTimeout(() => {
+        setShowSpinningWheel(true);
+        console.log('🎯 Spinning wheel should now be visible');
+      }, 100);
+    } catch (error) {
+      console.error('❌ Error in handleContinueFree:', error);
+      // Fallback: navigate directly to main app if there's an issue
+      router.replace('/(tabs)');
+    }
   };
 
   const handleSubscriptionModalClose = () => {
-    // Only show spinning wheel if user hasn't subscribed to Pro
-    if (!hasSubscribedToPro) {
-      setShowSubscriptionModal(false);
-      setShowSpinningWheel(true);
-    } else {
-      // If user subscribed to Pro, just close modal and navigate
-      setShowSubscriptionModal(false);
+    console.log('🎯 Subscription modal close requested');
+    console.log('🎯 hasSubscribedToPro:', hasSubscribedToPro);
+    
+    try {
+      // Only show spinning wheel if user hasn't subscribed to Pro
+      if (!hasSubscribedToPro) {
+        console.log('🎯 User has not subscribed, showing spinning wheel');
+        setShowSubscriptionModal(false);
+        
+        // Add delay to ensure modal closes properly
+        setTimeout(() => {
+          setShowSpinningWheel(true);
+          console.log('🎯 Spinning wheel should now be visible');
+        }, 100);
+      } else {
+        // If user subscribed to Pro, just close modal and navigate
+        console.log('🎯 User has subscribed to Pro, navigating to main app');
+        setShowSubscriptionModal(false);
+        router.replace('/(tabs)');
+      }
+    } catch (error) {
+      console.error('❌ Error in handleSubscriptionModalClose:', error);
+      // Fallback: navigate directly to main app
+      router.replace('/(tabs)');
     }
   };
 

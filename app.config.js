@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "92",
+      buildNumber: "100",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
