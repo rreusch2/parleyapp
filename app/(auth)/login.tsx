@@ -16,7 +16,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { normalize, isTablet } from '@/app/services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function LoginScreen() {
@@ -366,42 +366,45 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: normalize(20),
   },
   content: {
     flex: 1,
-    padding: 25,
+    padding: normalize(25),
     justifyContent: 'center',
+    maxWidth: isTablet ? 500 : '100%',
+    alignSelf: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 36,
+    fontSize: normalize(36),
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: normalize(10),
     color: '#ffffff',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: normalize(18),
     color: '#e0e0e0',
-    marginBottom: 40,
+    marginBottom: normalize(40),
     textAlign: 'center',
   },
   form: {
-    marginBottom: 30,
+    marginBottom: normalize(30),
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: normalize(20),
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    borderRadius: normalize(15),
+    paddingHorizontal: normalize(20),
+    paddingVertical: normalize(18),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    minHeight: 60,
+    minHeight: normalize(60),
     transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
@@ -411,23 +414,23 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 16,
-    marginLeft: 15,
+    fontSize: normalize(16),
+    marginLeft: normalize(15),
     paddingVertical: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   passwordToggle: {
-    padding: 5,
-    marginLeft: 10,
+    padding: normalize(5),
+    marginLeft: normalize(10),
   },
   button: {
     backgroundColor: '#4169e1',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 30,
-    marginTop: 20,
+    paddingVertical: normalize(16),
+    borderRadius: normalize(30),
+    marginTop: normalize(20),
     shadowColor: '#4169e1',
     shadowOffset: {
       width: 0,
@@ -438,59 +441,59 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   buttonIcon: {
-    marginRight: 10,
+    marginRight: normalize(10),
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: normalize(18),
     fontWeight: 'bold',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
   },
   forgotPassword: {
-    marginTop: 20,
+    marginTop: normalize(20),
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: normalize(10),
   },
   forgotPasswordText: {
     color: '#bfdbfe',
-    fontSize: 16,
+    fontSize: normalize(16),
     textDecorationLine: 'underline',
   },
   signupPrompt: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: normalize(20),
   },
   signupPromptText: {
     color: '#e0e0e0',
-    fontSize: 16,
+    fontSize: normalize(16),
   },
   signupLink: {
     color: '#00E5FF',
-    fontSize: 16,
+    fontSize: normalize(16),
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
   appleButtonContainer: {
-    marginBottom: 20,
+    marginBottom: normalize(20),
   },
   appleButton: {
     width: '100%',
-    height: 50,
+    height: normalize(50),
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 30,
-    marginTop: 10,
+    borderRadius: normalize(30),
+    marginTop: normalize(10),
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
-    paddingHorizontal: 10,
+    marginVertical: normalize(20),
+    paddingHorizontal: normalize(10),
   },
   dividerLine: {
     flex: 1,
@@ -499,7 +502,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: '#e0e0e0',
-    fontSize: 16,
-    marginHorizontal: 10,
+    fontSize: normalize(16),
+    marginHorizontal: normalize(10),
   },
 }); 

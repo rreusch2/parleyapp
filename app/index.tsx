@@ -178,24 +178,7 @@ export default function LandingPage() {
 
         </View>
 
-        <View style={styles.featuresContainer}>
-          <Text style={styles.featuresTitle}>Features</Text>
-          
-          <View style={styles.featureItem}>
-            <CheckCircle color="#ffffff" size={20} style={styles.featureIcon} />
-            <Text style={styles.featureText}>AI-Powered Predictions</Text>
-          </View>
-          
-          <View style={styles.featureItem}>
-            <CheckCircle color="#ffffff" size={20} style={styles.featureIcon} />
-            <Text style={styles.featureText}>Personalized Betting Strategy</Text>
-          </View>
-          
-          <View style={styles.featureItem}>
-            <CheckCircle color="#ffffff" size={20} style={styles.featureIcon} />
-            <Text style={styles.featureText}>Real-time Updates</Text>
-          </View>
-        </View>
+        
       </Animated.View>
     </LinearGradient>
   );

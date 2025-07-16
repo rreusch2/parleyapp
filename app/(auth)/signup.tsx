@@ -16,7 +16,7 @@ import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lucide-react-native';
-import SimpleSpinningWheel from '@/app/components/SimpleSpinningWheel';
+import { normalize, isTablet } from '@/app/services/device';
 import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
 import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
 import { useSubscription } from '@/app/services/subscriptionContext';
@@ -811,42 +811,45 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40, // Add safe padding for the title
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? normalize(60) : normalize(40),
+    paddingBottom: normalize(20),
   },
   content: {
-    padding: 25,
+    padding: normalize(25),
     justifyContent: 'center',
+    maxWidth: isTablet ? 500 : '100%',
+    alignSelf: 'center',
+    width: '100%',
   },
   title: {
-    fontSize: 32, // Slightly reduced from 36 for better fit
+    fontSize: normalize(32),
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: normalize(10),
     color: '#ffffff',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: normalize(18),
     color: '#e0e0e0',
-    marginBottom: 40,
+    marginBottom: normalize(40),
     textAlign: 'center',
   },
   form: {
-    marginBottom: 30,
+    marginBottom: normalize(30),
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: normalize(20),
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 15,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    borderRadius: normalize(15),
+    paddingHorizontal: normalize(20),
+    paddingVertical: normalize(18),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    minHeight: 60,
+    minHeight: normalize(60),
   },
   inputWrapperFocused: {
     borderColor: '#00E5FF',
@@ -855,30 +858,30 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 16,
-    marginLeft: 15,
+    fontSize: normalize(16),
+    marginLeft: normalize(15),
     paddingVertical: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   passwordToggle: {
-    padding: 5,
-    marginLeft: 10,
+    padding: normalize(5),
+    marginLeft: normalize(10),
   },
   errorText: {
     color: '#EF4444',
-    fontSize: 14,
-    marginTop: 5,
-    marginLeft: 5,
+    fontSize: normalize(14),
+    marginTop: normalize(5),
+    marginLeft: normalize(5),
   },
   termsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
-    paddingHorizontal: 4,
+    marginBottom: normalize(20),
+    paddingHorizontal: normalize(4),
   },
   checkboxContainer: {
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: normalize(12),
+    marginTop: normalize(2),
   },
   termsTextContainer: {
     flex: 1,
@@ -887,25 +890,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   termsText: {
-    fontSize: 15,
+    fontSize: normalize(15),
     color: '#e0e0e0',
-    lineHeight: 22,
+    lineHeight: normalize(22),
   },
   termsLink: {
-    fontSize: 15,
+    fontSize: normalize(15),
     color: '#4169e1',
     fontWeight: '600',
     textDecorationLine: 'underline',
-    lineHeight: 22,
+    lineHeight: normalize(22),
   },
   button: {
     backgroundColor: '#ffffff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 30,
-    marginTop: 20,
+    paddingVertical: normalize(16),
+    borderRadius: normalize(30),
+    marginTop: normalize(20),
     shadowColor: '#ffffff',
     shadowOffset: {
       width: 0,
@@ -916,14 +919,14 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   buttonIcon: {
-    marginRight: 10,
+    marginRight: normalize(10),
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: 'black',
-    fontSize: 18,
+    fontSize: normalize(18),
     fontWeight: 'bold',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
   },
@@ -931,34 +934,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: normalize(20),
   },
   footerText: {
     color: '#e0e0e0',
-    marginRight: 5,
-    fontSize: 15,
+    marginRight: normalize(5),
+    fontSize: normalize(15),
   },
   footerLink: {
     color: '#ffffff',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: normalize(15),
   },
   appleButtonContainer: {
-    marginBottom: 20,
+    marginBottom: normalize(20),
     alignItems: 'center',
   },
   appleButton: {
     width: '100%',
-    height: 50,
+    height: normalize(50),
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 30,
-    marginBottom: 15,
+    borderRadius: normalize(30),
+    marginBottom: normalize(15),
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: normalize(20),
     width: '100%',
   },
   dividerLine: {
@@ -967,8 +970,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
   },
   dividerText: {
-    marginHorizontal: 10,
+    marginHorizontal: normalize(10),
     color: '#e0e0e0',
-    fontSize: 16,
+    fontSize: normalize(16),
   },
 }); 
