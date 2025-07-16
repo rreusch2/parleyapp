@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions 
 // import { Link } from 'expo-router'; // No longer needed for these buttons
 import { useRouter } from 'expo-router'; // Import useRouter
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogIn, UserPlus, CheckCircle } from 'lucide-react-native';
+import { LogIn, UserPlus } from 'lucide-react-native';
 import { supabase } from './services/api/supabaseClient';
 
 export default function LandingPage() {
@@ -174,11 +174,7 @@ export default function LandingPage() {
             <UserPlus color="black" size={20} style={styles.iconStyle} />
             <Text style={styles.signupButtonText}>Sign Up</Text>
           </TouchableOpacity>
-
-
         </View>
-
-        
       </Animated.View>
     </LinearGradient>
   );
@@ -198,12 +194,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-    justifyContent: 'space-around',
+    justifyContent: 'center', // Changed from 'space-around' to 'center' for better spacing
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 80,
-    marginBottom: 20,
+    marginBottom: 60, // Increased margin for better spacing without features card
   },
   logoTop: {
     fontSize: 46,
@@ -279,7 +274,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-
   iconStyle: {
     marginRight: 10,
   },

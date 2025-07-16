@@ -1,12 +1,23 @@
 import { Tabs } from 'expo-router';
-import { View, useColorScheme, Text } from 'react-native';
+import { View, useColorScheme, Text, Dimensions, Platform } from 'react-native';
 import { Settings, Calendar, Zap, Home } from 'lucide-react-native';
 import { AIChatProvider } from '@/app/services/aiChatContext';
 import FloatingAIChatButton from '@/app/components/FloatingAIChatButton';
 import ProAIChat from '@/app/components/ProAIChat';
 
+// Get device dimensions to adapt UI for iPad
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+
+  // Adjust tab bar height and padding for iPad
+  const tabBarHeight = isTablet ? 90 : 80;
+  const tabBarPaddingBottom = isTablet ? 20 : 15;
+  const tabBarPaddingTop = isTablet ? 15 : 10;
+  const iconSize = isTablet ? 26 : 24;
+  const labelFontSize = isTablet ? 14 : 12;
 
   return (
     <AIChatProvider>
@@ -18,12 +29,12 @@ export default function TabLayout() {
             tabBarStyle: {
               backgroundColor: '#111827',
               borderTopColor: '#1F2937',
-              height: 80,
-              paddingBottom: 15,
-              paddingTop: 10,
+              height: tabBarHeight,
+              paddingBottom: tabBarPaddingBottom,
+              paddingTop: tabBarPaddingTop,
             },
             tabBarLabelStyle: {
-              fontSize: 12,
+              fontSize: labelFontSize,
               fontWeight: '500',
             },
             headerStyle: {
@@ -32,7 +43,7 @@ export default function TabLayout() {
             headerTitleStyle: {
               color: '#FFFFFF',
               fontWeight: '700',
-              fontSize: 20,
+              fontSize: isTablet ? 24 : 20,
             },
             headerTintColor: '#00E5FF',
           }}
@@ -43,7 +54,7 @@ export default function TabLayout() {
           title: 'Home',
           headerTitle: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
-            <Home size={size} color={color} />
+            <Home size={iconSize} color={color} />
           ),
         }}
       />
@@ -53,7 +64,7 @@ export default function TabLayout() {
           title: 'Games',
           headerTitle: 'Live Games & Odds',
           tabBarIcon: ({ color, size }) => (
-            <Calendar size={size} color={color} />
+            <Calendar size={iconSize} color={color} />
           ),
         }}
       />
@@ -63,13 +74,18 @@ export default function TabLayout() {
           title: 'Predictions',
           headerTitle: () => (
             <View>
-              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 24, textAlign: 'center' }}>
+              <Text style={{ 
+                color: '#FFFFFF', 
+                fontWeight: '700', 
+                fontSize: isTablet ? 28 : 24, 
+                textAlign: 'center' 
+              }}>
                 Predictions
               </Text>
             </View>
           ),
           tabBarIcon: ({ color, size }) => (
-            <Zap size={size} color={color} />
+            <Zap size={iconSize} color={color} />
           ),
         }}
       />
@@ -79,7 +95,7 @@ export default function TabLayout() {
           title: 'Settings',
           headerTitle: 'Settings & Profile',
           tabBarIcon: ({ color, size }) => (
-            <Settings size={size} color={color} />
+            <Settings size={iconSize} color={color} />
           ),
         }}
       />
@@ -87,7 +103,7 @@ export default function TabLayout() {
     
     {/* Global Floating AI Chat Button - positioned closer to tabs */}
     <FloatingAIChatButton 
-      bottom={95} // Moved closer to navigation tabs (was 110)
+      bottom={isTablet ? 110 : 95} // Adjust position for iPad
     />
     
     {/* Global AI Chat Modal */}

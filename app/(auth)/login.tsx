@@ -12,12 +12,16 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
+import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { normalize, isTablet } from '@/app/services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
+
+// No need to redefine isTablet since we're importing it
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -372,21 +376,21 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: normalize(25),
     justifyContent: 'center',
-    maxWidth: isTablet ? 500 : '100%',
-    alignSelf: 'center',
-    width: '100%',
+    maxWidth: isTablet ? 600 : undefined, // Limit width on iPad
+    alignSelf: 'center', // Center on iPad
+    width: isTablet ? '80%' : '100%', // Use percentage width on iPad
   },
   title: {
-    fontSize: normalize(36),
+    fontSize: isTablet ? 42 : 36,
     fontWeight: 'bold',
     marginBottom: normalize(10),
     color: '#ffffff',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: normalize(18),
+    fontSize: isTablet ? 22 : 18,
     color: '#e0e0e0',
-    marginBottom: normalize(40),
+    marginBottom: isTablet ? 50 : 40,
     textAlign: 'center',
   },
   form: {
@@ -404,7 +408,7 @@ const styles = StyleSheet.create({
     paddingVertical: normalize(18),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    minHeight: normalize(60),
+    minHeight: isTablet ? 70 : 60,
     transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
@@ -414,8 +418,8 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: normalize(16),
-    marginLeft: normalize(15),
+    fontSize: isTablet ? 18 : 16,
+    marginLeft: 15,
     paddingVertical: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
@@ -428,9 +432,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: normalize(16),
-    borderRadius: normalize(30),
-    marginTop: normalize(20),
+    paddingVertical: isTablet ? 20 : 16,
+    borderRadius: 30,
+    marginTop: 20,
     shadowColor: '#4169e1',
     shadowOffset: {
       width: 0,
@@ -448,7 +452,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: normalize(18),
+    fontSize: isTablet ? 20 : 18,
     fontWeight: 'bold',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
   },
@@ -459,7 +463,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     color: '#bfdbfe',
-    fontSize: normalize(16),
+    fontSize: isTablet ? 18 : 16,
     textDecorationLine: 'underline',
   },
   signupPrompt: {
@@ -470,11 +474,11 @@ const styles = StyleSheet.create({
   },
   signupPromptText: {
     color: '#e0e0e0',
-    fontSize: normalize(16),
+    fontSize: isTablet ? 18 : 16,
   },
   signupLink: {
     color: '#00E5FF',
-    fontSize: normalize(16),
+    fontSize: isTablet ? 18 : 16,
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
@@ -483,7 +487,7 @@ const styles = StyleSheet.create({
   },
   appleButton: {
     width: '100%',
-    height: normalize(50),
+    height: isTablet ? 60 : 50,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: normalize(30),
@@ -502,7 +506,7 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: '#e0e0e0',
-    fontSize: normalize(16),
-    marginHorizontal: normalize(10),
+    paddingHorizontal: 15,
+    fontSize: isTablet ? 18 : 14,
   },
 }); 
