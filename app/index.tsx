@@ -283,36 +283,4 @@ const styles = StyleSheet.create({
   iconStyle: {
     marginRight: 10,
   },
-  featuresContainer: {
-    marginBottom: 50,
-    paddingHorizontal: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 15,
-    padding: 20,
-  },
-  featuresTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 20,
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 12,
-  },
-  featureIcon: {
-    marginRight: 15,
-  },
-  featureText: {
-    fontSize: 17,
-    color: '#ffffff',
-    opacity: 0.95,
-    fontWeight: '500',
-  },
 });
