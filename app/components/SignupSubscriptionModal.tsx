@@ -225,9 +225,16 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === 'ios' && Platform.isPad ? "overFullScreen" : "pageSheet"}
+      transparent={Platform.OS === 'ios' && Platform.isPad ? true : false}
       onRequestClose={onClose}
+      supportedOrientations={['portrait', 'landscape']}
     >
+      {/* Debug logging for iPad */}
+      {Platform.OS === 'ios' && Platform.isPad ? (() => {
+        console.log('📱 [iPad Fix] Rendering SignupSubscriptionModal on iPad');
+        return null;
+      })() : null}
       <View style={styles.container}>
         <LinearGradient
           colors={['#0F172A', '#1E293B', '#7C3AED']}
@@ -468,20 +475,35 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Continue Free Button */}
+            {/* Continue Free Button - IMPROVED iPad compatible version */}
             <TouchableOpacity
               style={styles.freeButton}
               onPress={() => {
-                console.log('🎯 Try Free Account button pressed');
-                if (onContinueFree) {
-                  console.log('🎯 Calling onContinueFree callback');
-                  onContinueFree();
-                } else {
-                  console.error('❌ onContinueFree callback is missing!');
+                console.log('🎯 [iPad Fix] Try Free Account button pressed');
+                
+                // First close this modal directly
+                if (onClose) {
+                  console.log('🎯 [iPad Fix] First calling onClose to ensure modal dismisses');
+                  onClose();
                 }
+                
+                // Then add a longer delay before triggering the free account flow
+                setTimeout(() => {
+                  console.log('🎯 [iPad Fix] Now calling onContinueFree after delay');
+                  if (onContinueFree) {
+                    onContinueFree();
+                  } else {
+                    console.error('❌ [iPad Fix] onContinueFree callback is missing!');
+                    // Try to navigate directly if possible
+                    if (Platform.OS === 'ios' && Platform.isPad) {
+                      console.log('🎯 [iPad Fix] Attempting alternate navigation approach for iPad');
+                      // Could add navigation fallback here if needed
+                    }
+                  }
+                }, 300); // Longer delay for iPad rendering
               }}
               disabled={loading}
-              activeOpacity={0.7}
+              activeOpacity={0.5} // More responsive feedback
             >
               <View style={styles.freeButtonContent}>
                 <Gift size={20} color="#94A3B8" />
@@ -512,6 +534,13 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // For iPad, center the content and limit the width
+    ...(Platform.OS === 'ios' && Platform.isPad ? {
+      maxWidth: 600,
+      alignSelf: 'center',
+      width: '100%',
+      marginHorizontal: 'auto',
+    } : {}),
   },
   gradient: {
     flex: 1,

@@ -11,6 +11,7 @@ import {
   ScrollView,
   Keyboard,
   TouchableWithoutFeedback,
+  Dimensions,
 } from 'react-native';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
@@ -290,50 +291,88 @@ export default function SignupScreen() {
   };
 
   const handleContinueFree = () => {
-    console.log('🎯 User chose to continue with free account');
-    console.log('🎯 Current state - showSubscriptionModal:', showSubscriptionModal, 'showSpinningWheel:', showSpinningWheel);
+    console.log('🎯 [iPad Fix] User chose to continue with free account');
+    console.log('🎯 [iPad Fix] Current state - showSubscriptionModal:', showSubscriptionModal, 'showSpinningWheel:', showSpinningWheel);
+    console.log('🎯 [iPad Fix] Device info - Platform:', Platform.OS, 'isPad:', Platform.OS === 'ios' ? Platform.isPad : 'N/A', 'Dimensions:', Dimensions.get('window'));
     
     try {
+      // First ensure subscription modal is closed
       setShowSubscriptionModal(false);
-      console.log('🎯 Subscription modal closed, showing spinning wheel...');
+      console.log('🎯 [iPad Fix] Subscription modal state set to false');
       
-      // Add a small delay to ensure modal closes properly before showing spinning wheel
+      // Add a longer delay for iPad to ensure modal fully closes before showing spinning wheel
+      const delay = Platform.OS === 'ios' && Platform.isPad ? 500 : 300;
+      console.log(`🎯 [iPad Fix] Using delay of ${delay}ms before showing wheel`);
+      
       setTimeout(() => {
+        // Double check that subscription modal is definitely closed
+        if (showSubscriptionModal) {
+          console.log('⚠️ [iPad Fix] Subscription modal still showing in state - forcing close again');
+          setShowSubscriptionModal(false);
+        }
+        
+        // Now show the spinning wheel
         setShowSpinningWheel(true);
-        console.log('🎯 Spinning wheel should now be visible');
-      }, 100);
+        console.log('🎯 [iPad Fix] Spinning wheel state set to true, should now be visible');
+      }, delay);
     } catch (error) {
-      console.error('❌ Error in handleContinueFree:', error);
-      // Fallback: navigate directly to main app if there's an issue
-      router.replace('/(tabs)');
+      console.error('❌ [iPad Fix] Error in handleContinueFree:', error);
+      // Improved error logging
+      console.error('❌ [iPad Fix] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
+      // Enhanced fallback with direct navigation
+      console.log('🔄 [iPad Fix] Using fallback navigation to main app');
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 200);
     }
   };
 
   const handleSubscriptionModalClose = () => {
-    console.log('🎯 Subscription modal close requested');
-    console.log('🎯 hasSubscribedToPro:', hasSubscribedToPro);
+    console.log('🎯 [iPad Fix] Subscription modal close requested');
+    console.log('🎯 [iPad Fix] hasSubscribedToPro:', hasSubscribedToPro);
+    console.log('🎯 [iPad Fix] Device info - Platform:', Platform.OS, 'isPad:', Platform.OS === 'ios' ? Platform.isPad : 'N/A');
     
     try {
+      // First close the subscription modal in all cases
+      setShowSubscriptionModal(false);
+      console.log('🎯 [iPad Fix] Subscription modal state set to false');
+      
       // Only show spinning wheel if user hasn't subscribed to Pro
       if (!hasSubscribedToPro) {
-        console.log('🎯 User has not subscribed, showing spinning wheel');
-        setShowSubscriptionModal(false);
+        console.log('🎯 [iPad Fix] User has not subscribed, will show spinning wheel after delay');
         
-        // Add delay to ensure modal closes properly
+        // Add longer delay for iPad to ensure modal fully closes before showing spinning wheel
+        const delay = Platform.OS === 'ios' && Platform.isPad ? 500 : 300;
+        console.log(`🎯 [iPad Fix] Using delay of ${delay}ms before showing wheel`);
+        
         setTimeout(() => {
+          // Double check that subscription modal is definitely closed
+          if (showSubscriptionModal) {
+            console.log('⚠️ [iPad Fix] Subscription modal still showing in state - forcing close again');
+            setShowSubscriptionModal(false);
+          }
+          
           setShowSpinningWheel(true);
-          console.log('🎯 Spinning wheel should now be visible');
-        }, 100);
+          console.log('🎯 [iPad Fix] Spinning wheel state set to true, should now be visible');
+        }, delay);
       } else {
-        // If user subscribed to Pro, just close modal and navigate
-        console.log('🎯 User has subscribed to Pro, navigating to main app');
-        setShowSubscriptionModal(false);
-        router.replace('/(tabs)');
+        // If user subscribed to Pro, just navigate after a small delay
+        console.log('🎯 [iPad Fix] User has subscribed to Pro, navigating to main app after small delay');
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 200);
       }
     } catch (error) {
-      console.error('❌ Error in handleSubscriptionModalClose:', error);
-      // Fallback: navigate directly to main app
-      router.replace('/(tabs)');
+      console.error('❌ [iPad Fix] Error in handleSubscriptionModalClose:', error);
+      // Enhanced error logging
+      console.error('❌ [iPad Fix] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      
+      // Improved fallback navigation with delay
+      console.log('🔄 [iPad Fix] Using fallback navigation to main app');
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 200);
     }
   };
 

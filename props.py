@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Intelligent Player Props AI Agent
-Uses StatMuse, web search, and intelligent reasoning to generate daily player prop picks
-"""
-
 import os
 import json
 import logging
@@ -16,45 +10,31 @@ import httpx
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
-# Removed direct PostgreSQL imports - using Supabase instead
 import time
 
 # Load environment variables
-load_dotenv('backend/.env')
+load_dotenv("backend/.env")
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 @dataclass
 class PlayerProp:
-    """Player prop data structure
-    
-    Note: over_odds and under_odds can be None because:
-    1. Some sportsbooks only offer "over" bets on certain props (like home runs, hits)
-    2. The betting market may not have both sides available
-    3. We accept props with missing "under" odds to maximize data coverage
-    
-    When making predictions, consider:
-    - Props with only over_odds still provide valuable betting opportunities
-    - Missing under_odds doesn't indicate poor data quality
-    - Focus on the available odds and line value for recommendations
-    """
     player_name: str
     prop_type: str
     line: float
-    over_odds: Optional[int]  # American odds for OVER bet (can be None if not available)
-    under_odds: Optional[int]  # American odds for UNDER bet (can be None if not available)
+    over_odds: Optional[int]
+    under_odds: Optional[int]
     event_id: str
     team: str
     bookmaker: str
 
 @dataclass
 class ResearchInsight:
-    """Research insight from various sources"""
     source: str
     query: str
     data: Dict[str, Any]
@@ -62,14 +42,11 @@ class ResearchInsight:
     timestamp: datetime
 
 class StatMuseClient:
-    """Client for StatMuse API server"""
-    
     def __init__(self, base_url: str = "http://127.0.0.1:5001"):
         self.base_url = base_url
         self.session = requests.Session()
         
     def query(self, question: str) -> Dict[str, Any]:
-        """Query StatMuse for sports data"""
         try:
             response = self.session.post(
                 f"{self.base_url}/query",
@@ -83,7 +60,6 @@ class StatMuseClient:
             return {"error": str(e)}
     
     def player_stats(self, player_name: str, stat_type: str = "recent") -> Dict[str, Any]:
-        """Get specific player stats"""
         try:
             response = self.session.post(
                 f"{self.base_url}/player-stats",
@@ -97,18 +73,14 @@ class StatMuseClient:
             return {"error": str(e)}
 
 class WebSearchClient:
-    """Web search client using backend AI with web search tools"""
-    
     def __init__(self):
-        self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
+        self.backend_url = os.getenv("BACKEND_URL", "https://zooming-rebirth-production-a305.up.railway.app")
         self.user_id = "ai_props_agent"
     
     def search(self, query: str) -> Dict[str, Any]:
-        """Perform web search using backend AI with web search tools"""
         logger.info(f"Web search: {query}")
         
         try:
-            # Use backend AI with web search capabilities
             search_prompt = f"Search the web for current information about: {query}. Focus on finding recent, relevant information that would be useful for sports betting analysis. Provide a clear summary of what you found."
             
             url = f"{self.backend_url}/api/ai/chat"
@@ -127,21 +99,19 @@ class WebSearchClient:
             
             if response.status_code == 200:
                 result = response.json()
-                search_response = result.get('response', 'No results found')
+                search_response = result.get("response", "No results found")
                 
-                # Parse the AI response into a structured format
                 web_result = {
                     "query": query,
                     "results": [{
-                        'title': 'AI Web Search Result',
-                        'snippet': search_response[:300] + '...' if len(search_response) > 300 else search_response,
-                        'url': 'AI-generated'
+                        "title": "AI Web Search Result",
+                        "snippet": search_response[:300] + "..." if len(search_response) > 300 else search_response,
+                        "url": "AI-generated"
                     }],
-                    "summary": search_response[:500] + '...' if len(search_response) > 500 else search_response
+                    "summary": search_response[:500] + "..." if len(search_response) > 500 else search_response
                 }
                 
-                # Log results
-                logger.info(f"🌐 Web search result: {web_result['summary'][:150]}{'...' if len(web_result['summary']) > 150 else ''}")
+                logger.info(f"🌐 Web search result: {web_result["summary"][:150]}{"..." if len(web_result["summary"]) > 150 else ""}")
                 return web_result
                 
             else:
@@ -153,7 +123,7 @@ class WebSearchClient:
                 }
                 
         except Exception as e:
-            logger.warning(f"Web search failed for '{query}': {e}")
+            logger.warning(f"Web search failed for \'{query}\': {e}")
             return {
                 "query": query,
                 "results": [],
@@ -161,12 +131,9 @@ class WebSearchClient:
             }
 
 class DatabaseClient:
-    """Database client for Supabase/PostgreSQL"""
-    
     def __init__(self):
-        # Initialize Supabase client
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         
         if not supabase_url or not supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required")
@@ -174,14 +141,13 @@ class DatabaseClient:
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Get upcoming MLB games from sports_events table"""
         try:
             now = datetime.now().isoformat()
             future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
             
-            response = self.supabase.table('sports_events').select(
-                'id, home_team, away_team, start_time, sport, metadata'
-            ).gt('start_time', now).lt('start_time', future).eq('sport', 'MLB').order('start_time').execute()
+            response = self.supabase.table("sports_events").select(
+                "id, home_team, away_team, start_time, sport, metadata"
+            ).gt("start_time", now).lt("start_time", future).eq("sport", "MLB").order("start_time").execute()
             
             return response.data
         except Exception as e:
@@ -189,35 +155,32 @@ class DatabaseClient:
             return []
     
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
-        """Get player props for specific games"""
         if not game_ids:
             return []
         
         try:
-            # Query player props with joins using Supabase
-            response = self.supabase.table('player_props_odds').select(
-                'line, over_odds, under_odds, event_id, '
-                'players(name, team), '
-                'player_prop_types(prop_name)'
-            ).in_('event_id', game_ids).execute()
+            response = self.supabase.table("player_props_odds").select(
+                "line, over_odds, under_odds, event_id, "
+                "players(name, team), "
+                "player_prop_types(prop_name)"
+            ).in_("event_id", game_ids).execute()
             
             props = []
             for row in response.data:
-                # Check if the row has the required nested data
-                if (row.get('players') and 
-                    row.get('player_prop_types') and 
-                    row['players'].get('name') and 
-                    row['player_prop_types'].get('prop_name')):
+                if (row.get("players") and 
+                    row.get("player_prop_types") and 
+                    row["players"].get("name") and 
+                    row["player_prop_types"].get("prop_name")):
                     
                     props.append(PlayerProp(
-                        player_name=row['players']['name'],
-                        prop_type=row['player_prop_types']['prop_name'],
-                        line=float(row['line']) if row['line'] else 0.0,
-                        over_odds=int(row['over_odds']) if row['over_odds'] else None,
-                        under_odds=int(row['under_odds']) if row['under_odds'] else None,
-                        event_id=row['event_id'],
-                        team=row['players']['team'] if row['players']['team'] else 'Unknown',
-                        bookmaker='fanduel'  # Default bookmaker
+                        player_name=row["players"]["name"],
+                        prop_type=row["player_prop_types"]["prop_name"],
+                        line=float(row["line"]) if row["line"] else 0.0,
+                        over_odds=int(row["over_odds"]) if row["over_odds"] else None,
+                        under_odds=int(row["under_odds"]) if row["under_odds"] else None,
+                        event_id=row["event_id"],
+                        team=row["players"]["team"] if row["players"]["team"] else "Unknown",
+                        bookmaker="fanduel"
                     ))
             
             return props
@@ -226,49 +189,43 @@ class DatabaseClient:
             return []
     
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
-        """Store AI predictions in ai_predictions table"""
         try:
             for pred in predictions:
-                # Extract reasoning from metadata if not in top level
-                reasoning = pred.get('reasoning', '')
-                if not reasoning and pred.get('metadata'):
-                    reasoning = pred['metadata'].get('reasoning', '')
+                reasoning = pred.get("reasoning", "")
+                if not reasoning and pred.get("metadata"):
+                    reasoning = pred["metadata"].get("reasoning", "")
                 
-                # Calculate additional fields from the AI pick data
-                roi_estimate_str = pred['metadata'].get('roi_estimate', '0%') if pred.get('metadata') else '0%'
-                value_percentage_str = pred['metadata'].get('value_percentage', '0%') if pred.get('metadata') else '0%'
+                roi_estimate_str = pred["metadata"].get("roi_estimate", "0%") if pred.get("metadata") else "0%"
+                value_percentage_str = pred["metadata"].get("value_percentage", "0%") if pred.get("metadata") else "0%"
                 
-                # Convert percentage strings to floats
                 try:
-                    roi_estimate = float(roi_estimate_str.replace('%', '')) if roi_estimate_str else 0.0
-                    value_percentage = float(value_percentage_str.replace('%', '')) if value_percentage_str else 0.0
+                    roi_estimate = float(roi_estimate_str.replace("%", "")) if roi_estimate_str else 0.0
+                    value_percentage = float(value_percentage_str.replace("%", "")) if value_percentage_str else 0.0
                 except (ValueError, AttributeError):
                     roi_estimate = 0.0
                     value_percentage = 0.0
                 
-                # Prepare complete data for insertion matching actual table schema
                 prediction_data = {
-                    'user_id': 'c19a5e12-4297-4b0f-8d21-39d2bb1a2c08',  # System user ID
-                    'confidence': pred.get('confidence', 0),  # Use 'confidence' not 'ai_analysis'
-                    'pick': pred.get('pick', ''),  # Use 'pick' not 'line_taken'
-                    'odds': str(pred.get('odds', 0)),  # Convert to string
-                    'sport': pred.get('sport', 'MLB'),
-                    'event_time': pred.get('event_time'),
-                    'bet_type': pred.get('bet_type', 'player_prop'),
-                    'game_id': str(pred.get('event_id', '')),  # Convert to string
-                    'match_teams': pred.get('match_teams', ''),  # Use correct field name
-                    'reasoning': reasoning,  # Now properly extracted and stored
-                    'line_value': pred.get('line_value') or pred.get('line', 0),
-                    'prediction_value': pred.get('prediction_value'),
-                    'prop_market_type': pred.get('prop_market_type') or pred.get('prop_type', ''),
-                    'roi_estimate': roi_estimate,  # Add ROI estimate field
-                    'value_percentage': value_percentage,  # Add value percentage field
-                    'status': 'pending',
-                    'metadata': pred.get('metadata', {})
+                    "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",
+                    "confidence": pred.get("confidence", 0),
+                    "pick": pred.get("pick", ""),
+                    "odds": str(pred.get("odds", 0)),
+                    "sport": pred.get("sport", "MLB"),
+                    "event_time": pred.get("event_time"),
+                    "bet_type": pred.get("bet_type", "player_prop"),
+                    "game_id": str(pred.get("event_id", "")),
+                    "match_teams": pred.get("match_teams", ""),
+                    "reasoning": reasoning,
+                    "line_value": pred.get("line_value") or pred.get("line", 0),
+                    "prediction_value": pred.get("prediction_value"),
+                    "prop_market_type": pred.get("prop_market_type") or pred.get("prop_type", ""),
+                    "roi_estimate": roi_estimate,
+                    "value_percentage": value_percentage,
+                    "status": "pending",
+                    "metadata": pred.get("metadata", {})
                 }
                 
-                # Insert into Supabase
-                self.supabase.table('ai_predictions').insert(prediction_data).execute()
+                self.supabase.table("ai_predictions").insert(prediction_data).execute()
                 
             logger.info(f"Successfully stored {len(predictions)} AI predictions")
             
@@ -276,35 +233,28 @@ class DatabaseClient:
             logger.error(f"Failed to store AI predictions: {e}")
 
 class IntelligentPlayerPropsAgent:
-    """Main AI agent for generating intelligent player prop picks"""
-    
     def __init__(self):
         self.db = DatabaseClient()
         self.statmuse = StatMuseClient()
         self.web_search = WebSearchClient()
-        # Use xAI Grok instead of OpenAI
         self.grok_client = AsyncOpenAI(
-            api_key=os.getenv('XAI_API_KEY'),
+            api_key=os.getenv("XAI_API_KEY"),
             base_url="https://api.x.ai/v1"
         )
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
-        """Convenience method to fetch upcoming games for testing"""
         return self.db.get_upcoming_games(hours_ahead=48)
     
     async def fetch_player_props(self) -> List[PlayerProp]:
-        """Convenience method to fetch player props for testing"""
         games = self.db.get_upcoming_games(hours_ahead=48)
         if not games:
             return []
-        game_ids = [game['id'] for game in games]
+        game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        """Main method to generate daily player prop picks"""
         logger.info("🚀 Starting intelligent player props analysis...")
         
-        # Step 1: Get upcoming games and available props
         games = self.db.get_upcoming_games(hours_ahead=48)
         logger.info(f"📅 Found {len(games)} upcoming games")
         
@@ -312,7 +262,7 @@ class IntelligentPlayerPropsAgent:
             logger.warning("No upcoming games found")
             return []
         
-        game_ids = [game['id'] for game in games]
+        game_ids = [game["id"] for game in games]
         available_props = self.db.get_player_props_for_games(game_ids)
         logger.info(f"🎯 Found {len(available_props)} available player props")
         
@@ -320,23 +270,18 @@ class IntelligentPlayerPropsAgent:
             logger.warning("No player props found")
             return []
         
-        # Step 2: Create intelligent research plan
         research_plan = await self.create_research_plan(available_props, games)
-        # Count both StatMuse and web search queries
-        statmuse_count = len(research_plan.get('statmuse_queries', []))
-        web_search_count = len(research_plan.get('web_searches', []))
+        statmuse_count = len(research_plan.get("statmuse_queries", []))
+        web_search_count = len(research_plan.get("web_searches", []))
         total_queries = statmuse_count + web_search_count
         logger.info(f"📋 Created research plan with {statmuse_count} StatMuse + {web_search_count} web queries = {total_queries} total")
         
-        # Step 3: Execute research plan
         insights = await self.execute_research_plan(research_plan, available_props)
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
-        # Step 4: Generate picks with AI reasoning
         picks = await self.generate_picks_with_reasoning(insights, available_props, games, target_picks)
         logger.info(f"🎲 Generated {len(picks)} intelligent picks")
         
-        # Step 5: Store picks in database
         if picks:
             self.db.store_ai_predictions(picks)
             logger.info(f"💾 Stored {len(picks)} picks in database")
@@ -344,9 +289,6 @@ class IntelligentPlayerPropsAgent:
         return picks
     
     async def create_research_plan(self, props: List[PlayerProp], games: List[Dict]) -> Dict[str, Any]:
-        """Create an intelligent research plan using xAI Grok for the most strategic analysis"""
-        
-        # Create comprehensive prompt for Grok
         prompt = f"""You are an elite MLB betting analyst and data scientist with years of experience. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST player prop bets for today.
 
 # CONTEXT
@@ -357,13 +299,13 @@ UPCOMING GAMES:
 
 SAMPLE AVAILABLE PROPS (showing first 30 of {len(props)}):
 {json.dumps([{
-    'player': p.player_name,
-    'prop_type': p.prop_type,
-    'line': p.line,
-    'over_odds': p.over_odds,
-    'under_odds': p.under_odds,
-    'team': p.team,
-    'bookmaker': p.bookmaker
+    "player": p.player_name,
+    "prop_type": p.prop_type,
+    "line": p.line,
+    "over_odds": p.over_odds,
+    "under_odds": p.under_odds,
+    "team": p.team,
+    "bookmaker": p.bookmaker
 } for p in props[:30]], indent=2)}
 
 # YOUR TOOLS
@@ -430,7 +372,7 @@ Return ONLY a valid JSON object with this structure:
     "statmuse_queries": [
         {{
             "query": "Specific StatMuse question",
-            "purpose": "What you're trying to learn",
+            "purpose": "What you\'re trying to learn",
             "priority": "high"
         }}
     ],
@@ -441,7 +383,7 @@ Return ONLY a valid JSON object with this structure:
             "priority": "high"
         }}
     ],
-    "key_factors": ["List of the most important factors you'll analyze"],
+    "key_factors": ["List of the most important factors you\'ll analyze"],
     "expected_insights": "What you expect to discover from this research"
 }}
 
@@ -455,20 +397,18 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             )
             
             plan_text = response.choices[0].message.content
-            # Extract JSON from response
-            start_idx = plan_text.find('{')
-            end_idx = plan_text.rfind('}') + 1
+            start_idx = plan_text.find("{")
+            end_idx = plan_text.rfind("}") + 1
             plan_json = json.loads(plan_text[start_idx:end_idx])
             
             return plan_json
             
         except Exception as e:
             logger.error(f"Failed to create research plan: {e}")
-            # Fallback plan
             return {
                 "priority_players": [p.player_name for p in props[:15]],
                 "statmuse_queries": [
-                    f"{p.player_name} {p.prop_type.replace('batter_', '').replace('pitcher_', '')} last 10 games"
+                    f"{p.player_name} {p.prop_type.replace(\'batter_\', \'\').replace(\'pitcher_\', \'\')} last 10 games"
                     for p in props[:10]
                 ],
                 "research_focus": ["recent_performance", "matchups"],
@@ -476,21 +416,17 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             }
     
     async def execute_research_plan(self, plan: Dict[str, Any], props: List[PlayerProp]) -> List[ResearchInsight]:
-        """Execute adaptive multi-stage research with intelligent follow-ups"""
         all_insights = []
         
-        # STAGE 1: Initial Research
         logger.info("🔬 STAGE 1: Initial Research")
         stage1_insights = await self._execute_initial_research(plan)
         all_insights.extend(stage1_insights)
         
-        # STAGE 2: Adaptive Follow-up Research
         logger.info("🧠 STAGE 2: Analyzing findings and generating follow-up research")
         stage2_insights = await self._execute_adaptive_followup(stage1_insights, props)
         all_insights.extend(stage2_insights)
         
-        # STAGE 3: Final Targeted Research
-        logger.info("🎯 STAGE 3: Final targeted research based on all findings")
+        logger.info("🎯 STAGE 3: Final Targeted Research")
         stage3_insights = await self._execute_final_research(all_insights, props)
         all_insights.extend(stage3_insights)
         
@@ -498,24 +434,22 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
         return all_insights
     
     async def _execute_initial_research(self, plan: Dict[str, Any]) -> List[ResearchInsight]:
-        """Execute the initial batch of research queries"""
         insights = []
         
-        # Execute first batch of StatMuse queries
-        statmuse_queries = plan.get('statmuse_queries', [])[:8]  # Start with 8 queries
+        statmuse_queries = plan.get("statmuse_queries", [])[:8]
         for query_obj in statmuse_queries:
             try:
-                query_text = query_obj.get('query', query_obj) if isinstance(query_obj, dict) else query_obj
-                priority = query_obj.get('priority', 'medium') if isinstance(query_obj, dict) else 'medium'
+                query_text = query_obj.get("query", query_obj) if isinstance(query_obj, dict) else query_obj
+                priority = query_obj.get("priority", "medium") if isinstance(query_obj, dict) else "medium"
                 
                 logger.info(f"🔍 StatMuse query ({priority}): {query_text}")
                 result = self.statmuse.query(query_text)
                 
-                if result and 'error' not in result:
+                if result and "error" not in result:
                     result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
                     logger.info(f"📊 StatMuse result: {result_preview}")
                     
-                    confidence = 0.9 if priority == 'high' else 0.7 if priority == 'medium' else 0.5
+                    confidence = 0.9 if priority == "high" else 0.7 if priority == "medium" else 0.5
                     insights.append(ResearchInsight(
                         source="statmuse",
                         query=query_text,
@@ -529,19 +463,18 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
                 await asyncio.sleep(1.5)
                 
             except Exception as e:
-                logger.error(f"❌ StatMuse query failed for '{query_text}': {e}")
+                logger.error(f"❌ StatMuse query failed for \'{query_text}\': {e}")
         
-        # Execute initial web searches
-        web_searches = plan.get('web_searches', [])[:3]  # Start with 3 web searches
+        web_searches = plan.get("web_searches", [])[:3]
         for search_obj in web_searches:
             try:
-                search_query = search_obj.get('query', search_obj) if isinstance(search_obj, dict) else search_obj
-                priority = search_obj.get('priority', 'medium') if isinstance(search_obj, dict) else 'medium'
+                search_query = search_obj.get("query", search_obj) if isinstance(search_obj, dict) else search_obj
+                priority = search_obj.get("priority", "medium") if isinstance(search_obj, dict) else "medium"
                 
                 logger.info(f"🌐 Web search ({priority}): {search_query}")
                 result = self.web_search.search(search_query)
                 
-                confidence = 0.8 if priority == 'high' else 0.6 if priority == 'medium' else 0.4
+                confidence = 0.8 if priority == "high" else 0.6 if priority == "medium" else 0.4
                 insights.append(ResearchInsight(
                     source="web_search",
                     query=search_query,
@@ -551,24 +484,20 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
                 ))
                 
             except Exception as e:
-                logger.error(f"❌ Initial web search failed for '{search_query}': {e}")
+                logger.error(f"❌ Initial web search failed for \'{search_query}\': {e}")
         
         return insights
     
     async def _execute_adaptive_followup(self, initial_insights: List[ResearchInsight], props: List[PlayerProp]) -> List[ResearchInsight]:
-        """Analyze initial results and generate adaptive follow-up queries"""
-        
-        # Prepare insights summary for Grok analysis
         insights_summary = []
         for insight in initial_insights:
             insights_summary.append({
                 "source": insight.source,
                 "query": insight.query,
-                "data": str(insight.data)[:600],  # More context for analysis
+                "data": str(insight.data)[:600],
                 "confidence": insight.confidence
             })
         
-        # Get top priority props for context
         top_props = [{
             "player": prop.player_name,
             "prop_type": prop.prop_type,
@@ -623,30 +552,29 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             )
             
             followup_text = response.choices[0].message.content
-            start_idx = followup_text.find('{')
-            end_idx = followup_text.rfind('}') + 1
+            start_idx = followup_text.find("{")
+            end_idx = followup_text.rfind("}") + 1
             followup_plan = json.loads(followup_text[start_idx:end_idx])
             
-            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get('analysis', 'No analysis provided')}")
+            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get("analysis", "No analysis provided")}")
             
-            # Execute adaptive StatMuse queries
             insights = []
-            for query_obj in followup_plan.get('followup_statmuse_queries', [])[:5]:
+            for query_obj in followup_plan.get("followup_statmuse_queries", [])[:5]:
                 try:
-                    query_text = query_obj.get('query', '')
-                    reasoning = query_obj.get('reasoning', '')
-                    priority = query_obj.get('priority', 'medium')
+                    query_text = query_obj.get("query", "")
+                    reasoning = query_obj.get("reasoning", "")
+                    priority = query_obj.get("priority", "medium")
                     
                     logger.info(f"🔍 Adaptive StatMuse ({priority}): {query_text}")
                     logger.info(f"   Reasoning: {reasoning}")
                     
                     result = self.statmuse.query(query_text)
                     
-                    if result and 'error' not in result:
+                    if result and "error" not in result:
                         result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
                         logger.info(f"📊 Adaptive result: {result_preview}")
                         
-                        confidence = 0.95 if priority == 'high' else 0.8 if priority == 'medium' else 0.6
+                        confidence = 0.95 if priority == "high" else 0.8 if priority == "medium" else 0.6
                         insights.append(ResearchInsight(
                             source="statmuse_adaptive",
                             query=query_text,
@@ -660,19 +588,18 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 except Exception as e:
                     logger.error(f"❌ Adaptive StatMuse query failed: {e}")
             
-            # Execute adaptive web searches
-            for search_obj in followup_plan.get('followup_web_searches', [])[:3]:
+            for search_obj in followup_plan.get("followup_web_searches", [])[:3]:
                 try:
-                    search_query = search_obj.get('query', '')
-                    reasoning = search_obj.get('reasoning', '')
-                    priority = search_obj.get('priority', 'medium')
+                    search_query = search_obj.get("query", "")
+                    reasoning = search_obj.get("reasoning", "")
+                    priority = search_obj.get("priority", "medium")
                     
                     logger.info(f"🌐 Adaptive Web Search ({priority}): {search_query}")
                     logger.info(f"   Reasoning: {reasoning}")
                     
                     result = self.web_search.search(search_query)
                     
-                    confidence = 0.85 if priority == 'high' else 0.7 if priority == 'medium' else 0.5
+                    confidence = 0.85 if priority == "high" else 0.7 if priority == "medium" else 0.5
                     insights.append(ResearchInsight(
                         source="web_search_adaptive",
                         query=search_query,
@@ -688,34 +615,28 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             
         except Exception as e:
             logger.error(f"Failed to generate adaptive follow-up: {e}")
-            return []  # Return empty list if adaptive stage fails
+            return []
     
     async def _execute_final_research(self, all_insights: List[ResearchInsight], props: List[PlayerProp]) -> List[ResearchInsight]:
-        """Execute final targeted research to fill any remaining gaps"""
-        
-        # Quick targeted queries based on all findings so far
         final_insights = []
         
-        # Get insights by source for analysis
-        statmuse_count = len([i for i in all_insights if 'statmuse' in i.source])
-        web_count = len([i for i in all_insights if 'web' in i.source])
+        statmuse_count = len([i for i in all_insights if "statmuse" in i.source])
+        web_count = len([i for i in all_insights if "web" in i.source])
         
         logger.info(f"📊 Research Summary: {statmuse_count} StatMuse + {web_count} Web insights")
         
-        # If we have few insights, do some final broad queries
         if len(all_insights) < 8:
             logger.info("🎯 Adding final broad research queries")
             
-            # Add a few more targeted queries for top props
             top_players = list(set([prop.player_name for prop in props[:20]]))
             
-            for player in top_players[:3]:  # Final queries for top 3 players
+            for player in top_players[:3]:
                 try:
                     query = f"{player} batting average last 15 games"
                     logger.info(f"🔍 Final query: {query}")
                     
                     result = self.statmuse.query(query)
-                    if result and 'error' not in result:
+                    if result and "error" not in result:
                         final_insights.append(ResearchInsight(
                             source="statmuse_final",
                             query=query,
@@ -738,35 +659,28 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         games: List[Dict],
         target_picks: int
     ) -> List[Dict[str, Any]]:
-        """Use Grok to synthesize all research and generate the best picks with comprehensive reasoning"""
-        
-        # Prepare comprehensive data for Grok analysis
         insights_summary = []
-        for insight in insights[:40]:  # Include more insights for better analysis
+        for insight in insights[:40]:
             insights_summary.append({
                 "source": insight.source,
                 "query": insight.query,
-                "data": str(insight.data)[:800],  # More context
+                "data": str(insight.data)[:800],
                 "confidence": insight.confidence,
                 "timestamp": insight.timestamp.isoformat()
             })
         
-        # Filter out high-odds long shot props for better betting value
-        MAX_ODDS = 350  # Exclude props with odds higher than +350 (22% implied probability)
+        MAX_ODDS = 350
         
         filtered_props = []
         long_shot_count = 0
         
         for prop in props:
-            # Check if BOTH sides have reasonable odds (stricter filtering)
             over_reasonable = prop.over_odds is None or abs(prop.over_odds) <= MAX_ODDS
             under_reasonable = prop.under_odds is None or abs(prop.under_odds) <= MAX_ODDS
             
-            # Only keep prop if BOTH sides are reasonable (no long shots)
             if over_reasonable and under_reasonable:
                 filtered_props.append(prop)
             else:
-                # Log the long shot that was filtered out
                 long_shot_count += 1
                 over_str = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else str(prop.over_odds)
                 under_str = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else str(prop.under_odds)
@@ -774,9 +688,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         logger.info(f"🎯 Filtered props: {len(props)} → {len(filtered_props)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
         
-        # Show FILTERED props to focus on profitable opportunities
         props_data = []
-        for prop in filtered_props:  # Only include reasonable odds props
+        for prop in filtered_props:
             props_data.append({
                 "player": prop.player_name,
                 "prop_type": prop.prop_type,
@@ -792,14 +705,13 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         props_info = json.dumps(props_data, indent=2)
         research_summary = json.dumps(insights_summary, indent=2)
         
-        # Use filtered props for the rest of the process
         props = filtered_props
         
         prompt = f"""
 You are a professional sports betting analyst with 15+ years experience handicapping MLB player props.
 Your job is to find PROFITABLE betting opportunities, not just predict outcomes.
 
-TODAY'S DATA:
+TODAY\'S DATA:
 
 🏟️ UPCOMING GAMES ({len(games)}):
 {games_info}
@@ -832,7 +744,7 @@ TASK: Generate exactly {target_picks} strategic player prop picks that maximize 
 3. **AVOID LONG SHOTS**: Props with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
 4. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
 5. **DIVERSIFY PROP TYPES**: Use various props like Hits, Home Runs, RBIs, Runs Scored, Stolen Bases (see available props below)
-6. **MIX OVER/UNDER**: Don't just pick all overs - find spots where under has value
+6. **MIX OVER/UNDER**: Don\'t just pick all overs - find spots where under has value
 7. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
 8. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
 
@@ -897,7 +809,7 @@ REMEMBER:
 - Mix overs and unders based on VALUE, not bias  
 - Keep confidence realistic (most picks 55-65%)
 - Focus on profitable opportunities, not just likely outcomes
-- Each pick should be one you'd bet your own money on
+- Each pick should be one you\'d bet your own money on
 - **Available Batter Props**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases
 - **Available Pitcher Props**: Hits Allowed, Innings Pitched, Strikeouts, Walks Allowed
 """
@@ -906,16 +818,15 @@ REMEMBER:
             response = await self.grok_client.chat.completions.create(
                 model="grok-4-0709",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,  # Low temperature for focused analysis
-                max_tokens=4000   # Ensure enough space for detailed responses
+                temperature=0.1,
+                max_tokens=4000
             )
             
             picks_text = response.choices[0].message.content.strip()
             logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
             
-            # Extract JSON from response
-            start_idx = picks_text.find('[')
-            end_idx = picks_text.rfind(']') + 1
+            start_idx = picks_text.find("[")
+            end_idx = picks_text.rfind("]") + 1
             
             if start_idx == -1 or end_idx == 0:
                 logger.error("No JSON array found in Grok response")
@@ -924,88 +835,78 @@ REMEMBER:
             json_str = picks_text[start_idx:end_idx]
             ai_picks = json.loads(json_str)
             
-            # Validate and convert to final format
             formatted_picks = []
             for pick in ai_picks:
-                # Find corresponding prop with improved matching
                 matching_prop = self._find_matching_prop(pick, props)
                 
                 if matching_prop:
-                    # Find corresponding game
-                    game = next((g for g in games if str(g.get('id')) == str(matching_prop.event_id)), None)
+                    game = next((g for g in games if str(g.get("id")) == str(matching_prop.event_id)), None)
                     game_info = f"{matching_prop.team} game" if game else "Unknown matchup"
                     
                     formatted_picks.append({
                         "match_teams": game_info,
-                        "pick": f"{pick['player_name']} {pick['prop_type']} {pick['recommendation']} {pick['line']}",
-                        "odds": pick.get('odds', matching_prop.over_odds if pick['recommendation'] == 'over' else matching_prop.under_odds),
-                        "confidence": pick.get('confidence', 75),
+                        "pick": self._format_pick_string(pick, matching_prop),
+                        "odds": pick.get("odds", matching_prop.over_odds if pick["recommendation"] == "over" else matching_prop.under_odds),
+                        "confidence": pick.get("confidence", 75),
                         "sport": "MLB",
-                        "event_time": game.get('start_time') if game else None,
+                        "event_time": game.get("start_time") if game else None,
                         "bet_type": "player_prop",
                         "bookmaker": matching_prop.bookmaker,
                         "event_id": matching_prop.event_id,
                         "team": matching_prop.team,
                         "metadata": {
-                            "player_name": pick['player_name'],
-                            "prop_type": pick['prop_type'],
-                            "line": pick['line'],
-                            "recommendation": pick['recommendation'],
-                            "reasoning": pick.get('reasoning', 'AI-generated pick'),
-                         "roi_estimate": pick.get('roi_estimate', '0%'),
-                         "value_percentage": pick.get('value_percentage', '0%'),
-                         "implied_probability": pick.get('implied_probability', '50%'),
-                         "fair_odds": pick.get('fair_odds', pick.get('odds', 0)),
-                            "key_factors": pick.get('key_factors', []),
-                            "risk_level": pick.get('risk_level', 'medium'),
-                            "expected_value": pick.get('expected_value', 'Positive EV expected'),
-                            "research_support": pick.get('research_support', 'Based on comprehensive analysis'),
+                            "player_name": pick["player_name"],
+                            "prop_type": pick["prop_type"],
+                            "line": pick["line"],
+                            "recommendation": pick["recommendation"],
+                            "reasoning": pick.get("reasoning", "AI-generated pick"),
+                            "roi_estimate": pick.get("roi_estimate", "0%"),
+                            "value_percentage": pick.get("value_percentage", "0%"),
+                            "implied_probability": pick.get("implied_probability", "50%"),
+                            "fair_odds": pick.get("fair_odds", pick.get("odds", 0)),
+                            "key_factors": pick.get("key_factors", []),
+                            "risk_level": pick.get("risk_level", "medium"),
+                            "expected_value": pick.get("expected_value", "Positive EV expected"),
+                            "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
                             "model_used": "grok-4-0709"
                         }
                     })
                 else:
-                    logger.warning(f"No matching prop found for {pick.get('player_name')} {pick.get('prop_type')}")
+                    logger.warning(f"No matching prop found for {pick.get("player_name")} {pick.get("prop_type")}")
             
-            # Validate pick diversity and log statistics
             final_picks = formatted_picks[:target_picks]
             
             if final_picks:
-                # Count prop type diversity
                 prop_types = {}
-                recommendations = {'over': 0, 'under': 0}
-                confidence_ranges = {'50-60': 0, '61-70': 0, '71+': 0}
+                recommendations = {"over": 0, "under": 0}
+                confidence_ranges = {"50-60": 0, "61-70": 0, "71+": 0}
                 
                 for pick in final_picks:
-                    # Count prop types
-                    prop_type = pick['metadata']['prop_type']
+                    prop_type = pick["metadata"]["prop_type"]
                     prop_types[prop_type] = prop_types.get(prop_type, 0) + 1
                     
-                    # Count over/under
-                    rec = pick['metadata']['recommendation']
+                    rec = pick["metadata"]["recommendation"]
                     recommendations[rec] += 1
                     
-                    # Count confidence ranges
-                    conf = pick['confidence']
+                    conf = pick["confidence"]
                     if conf <= 60:
-                        confidence_ranges['50-60'] += 1
+                        confidence_ranges["50-60"] += 1
                     elif conf <= 70:
-                        confidence_ranges['61-70'] += 1
+                        confidence_ranges["61-70"] += 1
                     else:
-                        confidence_ranges['71+'] += 1
+                        confidence_ranges["71+"] += 1
                 
-                # Log diversity statistics
                 logger.info(f"📊 Pick Diversity Analysis:")
                 logger.info(f"  Prop Types: {dict(prop_types)}")
                 logger.info(f"  Over/Under: {dict(recommendations)}")
                 logger.info(f"  Confidence Ranges: {dict(confidence_ranges)}")
                 
-                # Log individual picks with enhanced info
                 logger.info(f"📝 Generated {len(final_picks)} diverse picks:")
                 for i, pick in enumerate(final_picks, 1):
-                    meta = pick['metadata']
-                    logger.info(f"  {i}. {meta['player_name']} {meta['prop_type']} {meta['recommendation'].upper()} {meta['line']} ({pick['confidence']}% conf)")
+                    meta = pick["metadata"]
+                    logger.info(f"  {i}. {meta["player_name"]} {meta["prop_type"]} {meta["recommendation"].upper()} {meta["line"]} ({pick["confidence"]}% conf)")
             
             return final_picks
             
@@ -1014,19 +915,17 @@ REMEMBER:
             return []
 
     def _format_statmuse_insights(self, insights_summary: List[Dict]) -> str:
-        """Format StatMuse insights for clear display to Grok"""
-        statmuse_insights = [i for i in insights_summary if i.get('source') == 'statmuse']
+        statmuse_insights = [i for i in insights_summary if i.get("source") == "statmuse"]
         if not statmuse_insights:
             return "No StatMuse data available"
         
         formatted = []
-        for insight in statmuse_insights[:10]:  # Top 10 most relevant
-            query = insight.get('query', '')
-            data = insight.get('data', '')
-            confidence = insight.get('confidence', 0.5)
+        for insight in statmuse_insights[:10]:
+            query = insight.get("query", "")
+            data = insight.get("data", "")
+            confidence = insight.get("confidence", 0.5)
             
-            # Clean up the data for better readability
-            data_clean = str(data).replace('{', '').replace('}', '').replace('"', '')
+            data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
             if len(data_clean) > 300:
                 data_clean = data_clean[:300] + "..."
             
@@ -1035,18 +934,16 @@ REMEMBER:
         return "\n\n".join(formatted)
     
     def _format_web_insights(self, insights_summary: List[Dict]) -> str:
-        """Format web search insights for clear display to Grok"""
-        web_insights = [i for i in insights_summary if i.get('source') == 'web_search']
+        web_insights = [i for i in insights_summary if i.get("source") == "web_search"]
         if not web_insights:
             return "No web search data available"
         
         formatted = []
-        for insight in web_insights[:5]:  # Top 5 most relevant
-            query = insight.get('query', '')
-            data = insight.get('data', '')
+        for insight in web_insights[:5]:
+            query = insight.get("query", "")
+            data = insight.get("data", "")
             
-            # Extract key information from web search results
-            data_clean = str(data).replace('{', '').replace('}', '').replace('"', '')
+            data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
             if len(data_clean) > 200:
                 data_clean = data_clean[:200] + "..."
             
@@ -1055,11 +952,9 @@ REMEMBER:
         return "\n\n".join(formatted)
     
     def _find_matching_prop(self, pick: Dict, props: List[PlayerProp]) -> PlayerProp:
-        """Find matching prop with improved fuzzy matching logic"""
-        player_name = pick.get('player_name', '')
-        prop_type = pick.get('prop_type', '')
+        player_name = pick.get("player_name", "")
+        prop_type = pick.get("prop_type", "")
         
-        # Try exact match first
         exact_match = next(
             (p for p in props 
              if p.player_name == player_name and p.prop_type == prop_type),
@@ -1068,12 +963,11 @@ REMEMBER:
         if exact_match:
             return exact_match
         
-        # Try fuzzy player name matching (common variations)
         name_variations = [
             player_name,
-            player_name.replace(' Jr.', ''),
-            player_name.replace(' Sr.', ''),
-            player_name.replace('.', ''),
+            player_name.replace(" Jr.", ""),
+            player_name.replace(" Sr.", ""),
+            player_name.replace(".", ""),
         ]
         
         for name_var in name_variations:
@@ -1084,15 +978,14 @@ REMEMBER:
                 None
             )
             if fuzzy_match:
-                logger.info(f"✅ Fuzzy matched '{player_name}' to '{fuzzy_match.player_name}'")
+                logger.info(f"✅ Fuzzy matched \'{player_name}\' to \'{fuzzy_match.player_name}\'")
                 return fuzzy_match
         
-        # Try prop type variations
         prop_type_mappings = {
-            'Batter Hits O/U': ['batter_hits', 'hits'],
-            'Batter Total Bases O/U': ['batter_total_bases', 'total_bases'],
-            'Batter Home Runs O/U': ['batter_home_runs', 'home_runs'],
-            'Batter RBIs O/U': ['batter_rbis', 'rbis']
+            "Batter Hits O/U": ["batter_hits", "hits"],
+            "Batter Total Bases O/U": ["batter_total_bases", "total_bases"],
+            "Batter Home Runs O/U": ["batter_home_runs", "home_runs"],
+            "Batter RBIs O/U": ["batter_rbis", "rbis"]
         }
         
         for mapped_type, variations in prop_type_mappings.items():
@@ -1104,30 +997,41 @@ REMEMBER:
                         None
                     )
                     if prop_var_match:
-                        logger.info(f"✅ Prop type matched '{prop_type}' to '{prop_var_match.prop_type}'")
+                        logger.info(f"✅ Prop type matched \'{prop_type}\' to \'{prop_var_match.prop_type}\'")
                         return prop_var_match
         
-        # Log detailed failure for debugging
         available_for_player = [p.prop_type for p in props if p.player_name == player_name]
         logger.warning(f"❌ No match for {player_name} {prop_type}. Available for this player: {available_for_player[:5]}")
         
         return None
 
+    def _format_pick_string(self, pick: Dict, matching_prop: PlayerProp) -> str:
+        """Formats the pick string for clarity."""
+        player_name = pick.get("player_name", "")
+        prop_type = pick.get("prop_type", "")
+        recommendation = pick.get("recommendation", "").lower()
+        line = pick.get("line")
+
+        if prop_type in ["Hits", "Home Runs", "RBIs", "Runs Scored", "Stolen Bases"]:
+            return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
+        elif prop_type in ["Hits Allowed", "Innings Pitched", "Strikeouts (Pitcher)", "Walks Allowed"]:
+            return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
+        return f"{player_name} {prop_type} {recommendation} {line}" # Fallback
+
 async def main():
-    """Main execution function"""
     logger.info("🤖 Starting Intelligent Player Props Agent")
     
     agent = IntelligentPlayerPropsAgent()
     picks = await agent.generate_daily_picks(target_picks=10)
     
-
-    
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick['pick']} (Confidence: {pick['confidence']}%)")
+            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
     else:
         logger.warning("❌ No picks generated")
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+

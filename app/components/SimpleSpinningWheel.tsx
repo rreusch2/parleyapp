@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -243,7 +244,15 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
       transparent={true}
       animationType="fade"
       onRequestClose={onClose}
+      // Ensure the modal is properly presented on iPad
+      supportedOrientations={['portrait', 'landscape']}
+      presentationStyle="overFullScreen"
     >
+      {/* Add debug log for iPad visibility */}
+      {Platform.OS === 'ios' && Platform.isPad ? (() => {
+        console.log('📱 [iPad Fix] Rendering SpinningWheel on iPad');
+        return null;
+      })() : null}
       <View style={styles.overlay}>
         <LinearGradient
           colors={['rgba(15,23,42,0.95)', 'rgba(30,27,75,0.95)', 'rgba(49,46,129,0.95)']}
@@ -495,17 +504,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    // Ensure overlay covers entire screen on all devices
+    width: '100%',
+    height: '100%',
   },
   scrollView: {
-    width: '100%',
-    flex: 1,
+    width: '100%', 
+    maxWidth: Platform.OS === 'ios' && Platform.isPad ? 500 : '100%', // Limit width on iPad
+    alignSelf: 'center',
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 20,
-    minHeight: screenHeight, // Ensure it's at least the full screen height
+    paddingVertical: Platform.OS === 'ios' && Platform.isPad ? 40 : 20,
   },
   modalGradient: {
     flex: 1,
