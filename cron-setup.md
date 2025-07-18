@@ -1,146 +1,81 @@
-# ParleyApp Daily Automation Cron Setup Guide
+# Setting Up Daily Automation Cron Job
 
-## Overview
-This guide sets up automated daily execution of your MLB prediction pipeline with proper dependency ordering and error handling.
+This document provides instructions for setting up the ParleyApp daily automation process to run automatically using cron.
 
-## Scripts Execution Order
-1. **Daily Insights** (`python insights.py`) - MUST RUN FIRST ⚡
-2. **Odds Integration** (`setupOddsIntegration.ts`) 
-3. **Team Predictions** (`run-orchestrator.ts`)
-4. **Player Props** (`python props.py`)
+## Making the Script Executable
 
-## Railway Cron Setup (Recommended)
+First, make the automation script executable:
 
-### Step 1: Deploy Cron Service to Railway
-
-1. **Create New Railway Service:**
-   ```bash
-   railway login
-   railway init
-   railway up
-   ```
-
-2. **Configure Environment Variables in Railway Dashboard:**
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY` 
-   - `XAI_API_KEY`
-   - `THEODDS_API_KEY`
-   - Any other environment variables your scripts need
-
-3. **Set up Railway Cron:**
-   - Go to Railway Dashboard → Your Project → Cron Tab
-   - Add new cron job with schedule: `0 6 * * *` (6 AM EST daily)
-   - Target: `railway-cron.js` handler function
-   - Description: "ParleyApp Daily MLB Predictions"
-
-### Step 2: Optimal Cron Schedule
-
-**Recommended Time: 6:00 AM EST (11:00 UTC)**
-- Runs before most MLB games start (typically 1 PM EST earliest)
-- Allows time for odds to stabilize overnight
-- Gives buffer time if script needs debugging
-
-**Cron Expression:**
 ```bash
-# Daily at 6:00 AM EST
-0 6 * * *
+chmod +x /home/reid/Desktop/parleyapp/daily-automation.sh
 ```
 
-**Alternative Schedules:**
+## Setting Up the Cron Job
+
+You can set up a cron job to run the automation script daily at a specific time.
+
+1. Open your crontab for editing:
+
 ```bash
-# Early morning at 5:30 AM EST (more conservative)
-30 5 * * *
-
-# Twice daily: 6 AM and 10 AM EST (backup run)
-0 6,10 * * *
-```
-
-## Local Cron Setup (Alternative)
-
-### Option 1: Add to User Crontab
-```bash
-# Edit crontab
 crontab -e
+```
 
-# Add this line (6 AM daily):
+2. Add the following line to run the script daily at 6 AM:
+
+```
 0 6 * * * /home/reid/Desktop/parleyapp/daily-automation.sh
+```
 
-# Verify crontab
+Or to run at another time (e.g., 8 AM):
+
+```
+0 8 * * * /home/reid/Desktop/parleyapp/daily-automation.sh
+```
+
+3. Save and exit the editor.
+
+## Verifying the Cron Job
+
+To verify that your cron job is set up correctly:
+
+```bash
 crontab -l
 ```
 
-### Option 2: System Cron
+This should display your crontab with the line you added.
+
+## Testing the Automation Script
+
+To test the automation script without waiting for the scheduled time:
+
 ```bash
-# Create system cron file
-sudo nano /etc/cron.d/parleyapp-daily
-
-# Add content:
-0 6 * * * reid /home/reid/Desktop/parleyapp/daily-automation.sh
-
-# Set permissions
-sudo chmod 644 /etc/cron.d/parleyapp-daily
+/home/reid/Desktop/parleyapp/daily-automation.sh
 ```
 
-## Testing Your Setup
+## Logs
 
-### Test Local Script
-```bash
-cd /home/reid/Desktop/parleyapp
-./daily-automation.sh
-```
-
-### Test Railway Cron Function
-```bash
-node railway-cron.js
-```
-
-### Verify Logs
-```bash
-# Check recent log file
-tail -f logs/daily-automation-$(date +%Y%m%d).log
-
-# Check all recent logs
-ls -la logs/
-```
-
-## Monitoring & Alerts
-
-### Log Retention
-- Logs kept for 30 days automatically
-- Located in: `/home/reid/Desktop/parleyapp/logs/`
-- Format: `daily-automation-YYYYMMDD.log`
-
-### Success Indicators
-- ✅ All 4 steps complete without errors
-- ✅ New records in `ai_predictions` table
-- ✅ Log shows "Daily automation completed successfully"
-
-### Failure Alerts
-- Script exits immediately on first error
-- Detailed error logging with timestamps
-- Check Supabase dashboard for missing prediction records
-
-## Production Recommendations
-
-1. **Use Railway Cron** - More reliable than local cron
-2. **Set up monitoring** - Create alerts for failed runs
-3. **Database backups** - Before running daily scripts
-4. **Staging environment** - Test changes before production
+The automation script creates detailed logs in:
+- `/home/reid/Desktop/parleyapp/logs/daily-automation-YYYY-MM-DD.log` (Main log)
+- `/home/reid/Desktop/parleyapp/logs/odds-integration.log` (Odds integration log)
+- `/home/reid/Desktop/parleyapp/logs/main-py.log` (AI predictions log)
+- `/home/reid/Desktop/parleyapp/logs/plockinsights.log` (Professor Lock insights log)
+- `/home/reid/Desktop/parleyapp/logs/injury-update.log` (Injury reports log)
+- `/home/reid/Desktop/parleyapp/logs/statmuse-server.log` (StatMuse API server log)
 
 ## Troubleshooting
 
-### Common Issues
-- **Permission denied**: `chmod +x daily-automation.sh`
-- **Node modules**: Ensure `npm install` in backend directory
-- **Python dependencies**: Check virtual environment activation
-- **Environment variables**: Verify all API keys are set
+If the cron job doesn't run as expected:
 
-### Manual Recovery
-If automation fails, run steps manually:
-```bash
-cd /home/reid/Desktop/parleyapp
-python insights.py
-cd backend && npx ts-node src/scripts/setupOddsIntegration.ts
-npx ts-node src/scripts/run-orchestrator.ts
-cd .. && python props.py
-```
+1. Make sure the script is executable: `chmod +x /home/reid/Desktop/parleyapp/daily-automation.sh`
+2. Check if any environment variables need to be set in the cron environment
+3. Verify the path to the script is correct
+4. Check the logs for error messages
+
+## Environment Variables
+
+If your script relies on environment variables that are set in your `.env` file, make sure to:
+
+1. Use absolute paths in the script
+2. Source any necessary environment files at the beginning of the script
+
+For a more robust setup, you might consider using a service manager like systemd instead of cron.

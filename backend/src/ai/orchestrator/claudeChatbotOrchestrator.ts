@@ -121,7 +121,7 @@ export class ChatbotOrchestrator {
       } else {
         // Stream the response in real-time
         const stream = await this.openai.chat.completions.create({
-          model: "grok-4-0709",
+          model: "deepseek-chat",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7,
@@ -192,7 +192,7 @@ export class ChatbotOrchestrator {
       } else {
         // Simple AI response for basic queries
         response = await this.openai.chat.completions.create({
-          model: "grok-4-0709",
+          model: "deepseek-chat",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7

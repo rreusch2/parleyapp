@@ -408,7 +408,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             return {
                 "priority_players": [p.player_name for p in props[:15]],
                 "statmuse_queries": [
-                    f"{p.player_name} {p.prop_type.replace(\'batter_\', \'\').replace(\'pitcher_\', \'\')} last 10 games"
+                    f"{p.player_name} {p.prop_type.replace('batter_', '').replace('pitcher_', '')} last 10 games"
                     for p in props[:10]
                 ],
                 "research_focus": ["recent_performance", "matchups"],
@@ -816,7 +816,7 @@ REMEMBER:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=4000
@@ -870,7 +870,7 @@ REMEMBER:
                             "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
-                            "model_used": "grok-4-0709"
+                            "model_used": "deepseek-chat"
                         }
                     })
                 else:

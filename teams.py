@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
+import uuid
 
 # Load environment variables
 load_dotenv("backend/.env")
@@ -147,23 +148,70 @@ class DatabaseClient:
             return []
         
         try:
-            response = self.supabase.table("team_odds").select(
-                "id, home_team, away_team, bet_type, recommendation, odds, line, event_id, bookmaker"
-            ).in_("event_id", game_ids).execute()
+            # Query the sports_events table directly instead of team_odds
+            response = self.supabase.table("sports_events").select(
+                "id, home_team, away_team, metadata, odds"
+            ).in_("id", game_ids).execute()
             
             bets = []
             for row in response.data:
-                bets.append(TeamBet(
-                    id=row["id"],
-                    home_team=row["home_team"],
-                    away_team=row["away_team"],
-                    bet_type=row["bet_type"],
-                    recommendation=row["recommendation"],
-                    odds=int(row["odds"]),
-                    line=float(row["line"]) if row["line"] else None,
-                    event_id=row["event_id"],
-                    bookmaker=row["bookmaker"]
-                ))
+                # Extract odds from metadata
+                metadata = row.get("metadata", {})
+                if not metadata:
+                    continue
+                
+                full_data = metadata.get("full_data", {})
+                if not full_data:
+                    continue
+                
+                bookmakers = full_data.get("bookmakers", [])
+                if not bookmakers:
+                    continue
+                
+                for bookmaker in bookmakers:
+                    bookmaker_name = bookmaker.get("title", "Unknown")
+                    markets = bookmaker.get("markets", [])
+                    
+                    for market in markets:
+                        market_type = market.get("key", "")
+                        outcomes = market.get("outcomes", [])
+                        
+                        for outcome in outcomes:
+                            team_name = outcome.get("name", "")
+                            price = outcome.get("price", 0)
+                            point = outcome.get("point", None)
+                            
+                            # Skip if any required data is missing
+                            if not team_name or not price:
+                                continue
+                            
+                            # Determine which team this bet is for
+                            is_home_team = team_name == row["home_team"]
+                            is_away_team = team_name == row["away_team"]
+                            
+                            if not (is_home_team or is_away_team):
+                                if "Over" in team_name or "Under" in team_name:
+                                    # Handle over/under bets
+                                    team_recommendation = team_name
+                                else:
+                                    # Skip if we can't determine which team
+                                    continue
+                            else:
+                                team_recommendation = team_name
+                            
+                            bet = TeamBet(
+                                id=str(uuid.uuid4()),  # Generate a unique ID
+                                home_team=row["home_team"],
+                                away_team=row["away_team"],
+                                bet_type=market_type,
+                                recommendation=team_recommendation,
+                                odds=int(price),
+                                line=float(point) if point is not None else None,
+                                event_id=row["id"],
+                                bookmaker=bookmaker_name
+                            )
+                            bets.append(bet)
+            
             return bets
         except Exception as e:
             logger.error(f"Failed to fetch team odds: {e}")
@@ -213,7 +261,7 @@ class DatabaseClient:
         except Exception as e:
             logger.error(f"Failed to store AI predictions: {e}")
 
-class IntelligentTeamsAgent:
+class IntelligentTeamBettingAgent:
     def __init__(self):
         self.db = DatabaseClient()
         self.statmuse = StatMuseClient()
@@ -784,7 +832,7 @@ REMEMBER:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=4000
@@ -837,7 +885,7 @@ REMEMBER:
                             "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
-                            "model_used": "grok-4-0709"
+                            "model_used": "deepseek-chat"
                         }
                     })
                 else:
@@ -923,24 +971,67 @@ REMEMBER:
         away_team = pick.get("away_team", "")
         bet_type = pick.get("bet_type", "")
         
+        # Map AI-generated bet types to the ones in the odds data
+        bet_type_mapping = {
+            "moneyline": "h2h",
+            "spread": "spreads",
+            "total": "totals"
+        }
+        
+        mapped_bet_type = bet_type_mapping.get(bet_type, bet_type)
+        
+        # Try exact match first with mapped bet type
         exact_match = next(
             (bet for bet in odds 
-             if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == bet_type),
+             if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == mapped_bet_type),
             None
         )
         if exact_match:
             return exact_match
+            
+        # Try exact match with original bet type
+        exact_match_orig = next(
+            (bet for bet in odds 
+             if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == bet_type),
+            None
+        )
+        if exact_match_orig:
+            return exact_match_orig
         
+        # Try fuzzy match with mapped bet type
         fuzzy_match = next(
+            (bet for bet in odds 
+             if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
+                (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower()) and
+                bet.bet_type == mapped_bet_type),
+            None
+        )
+        if fuzzy_match:
+            logger.info(f"✅ Fuzzy matched '{home_team} vs {away_team}' to '{fuzzy_match.home_team} vs {fuzzy_match.away_team}'")
+            return fuzzy_match
+            
+        # Try fuzzy match with original bet type
+        fuzzy_match_orig = next(
             (bet for bet in odds 
              if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
                 (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower()) and
                 bet.bet_type == bet_type),
             None
         )
-        if fuzzy_match:
-            logger.info(f"✅ Fuzzy matched '{home_team} vs {away_team}' to '{fuzzy_match.home_team} vs {fuzzy_match.away_team}'")
-            return fuzzy_match
+        if fuzzy_match_orig:
+            logger.info(f"✅ Fuzzy matched '{home_team} vs {away_team}' to '{fuzzy_match_orig.home_team} vs {fuzzy_match_orig.away_team}'")
+            return fuzzy_match_orig
+            
+        # Try ignoring bet type completely as last resort
+        any_match = next(
+            (bet for bet in odds 
+             if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
+                (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower())),
+            None
+        )
+        if any_match:
+            logger.info(f"✅ Matched '{home_team} vs {away_team}' to '{any_match.home_team} vs {any_match.away_team}' ignoring bet type")
+            return any_match
         
         logger.warning(f"❌ No match found for {home_team} vs {away_team} {bet_type}")
         return None
@@ -970,7 +1061,7 @@ REMEMBER:
 async def main():
     logger.info("🤖 Starting Intelligent Teams Agent")
     
-    agent = IntelligentTeamsAgent()
+    agent = IntelligentTeamBettingAgent()
     picks = await agent.generate_daily_picks(target_picks=10)
     
     if picks:
