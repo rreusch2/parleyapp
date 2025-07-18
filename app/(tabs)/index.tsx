@@ -9,8 +9,9 @@ import {
   Platform,
   Animated,
   Alert,
-import { normalize, isTablet } from '@/app/services/device';
+  Dimensions
 } from 'react-native';
+import { normalize, isTablet } from '@/app/services/device';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
   TrendingUp, 

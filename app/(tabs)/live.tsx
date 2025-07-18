@@ -106,6 +106,8 @@ export default function GamesScreen() {
     { id: 'all', name: 'All' },
     { id: 'NBA', name: 'NBA' },
     { id: 'MLB', name: 'MLB' },
+    { id: 'UFC', name: 'UFC' },
+    { id: 'MMA', name: 'MMA' },
     { id: 'NHL', name: 'NHL' },
     { id: 'NFL', name: 'NFL' }
   ];

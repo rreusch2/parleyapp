@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { normalize, isTablet } from '@/app/services/device';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  import { normalize, isTablet } from '@/app/services/device';
   ActivityIndicator,
   Platform,
   RefreshControl,
-  Alert
+  Alert,
+  Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
