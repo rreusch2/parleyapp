@@ -160,7 +160,7 @@ class EnhancedSystemDeployer:
         
         # Required environment variables
         required_env_vars = [
-            'GROK_API_KEY', 'STATMUSE_API_KEY', 'DATABASE_URL'
+            'XAI_API_KEY', 'API_SPORTS_KEY', 'SUPABASE_URL'
         ]
         
         missing_env_vars = []
@@ -302,7 +302,7 @@ class EnhancedSystemDeployer:
                 'user_agent': 'ParleyApp Enhanced Sports Betting AI 1.0'
             },
             'ai_settings': {
-                'model': 'grok-4',
+                'model': 'grok-beta',
                 'max_tokens': 4000,
                 'temperature': 0.1,
                 'confidence_threshold': 0.7

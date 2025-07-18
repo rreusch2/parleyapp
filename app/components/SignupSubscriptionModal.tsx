@@ -475,35 +475,19 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Continue Free Button - IMPROVED iPad compatible version */}
+            {/* Continue Free Button */}
             <TouchableOpacity
               style={styles.freeButton}
               onPress={() => {
-                console.log('🎯 [iPad Fix] Try Free Account button pressed');
-                
-                // First close this modal directly
-                if (onClose) {
-                  console.log('🎯 [iPad Fix] First calling onClose to ensure modal dismisses');
-                  onClose();
+                console.log('🎯 Try Free Account button pressed');
+                // Simply call the onContinueFree callback
+                // The parent component will handle the modal transitions properly
+                if (onContinueFree) {
+                  onContinueFree();
                 }
-                
-                // Then add a longer delay before triggering the free account flow
-                setTimeout(() => {
-                  console.log('🎯 [iPad Fix] Now calling onContinueFree after delay');
-                  if (onContinueFree) {
-                    onContinueFree();
-                  } else {
-                    console.error('❌ [iPad Fix] onContinueFree callback is missing!');
-                    // Try to navigate directly if possible
-                    if (Platform.OS === 'ios' && Platform.isPad) {
-                      console.log('🎯 [iPad Fix] Attempting alternate navigation approach for iPad');
-                      // Could add navigation fallback here if needed
-                    }
-                  }
-                }, 300); // Longer delay for iPad rendering
               }}
               disabled={loading}
-              activeOpacity={0.5} // More responsive feedback
+              activeOpacity={0.7}
             >
               <View style={styles.freeButtonContent}>
                 <Gift size={20} color="#94A3B8" />

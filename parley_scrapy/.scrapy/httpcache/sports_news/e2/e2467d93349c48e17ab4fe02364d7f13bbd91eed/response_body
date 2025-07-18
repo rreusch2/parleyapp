@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /_x_/
+Disallow: /_xhr/
+Disallow: /darla/
+Disallow: /dynamic/
+Disallow: /pageview/
+Sitemap: https://uk.sports.yahoo.com/sitemaps/sports-sitemap_index_GB_en-GB.xml.gz
+Sitemap: https://uk.sports.yahoo.com/sitemaps/sports-sitemap_googlenews_GB_en-GB.xml.gz

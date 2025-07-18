@@ -1,0 +1,11 @@
+Date: Fri, 18 Jul 2025 08:17:20 GMT
+Content-Type: text/html
+Strict-Transport-Security: max-age=2592000; includeSubDomains
+Cf-Cache-Status: EXPIRED
+Set-Cookie: __cf_bm=QiL338ZyWM4Cdp4r7hIqvELevxtkTjFdh_pDXgDU74M-1752826640-1.0.1.1-cYBuNS4mmVsU8buWfJI4oeVLuyJozlU9LPRUJVr0oA0XC4ejuh97LMnK7s5vyiixEukfpS766PnXEli5jUTrrCV4E0SA3h474bTNMHMre.s; path=/; expires=Fri, 18-Jul-25 08:47:20 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
+Server-Timing: cfCacheStatus;desc="EXPIRED"
+Server-Timing: cfOrigin;dur=3,cfEdge;dur=31
+Vary: Accept-Encoding
+Server: cloudflare
+Cf-Ray: 96108ac6e80cd287-CMH
+Content-Encoding: gzip

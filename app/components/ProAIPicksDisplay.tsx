@@ -259,10 +259,15 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                   {pick.match_teams}
                 </Text>
                 <View style={styles.pickTypeContainer}>
-                  <Text style={styles.pickType}>{pick.bet_type}</Text>
+                  <View style={styles.sportBadge}>
+                    <Text style={styles.pickType}>{pick.bet_type}</Text>
+                    {pick.league && (
+                      <Text style={styles.leagueBadge}>{pick.league}</Text>
+                    )}
+                  </View>
                   {pick.eventTime && (
                     <View style={styles.gameTimeContainer}>
-                      <Clock size={12} color="#94A3B8" />
+                      <Clock size={14} color="#00E5FF" />
                       <Text style={styles.gameTime}>{pick.eventTime}</Text>
                     </View>
                   )}
@@ -554,9 +559,10 @@ const styles = StyleSheet.create({
   },
   matchTeams: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 6,
+    lineHeight: 22,
   },
   pickTypeContainer: {
     flexDirection: 'row',
@@ -575,12 +581,17 @@ const styles = StyleSheet.create({
   gameTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 8,
+    marginTop: 4,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   gameTime: {
-    color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 13,
+    color: '#00E5FF',
     marginLeft: 4,
+    fontWeight: '600',
   },
   timeAgo: {
     color: '#64748B',
@@ -771,6 +782,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  sportBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  leagueBadge: {
+    fontSize: 11,
+    color: '#8B5CF6',
+    fontWeight: '600',
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
 });
 

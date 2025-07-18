@@ -1,0 +1,26 @@
+{
+  "environment": "production",
+  "scrapy_settings": {
+    "refresh_interval_hours": 2,
+    "concurrent_requests": 16,
+    "download_delay": 1,
+    "user_agent": "ParleyApp Enhanced Sports Betting AI 1.0"
+  },
+  "ai_settings": {
+    "model": "grok-beta",
+    "max_tokens": 4000,
+    "temperature": 0.1,
+    "confidence_threshold": 0.7
+  },
+  "monitoring": {
+    "enabled": true,
+    "health_check_interval_hours": 6,
+    "alert_email": null,
+    "slack_webhook": null
+  },
+  "data_management": {
+    "cleanup_interval_hours": 24,
+    "backup_retention_days": 30,
+    "max_log_size_mb": 100
+  }
+}

@@ -319,6 +319,54 @@ class ScrapyIntegrationService:
             logger.error(f"❌ Error storing enhanced data: {e}")
             return False
     
+    def get_service_status(self) -> Dict[str, Any]:
+        """Get current status of the Scrapy integration service"""
+        try:
+            # Check if scrapy project exists
+            scrapy_available = self.scrapy_project_path.exists()
+            
+            # Check if data directory exists
+            data_dir_exists = self.scraped_data_path.exists()
+            
+            # Check database connection
+            db_connected = self.db is not None
+            
+            # Count available data files
+            data_files_count = 0
+            if data_dir_exists:
+                for sport_dir in self.scraped_data_path.iterdir():
+                    if sport_dir.is_dir():
+                        for data_type in ['news', 'player_stats', 'team_performance']:
+                            data_file = sport_dir / f"{data_type}.json"
+                            if data_file.exists():
+                                data_files_count += 1
+            
+            # Get recent data count
+            recent_data = self.load_scraped_data(max_age_hours=24)
+            
+            status = {
+                'service_name': 'Scrapy Integration Service',
+                'status': 'healthy' if scrapy_available and data_dir_exists else 'degraded',
+                'scrapy_project_available': scrapy_available,
+                'data_directory_exists': data_dir_exists,
+                'database_connected': db_connected,
+                'data_files_count': data_files_count,
+                'recent_datasets_count': len(recent_data),
+                'scrapy_project_path': str(self.scrapy_project_path),
+                'data_path': str(self.scraped_data_path),
+                'last_check': datetime.now().isoformat()
+            }
+            
+            return status
+            
+        except Exception as e:
+            return {
+                'service_name': 'Scrapy Integration Service',
+                'status': 'error',
+                'error': str(e),
+                'last_check': datetime.now().isoformat()
+            }
+    
     async def refresh_all_data(self) -> Dict[str, Any]:
         """Refresh all scraped data and make it available to AI system"""
         logger.info("🔄 Starting complete data refresh...")

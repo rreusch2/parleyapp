@@ -470,3 +470,142 @@ BEGIN
     RAISE NOTICE '🔄 Created triggers for automatic timestamp updates';
     RAISE NOTICE '🎯 Database is ready for enhanced AI system with Scrapy integration!';
 END $$;
+
+-- ============================================================================
+-- MISSING TABLES FOR ENHANCED AGENTS
+-- ============================================================================
+
+-- Create team_odds table that enhanced_teams_agent.py expects
+CREATE TABLE IF NOT EXISTS team_odds (
+    id SERIAL PRIMARY KEY,
+    home_team VARCHAR(200) NOT NULL,
+    away_team VARCHAR(200) NOT NULL,
+    bet_type VARCHAR(100) NOT NULL, -- moneyline, spread, total
+    recommendation VARCHAR(50) NOT NULL, -- home, away, over, under
+    odds INTEGER NOT NULL, -- American odds format
+    line DECIMAL(10,2), -- Point spread or total line
+    event_id UUID NOT NULL, -- Changed to UUID to match sports_events.id
+    bookmaker VARCHAR(100) NOT NULL,
+    market VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    
+    -- Foreign key reference to sports_events
+    CONSTRAINT fk_team_odds_event FOREIGN KEY (event_id) REFERENCES sports_events(id) ON DELETE CASCADE
+);
+
+-- Add missing team column to player_props table
+DO $$
+BEGIN
+    -- Check if team column exists in player_props table
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'player_props'
+        AND column_name = 'team'
+    ) THEN
+        ALTER TABLE player_props ADD COLUMN team VARCHAR(100);
+        RAISE NOTICE 'Added team column to player_props table';
+    ELSE
+        RAISE NOTICE 'Team column already exists in player_props table';
+    END IF;
+END $$;
+
+-- Create indexes for the new team_odds table
+CREATE INDEX IF NOT EXISTS idx_team_odds_event_id ON team_odds(event_id);
+CREATE INDEX IF NOT EXISTS idx_team_odds_home_team ON team_odds(home_team);
+CREATE INDEX IF NOT EXISTS idx_team_odds_away_team ON team_odds(away_team);
+CREATE INDEX IF NOT EXISTS idx_team_odds_bet_type ON team_odds(bet_type);
+CREATE INDEX IF NOT EXISTS idx_team_odds_created_at ON team_odds(created_at DESC);
+
+-- Create index for the new team column in player_props
+CREATE INDEX IF NOT EXISTS idx_player_props_team ON player_props(team);
+
+-- Create trigger for team_odds updated_at
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'update_team_odds_updated_at'
+        AND tgrelid = 'team_odds'::regclass
+    ) THEN
+        CREATE TRIGGER update_team_odds_updated_at
+            BEFORE UPDATE ON team_odds
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
+
+-- Insert sample team_odds data for testing
+INSERT INTO team_odds (home_team, away_team, bet_type, recommendation, odds, line, event_id, bookmaker, market)
+SELECT
+    home_team,
+    away_team,
+    'moneyline' as bet_type,
+    'home' as recommendation,
+    -150 as odds,
+    NULL as line,
+    id as event_id,
+    'DraftKings' as bookmaker,
+    'MLB' as market
+FROM sports_events
+WHERE sport = 'MLB'
+AND start_time > CURRENT_TIMESTAMP
+LIMIT 10
+ON CONFLICT DO NOTHING;
+
+-- Insert sample spread bets
+INSERT INTO team_odds (home_team, away_team, bet_type, recommendation, odds, line, event_id, bookmaker, market)
+SELECT
+    home_team,
+    away_team,
+    'spread' as bet_type,
+    'home' as recommendation,
+    -110 as odds,
+    -1.5 as line,
+    id as event_id,
+    'FanDuel' as bookmaker,
+    'MLB' as market
+FROM sports_events
+WHERE sport = 'MLB'
+AND start_time > CURRENT_TIMESTAMP
+LIMIT 10
+ON CONFLICT DO NOTHING;
+
+-- Insert sample total bets
+INSERT INTO team_odds (home_team, away_team, bet_type, recommendation, odds, line, event_id, bookmaker, market)
+SELECT
+    home_team,
+    away_team,
+    'total' as bet_type,
+    'over' as recommendation,
+    -105 as odds,
+    8.5 as line,
+    id as event_id,
+    'BetMGM' as bookmaker,
+    'MLB' as market
+FROM sports_events
+WHERE sport = 'MLB'
+AND start_time > CURRENT_TIMESTAMP
+LIMIT 10
+ON CONFLICT DO NOTHING;
+
+-- Update existing player_props with team data where possible
+UPDATE player_props
+SET team = CASE
+    WHEN player_name LIKE '%Yankees%' OR player_name IN (SELECT DISTINCT player_name FROM player_props WHERE player_name LIKE '%Judge%' OR player_name LIKE '%Cole%') THEN 'Yankees'
+    WHEN player_name LIKE '%Dodgers%' OR player_name LIKE '%Betts%' OR player_name LIKE '%Freeman%' THEN 'Dodgers'
+    WHEN player_name LIKE '%Braves%' OR player_name LIKE '%Acuna%' OR player_name LIKE '%Harris%' THEN 'Braves'
+    WHEN player_name LIKE '%Astros%' OR player_name LIKE '%Altuve%' OR player_name LIKE '%Bregman%' THEN 'Astros'
+    ELSE 'Unknown'
+END
+WHERE team IS NULL;
+
+DO $$
+BEGIN
+    RAISE NOTICE '✅ Enhanced Agents Database Schema Fixes Complete!';
+    RAISE NOTICE '📊 Created team_odds table for enhanced_teams_agent.py';
+    RAISE NOTICE '⚾ Added team column to player_props table for enhanced_props_agent.py';
+    RAISE NOTICE '🔧 Created indexes and triggers for optimal performance';
+    RAISE NOTICE '📝 Inserted sample data for testing';
+    RAISE NOTICE '🎯 Enhanced agents should now work with correct database schema!';
+END $$;

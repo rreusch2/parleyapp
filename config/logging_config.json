@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "detailed": {
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    }
+  },
+  "handlers": {
+    "file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "filename": "/home/reid/Desktop/parleyapp/logs/enhanced_system.log",
+      "maxBytes": 104857600,
+      "backupCount": 5,
+      "formatter": "detailed"
+    },
+    "console": {
+      "class": "logging.StreamHandler",
+      "formatter": "detailed"
+    }
+  },
+  "root": {
+    "level": "INFO",
+    "handlers": [
+      "file",
+      "console"
+    ]
+  }
+}

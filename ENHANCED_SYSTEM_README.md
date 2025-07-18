@@ -67,9 +67,9 @@ This enhanced sports betting AI system integrates advanced web scraping capabili
    cp backend/.env.example backend/.env
    
    # Required variables:
-   GROK_API_KEY=your_grok_api_key
-   STATMUSE_API_KEY=your_statmuse_api_key
-   DATABASE_URL=your_database_url
+   XAI_API_KEY=your_grok_api_key
+   API_SPORTS_KEY=your_statmuse_api_key
+   SUPABASE_URL=your_database_url
    ```
 
 3. **Setup Database**
@@ -269,7 +269,7 @@ await workflow_manager.workflow_data_cleanup()
     "download_delay": 1
   },
   "ai_settings": {
-    "model": "grok-4",
+    "model": "grok-beta",
     "max_tokens": 4000,
     "temperature": 0.1,
     "confidence_threshold": 0.7
@@ -286,11 +286,11 @@ await workflow_manager.workflow_data_cleanup()
 
 ```bash
 # Required API Keys
-GROK_API_KEY=your_grok_api_key
-STATMUSE_API_KEY=your_statmuse_api_key
+XAI_API_KEY=your_grok_api_key
+API_SPORTS_KEY=your_statmuse_api_key
 
 # Database Configuration
-DATABASE_URL=postgresql://user:password@localhost:5432/parley_db
+SUPABASE_URL=postgresql://user:password@localhost:5432/parley_db
 
 # Optional Monitoring
 ALERT_EMAIL=admin@parleyapp.com
@@ -337,10 +337,10 @@ SCRAPY_DOWNLOAD_DELAY=1
 2. **Database Connection Issues**
    ```bash
    # Test database connection
-   psql $DATABASE_URL -c "SELECT version();"
+   psql $SUPABASE_URL -c "SELECT version();"
    
    # Apply schema updates
-   psql $DATABASE_URL -f database_schema_updates.sql
+   psql $SUPABASE_URL -f database_schema_updates.sql
    ```
 
 3. **API Rate Limits**

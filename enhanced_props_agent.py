@@ -176,14 +176,14 @@ class DatabaseClient:
             props = []
             for row in response.data:
                 props.append(PlayerProp(
-                    id=row["id"],
+                    id=str(row["id"]),
                     player_name=row["player_name"],
-                    team=row["team"],
+                    team=row.get("team", "Unknown"),  # Handle potential null values
                     prop_type=row["prop_type"],
                     line=float(row["line"]),
                     over_odds=int(row["over_odds"]),
                     under_odds=int(row["under_odds"]),
-                    event_id=row["event_id"],
+                    event_id=str(row["event_id"]),  # Convert UUID to string
                     bookmaker=row["bookmaker"],
                     market=row["market"]
                 ))
@@ -391,7 +391,7 @@ Leverage the scraped data advantage - this is intelligence that most bettors don
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-beta-0709",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -670,7 +670,7 @@ Generate 3-6 high-value follow-up queries that will maximize our ENHANCED edge f
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-beta-0709",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.4
             )
@@ -922,7 +922,7 @@ REMEMBER: You have a DATA ADVANTAGE that most bettors don't have for player prop
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-beta-0709",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=4000
@@ -983,7 +983,7 @@ REMEMBER: You have a DATA ADVANTAGE that most bettors don't have for player prop
                             "enhanced_system": True,
                             "research_insights_count": len(insights),
                             "scrapy_insights_used": True,
-                            "model_used": "grok-4-0709"
+                            "model_used": "grok-beta-0709"
                         }
                     })
                 else:
