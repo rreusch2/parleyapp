@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
@@ -53,7 +54,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly'); // Default to yearly (best value)
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
-  const { subscribeToPro, checkSubscriptionStatus } = useSubscription();
+  // Include restorePurchases so users (and Apple reviewers) can easily restore previous transactions
+  const { subscribeToPro, checkSubscriptionStatus, restorePurchases } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -174,6 +176,21 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
     }
   };
 
+  /**
+   * Handle restore purchases flow from the paywall.
+   * Apple requires a prominent "Restore" button in the purchase view (Guideline 3.1.1).
+   */
+  const handleRestore = async () => {
+    try {
+      setLoading(true);
+      await restorePurchases();
+    } catch (error: any) {
+      console.error('❌ Restore purchases error:', error);
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
@@ -539,6 +556,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                 </LinearGradient>
               </TouchableOpacity>
               
+              {/* Restore Purchases Button - required by Apple */}
+              <TouchableOpacity
+                onPress={handleRestore}
+                style={[styles.restoreButton, loading && { opacity: 0.7 }]}
+                disabled={loading}
+              >
+                <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+              </TouchableOpacity>
+
               <View style={styles.termsContainer}>
                 <Text style={styles.termsText}>
                   {selectedPlan === 'lifetime' 
@@ -923,6 +949,19 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     textDecorationLine: 'underline',
     fontWeight: '500',
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFFFFF55',
+    marginBottom: 12,
+  },
+  restoreButtonText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 
 });

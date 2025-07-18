@@ -1,15 +1,15 @@
 Content-Length: 561
-Date: Fri, 18 Jul 2025 08:17:27 GMT
+Date: Fri, 18 Jul 2025 11:22:03 GMT
 Content-Type: text/plain
 Strict-Transport-Security: max-age=2592000; includeSubDomains
 Last-Modified: Mon, 16 Sep 2024 16:45:12 GMT
 Vary: Accept-Encoding
 Content-Encoding: gzip
 Cf-Cache-Status: HIT
-Age: 16
+Age: 20
 Accept-Ranges: bytes
-Set-Cookie: __cf_bm=CQfeANlMQqHNynzRvH8yCBsKVl9iz.mB6rGlpV31nf0-1752826647-1.0.1.1-sm7_kVsz5U131zZQelLo8nZrwUWSMuQmAWdaJszmvrskM9KtOHQ_fthV.LTkiZRD7qFnRhmP8lSUvOuElro_bxW99t7vTa5dz3Yst9Uzl1I; path=/; expires=Fri, 18-Jul-25 08:47:27 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
+Set-Cookie: __cf_bm=Sb5DLILhMgT8ZVK847lmHCd7Den_J_v4LLoDiZTTSOI-1752837723-1.0.1.1-VwjebhL3B2vVpg13wCVG3wm.GjvIDwxcIyDX1sME8ZfmJdpLykBfm3RcSxFR6WW50MwiJrNbxcQd3.DIaCZtMEuUlkfqJd1uK7k0n7ZP4Oc; path=/; expires=Fri, 18-Jul-25 11:52:03 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
 Server-Timing: cfCacheStatus;desc="HIT"
-Server-Timing: cfOrigin;dur=0,cfEdge;dur=10
+Server-Timing: cfOrigin;dur=0,cfEdge;dur=11
 Server: cloudflare
-Cf-Ray: 96108af24b71addf-CMH
+Cf-Ray: 9611995c482577be-CMH

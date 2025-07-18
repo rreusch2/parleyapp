@@ -175,9 +175,9 @@ class DatabaseClient:
                     props.append(PlayerProp(
                         player_name=row["players"]["name"],
                         prop_type=row["player_prop_types"]["prop_name"],
-                        line=float(row["line"]) if row["line"] else 0.0,
-                        over_odds=int(row["over_odds"]) if row["over_odds"] else None,
-                        under_odds=int(row["under_odds"]) if row["under_odds"] else None,
+                        line=float(row["line"]),
+                        over_odds=int(row["over_odds"]) if row["over_odds"] is not None else None,
+                        under_odds=int(row["under_odds"]) if row["under_odds"] is not None else None,
                         event_id=row["event_id"],
                         team=row["players"]["team"] if row["players"]["team"] else "Unknown",
                         bookmaker="fanduel"
@@ -408,7 +408,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             return {
                 "priority_players": [p.player_name for p in props[:15]],
                 "statmuse_queries": [
-                    f"{p.player_name} {p.prop_type.replace(\'batter_\', \'\').replace(\'pitcher_\', \'\')} last 10 games"
+                    f"{p.player_name} {p.prop_type.replace('batter_', '').replace('pitcher_', '')} last 10 games"
                     for p in props[:10]
                 ],
                 "research_focus": ["recent_performance", "matchups"],

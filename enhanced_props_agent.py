@@ -169,17 +169,17 @@ class DatabaseClient:
             return []
         
         try:
-            response = self.supabase.table("player_props").select(
-                "id, player_name, team, prop_type, line, over_odds, under_odds, event_id, bookmaker, market"
+            response = self.supabase.table("player_props_odds").select(
+                "id, line, over_odds, under_odds, event_id, player_id(name, team), prop_type_id(prop_name)"
             ).in_("event_id", game_ids).execute()
             
             props = []
             for row in response.data:
                 props.append(PlayerProp(
                     id=str(row["id"]),
-                    player_name=row["player_name"],
-                    team=row.get("team", "Unknown"),  # Handle potential null values
-                    prop_type=row["prop_type"],
+                    player_name=row["player_id"]["name"],
+                    team=row["player_id"]["team"],
+                    prop_type=row["prop_type_id"]["prop_name"],
                     line=float(row["line"]),
                     over_odds=int(row["over_odds"]),
                     under_odds=int(row["under_odds"]),

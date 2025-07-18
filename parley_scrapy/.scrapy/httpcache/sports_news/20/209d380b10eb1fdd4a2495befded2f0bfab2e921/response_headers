@@ -1,9 +1,9 @@
 Content-Length: 900
 Content-Type: text/plain
-Date: Fri, 18 Jul 2025 07:36:44 GMT
+Date: Fri, 18 Jul 2025 10:38:29 GMT
 Last-Modified: Thu, 17 Jul 2025 19:10:22 GMT
 Server: AmazonS3
-Via: 1.1 varnish (Varnish/6.0), 1.1 746f6e170e429fc94de6ac30e08ca30c.cloudfront.net (CloudFront)
+Via: 1.1 varnish (Varnish/6.0), 1.1 18cb903dd2c9ff38a33d79715104de0a.cloudfront.net (CloudFront)
 Access-Control-Allow-Origin: *
 Content-Encoding: gzip
 Accept-Ranges: bytes
@@ -11,5 +11,5 @@ Cache-Control: max-age=3600
 Etag: "9eb02c91e0429d3fadae1980bd064e0e"
 X-Cache: Hit from cloudfront
 X-Amz-Cf-Pop: CMH68-P4
-X-Amz-Cf-Id: dwV2mBA59Xv7PPt1uv-JW8PJtN7POvBQ27LGAsGQ8pe4Vg8RJnPP7Q==
-Age: 2420
+X-Amz-Cf-Id: 7WRzMdsHbZVtZuQCQabJQgwOXacPPuRxr9Ga1EEEiYXomT7WiADPIg==
+Age: 2588
