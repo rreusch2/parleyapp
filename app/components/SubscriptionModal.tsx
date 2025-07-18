@@ -564,7 +564,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
               >
                 <Text style={styles.restoreButtonText}>Restore Purchases</Text>
               </TouchableOpacity>
-
+              
               <View style={styles.termsContainer}>
                 <Text style={styles.termsText}>
                   {selectedPlan === 'lifetime' 

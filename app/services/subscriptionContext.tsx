@@ -162,18 +162,17 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       const result = await revenueCatService.purchasePackage(planId);
       
       if (result.success) {
-        console.log('✅ DEBUG: Purchase completed successfully');
+        console.log('✅ DEBUG: Purchase completed successfully, now verifying status...');
         
-        // Immediately update local state
-        console.log('🔄 DEBUG: Setting isPro to true immediately...');
-        setIsPro(true);
-        await AsyncStorage.setItem('subscriptionStatus', 'pro');
-        console.log('✅ DEBUG: Local Pro status updated');
+        // CRITICAL FIX: Remove optimistic update.
+        // Instead of setting isPro(true) immediately, we rely on checkSubscriptionStatus
+        // to get the authoritative state from the backend after the purchase is processed.
         
-        // Force a full subscription status check to ensure everything is synced
-        console.log('🔄 DEBUG: Running full subscription status check...');
+        // Force a full subscription status check to ensure everything is synced.
+        // This will fetch the latest receipt info from RevenueCat and update the database.
+        console.log('🔄 DEBUG: Running full subscription status check post-purchase...');
         await checkSubscriptionStatus();
-        console.log('✅ DEBUG: Full subscription check completed');
+        console.log('✅ DEBUG: Full subscription check completed post-purchase.');
         
         return true;
       } else {
@@ -241,4 +240,4 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       {children}
     </SubscriptionContext.Provider>
   );
-}; 
+};
