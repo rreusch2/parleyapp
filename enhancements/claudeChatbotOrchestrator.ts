@@ -121,7 +121,7 @@ export class ChatbotOrchestrator {
       } else {
         // Stream the response in real-time
         const stream = await this.openai.chat.completions.create({
-          model: "deepseek-chat",
+          model: "grok-4-0709",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7,
@@ -192,7 +192,7 @@ export class ChatbotOrchestrator {
       } else {
         // Simple AI response for basic queries
         response = await this.openai.chat.completions.create({
-          model: "deepseek-chat",
+          model: "grok-4-0709",
           max_tokens: 1000,
           messages: messages,
           temperature: 0.7
@@ -755,7 +755,7 @@ You're the sharp, slightly cocky, and witty betting guru who backs up every pick
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "deepseek-chat",
+        model: "grok-4-0709",
         max_tokens: 1500,
         messages: messages,
         tools: tools,
@@ -834,7 +834,7 @@ You're the sharp, slightly cocky, and witty betting guru who backs up every pick
 
         // Get final response with tool results
         const finalResponse = await this.openai.chat.completions.create({
-          model: "deepseek-chat",
+          model: "grok-4-0709",
           max_tokens: 1500,
           messages: [
             ...messages,
@@ -852,7 +852,7 @@ You're the sharp, slightly cocky, and witty betting guru who backs up every pick
       logger.error(`Error with tools: ${error}`);
       // Fallback to simple response
       return await this.openai.chat.completions.create({
-        model: "deepseek-chat",
+        model: "grok-4-0709",
         max_tokens: 1000,
         messages: messages,
         temperature: 0.7

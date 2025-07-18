@@ -1191,7 +1191,7 @@ router.post('/chat', async (req, res) => {
       toolsUsed: response.toolsUsed,
       metadata: {
         processingTime: response.processingTime,
-        model: 'deepseek-chat',
+        model: 'grok-4-0709',
         timestamp: new Date().toISOString()
       }
     });
@@ -1272,7 +1272,7 @@ router.post('/chat/stream', async (req, res) => {
       toolsUsed: response.toolsUsed,
       metadata: {
         processingTime: response.processingTime,
-        model: 'deepseek-chat',
+        model: 'grok-4-0709',
         timestamp: new Date().toISOString()
       }
     });
