@@ -46,6 +46,7 @@ interface AIPrediction {
   status?: 'pending' | 'won' | 'lost' | 'push';
   actual_result?: string;
   profit_loss?: number;
+  eventTime?: string;
 }
 
 interface ProAIPicksDisplayProps {
@@ -95,67 +96,74 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
   const fetchLatestPicks = async () => {
     try {
       setLoading(true);
-      // Fetch the 10 most recent AI predictions from backend
       const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      const response = await fetch(`${baseUrl}/api/ai/predictions/latest?limit=10`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.predictions) {
-          // Transform the data to match the expected interface
-          const transformedPicks = data.predictions.map((pick: any) => ({
-            id: pick.id,
-            match_teams: pick.match, // Transform match to match_teams
-            pick: pick.pick,
-            odds: pick.odds,
-            confidence: pick.confidence,
-            value_percentage: pick.value || 0,
-            roi_estimate: pick.roi_estimate || 0,
-            bet_type: 'moneyline', // Default value
-            reasoning: pick.reasoning,
-            created_at: pick.created_at,
-            league: pick.sport,
-            status: pick.status
-          }));
-          setPicks(transformedPicks);
+      
+      // Fetch both team picks and player props picks (10 each = 20 total for Pro)
+      const [teamResponse, propsResponse] = await Promise.all([
+        fetch(`${baseUrl}/api/ai/team-picks?test=true`),
+        fetch(`${baseUrl}/api/ai/player-props-picks?test=true`)
+      ]);
+      
+      const allPicks: AIPrediction[] = [];
+      
+      // Process team picks
+      if (teamResponse.ok) {
+        const teamData = await teamResponse.json();
+        if (teamData.success && teamData.picks) {
+          const transformedTeamPicks = teamData.picks.map((pick: any) => {
+            console.log('🔍 Raw team pick data:', pick); // Debug log
+            return {
+              id: pick.id,
+              match_teams: pick.match_teams || pick.match || pick.teams || 'Unknown Match',
+              pick: pick.pick,
+              odds: pick.odds,
+              confidence: pick.confidence,
+              value_percentage: pick.value_percentage || pick.value || 0,
+              roi_estimate: pick.roi_estimate || 0,
+              bet_type: pick.bet_type || 'moneyline',
+              reasoning: pick.reasoning,
+              created_at: pick.created_at,
+              league: pick.sport || pick.league,
+              status: pick.status,
+              eventTime: pick.eventTime || pick.game_time || pick.event_time || 'TBD'
+            };
+          });
+          allPicks.push(...transformedTeamPicks);
         }
       }
-    } catch (error) {
-      console.error('Error fetching AI picks:', error);
-      // Fallback: Use mock data for development
-      try {
-        const mockPicks: AIPrediction[] = [
-          {
-            id: '1',
-            match_teams: 'Atlanta Braves @ New York Mets',
-            pick: 'Atlanta Braves ML',
-            odds: '+140',
-            confidence: 77,
-            value_percentage: 40.3,
-            roi_estimate: 60.45,
-            bet_type: 'moneyline',
-            reasoning: 'Advanced ML model (66.9% accuracy) projects Atlanta Braves with 77% win probability. Significant value detected with 40.3% edge over market odds.',
-            created_at: new Date().toISOString(),
-            league: 'MLB'
-          },
-          {
-            id: '2',
-            match_teams: 'Seattle Mariners @ Minnesota Twins',
-            pick: 'Seattle Mariners ML',
-            odds: '+125',
-            confidence: 69,
-            value_percentage: 31.4,
-            roi_estimate: 45.2,
-            bet_type: 'moneyline',
-            reasoning: 'DeepSeek AI analysis shows strong pitching advantage for Seattle. Recent form and matchup history favor the away team.',
-            created_at: new Date(Date.now() - 3600000).toISOString(),
-            league: 'MLB'
-          }
-        ];
-        setPicks(mockPicks);
-        console.log('Using fallback mock data');
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
+      
+      // Process player props picks
+      if (propsResponse.ok) {
+        const propsData = await propsResponse.json();
+        if (propsData.success && propsData.picks) {
+          const transformedPropsPicks = propsData.picks.map((pick: any) => {
+            console.log('🔍 Raw props pick data:', pick); // Debug log
+            return {
+              id: pick.id,
+              match_teams: pick.match_teams || pick.match || pick.teams || 'Unknown Match',
+              pick: pick.pick,
+              odds: pick.odds,
+              confidence: pick.confidence,
+              value_percentage: pick.value_percentage || pick.value || 0,
+              roi_estimate: pick.roi_estimate || 0,
+              bet_type: pick.bet_type || 'player_prop',
+              reasoning: pick.reasoning,
+              created_at: pick.created_at,
+              league: pick.sport || pick.league,
+              status: pick.status,
+              eventTime: pick.eventTime || pick.game_time || pick.event_time || 'TBD'
+            };
+          });
+          allPicks.push(...transformedPropsPicks);
+        }
       }
+      
+      console.log('🔍 All Pro picks (Team + Props):', allPicks); // Debug log
+      setPicks(allPicks);
+      
+    } catch (error) {
+      console.error('Error fetching Pro AI picks:', error);
+      setPicks([]);
     } finally {
       setLoading(false);
     }
@@ -247,11 +255,17 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
           <View style={styles.pickHeader}>
             <View style={styles.pickHeaderLeft}>
               <View style={styles.matchInfo}>
-                <Text style={styles.matchTeams} numberOfLines={1}>
+                <Text style={styles.matchTeams} numberOfLines={2}>
                   {pick.match_teams}
                 </Text>
                 <View style={styles.pickTypeContainer}>
                   <Text style={styles.pickType}>{pick.bet_type}</Text>
+                  {pick.eventTime && (
+                    <View style={styles.gameTimeContainer}>
+                      <Clock size={12} color="#94A3B8" />
+                      <Text style={styles.gameTime}>{pick.eventTime}</Text>
+                    </View>
+                  )}
                   <Text style={styles.timeAgo}>{formatTimeAgo(pick.created_at)}</Text>
                 </View>
               </View>
@@ -372,7 +386,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
           </View>
         </View>
         <Text style={styles.headerSubtitle}>
-          {limit ? `Top ${Math.min(limit, picks.length)} of 20` : `20 Latest Picks`}
+          {limit ? `Top ${Math.min(limit, picks.length)} of 20` : `20 Pro Picks (Team + Props)`}
         </Text>
       </View>
 
@@ -558,6 +572,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
   },
+  gameTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  gameTime: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginLeft: 4,
+  },
   timeAgo: {
     color: '#64748B',
     fontSize: 12,
@@ -660,7 +684,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   expandIcon: {
-    transition: 'transform 0.2s',
+    // React Native doesn't support CSS transitions - animations handled by Animated API
   },
   expandedContent: {
     marginTop: 12,

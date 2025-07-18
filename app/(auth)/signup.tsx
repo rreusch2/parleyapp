@@ -14,13 +14,14 @@ import {
   Dimensions,
 } from 'react-native';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { supabase } from '../services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lucide-react-native';
-import { normalize, isTablet } from '@/app/services/device';
-import TermsOfServiceModal from '@/app/components/TermsOfServiceModal';
-import SignupSubscriptionModal from '@/app/components/SignupSubscriptionModal';
-import { useSubscription } from '@/app/services/subscriptionContext';
+import { normalize, isTablet } from '../services/device';
+import TermsOfServiceModal from '../components/TermsOfServiceModal';
+import SignupSubscriptionModal from '../components/SignupSubscriptionModal';
+import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
+import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function SignupScreen() {
@@ -203,7 +204,7 @@ export default function SignupScreen() {
       setLoading(true);
 
       // Use RevenueCat for purchase processing
-      const revenueCatService = (await import('@/app/services/revenueCatService')).default;
+      const revenueCatService = (await import('../services/revenueCatService')).default;
       
       console.log('🔄 Processing subscription with RevenueCat...');
       

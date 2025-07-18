@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+"""
+Enhanced Teams Agent with Scrapy Integration
+Combines the original teams.py functionality with enhanced web scraping data
+Provides superior data-driven team betting analysis
+"""
+
 import os
 import json
 import logging
@@ -11,6 +18,9 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
+
+# Import our integration service
+from scrapy_integration_service import scrapy_service, ScrapedData
 
 # Load environment variables
 load_dotenv("backend/.env")
@@ -42,6 +52,16 @@ class ResearchInsight:
     confidence: float
     timestamp: datetime
 
+@dataclass
+class EnhancedInsight:
+    source: str
+    insight_type: str
+    content: Dict[str, Any]
+    teams: List[str]
+    confidence: float
+    timestamp: datetime
+    relevance_score: float
+
 class StatMuseClient:
     def __init__(self, base_url: str = "http://127.0.0.1:5001"):
         self.base_url = base_url
@@ -63,7 +83,7 @@ class StatMuseClient:
 class WebSearchClient:
     def __init__(self):
         self.backend_url = os.getenv("BACKEND_URL", "https://zooming-rebirth-production-a305.up.railway.app")
-        self.user_id = "ai_teams_agent"
+        self.user_id = "ai_teams_agent_enhanced"
     
     def search(self, query: str) -> Dict[str, Any]:
         logger.info(f"Web search: {query}")
@@ -99,7 +119,7 @@ class WebSearchClient:
                     "summary": search_response[:500] + "..." if len(search_response) > 500 else search_response
                 }
                 
-                logger.info(f"🌐 Web search result: {web_result["summary"][:150]}{"..." if len(web_result["summary"]) > 150 else ""}")
+                logger.info(f"🌐 Web search result: {web_result['summary'][:150]}{'...' if len(web_result['summary']) > 150 else ''}")
                 return web_result
                 
             else:
@@ -213,19 +233,28 @@ class DatabaseClient:
         except Exception as e:
             logger.error(f"Failed to store AI predictions: {e}")
 
-class IntelligentTeamsAgent:
+class EnhancedTeamsAgent:
+    """Enhanced Teams Agent with Scrapy integration for superior data analysis"""
+    
     def __init__(self):
         self.db = DatabaseClient()
         self.statmuse = StatMuseClient()
         self.web_search = WebSearchClient()
+        self.scrapy_service = scrapy_service
         self.grok_client = AsyncOpenAI(
             api_key=os.getenv("XAI_API_KEY"),
             base_url="https://api.x.ai/v1"
         )
     
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent team analysis...")
+        logger.info("🚀 Starting ENHANCED intelligent team analysis with Scrapy integration...")
         
+        # Step 1: Refresh Scrapy data
+        logger.info("🕷️ Refreshing web scraping data...")
+        scrapy_refresh = await self.scrapy_service.refresh_all_data()
+        logger.info(f"📊 Scrapy refresh: {scrapy_refresh['scraped_data_count']} datasets available")
+        
+        # Step 2: Get traditional data
         games = self.db.get_upcoming_games(hours_ahead=48)
         logger.info(f"📅 Found {len(games)} upcoming games")
         
@@ -241,29 +270,47 @@ class IntelligentTeamsAgent:
             logger.warning("No team bets found")
             return []
         
-        research_plan = await self.create_research_plan(available_bets, games)
+        # Step 3: Get enhanced insights from Scrapy
+        team_names = list(set([bet.home_team for bet in available_bets] + [bet.away_team for bet in available_bets]))
+        enhanced_insights = self.scrapy_service.get_enhanced_insights_for_ai(
+            teams=team_names[:10],  # Focus on teams we're betting on
+            data_types=['news', 'team_performance']
+        )
+        logger.info(f"🔍 Enhanced insights: {len(enhanced_insights['news'])} news + {len(enhanced_insights['team_performance'])} performance data")
+        
+        # Step 4: Create enhanced research plan
+        research_plan = await self.create_enhanced_research_plan(available_bets, games, enhanced_insights)
         statmuse_count = len(research_plan.get("statmuse_queries", []))
         web_search_count = len(research_plan.get("web_searches", []))
-        total_queries = statmuse_count + web_search_count
-        logger.info(f"📋 Created research plan with {statmuse_count} StatMuse + {web_search_count} web queries = {total_queries} total")
+        scrapy_insights_count = len(research_plan.get("scrapy_insights", []))
+        total_queries = statmuse_count + web_search_count + scrapy_insights_count
+        logger.info(f"📋 Enhanced research plan: {statmuse_count} StatMuse + {web_search_count} web + {scrapy_insights_count} scrapy = {total_queries} total")
         
-        insights = await self.execute_research_plan(research_plan, available_bets)
-        logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
+        # Step 5: Execute enhanced research
+        insights = await self.execute_enhanced_research_plan(research_plan, available_bets, enhanced_insights)
+        logger.info(f"🔍 Gathered {len(insights)} enhanced research insights")
         
-        picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks)
-        logger.info(f"🎲 Generated {len(picks)} intelligent picks")
+        # Step 6: Generate picks with enhanced reasoning
+        picks = await self.generate_enhanced_picks_with_reasoning(insights, available_bets, games, enhanced_insights, target_picks)
+        logger.info(f"🎲 Generated {len(picks)} enhanced intelligent picks")
         
         if picks:
             self.db.store_ai_predictions(picks)
-            logger.info(f"💾 Stored {len(picks)} picks in database")
+            logger.info(f"💾 Stored {len(picks)} enhanced picks in database")
         
         return picks
     
-    async def create_research_plan(self, bets: List[TeamBet], games: List[Dict]) -> Dict[str, Any]:
-        prompt = f"""You are an elite MLB betting analyst and data scientist with years of experience. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST team bets for today.
+    async def create_enhanced_research_plan(self, bets: List[TeamBet], games: List[Dict], enhanced_insights: Dict[str, Any]) -> Dict[str, Any]:
+        """Create research plan enhanced with Scrapy insights"""
+        
+        # Prepare enhanced context
+        news_summary = self._summarize_news_insights(enhanced_insights['news'])
+        performance_summary = self._summarize_performance_insights(enhanced_insights['team_performance'])
+        
+        prompt = f"""You are an elite MLB betting analyst with access to ENHANCED real-time data sources. Your mission is to create the most comprehensive research plan possible using both traditional and cutting-edge web scraping intelligence.
 
-# CONTEXT
-You have access to {len(games)} upcoming MLB games and {len(bets)} team bets with live odds from multiple sportsbooks.
+# ENHANCED CONTEXT
+You have access to {len(games)} upcoming MLB games and {len(bets)} team bets with live odds, PLUS enhanced web scraping data.
 
 UPCOMING GAMES:
 {json.dumps(games[:10], indent=2, default=str)}
@@ -279,64 +326,53 @@ SAMPLE AVAILABLE BETS (showing first 30 of {len(bets)}):
     "bookmaker": b.bookmaker
 } for b in bets[:30]], indent=2)}
 
-# YOUR TOOLS
+🔥 ENHANCED WEB SCRAPING INTELLIGENCE:
 
-## StatMuse Tool
-You have access to a powerful StatMuse API that can answer baseball questions with real data.
+📰 LATEST NEWS INSIGHTS ({len(enhanced_insights['news'])} sources):
+{news_summary}
 
-**SUCCESSFUL QUERY EXAMPLES** (these work well but dont feel limited to just these):
-- "New York Yankees record vs Boston Red Sox this season" 
-- "Los Angeles Dodgers home record last 10 games"
-- "Atlanta Braves runs scored per game last 5 games"
-- "Houston Astros bullpen ERA last 30 days"
-- "Team batting average vs left handed pitching for Philadelphia Phillies"
-- "Coors Field home runs allowed this season"
-- "Yankee Stadium runs scored in day games"
+📊 TEAM PERFORMANCE DATA ({len(enhanced_insights['team_performance'])} datasets):
+{performance_summary}
 
-**QUERIES THAT MAY FAIL** (avoid these patterns):
-- Very specific situational stats ("with runners in scoring position")
-- Complex multi-condition queries ("vs left-handed pitchers in day games")
-- Obscure historical comparisons
-- Real-time injury/lineup status
-- Weather-dependent statistics
+# YOUR ENHANCED TOOLS
 
-**BEST PRACTICES**:
-- Keep queries simple and direct
-- Focus on season totals, averages, recent games (last 5-15)
-- Use team names exactly as they appear in MLB
-- Ask about standard team stats: record, runs scored/allowed, ERA, bullpen stats
-- Venue-specific queries work well for major stadiums
+## StatMuse Tool (Traditional)
+Powerful StatMuse API for baseball statistics and historical data.
 
-## Web Search Tool
-You can search the web for:
-- Injury reports and team news
-- Weather forecasts for outdoor games
-- Lineup announcements and starting pitchers
-- Recent team interviews or motivation factors
-- Public betting trends and sharp money movements
+## Web Search Tool (Traditional)
+Real-time web search for breaking news and updates.
 
-# YOUR MISSION
+## 🆕 SCRAPY INTELLIGENCE (NEW!)
+Fresh web scraping data including:
+- Breaking team news and injury reports
+- Advanced team performance metrics
+- Player status updates
+- Weather and venue conditions
+- Public sentiment and betting trends
 
-Create an intelligent research strategy that will give you maximum edge. Think like a professional sharp bettor:
+# ENHANCED MISSION
 
-1. **IDENTIFY VALUE**: Which bets have the best odds vs true probability?
-2. **FIND EDGES**: What specific situations, matchups, or trends can you exploit?
-3. **BE STRATEGIC**: Focus on the most profitable research, not everything
-4. **THINK DEEP**: Consider park factors, weather, recent form, motivation, public sentiment, etc.
+Create an intelligent research strategy that leverages ALL data sources for maximum edge:
+
+1. **IDENTIFY VALUE**: Use scraped data to find mispriced lines
+2. **FIND EDGES**: Combine traditional stats with real-time intelligence
+3. **BE STRATEGIC**: Prioritize insights that others don't have access to
+4. **THINK DEEP**: Layer multiple data sources for compound advantages
 
 # RESPONSE FORMAT
 
-Return ONLY a valid JSON object with this structure:
+Return ONLY a valid JSON object with this ENHANCED structure:
 
 {{
-    "research_strategy": "Brief summary of your overall approach and reasoning",
+    "research_strategy": "Brief summary of your enhanced approach using all data sources",
     "priority_bets": [
         {{
             "home_team": "Home Team Name",
             "away_team": "Away Team Name",
             "bet_type": "moneyline",
             "reasoning": "Why this bet caught your attention",
-            "edge_hypothesis": "Your theory on why this might be mispriced"
+            "edge_hypothesis": "Your theory on why this might be mispriced",
+            "scrapy_support": "How web scraping data supports this bet"
         }}
     ],
     "statmuse_queries": [
@@ -353,11 +389,19 @@ Return ONLY a valid JSON object with this structure:
             "priority": "high"
         }}
     ],
-    "key_factors": ["List of the most important factors you'll analyze"],
-    "expected_insights": "What you expect to discover from this research"
+    "scrapy_insights": [
+        {{
+            "insight_type": "news/team_performance/injury",
+            "teams": ["Team1", "Team2"],
+            "analysis_focus": "What specific aspect to analyze from scraped data",
+            "priority": "high"
+        }}
+    ],
+    "key_factors": ["Enhanced factors including scraped data advantages"],
+    "expected_insights": "What you expect to discover from this ENHANCED research"
 }}
 
-Be strategic, be smart, and focus on finding real edges. Quality over quantity - better to research 10 bets deeply than 50 superficially."""
+Leverage the scraped data advantage - this is intelligence that most bettors don't have access to!"""
         
         try:
             response = await self.grok_client.chat.completions.create(
@@ -374,7 +418,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             return plan_json
             
         except Exception as e:
-            logger.error(f"Failed to create research plan: {e}")
+            logger.error(f"Failed to create enhanced research plan: {e}")
             return {
                 "priority_bets": [],
                 "statmuse_queries": [
@@ -385,29 +429,124 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
                     f"{b.home_team} {b.away_team} injury report"
                     for b in bets[:5]
                 ],
-                "key_factors": ["recent_form", "head_to_head"],
-                "expected_insights": "Basic team performance and injury updates"
+                "scrapy_insights": [
+                    {
+                        "insight_type": "news",
+                        "teams": [b.home_team, b.away_team],
+                        "analysis_focus": "Recent team news and developments",
+                        "priority": "medium"
+                    } for b in bets[:3]
+                ],
+                "key_factors": ["recent_form", "head_to_head", "scraped_intelligence"],
+                "expected_insights": "Enhanced team performance and injury updates with web scraping advantage"
             }
     
-    async def execute_research_plan(self, plan: Dict[str, Any], bets: List[TeamBet]) -> List[ResearchInsight]:
+    def _summarize_news_insights(self, news_data: List[Dict]) -> str:
+        """Summarize news insights for research planning"""
+        if not news_data:
+            return "No recent news data available"
+        
+        summary_items = []
+        for item in news_data[:5]:  # Top 5 news items
+            content = item.get('content', {})
+            if isinstance(content, list) and content:
+                content = content[0]  # Take first news item
+            
+            title = content.get('title', 'Unknown')
+            teams = item.get('teams', [])
+            timestamp = item.get('timestamp', 'Unknown time')
+            
+            summary_items.append(f"• {title} (Teams: {', '.join(teams[:3])}) - {timestamp}")
+        
+        return "\n".join(summary_items)
+    
+    def _summarize_performance_insights(self, performance_data: List[Dict]) -> str:
+        """Summarize team performance insights"""
+        if not performance_data:
+            return "No recent performance data available"
+        
+        summary_items = []
+        for item in performance_data[:5]:  # Top 5 performance items
+            content = item.get('content', {})
+            teams = item.get('teams', [])
+            timestamp = item.get('timestamp', 'Unknown time')
+            
+            if isinstance(content, list) and content:
+                # Summarize performance metrics
+                metrics = []
+                for perf in content[:3]:  # Top 3 performance items
+                    if 'team' in perf and 'record' in perf:
+                        metrics.append(f"{perf['team']}: {perf.get('record', 'N/A')}")
+                
+                summary_items.append(f"• Performance: {', '.join(metrics)} - {timestamp}")
+        
+        return "\n".join(summary_items)
+    
+    async def execute_enhanced_research_plan(self, plan: Dict[str, Any], bets: List[TeamBet], enhanced_insights: Dict[str, Any]) -> List[ResearchInsight]:
+        """Execute research plan with enhanced Scrapy data integration"""
         all_insights = []
         
-        logger.info("🔬 STAGE 1: Initial Research")
+        logger.info("🔬 ENHANCED STAGE 1: Traditional + Scrapy Research")
         stage1_insights = await self._execute_initial_research(plan)
         all_insights.extend(stage1_insights)
         
-        logger.info("🧠 STAGE 2: Analyzing findings and generating follow-up research")
-        stage2_insights = await self._execute_adaptive_followup(stage1_insights, bets)
+        # NEW: Process Scrapy insights
+        scrapy_insights = await self._process_scrapy_insights(plan.get("scrapy_insights", []), enhanced_insights)
+        all_insights.extend(scrapy_insights)
+        
+        logger.info("🧠 ENHANCED STAGE 2: Adaptive Follow-up with Scrapy Intelligence")
+        stage2_insights = await self._execute_adaptive_followup(stage1_insights + scrapy_insights, bets)
         all_insights.extend(stage2_insights)
         
-        logger.info("🎯 STAGE 3: Final targeted research based on all findings")
+        logger.info("🎯 ENHANCED STAGE 3: Final Targeted Research")
         stage3_insights = await self._execute_final_research(all_insights, bets)
         all_insights.extend(stage3_insights)
         
-        logger.info(f"🔍 Total research insights gathered: {len(all_insights)}")
+        logger.info(f"🔍 Total ENHANCED research insights gathered: {len(all_insights)}")
         return all_insights
     
+    async def _process_scrapy_insights(self, scrapy_plan: List[Dict], enhanced_insights: Dict[str, Any]) -> List[ResearchInsight]:
+        """Process Scrapy insights according to research plan"""
+        insights = []
+        
+        for plan_item in scrapy_plan:
+            insight_type = plan_item.get("insight_type", "news")
+            teams = plan_item.get("teams", [])
+            analysis_focus = plan_item.get("analysis_focus", "General analysis")
+            priority = plan_item.get("priority", "medium")
+            
+            logger.info(f"🕷️ Processing Scrapy {insight_type} for teams: {teams}")
+            
+            # Filter relevant data
+            relevant_data = []
+            for data_item in enhanced_insights.get(insight_type, []):
+                item_teams = data_item.get('teams', [])
+                if not teams or any(team in item_teams for team in teams):
+                    relevant_data.append(data_item)
+            
+            if relevant_data:
+                confidence = 0.9 if priority == "high" else 0.7 if priority == "medium" else 0.5
+                
+                insights.append(ResearchInsight(
+                    source=f"scrapy_{insight_type}",
+                    query=f"{analysis_focus} for {', '.join(teams)}",
+                    data={
+                        "analysis_focus": analysis_focus,
+                        "teams": teams,
+                        "scraped_data": relevant_data[:5],  # Top 5 most relevant
+                        "data_count": len(relevant_data),
+                        "priority": priority
+                    },
+                    confidence=confidence,
+                    timestamp=datetime.now()
+                ))
+                
+                logger.info(f"✅ Processed {len(relevant_data)} {insight_type} items for {teams}")
+        
+        return insights
+    
     async def _execute_initial_research(self, plan: Dict[str, Any]) -> List[ResearchInsight]:
+        """Execute initial research (same as original but enhanced logging)"""
         insights = []
         
         statmuse_queries = plan.get("statmuse_queries", [])[:8]
@@ -463,6 +602,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
         return insights
     
     async def _execute_adaptive_followup(self, initial_insights: List[ResearchInsight], bets: List[TeamBet]) -> List[ResearchInsight]:
+        """Execute adaptive follow-up (enhanced with Scrapy context)"""
         insights_summary = []
         for insight in initial_insights:
             insights_summary.append({
@@ -481,28 +621,29 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
         } for bet in bets[:30]]
         
         prompt = f"""
-You are analyzing initial research findings to identify gaps and generate intelligent follow-up queries.
+You are analyzing ENHANCED research findings that include traditional sources AND cutting-edge web scraping intelligence.
 
-INITIAL RESEARCH FINDINGS:
+ENHANCED RESEARCH FINDINGS:
 {json.dumps(insights_summary, indent=2)}
 
 AVAILABLE BETS TO ANALYZE:
 {json.dumps(top_bets, indent=2)}
 
-Based on these findings, identify:
-1. **KNOWLEDGE GAPS**: What key information is missing?
-2. **SURPRISING FINDINGS**: Any results that suggest new research directions?
-3. **BET MISMATCHES**: Bets that need more specific research?
+Based on these ENHANCED findings, identify:
+1. **KNOWLEDGE GAPS**: What key information is still missing?
+2. **SCRAPY ADVANTAGES**: How can web scraping data provide unique edges?
+3. **SURPRISING FINDINGS**: Any results that suggest new research directions?
+4. **BET MISMATCHES**: Bets that need more specific research?
 
-Generate ADAPTIVE follow-up queries that will fill these gaps.
+Generate ADAPTIVE follow-up queries that will maximize our enhanced data advantage.
 
 Return JSON with this structure:
 {{
-    "analysis": "Brief analysis of findings and gaps identified",
+    "analysis": "Brief analysis of enhanced findings and gaps identified",
     "followup_statmuse_queries": [
         {{
             "query": "Specific StatMuse question",
-            "reasoning": "Why this query is needed based on initial findings",
+            "reasoning": "Why this query is needed based on enhanced findings",
             "priority": "high/medium/low"
         }}
     ],
@@ -515,7 +656,7 @@ Return JSON with this structure:
     ]
 }}
 
-Generate 3-6 high-value follow-up queries that will maximize our edge.
+Generate 3-6 high-value follow-up queries that will maximize our ENHANCED edge.
 """
         
         try:
@@ -530,7 +671,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             end_idx = followup_text.rfind("}") + 1
             followup_plan = json.loads(followup_text[start_idx:end_idx])
             
-            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get("analysis", "No analysis provided")}")
+            logger.info(f"🧠 Enhanced Adaptive Analysis: {followup_plan.get('analysis', 'No analysis provided')}")
             
             insights = []
             for query_obj in followup_plan.get("followup_statmuse_queries", [])[:5]:
@@ -539,18 +680,18 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     reasoning = query_obj.get("reasoning", "")
                     priority = query_obj.get("priority", "medium")
                     
-                    logger.info(f"🔍 Adaptive StatMuse ({priority}): {query_text}")
+                    logger.info(f"🔍 Enhanced Adaptive StatMuse ({priority}): {query_text}")
                     logger.info(f"   Reasoning: {reasoning}")
                     
                     result = self.statmuse.query(query_text)
                     
                     if result and "error" not in result:
                         result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
-                        logger.info(f"📊 Adaptive result: {result_preview}")
+                        logger.info(f"📊 Enhanced adaptive result: {result_preview}")
                         
                         confidence = 0.95 if priority == "high" else 0.8 if priority == "medium" else 0.6
                         insights.append(ResearchInsight(
-                            source="statmuse_adaptive",
+                            source="statmuse_adaptive_enhanced",
                             query=query_text,
                             data=result,
                             confidence=confidence,
@@ -560,7 +701,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     await asyncio.sleep(1.5)
                     
                 except Exception as e:
-                    logger.error(f"❌ Adaptive StatMuse query failed: {e}")
+                    logger.error(f"❌ Enhanced adaptive StatMuse query failed: {e}")
             
             for search_obj in followup_plan.get("followup_web_searches", [])[:3]:
                 try:
@@ -568,14 +709,14 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     reasoning = search_obj.get("reasoning", "")
                     priority = search_obj.get("priority", "medium")
                     
-                    logger.info(f"🌐 Adaptive Web Search ({priority}): {search_query}")
+                    logger.info(f"🌐 Enhanced Adaptive Web Search ({priority}): {search_query}")
                     logger.info(f"   Reasoning: {reasoning}")
                     
                     result = self.web_search.search(search_query)
                     
                     confidence = 0.85 if priority == "high" else 0.7 if priority == "medium" else 0.5
                     insights.append(ResearchInsight(
-                        source="web_search_adaptive",
+                        source="web_search_adaptive_enhanced",
                         query=search_query,
                         data=result,
                         confidence=confidence,
@@ -583,12 +724,12 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     ))
                     
                 except Exception as e:
-                    logger.error(f"❌ Adaptive web search failed: {e}")
+                    logger.error(f"❌ Enhanced adaptive web search failed: {e}")
             
             return insights
             
         except Exception as e:
-            logger.error(f"Failed to generate adaptive follow-up: {e}")
+            logger.error(f"Failed to generate enhanced adaptive follow-up: {e}")
             return []
     
     async def _execute_final_research(self, all_insights: List[ResearchInsight], bets: List[TeamBet]) -> List[ResearchInsight]:
@@ -596,23 +737,24 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         statmuse_count = len([i for i in all_insights if "statmuse" in i.source])
         web_count = len([i for i in all_insights if "web" in i.source])
+        scrapy_count = len([i for i in all_insights if "scrapy" in i.source])
         
-        logger.info(f"📊 Research Summary: {statmuse_count} StatMuse + {web_count} Web insights")
+        logger.info(f"📊 Enhanced Research Summary: {statmuse_count} StatMuse + {web_count} Web + {scrapy_count} Scrapy insights")
         
-        if len(all_insights) < 8:
-            logger.info("🎯 Adding final broad research queries")
+        if len(all_insights) < 10:  # Higher threshold for enhanced system
+            logger.info("🎯 Adding final enhanced research queries")
             
             top_teams = list(set([bet.home_team for bet in bets[:10]] + [bet.away_team for bet in bets[:10]]))
             
             for team in top_teams[:3]:
                 try:
-                    query = f"{team} recent performance"
-                    logger.info(f"🔍 Final query: {query}")
+                    query = f"{team} recent performance and injury status"
+                    logger.info(f"🔍 Final enhanced query: {query}")
                     
                     result = self.statmuse.query(query)
                     if result and "error" not in result:
                         final_insights.append(ResearchInsight(
-                            source="statmuse_final",
+                            source="statmuse_final_enhanced",
                             query=query,
                             data=result,
                             confidence=0.7,
@@ -622,19 +764,22 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     await asyncio.sleep(1.5)
                     
                 except Exception as e:
-                    logger.error(f"❌ Final query failed: {e}")
+                    logger.error(f"❌ Final enhanced query failed: {e}")
         
         return final_insights
     
-    async def generate_picks_with_reasoning(
-        self, 
-        insights: List[ResearchInsight], 
-        bets: List[TeamBet], 
+    async def generate_enhanced_picks_with_reasoning(
+        self,
+        insights: List[ResearchInsight],
+        bets: List[TeamBet],
         games: List[Dict],
+        enhanced_insights: Dict[str, Any],
         target_picks: int
     ) -> List[Dict[str, Any]]:
+        """Generate picks with enhanced reasoning using all data sources"""
+        
         insights_summary = []
-        for insight in insights[:40]:
+        for insight in insights[:50]:  # More insights for enhanced system
             insights_summary.append({
                 "source": insight.source,
                 "query": insight.query,
@@ -643,8 +788,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 "timestamp": insight.timestamp.isoformat()
             })
         
+        # Enhanced filtering
         MAX_ODDS = 350
-        
         filtered_bets = []
         long_shot_count = 0
         
@@ -655,8 +800,9 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 long_shot_count += 1
                 logger.info(f"🚫 Filtered long shot: {bet.home_team} vs {bet.away_team} {bet.bet_type} ({bet.odds})")
         
-        logger.info(f"🎯 Filtered bets: {len(bets)} → {len(filtered_bets)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
+        logger.info(f"🎯 Enhanced filtering: {len(bets)} → {len(filtered_bets)} (removed {long_shot_count} long shots)")
         
+        # Prepare enhanced data for AI
         bets_data = []
         for bet in filtered_bets:
             bets_data.append({
@@ -674,11 +820,25 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         bets_info = json.dumps(bets_data, indent=2)
         research_summary = json.dumps(insights_summary, indent=2)
         
+        # Enhanced insights summary
+        enhanced_summary = {
+            "news_count": len(enhanced_insights['news']),
+            "performance_count": len(enhanced_insights['team_performance']),
+            "teams_covered": enhanced_insights['summary']['teams_covered'][:10],
+            "last_updated": enhanced_insights['summary']['last_updated']
+        }
+        
         bets = filtered_bets
         
         prompt = f"""
-You are a professional sports betting analyst with 15+ years experience handicapping MLB team bets.
-Your job is to find PROFITABLE betting opportunities, not just predict outcomes.
+You are a professional sports betting analyst with 15+ years experience and access to CUTTING-EDGE web scraping intelligence that gives you a significant advantage over other bettors.
+
+🔥 ENHANCED DATA ADVANTAGE:
+You have exclusive access to real-time web scraping data that most bettors don't have:
+- {enhanced_summary['news_count']} fresh news items
+- {enhanced_summary['performance_count']} performance datasets
+- Coverage of {len(enhanced_summary['teams_covered'])} teams
+- Last updated: {enhanced_summary['last_updated']}
 
 TODAY'S DATA:
 
@@ -690,50 +850,31 @@ TODAY'S DATA:
 
 💡 **SMART FILTERING**: Long shot bets (odds > +400) have been removed to focus on PROFITABLE opportunities.
 
-⚠️  **CRITICAL**: You MUST pick from the exact team names and bet types listed above. 
-Available bet types in this data: {set(b.bet_type for b in filtered_bets[:50])}
-Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]] + [b.away_team for b in filtered_bets[:30]]))[:20]}
+🔍 ENHANCED RESEARCH INSIGHTS ({len(insights_summary)}):
 
-🔍 RESEARCH INSIGHTS ({len(insights_summary)}):
+**TRADITIONAL + SCRAPY DATA FINDINGS:**
+{self._format_enhanced_insights(insights_summary)}
 
-**STATMUSE DATA FINDINGS:**
-{self._format_statmuse_insights(insights_summary)}
-
-**WEB SEARCH INTEL:**
-{self._format_web_insights(insights_summary)}
-
-**RAW RESEARCH DATA:**
+**RAW ENHANCED RESEARCH DATA:**
 {research_summary}
 
-TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
+TASK: Generate exactly {target_picks} strategic team picks that maximize expected value using your ENHANCED data advantage.
 
-🚨 **BETTING DISCIPLINE REQUIREMENTS:**
-1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data
-2. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350 (even if available)
-3. **AVOID LONG SHOTS**: Bets with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
-4. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
-5. **DIVERSIFY BET TYPES**: Use various bets like Moneyline, Spread, and Totals (see available bets below)
-6. **MIX HOME/AWAY/OVER/UNDER**: Don't just pick all favorites - find spots where underdog or total has value
-7. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
-8. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
+🚨 **ENHANCED BETTING DISCIPLINE:**
+1. **LEVERAGE SCRAPY ADVANTAGE**: Use web scraping insights others don't have
+2. **MANDATORY ODDS CHECK**: Before picking, verify odds in the data
+3. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350
+4. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250
+5. **DIVERSIFY BET TYPES**: Use Moneyline, Spread, and Totals intelligently
+6. **ENHANCED CONFIDENCE**: Factor in scrapy data quality (higher confidence possible)
+7. **REAL-TIME EDGE**: Use fresh scraped data for timing advantages
 
-PROFITABLE BETTING STRATEGY:
-- **Focus on -200 to +200 odds**: This is the profitable betting sweet spot
-- **Moneyline**: Look for undervalued underdogs or strong favorites with good odds
-- **Spread**: Analyze team performance against the spread, recent form, and key matchups
-- **Totals**: Consider offensive and pitching matchups, park factors, and weather
-- **Fade public favorites**: Teams with high public betting often have inflated lines
-- **Target situational spots**: Day games, travel, starting pitcher matchups, bullpen strength
-- **Avoid "lottery tickets"**: High-odds bets (+500+) are designed to lose money
-
-CONFIDENCE SCALE (BE REALISTIC):
-- 52-55%: Marginal edge, small value (only if great odds)
-- 56-60%: Solid spot, good value (most picks should be here)
-- 61-65%: Strong conviction, clear edge
-- 66-70%: Exceptional opportunity (very rare)
-
-💰 **REMEMBER**: Professional bettors win by finding small edges consistently, NOT by chasing big payouts!
-- 71%+: Only for obvious mispricing
+ENHANCED PROFITABLE STRATEGY:
+- **Scrapy News Edge**: Breaking news before it moves lines
+- **Performance Data Edge**: Advanced metrics not in public stats
+- **Injury Intelligence**: Real-time injury status updates
+- **Weather/Venue Edge**: Current conditions affecting games
+- **Public Sentiment**: Fade or follow based on scraped social data
 
 FORMAT RESPONSE AS JSON ARRAY:
 [
@@ -745,41 +886,24 @@ FORMAT RESPONSE AS JSON ARRAY:
     "line": line_value,
     "odds": american_odds_value,
     "confidence": confidence_percentage,
-    "reasoning": "2-3 sentence sharp analysis. Focus on key edge found.",
-    "key_factors": ["factor_1", "factor_2", "factor_3"],
+    "reasoning": "2-3 sentence analysis highlighting SCRAPY DATA ADVANTAGE",
+    "key_factors": ["factor_1", "scrapy_insight", "factor_3"],
     "roi_estimate": "percentage like 8.5% or 12.3%",
     "value_percentage": "percentage like 15.2% or 22.8%",
     "implied_probability": "percentage like 45.5% or 62.1%",
-    "fair_odds": "what the odds should be like -140 or +165"
+    "fair_odds": "what the odds should be like -140 or +165",
+    "scrapy_edge": "Specific advantage from web scraping data"
   }}
 ]
 
-🧮 **CALCULATION REQUIREMENTS:**
+🎯 **ENHANCED CONFIDENCE SCALE:**
+- 52-55%: Marginal edge with scrapy support
+- 56-60%: Solid spot with enhanced data backing
+- 61-65%: Strong conviction with multiple scrapy confirmations
+- 66-70%: Exceptional opportunity with exclusive intelligence
+- 71%+: Obvious mispricing identified through scrapy advantage
 
-**ROI Estimate:** (Expected Win Amount / Risk Amount) - 1
-- Example: If you bet $100 at +150 odds with 55% win rate: ROI = (55% × $150 - 45% × $100) / $100 = 37.5%
-- Target range: 5-25% for sustainable profit
-
-**Value Percentage:** (Your Win Probability - Implied Probability) × 100
-- Example: You think 60% chance, odds imply 52% = 8% value
-- Positive value = good bet, negative value = bad bet
-
-**Implied Probability:** Convert American odds to probability
-- Positive odds: 100 / (odds + 100)
-- Negative odds: |odds| / (|odds| + 100)
-
-**Fair Odds:** What odds should be based on your confidence
-- If you think 60% chance: Fair odds = +67 (100/40 - 1)
-- If you think 45% chance: Fair odds = +122 (100/45 - 1)
-
-THINK LIKE A SHARP: Find spots where the oddsmakers may have made mistakes or where public perception differs from reality.
-
-REMEMBER:
-- **DIVERSIFY ACROSS ALL BET TYPES**: Use Moneyline, Spread, and Totals
-- Mix home/away/over/under based on VALUE, not bias  
-- Keep confidence realistic (most picks 55-65%)
-- Focus on profitable opportunities, not just likely outcomes
-- Each pick should be one you'd bet your own money on
+REMEMBER: You have a DATA ADVANTAGE that most bettors don't have. Use it to find edges they can't see!
 """
         
         try:
@@ -791,13 +915,13 @@ REMEMBER:
             )
             
             picks_text = response.choices[0].message.content.strip()
-            logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
+            logger.info(f"🧠 Enhanced Grok response: {picks_text[:500]}...")
             
             start_idx = picks_text.find("[")
             end_idx = picks_text.rfind("]") + 1
             
             if start_idx == -1 or end_idx == 0:
-                logger.error("No JSON array found in Grok response")
+                logger.error("No JSON array found in enhanced Grok response")
                 return []
             
             json_str = picks_text[start_idx:end_idx]
@@ -826,29 +950,34 @@ REMEMBER:
                             "bet_type": pick["bet_type"],
                             "recommendation": pick["recommendation"],
                             "line": pick.get("line"),
-                            "reasoning": pick.get("reasoning", "AI-generated pick"),
+                            "reasoning": pick.get("reasoning", "Enhanced AI-generated pick"),
                             "roi_estimate": pick.get("roi_estimate", "0%"),
                             "value_percentage": pick.get("value_percentage", "0%"),
                             "implied_probability": pick.get("implied_probability", "50%"),
                             "fair_odds": pick.get("fair_odds", pick.get("odds", 0)),
                             "key_factors": pick.get("key_factors", []),
+                            "scrapy_edge": pick.get("scrapy_edge", "Enhanced data advantage"),
                             "risk_level": pick.get("risk_level", "medium"),
                             "expected_value": pick.get("expected_value", "Positive EV expected"),
-                            "research_support": pick.get("research_support", "Based on comprehensive analysis"),
+                            "research_support": pick.get("research_support", "Based on enhanced analysis"),
                             "ai_generated": True,
+                            "enhanced_system": True,
                             "research_insights_count": len(insights),
+                            "scrapy_insights_used": True,
                             "model_used": "grok-4-0709"
                         }
                     })
                 else:
-                    logger.warning(f"No matching bet found for {pick.get("home_team")} vs {pick.get("away_team")} {pick.get("bet_type")}")
+                    logger.warning(f"No matching bet found for {pick.get('home_team')} vs {pick.get('away_team')} {pick.get('bet_type')}")
             
             final_picks = formatted_picks[:target_picks]
             
             if final_picks:
+                # Enhanced analytics
                 bet_types = {}
                 recommendations = {"home": 0, "away": 0, "over": 0, "under": 0}
                 confidence_ranges = {"50-60": 0, "61-70": 0, "71+": 0}
+                scrapy_advantages = []
                 
                 for pick in final_picks:
                     bet_type = pick["metadata"]["bet_type"]
@@ -864,67 +993,82 @@ REMEMBER:
                         confidence_ranges["61-70"] += 1
                     else:
                         confidence_ranges["71+"] += 1
+                    
+                    scrapy_advantages.append(pick["metadata"]["scrapy_edge"])
                 
-                logger.info(f"📊 Pick Diversity Analysis:")
+                logger.info(f"📊 Enhanced Pick Analysis:")
                 logger.info(f"  Bet Types: {dict(bet_types)}")
                 logger.info(f"  Recommendations: {dict(recommendations)}")
                 logger.info(f"  Confidence Ranges: {dict(confidence_ranges)}")
+                logger.info(f"  Scrapy Advantages Used: {len(set(scrapy_advantages))}")
                 
-                logger.info(f"📝 Generated {len(final_picks)} diverse picks:")
+                logger.info(f"📝 Generated {len(final_picks)} ENHANCED picks:")
                 for i, pick in enumerate(final_picks, 1):
                     meta = pick["metadata"]
-                    logger.info(f"  {i}. {meta["home_team"]} vs {meta["away_team"]} {meta["bet_type"]} {meta["recommendation"].upper()} {pick["confidence"]}% conf)")
+                    logger.info(f"  {i}. {meta['home_team']} vs {meta['away_team']} {meta['bet_type']} {meta['recommendation'].upper()} ({pick['confidence']}% conf) - {meta['scrapy_edge'][:50]}...")
             
             return final_picks
             
         except Exception as e:
-            logger.error(f"Failed to generate picks: {e}")
+            logger.error(f"Failed to generate enhanced picks: {e}")
             return []
 
-    def _format_statmuse_insights(self, insights_summary: List[Dict]) -> str:
-        statmuse_insights = [i for i in insights_summary if i.get("source") == "statmuse"]
-        if not statmuse_insights:
-            return "No StatMuse data available"
+    def _format_enhanced_insights(self, insights_summary: List[Dict]) -> str:
+        """Format insights with enhanced categorization"""
+        statmuse_insights = [i for i in insights_summary if "statmuse" in i.get("source", "")]
+        web_insights = [i for i in insights_summary if "web" in i.get("source", "")]
+        scrapy_insights = [i for i in insights_summary if "scrapy" in i.get("source", "")]
         
         formatted = []
-        for insight in statmuse_insights[:10]:
-            query = insight.get("query", "")
-            data = insight.get("data", "")
-            confidence = insight.get("confidence", 0.5)
-            
-            data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
-            if len(data_clean) > 300:
-                data_clean = data_clean[:300] + "..."
-            
-            formatted.append(f"• Q: {query}\n  A: {data_clean} (confidence: {confidence:.1f})")
         
-        return "\n\n".join(formatted)
-    
-    def _format_web_insights(self, insights_summary: List[Dict]) -> str:
-        web_insights = [i for i in insights_summary if i.get("source") == "web_search"]
-        if not web_insights:
-            return "No web search data available"
+        if statmuse_insights:
+            formatted.append("📊 STATMUSE DATA:")
+            for insight in statmuse_insights[:5]:
+                query = insight.get("query", "")
+                data = insight.get("data", "")
+                confidence = insight.get("confidence", 0.5)
+                
+                data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
+                if len(data_clean) > 200:
+                    data_clean = data_clean[:200] + "..."
+                
+                formatted.append(f"• Q: {query}\n  A: {data_clean} (confidence: {confidence:.1f})")
         
-        formatted = []
-        for insight in web_insights[:5]:
-            query = insight.get("query", "")
-            data = insight.get("data", "")
-            
-            data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
-            if len(data_clean) > 200:
-                data_clean = data_clean[:200] + "..."
-            
-            formatted.append(f"• Search: {query}\n  Result: {data_clean}")
+        if web_insights:
+            formatted.append("\n🌐 WEB SEARCH DATA:")
+            for insight in web_insights[:3]:
+                query = insight.get("query", "")
+                data = insight.get("data", "")
+                
+                data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
+                if len(data_clean) > 150:
+                    data_clean = data_clean[:150] + "..."
+                
+                formatted.append(f"• Search: {query}\n  Result: {data_clean}")
         
-        return "\n\n".join(formatted)
+        if scrapy_insights:
+            formatted.append("\n🕷️ SCRAPY INTELLIGENCE (EXCLUSIVE ADVANTAGE):")
+            for insight in scrapy_insights[:5]:
+                query = insight.get("query", "")
+                data = insight.get("data", "")
+                confidence = insight.get("confidence", 0.5)
+                
+                data_clean = str(data).replace("{", "").replace("}", "").replace("\"", "")
+                if len(data_clean) > 250:
+                    data_clean = data_clean[:250] + "..."
+                
+                formatted.append(f"• Analysis: {query}\n  Intelligence: {data_clean} (confidence: {confidence:.1f})")
+        
+        return "\n\n".join(formatted) if formatted else "No enhanced insights available"
     
     def _find_matching_bet(self, pick: Dict, odds: List[TeamBet]) -> TeamBet:
+        """Find matching bet (same as original)"""
         home_team = pick.get("home_team", "")
         away_team = pick.get("away_team", "")
         bet_type = pick.get("bet_type", "")
         
         exact_match = next(
-            (bet for bet in odds 
+            (bet for bet in odds
              if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == bet_type),
             None
         )
@@ -932,7 +1076,7 @@ REMEMBER:
             return exact_match
         
         fuzzy_match = next(
-            (bet for bet in odds 
+            (bet for bet in odds
              if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
                 (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower()) and
                 bet.bet_type == bet_type),
@@ -946,7 +1090,7 @@ REMEMBER:
         return None
 
     def _format_pick_string(self, pick: Dict, matching_bet: TeamBet) -> str:
-        """Formats the pick string for clarity."""
+        """Format pick string (same as original)"""
         home_team = pick.get("home_team", "")
         away_team = pick.get("away_team", "")
         bet_type = pick.get("bet_type", "")
@@ -968,19 +1112,21 @@ REMEMBER:
         return f"{home_team} vs {away_team} {bet_type} {recommendation}" # Fallback
 
 async def main():
-    logger.info("🤖 Starting Intelligent Teams Agent")
+    """Test the enhanced teams agent"""
+    logger.info("🤖 Starting Enhanced Teams Agent with Scrapy Integration")
     
-    agent = IntelligentTeamsAgent()
+    agent = EnhancedTeamsAgent()
     picks = await agent.generate_daily_picks(target_picks=10)
     
     if picks:
-        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
+        logger.info(f"✅ Successfully generated {len(picks)} ENHANCED intelligent picks!")
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
+            meta = pick.get('metadata', {})
+            scrapy_edge = meta.get('scrapy_edge', 'No scrapy advantage listed')
+            logger.info(f"Pick {i}: {pick['pick']} (Confidence: {pick['confidence']}%)")
+            logger.info(f"  Scrapy Edge: {scrapy_edge}")
     else:
-        logger.warning("❌ No picks generated")
+        logger.warning("❌ No enhanced picks generated")
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-

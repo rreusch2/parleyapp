@@ -1,0 +1,20 @@
+{
+  "overall_success": false,
+  "deployment_time": 0.06633,
+  "environment": "production",
+  "steps": {
+    "Environment Check": {
+      "success": false,
+      "error": "Environment not ready: {'python_version': '3.12.11', 'python_compatible': True, 'environment_variables': {'required': ['GROK_API_KEY', 'STATMUSE_API_KEY', 'DATABASE_URL'], 'missing': ['GROK_API_KEY', 'STATMUSE_API_KEY', 'DATABASE_URL'], 'all_present': False}, 'system_resources': {'cpu_count': 16, 'memory_gb': 30.57, 'disk_free_gb': 56.44}, 'grok_api_connectivity': False, 'required_files': {'required': ['scrapy_integration_service.py', 'enhanced_main_orchestrator.py', 'enhanced_teams_agent.py', 'enhanced_props_agent.py', 'automated_workflows.py'], 'missing': [], 'all_present': True}, 'environment_ready': False}",
+      "timestamp": "2025-07-18T02:39:08.488333"
+    }
+  },
+  "system_status": {},
+  "next_steps": [
+    "\u274c Deployment failed - address the following issues:",
+    "   \ud83d\udd27 Fix Environment Check: Environment not ready: {'python_version': '3.12.11', 'python_compatible': True, 'environment_variables': {'required': ['GROK_API_KEY', 'STATMUSE_API_KEY', 'DATABASE_URL'], 'missing': ['GROK_API_KEY', 'STATMUSE_API_KEY', 'DATABASE_URL'], 'all_present': False}, 'system_resources': {'cpu_count': 16, 'memory_gb': 30.57, 'disk_free_gb': 56.44}, 'grok_api_connectivity': False, 'required_files': {'required': ['scrapy_integration_service.py', 'enhanced_main_orchestrator.py', 'enhanced_teams_agent.py', 'enhanced_props_agent.py', 'automated_workflows.py'], 'missing': [], 'all_present': True}, 'environment_ready': False}",
+    "\ud83d\udd04 Re-run deployment after fixing issues",
+    "\ud83d\udccb Check deployment logs for detailed error information",
+    "\ud83c\udd98 Contact system administrator if issues persist"
+  ]
+}
