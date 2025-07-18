@@ -193,7 +193,8 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 <Text style={styles.sportIcon}>{getSportIcon(prediction.sport)}</Text>
                 <Text style={styles.sportText}>{prediction.sport}</Text>
               </View>
-              <Text style={styles.matchTitle}>{prediction.match}</Text>
+              {/* Display the matchup – fall back to `match_teams` if `match` is missing (e.g., Pro picks) */}
+              <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams}</Text>
               <View style={styles.timeContainer}>
                 <Clock size={12} color="#94A3B8" />
                 <Text style={styles.eventTime}>{prediction.eventTime}</Text>
@@ -347,7 +348,8 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 <View style={styles.modalHeader}>
                   <View>
                     <Text style={styles.modalTitle}>Advanced AI Analysis</Text>
-                    <Text style={styles.modalSubtitle}>{prediction.match}</Text>
+                    {/* Modal subtitle should also show the matchup */}
+                    <Text style={styles.modalSubtitle}>{prediction.match || (prediction as any).match_teams}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setShowAnalysis(false)}>
                     <Text style={styles.closeButton}>✕</Text>
