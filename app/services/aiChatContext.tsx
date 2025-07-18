@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AIPrediction } from '@/app/services/api/aiService';
+import { AIPrediction } from './api/aiService';
 
 interface ChatMessage {
   id: string;
@@ -15,6 +15,7 @@ interface ChatMessage {
 interface ChatContext {
   screen?: string;
   selectedPick?: any;
+  selectedPrediction?: AIPrediction;
   userPreferences?: any;
   customPrompt?: string;
 }
@@ -172,4 +173,4 @@ export function useAIChat() {
     throw new Error('useAIChat must be used within an AIChatProvider');
   }
   return context;
-} 
+}
