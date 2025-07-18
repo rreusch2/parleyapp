@@ -1,0 +1,55 @@
+{
+  "overall_success": false,
+  "deployment_time": 0.159123,
+  "environment": "production",
+  "steps": {
+    "Environment Check": {
+      "success": true,
+      "result": {
+        "python_version": "3.12.11",
+        "python_compatible": true,
+        "environment_variables": {
+          "required": [
+            "XAI_API_KEY",
+            "API_SPORTS_KEY",
+            "SUPABASE_URL"
+          ],
+          "missing": [],
+          "all_present": true
+        },
+        "system_resources": {
+          "cpu_count": 16,
+          "memory_gb": 30.57,
+          "disk_free_gb": 56.43
+        },
+        "grok_api_connectivity": false,
+        "required_files": {
+          "required": [
+            "scrapy_integration_service.py",
+            "enhanced_main_orchestrator.py",
+            "enhanced_teams_agent.py",
+            "enhanced_props_agent.py",
+            "automated_workflows.py"
+          ],
+          "missing": [],
+          "all_present": true
+        },
+        "environment_ready": true
+      },
+      "timestamp": "2025-07-18T07:45:26.966500"
+    },
+    "Database Setup": {
+      "success": false,
+      "error": "Failed to apply database schema: psql: error: connection to server on socket \"/var/run/postgresql/.s.PGSQL.5433\" failed: No such file or directory\n\tIs the server running locally and accepting connections on that socket?\n",
+      "timestamp": "2025-07-18T07:45:26.996281"
+    }
+  },
+  "system_status": {},
+  "next_steps": [
+    "\u274c Deployment failed - address the following issues:",
+    "   \ud83d\udd27 Fix Database Setup: Failed to apply database schema: psql: error: connection to server on socket \"/var/run/postgresql/.s.PGSQL.5433\" failed: No such file or directory\n\tIs the server running locally and accepting connections on that socket?\n",
+    "\ud83d\udd04 Re-run deployment after fixing issues",
+    "\ud83d\udccb Check deployment logs for detailed error information",
+    "\ud83c\udd98 Contact system administrator if issues persist"
+  ]
+}

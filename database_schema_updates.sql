@@ -456,6 +456,22 @@ ON CONFLICT DO NOTHING;
 -- GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO betting_app_user;
 
 -- ============================================================================
+-- ENHANCED DATA TABLE
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS enhanced_data (
+    id SERIAL PRIMARY KEY,
+    source VARCHAR(100),
+    data_type VARCHAR(100),
+    content JSONB,
+    "timestamp" TIMESTAMP,
+    confidence FLOAT,
+    sport VARCHAR(100),
+    teams TEXT[],
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
 -- COMPLETION MESSAGE
 -- ============================================================================
 

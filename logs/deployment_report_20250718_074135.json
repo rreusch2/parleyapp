@@ -1,0 +1,113 @@
+{
+  "overall_success": false,
+  "deployment_time": 33.899862,
+  "environment": "production",
+  "steps": {
+    "Environment Check": {
+      "success": true,
+      "result": {
+        "python_version": "3.12.11",
+        "python_compatible": true,
+        "environment_variables": {
+          "required": [
+            "XAI_API_KEY",
+            "API_SPORTS_KEY",
+            "SUPABASE_URL"
+          ],
+          "missing": [],
+          "all_present": true
+        },
+        "system_resources": {
+          "cpu_count": 16,
+          "memory_gb": 30.57,
+          "disk_free_gb": 56.43
+        },
+        "grok_api_connectivity": false,
+        "required_files": {
+          "required": [
+            "scrapy_integration_service.py",
+            "enhanced_main_orchestrator.py",
+            "enhanced_teams_agent.py",
+            "enhanced_props_agent.py",
+            "automated_workflows.py"
+          ],
+          "missing": [],
+          "all_present": true
+        },
+        "environment_ready": true
+      },
+      "timestamp": "2025-07-18T07:41:01.641677"
+    },
+    "Database Setup": {
+      "success": true,
+      "result": {
+        "schema_file_found": true,
+        "schema_applied": true,
+        "tables_created": [
+          "scrapy_news",
+          "scrapy_player_stats",
+          "scrapy_team_performance",
+          "enhanced_predictions",
+          "system_health_metrics",
+          "workflow_executions"
+        ],
+        "indexes_created": 15,
+        "functions_created": 3,
+        "views_created": 3
+      },
+      "timestamp": "2025-07-18T07:41:01.641900"
+    },
+    "Dependencies Installation": {
+      "success": true,
+      "result": {
+        "required_packages": [
+          "scrapy>=2.5.0",
+          "requests>=2.25.0",
+          "psutil>=5.8.0",
+          "schedule>=1.1.0",
+          "python-dotenv>=0.19.0",
+          "asyncio>=3.4.3",
+          "aiohttp>=3.8.0"
+        ],
+        "installed_packages": [
+          "scrapy>=2.5.0",
+          "requests>=2.25.0",
+          "psutil>=5.8.0",
+          "schedule>=1.1.0",
+          "python-dotenv>=0.19.0",
+          "asyncio>=3.4.3",
+          "aiohttp>=3.8.0"
+        ],
+        "failed_packages": [],
+        "installation_success": true
+      },
+      "timestamp": "2025-07-18T07:41:01.642151"
+    },
+    "Configuration Setup": {
+      "success": true,
+      "result": {
+        "system_config_created": true,
+        "logging_config_created": true,
+        "config_directory": "/home/reid/Desktop/parleyapp/config",
+        "configuration_files": [
+          "system_config.json",
+          "logging_config.json"
+        ]
+      },
+      "timestamp": "2025-07-18T07:41:01.642569"
+    },
+    "System Components": {
+      "success": false,
+      "error": "Failed to initialize components: ['scrapy_service']",
+      "timestamp": "2025-07-18T07:41:35.456657"
+    }
+  },
+  "system_status": {},
+  "next_steps": [
+    "\u274c Deployment failed - address the following issues:",
+    "   \ud83d\udd27 Fix System Components: Failed to initialize components: ['scrapy_service']",
+    "\ud83d\udd04 Re-run deployment after fixing issues",
+    "\ud83d\udccb Check deployment logs for detailed error information",
+    "\ud83c\udd98 Contact system administrator if issues persist"
+  ]
+}

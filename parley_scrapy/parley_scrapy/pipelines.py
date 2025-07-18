@@ -21,15 +21,12 @@ class ParleyScrapyPipeline:
             (self.data_dir / sport).mkdir(exist_ok=True)
         
         # Initialize output files
-        self.files = {
-            'sports_news': open(self.data_dir / f'sports_news_{timestamp}.jsonl', 'w'),
-            'player_stats': open(self.data_dir / f'player_stats_{timestamp}.jsonl', 'w'),
-            'team_performance': open(self.data_dir / f'team_performance_{timestamp}.jsonl', 'w'),
-        }
+        self.files = {}
+        self.sport_files = {}
         
     def close_spider(self, spider):
         """Close all open files when spider closes"""
-        for file in self.files.values():
+        for file in self.sport_files.values():
             file.close()
     
     def process_item(self, item, spider):
@@ -41,18 +38,25 @@ class ParleyScrapyPipeline:
         processed_item['spider'] = spider.name
         processed_item['processed_at'] = datetime.now().isoformat()
         
-        # Write to appropriate file
-        if category in self.files:
-            self.files[category].write(json.dumps(processed_item) + '\n')
-        
-        # Also save sport-specific data
+        # Save to sport-specific file
         sport = item.get('sport', 'general')
         sport_dir = self.data_dir / sport
         sport_dir.mkdir(exist_ok=True)
+
+        # Use a consistent filename based on category
+        if category == 'sports_news':
+            filename = 'news.json'
+        else:
+            filename = f"{category}.json"
+
+        file_path = sport_dir / filename
         
-        filename = f"{category}_{datetime.now().strftime('%Y%m%d')}.jsonl"
-        with open(sport_dir / filename, 'a') as f:
-            f.write(json.dumps(processed_item) + '\n')
+        # Use a file handle per sport/category combination
+        file_key = (sport, category)
+        if file_key not in self.sport_files:
+            self.sport_files[file_key] = open(file_path, 'a')
+            
+        self.sport_files[file_key].write(json.dumps(processed_item) + '\n')
         
         return item
 

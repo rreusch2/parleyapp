@@ -77,16 +77,25 @@ class ScrapyIntegrationService:
             try:
                 logger.info(f"🔄 Running spider: {spider}")
                 
+                # Determine sport and output file
+                sport = 'mlb' if spider in ['player_stats', 'team_performance'] else 'general'
+                output_dir = self.scraped_data_path / sport
+                output_dir.mkdir(parents=True, exist_ok=True)
+                
+                filename = "news.json" if spider == "sports_news" else f"{spider}.json"
+                output_file = output_dir / filename
+                
                 # Run spider with subprocess
                 cmd = [
                     'scrapy', 'crawl', spider,
+                    '-O', str(output_file),
                     '-s', 'FEEDS_STORE_EMPTY=False',
                     '-s', 'LOG_LEVEL=INFO'
                 ]
                 
                 # Add sport parameter for specific spiders
-                if spider in ['player_stats', 'team_performance']:
-                    cmd.extend(['-a', 'sport=mlb'])
+                if sport != 'general':
+                    cmd.extend(['-a', f'sport={sport}'])
                 
                 result = subprocess.run(
                     cmd,
@@ -149,8 +158,11 @@ class ScrapyIntegrationService:
             logger.info(f"📂 Loading {sport} data from {sport_dir}")
             
             # Load different data types
-            for data_type in ['news', 'player_stats', 'team_performance']:
-                data_file = sport_dir / f"{data_type}.json"
+            for data_type in ['sports_news', 'player_stats', 'team_performance']:
+                if data_type == 'sports_news':
+                    data_file = sport_dir / "news.json"
+                else:
+                    data_file = sport_dir / f"{data_type}.json"
                 
                 if data_file.exists():
                     try:
@@ -329,7 +341,23 @@ class ScrapyIntegrationService:
             data_dir_exists = self.scraped_data_path.exists()
             
             # Check database connection
-            db_connected = self.db is not None
+            db_connected = False
+            if self.db:
+                try:
+                    # Perform a simple query to check the connection
+                    self.db.table('enhanced_data').select('id', count='exact').limit(1).execute()
+                    db_connected = True
+                except Exception as e:
+                    if 'relation "enhanced_data" does not exist' in str(e):
+                        logger.warning("Database connected, but 'enhanced_data' table not found. Service will use file storage.")
+                        db_connected = True # Not a fatal error for the service itself
+                    else:
+                        logger.warning(f"Database connection check failed: {e}")
+                        db_connected = False
+            else:
+                # If no DB is configured, it's not a "disconnected" state, but a configuration choice.
+                logger.info("No database configured for Scrapy service.")
+                db_connected = True
             
             # Count available data files
             data_files_count = 0

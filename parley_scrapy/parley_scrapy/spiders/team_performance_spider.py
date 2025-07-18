@@ -26,8 +26,8 @@ class TeamPerformanceSpider(scrapy.Spider):
             ]
         elif self.sport == 'mlb':
             urls = [
-                'https://www.baseball-reference.com/leagues/MLB/2025.shtml',
-                'https://www.baseball-reference.com/leagues/MLB/2025-standings.shtml',
+                'https://www.baseball-reference.com/leagues/MLB/2024.shtml',
+                'https://www.baseball-reference.com/leagues/MLB/2024-standings.shtml',
             ]
         elif self.sport == 'nfl':
             urls = [

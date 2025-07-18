@@ -17,7 +17,7 @@ class SportsNewsSpider(scrapy.Spider):
         super(SportsNewsSpider, self).__init__(*args, **kwargs)
         self.sport = sport
         
-    def start_requests(self):
+    async def start(self):
         # ESPN NBA news
         urls = [
             'https://www.espn.com/nba/',

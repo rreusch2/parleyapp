@@ -7,9 +7,9 @@ NEWSPIDER_MODULE = 'parley_scrapy.spiders'
 ROBOTSTXT_OBEY = True
 
 # Configure item pipelines
-ITEM_PIPELINES = {
-    'parley_scrapy.pipelines.ParleyScrapyPipeline': 300,
-}
+# ITEM_PIPELINES = {
+#     'parley_scrapy.pipelines.ParleyScrapyPipeline': 300,
+# }
 
 # Configure download delay
 DOWNLOAD_DELAY = 1

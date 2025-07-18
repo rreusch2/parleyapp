@@ -1,11 +1,11 @@
-Date: Fri, 18 Jul 2025 11:21:48 GMT
+Date: Fri, 18 Jul 2025 12:41:09 GMT
 Content-Type: text/html; charset=iso-8859-1
 Location: https://www.baseball-reference.com/leagues/majors/2025-batting.shtml
 Strict-Transport-Security: max-age=2592000; includeSubDomains
 Cf-Cache-Status: EXPIRED
-Set-Cookie: __cf_bm=XirfgkpaYE0oa63zTEBrvtGPd5WQakIDe1D3ojeFaj0-1752837708-1.0.1.1-Tyi8toJ0lPnOhhapIYtp.1NH7Jxs5gI2BOsJHikMZk5YYJljYjfW._GZosLpdVhsAnconUHUuN5pfz4dBeGGEpFR6YSYRqXL6zrPT6Cp5mU; path=/; expires=Fri, 18-Jul-25 11:51:48 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
+Set-Cookie: __cf_bm=k430uKOigtTSj4gwOUztuIcPsZEqs8580_FQ2kKPK2c-1752842469-1.0.1.1-6McuUumS5oeyK1kRmkawy04l00s0u0l5xDGFZ.IqSAYoQEASoJr7V7VRTC7aFfVEzBBHsP67t8IKeBRGCJG2Fo7m8XspY8.8vzEgt8FUbRA; path=/; expires=Fri, 18-Jul-25 13:11:09 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
 Server-Timing: cfCacheStatus;desc="EXPIRED"
-Server-Timing: cfOrigin;dur=4,cfEdge;dur=32
+Server-Timing: cfOrigin;dur=4,cfEdge;dur=28
 Vary: Accept-Encoding
 Server: cloudflare
-Cf-Ray: 961198fbe96118aa-CMH
+Cf-Ray: 96120d3889b77929-CMH

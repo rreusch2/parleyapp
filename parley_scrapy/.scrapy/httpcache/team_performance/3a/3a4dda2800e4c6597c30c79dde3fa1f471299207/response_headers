@@ -1,11 +1,11 @@
-Date: Fri, 18 Jul 2025 11:22:08 GMT
+Date: Fri, 18 Jul 2025 12:41:28 GMT
 Content-Type: text/html; charset=iso-8859-1
 Location: https://www.baseball-reference.com/leagues/majors/2025-standings.shtml
 Strict-Transport-Security: max-age=2592000; includeSubDomains
-Cf-Cache-Status: EXPIRED
-Set-Cookie: __cf_bm=BI1._mWGNciP8VH5xnICgPWSe.Yl8jTPgWoSvrdz6kU-1752837728-1.0.1.1-Hnp6HISx6NNlO_xNIEfN_F1keqp4FjMIKqcT5S.n7h3scupbIZYqwZ0Djy7gHszAs9Gk3ETF4IYt455VaF8u2hyWQgtqCutNuGHyJYgFLT0; path=/; expires=Fri, 18-Jul-25 11:52:08 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
-Server-Timing: cfCacheStatus;desc="EXPIRED"
-Server-Timing: cfOrigin;dur=3,cfEdge;dur=31
+Cf-Cache-Status: HIT
+Set-Cookie: __cf_bm=f83NppQaeelydAqFry3MlsRBEZ9juc7a9kf2S2pcGg0-1752842488-1.0.1.1-zPVuG5zkcEXYQ8VpSb_pX1vAeMMUFCaDmjUdzXzMA0z1AEyNYTBhFdqNBoCH3Ynk5WgEVpW9g2BSUhm8nsKFDDLb.RUWF73ryhjW9wH6dAw; path=/; expires=Fri, 18-Jul-25 13:11:28 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
+Server-Timing: cfCacheStatus;desc="HIT"
+Server-Timing: cfOrigin;dur=0,cfEdge;dur=28
 Vary: Accept-Encoding
 Server: cloudflare
-Cf-Ray: 9611997c189a77be-CMH
+Cf-Ray: 96120db0ff78be76-CMH

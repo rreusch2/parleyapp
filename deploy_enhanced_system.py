@@ -231,18 +231,46 @@ class EnhancedSystemDeployer:
         if not schema_file.exists():
             raise Exception("Database schema update file not found")
         
-        # Apply database updates (this would typically use a database connection)
-        # For now, we'll simulate the process
+        # Get database connection details from environment variables
+        db_host = os.getenv("DB_HOST")
+        db_port = os.getenv("DB_PORT")
+        db_user = os.getenv("DB_USER")
+        db_name = os.getenv("DB_NAME")
+        db_password = os.getenv("DB_PASSWORD")
+
+        if not all([db_host, db_port, db_user, db_name, db_password]):
+            raise Exception("Database connection details not found in environment variables")
+
+        # Construct the psql command
+        psql_command = [
+            'psql',
+            '-h',
+            db_host,
+            '-p',
+            str(db_port),
+            '-U',
+            db_user,
+            '-d',
+            db_name,
+            '-f',
+            str(schema_file)
+        ]
+
+        # Execute the psql command
+        result = subprocess.run(
+            psql_command,
+            capture_output=True,
+            text=True,
+            env={'PGPASSWORD': db_password, **os.environ}
+        )
+
+        if result.returncode != 0:
+            raise Exception(f"Failed to apply database schema: {result.stderr}")
+
         result = {
             'schema_file_found': True,
-            'schema_applied': True,  # Would be actual result of SQL execution
-            'tables_created': [
-                'scrapy_news', 'scrapy_player_stats', 'scrapy_team_performance',
-                'enhanced_predictions', 'system_health_metrics', 'workflow_executions'
-            ],
-            'indexes_created': 15,
-            'functions_created': 3,
-            'views_created': 3
+            'schema_applied': True,
+            'output': result.stdout
         }
         
         logger.info("✅ Database schema setup completed")
@@ -376,12 +404,15 @@ class EnhancedSystemDeployer:
             sys.path.append(str(self.project_root))
             from scrapy_integration_service import scrapy_service
             
+            # Run spiders to ensure data is present
+            await scrapy_service.run_scrapy_spiders()
+
             # Test service initialization
-            status = await scrapy_service.get_service_status()
+            status = scrapy_service.get_service_status()
             components_status['scrapy_service'] = {
                 'initialized': True,
                 'status': status.get('status', 'unknown'),
-                'ready': status.get('status') == 'ready'
+                'ready': status.get('recent_datasets_count', 0) > 0 and status.get('database_connected')
             }
         except Exception as e:
             components_status['scrapy_service'] = {

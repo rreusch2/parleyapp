@@ -1,20 +1,21 @@
+Content-Length: 41484
 Content-Type: text/html;charset=UTF-8
-Date: Fri, 18 Jul 2025 11:21:39 GMT
-Set-Cookie: country=us; path=/;
-Set-Cookie: edition-view=espn-en-us; path=/; Expires=Fri, 25 Jul 2025 11:21:39 GMT;
-Set-Cookie: connectionspeed=full; path=/; Expires=Fri, 25 Jul 2025 11:21:39 GMT;
-Set-Cookie: edition=espn-en-us; path=/; Expires=Fri, 25 Jul 2025 11:21:39 GMT;
-Set-Cookie: region=ccpa; path=/; Expires=Fri, 25 Jul 2025 11:21:39 GMT;
-Set-Cookie: _dcf=1; path=/; Expires=Fri, 25 Jul 2025 11:21:39 GMT;
-Set-Cookie: SWID=075B0B96-6D00-4CDE-CC47-E2C84B48BEE8; path=/; Expires=Tue, 18 Jul 2045 11:21:39 GMT; domain=espn.com;
+Date: Fri, 18 Jul 2025 12:34:47 GMT
 Cache-Control: max-age=0, must-revalidate
 Access-Control-Allow-Origin: *
 Content-Security-Policy: frame-ancestors  'self' asia.espn.com:* asia.espnqa.com:* *.espn.com:* *.espnqa.com:* *.espnsb.com:* *.espnsb.com *.espn.co.uk *.espndeportes.espn.com *.espn.com.br *.espn.com.mx *.espn.com.ve *.espn.com.ar *.espn.com.co *.espnfc.com.au *.espn.com.au *.espn.in *.espn.com.sg *.espn.cl *.espn.ph *.espn.ph:* *.espn.com.pe *.espn.com.gt *.espn.com.do *.espn.com.ec *.espn.com.uy *.espn.com.pa *.espn.co.cr qa.abcnews.go.com preview.abcnews.go.com abc7ny.com abc7.com *.abcotvssb.com preview.goodmorningamerica.com http://*.espnqa.com:* http://*.espn.com:* *.abcotvssb.com *.abcnews.go.com *.abcnews.go.com:* http://*.abcnews.go.com:* abc30.com abc7news.com abc13.com abc7chicago.com 6abc.com abc11.com *.goodmorningamerica.com qa.abc7.com qa.abc30.com qa.abc7news.com qa.abc13.com qa.abc7chicago.com qa.6abc.com qa.abc7ny.com qa.abc11.com *.abcnews.go.com:* abcnews.go.com qa.secsports.com *.secsports.com https://*.espn.nl:* https://*.espn.com:* https://*.espnqa.nl:* *.espnqa.com:*
-Etag: W/"8ff23dd0a9f70f9ae04675eb99655f30bdfcdc6e"
+Etag: W/"be0f52d58318fb2a27a5db8bad63c250f1769359"
 Content-Encoding: gzip
-Via: 1.1 varnish (Varnish/6.0), 1.1 18cb903dd2c9ff38a33d79715104de0a.cloudfront.net (CloudFront)
+Via: 1.1 varnish (Varnish/6.0), 1.1 60a4019a365a195cb4f354a7c8fdb39a.cloudfront.net (CloudFront)
 Vary: Accept-Encoding
 Accept-Ranges: bytes
+Set-Cookie: edition-view=espn-en-us; path=/; Expires=Fri, 25 Jul 2025 12:34:47 GMT;
+Set-Cookie: country=us; path=/;
+Set-Cookie: edition=espn-en-us; path=/; Expires=Fri, 25 Jul 2025 12:34:47 GMT;
+Set-Cookie: connectionspeed=full; path=/; Expires=Fri, 25 Jul 2025 12:34:47 GMT;
+Set-Cookie: region=ccpa; path=/; Expires=Fri, 25 Jul 2025 12:34:47 GMT;
+Set-Cookie: _dcf=1; path=/; Expires=Fri, 25 Jul 2025 12:34:47 GMT;
+Set-Cookie: SWID=7FEC6988-8DA3-4F80-CF98-272D3FFDB6B3; path=/; Expires=Tue, 18 Jul 2045 12:34:47 GMT; domain=espn.com;
 X-Cache: Miss from cloudfront
 X-Amz-Cf-Pop: CMH68-P4
-X-Amz-Cf-Id: 2I3qf8IQ7JAKS6UD-NXLEBWnVEDzPQcl9KABJHaBhU3nxDrCPox8cg==
+X-Amz-Cf-Id: OYSUYVzszSY64mOvzjosxZP3_Zo7NoidnSlUBdxRRWxU75I6j7d2_w==

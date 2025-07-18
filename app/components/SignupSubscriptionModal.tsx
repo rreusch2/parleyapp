@@ -57,7 +57,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly');
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
-  const { subscribeToPro } = useSubscription();
+  const { subscribeToPro, restorePurchases } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -148,6 +148,31 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
       }
       
       Alert.alert('Purchase Error', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handle restore purchases flow from the paywall.
+   * Apple requires a prominent "Restore" button in the purchase view (Guideline 3.1.1).
+   */
+  const handleRestore = async () => {
+    try {
+      setLoading(true);
+      await restorePurchases();
+      // On successful restore, show a confirmation and close the modal
+      Alert.alert(
+        'Purchases Restored',
+        'Your previous purchases have been successfully restored.',
+        [{
+          text: 'Continue',
+          onPress: onClose,
+        }]
+      );
+    } catch (error: any) {
+      console.error('❌ Restore purchases error:', error);
+      Alert.alert('Restore Failed', error?.message || 'Could not restore purchases. Please try again or contact support if the issue persists.');
     } finally {
       setLoading(false);
     }
@@ -494,6 +519,15 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 <Text style={styles.freeButtonText}>Try Free Account (Limited)</Text>
                 <ArrowRight size={16} color="#94A3B8" />
               </View>
+            </TouchableOpacity>
+
+            {/* Restore Purchases Button - required by Apple */}
+            <TouchableOpacity
+              onPress={handleRestore}
+              style={[styles.restoreButton, loading && { opacity: 0.7 }]}
+              disabled={loading}
+            >
+              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
             </TouchableOpacity>
 
              {/* Benefit Reminder */}
@@ -918,6 +952,19 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     textDecorationLine: 'underline',
     fontWeight: '500',
+  },
+  restoreButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.3)',
+    marginBottom: 16,
+  },
+  restoreButtonText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
 });
 

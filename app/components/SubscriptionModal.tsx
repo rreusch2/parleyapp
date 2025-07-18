@@ -79,55 +79,19 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const handleSubscribe = async () => {
     try {
       setLoading(true);
-      
       console.log('🔄 Starting subscription purchase for:', selectedPlan);
-      
-      // Initialize RevenueCat service first
-      await revenueCatService.initialize();
-      
-      // Call RevenueCat to start the purchase process
-      // This will trigger the Apple purchase dialog
-      const result = await revenueCatService.purchasePackage(selectedPlan);
-      
-      if (result.success) {
-        console.log('✅ Purchase completed successfully!');
-        
-        // CRITICAL FIX: Update subscription context immediately after purchase
-        console.log('🔄 Updating subscription context to Pro status...');
-        
-        // Update database to mark user as Pro
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            console.log('🔄 Updating user subscription_tier to Pro in database...');
-            await supabase
-              .from('profiles')
-              .update({ subscription_tier: 'pro' })
-              .eq('id', user.id);
-            console.log('✅ Database updated with Pro status');
-          }
-        } catch (dbError) {
-          console.error('⚠️ Database update failed, but RevenueCat should sync:', dbError);
-        }
-        
-        // Use the subscription context hook to refresh status
-        await checkSubscriptionStatus();
-        
-        // Small delay to ensure context is fully updated
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Show success message
+
+      const success = await subscribeToPro(selectedPlan);
+
+      if (success) {
+        console.log('✅ Purchase flow completed successfully in modal.');
         Alert.alert(
           '🎉 Welcome to Pro!',
           `You've successfully subscribed to the ${selectedPlan} plan. Welcome to the premium experience!`,
-          [{ 
-            text: 'Great!', 
+          [{
+            text: 'Great!',
             onPress: () => {
               onClose();
-              // Force app refresh by triggering re-render
-              console.log('✅ Pro subscription activated - UI should update to Pro layout');
-              
-              // If parent provided onSubscribe callback, use it for additional actions
               if (onSubscribe) {
                 onSubscribe(selectedPlan);
               }
@@ -135,42 +99,11 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           }]
         );
       } else {
-        // Handle purchase failure
-        if (result.error === 'cancelled') {
-          console.log('ℹ️ User cancelled purchase');
-          // Don't show error for cancellation
-        } else {
-          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
-        }
+        console.log('ℹ️ Purchase was cancelled or failed, handled in subscriptionContext.');
       }
-      
     } catch (error: any) {
-      console.error('❌ Subscription error:', error);
-      console.error('❌ Error type:', typeof error);
-      console.error('❌ Error constructor:', error?.constructor?.name);
-      
-      // More robust error handling
-      let errorMessage = 'Unable to process purchase. Please try again.';
-      
-      if (error && typeof error === 'object') {
-        const errorStr = error.message || error.toString() || '';
-        
-        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
-          console.log('ℹ️ User cancelled purchase');
-          // Don't show error for cancellation
-          return;
-        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
-          errorMessage = 'This subscription is not available right now. Please try again later.';
-        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
-          errorMessage = 'Please check your internet connection and try again.';
-        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
-          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
-      
-      Alert.alert('Purchase Error', errorMessage);
+      console.error('❌ Subscription error in modal:', error);
+      Alert.alert('Purchase Error', error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

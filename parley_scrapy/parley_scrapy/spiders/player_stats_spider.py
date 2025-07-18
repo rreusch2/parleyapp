@@ -26,8 +26,8 @@ class PlayerStatsSpider(scrapy.Spider):
             ]
         elif self.sport == 'mlb':
             urls = [
-                'https://www.baseball-reference.com/leagues/MLB/2025-batting.shtml',
-                'https://www.baseball-reference.com/leagues/MLB/2025-pitching.shtml',
+                'https://www.baseball-reference.com/leagues/MLB/2024-batting.shtml',
+                'https://www.baseball-reference.com/leagues/MLB/2024-pitching.shtml',
             ]
         elif self.sport == 'nfl':
             urls = [
