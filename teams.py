@@ -266,9 +266,9 @@ class IntelligentTeamBettingAgent:
         self.db = DatabaseClient()
         self.statmuse = StatMuseClient()
         self.web_search = WebSearchClient()
-        self.deepseek_client = AsyncOpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"),
-            base_url="https://api.deepseek.com/v1"
+        self.grok_client = AsyncOpenAI(
+            api_key=os.getenv("XAI_API_KEY"),
+            base_url="https://api.x.ai/v1"
         )
     
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
@@ -408,8 +408,8 @@ Return ONLY a valid JSON object with this structure:
 Be strategic, be smart, and focus on finding real edges. Quality over quantity - better to research 10 bets deeply than 50 superficially."""
         
         try:
-            response = await self.deepseek_client.chat.completions.create(
-                model="deepseek-chat",
+            response = await self.grok_client.chat.completions.create(
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -567,8 +567,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
 """
         
         try:
-            response = await self.deepseek_client.chat.completions.create(
-                model="deepseek-chat",
+            response = await self.grok_client.chat.completions.create(
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.4
             )
@@ -831,7 +831,7 @@ REMEMBER:
 """
         
         try:
-            response = await self.deepseek_client.chat.completions.create(
+            response = await self.grok_client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
@@ -1073,3 +1073,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+

@@ -391,7 +391,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-3",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
