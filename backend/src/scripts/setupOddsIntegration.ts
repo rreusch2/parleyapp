@@ -19,14 +19,6 @@ const MLB_PROP_MARKETS = [
   'pitcher_strikeouts'
 ];
 
-// MMA/UFC prop markets to fetch
-const MMA_PROP_MARKETS = [
-  'fighter_win_method',
-  'fight_outcome',
-  'fight_completion', // over/under rounds
-  'round_betting'
-];
-
 // For team odds (ML, spread, total), we use multiple bookmakers
 const TEAM_ODDS_BOOKMAKERS = ['fanduel', 'draftkings', 'betmgm', 'caesars'];
 
@@ -54,14 +46,6 @@ function convertDecimalToAmerican(decimalOdds: number): number {
     // For underdogs (odds 2.0 or greater in decimal)
     return Math.round((decimalOdds - 1) * 100);
   }
-}
-
-// Define interface for fighter data in UFC/MMA
-interface FighterData {
-  name: string;
-  record?: string;
-  rank?: string;
-  weight_class?: string;
 }
 
 interface PlayerPropOutcome {
@@ -99,7 +83,7 @@ async function checkReferenceData(): Promise<boolean> {
     const { data: sportsData, error: sportsError } = await supabaseAdmin
       .from('sports_config')
       .select('sport_key, sport_name')
-      .in('sport_key', ['MLB', 'NBA', 'mma_ufc', 'mma_mixed']);
+      .in('sport_key', ['MLB', 'NBA']);
     
     if (sportsError) {
       console.error('❌ Error checking sports_config:', sportsError.message);
@@ -111,42 +95,11 @@ async function checkReferenceData(): Promise<boolean> {
       sportsData.forEach(sport => console.log(`  - ${sport.sport_key}: ${sport.sport_name}`));
     }
     
-    // Check if we need to add UFC/MMA to sports_config
-    if (sportsData && !sportsData.some(sport => sport.sport_key === 'mma_ufc' || sport.sport_key === 'mma_mixed')) {
-      console.log('⚠️ Adding UFC and MMA to sports_config...');
-      const { error: insertError } = await supabaseAdmin
-        .from('sports_config')
-        .insert([
-          {
-            id: uuidv4(),
-            sport_key: 'mma_ufc',
-            sport_name: 'UFC',
-            is_active: true,
-            current_season: '2025',
-            metadata: { source: 'theodds_api' }
-          },
-          {
-            id: uuidv4(),
-            sport_key: 'mma_mixed',
-            sport_name: 'MMA',
-            is_active: true,
-            current_season: '2025',
-            metadata: { source: 'theodds_api' }
-          }
-        ]);
-      
-      if (insertError) {
-        console.error('❌ Error adding UFC/MMA to sports_config:', insertError.message);
-      } else {
-        console.log('✅ Added UFC and MMA to sports_config');
-      }
-    }
-    
     // Check market_types
     const { data: marketData, error: marketError } = await supabaseAdmin
       .from('market_types')
       .select('market_key, market_name')
-      .in('market_key', ['h2h', 'spreads', 'totals', 'fighter_win_method', 'fight_outcome']);
+      .in('market_key', ['h2h', 'spreads', 'totals']);
     
     if (marketError) {
       console.error('❌ Error checking market_types:', marketError.message);
@@ -156,33 +109,6 @@ async function checkReferenceData(): Promise<boolean> {
     console.log(`✅ Found ${marketData?.length || 0} market types`);
     if (marketData) {
       marketData.forEach(market => console.log(`  - ${market.market_key}: ${market.market_name}`));
-    }
-    
-    // Check if we need to add MMA market types
-    const mmaMarketTypes = [
-      { market_key: 'fighter_win_method', market_name: 'Fighter Win Method', market_category: 'mma' },
-      { market_key: 'fight_outcome', market_name: 'Fight Outcome', market_category: 'mma' },
-      { market_key: 'fight_completion', market_name: 'Fight Completion', market_category: 'mma' },
-      { market_key: 'round_betting', market_name: 'Round Betting', market_category: 'mma' }
-    ];
-    
-    for (const market of mmaMarketTypes) {
-      if (!marketData || !marketData.some(m => m.market_key === market.market_key)) {
-        const { error } = await supabaseAdmin
-          .from('market_types')
-          .insert({
-            id: uuidv4(),
-            ...market,
-            description: `MMA/UFC market for ${market.market_name}`,
-            metadata: { source: 'theodds_api' }
-          });
-        
-        if (error) {
-          console.error(`❌ Error adding market type ${market.market_key}:`, error.message);
-        } else {
-          console.log(`✅ Added market type: ${market.market_key}`);
-        }
-      }
     }
     
     // Check bookmakers
@@ -232,13 +158,7 @@ async function ensurePlayerPropTypes(): Promise<void> {
     { prop_key: 'batter_runs_scored', prop_name: 'Batter Runs Scored O/U', sport_key: 'baseball_mlb', stat_category: 'batting' },
     { prop_key: 'pitcher_strikeouts', prop_name: 'Pitcher Strikeouts O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
     { prop_key: 'pitcher_earned_runs', prop_name: 'Pitcher Earned Runs O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
-    { prop_key: 'pitcher_hits_allowed', prop_name: 'Pitcher Hits Allowed O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
-    // MMA/UFC prop types
-    { prop_key: 'fighter_ko_tko_win', prop_name: 'Fighter Win by KO/TKO', sport_key: 'mma_ufc', stat_category: 'fighting' },
-    { prop_key: 'fighter_submission_win', prop_name: 'Fighter Win by Submission', sport_key: 'mma_ufc', stat_category: 'fighting' },
-    { prop_key: 'fighter_decision_win', prop_name: 'Fighter Win by Decision', sport_key: 'mma_ufc', stat_category: 'fighting' },
-    { prop_key: 'fight_to_go_distance', prop_name: 'Fight Goes the Distance', sport_key: 'mma_ufc', stat_category: 'fighting' },
-    { prop_key: 'fighter_total_rounds', prop_name: 'Fighter Total Rounds O/U', sport_key: 'mma_ufc', stat_category: 'fighting' }
+    { prop_key: 'pitcher_hits_allowed', prop_name: 'Pitcher Hits Allowed O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' }
   ];
   
   for (const propType of propTypes) {
