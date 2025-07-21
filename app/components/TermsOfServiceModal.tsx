@@ -141,8 +141,9 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
               </Text>
               <View style={styles.bulletPoints}>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Free Tier:</Text> Limited daily picks and basic features</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Weekly Pro:</Text> $12.49/week, auto-renewable</Text>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $24.99/month, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $149.99/year, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $199.99/year, auto-renewable</Text>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Lifetime Pro:</Text> $349.99 one-time payment</Text>
               </View>
               <Text style={styles.sectionText}>
@@ -259,8 +260,8 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 If you have questions about these Terms of Service, please contact us at:
               </Text>
               <View style={styles.contactInfo}>
-                <Text style={styles.contactText}>Email: support@Predictive Play.com</Text>
-                <Text style={styles.contactText}>Website: www.Predictive Play.com</Text>
+                <Text style={styles.contactText}>Email: predictiveplay2025@gmail.com</Text>
+                <Text style={styles.contactText}>Website: https://rreusch2.github.io/ppwebsite</Text>
               </View>
             </View>
 
