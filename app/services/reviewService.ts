@@ -28,7 +28,7 @@ class ReviewService {
   private readonly STORAGE_KEY = 'parley_review_state';
   private readonly MIN_DAYS_BETWEEN_REQUESTS = 90; // Apple's recommendation
   private readonly MIN_POSITIVE_INTERACTIONS = 3;
-  private readonly MIN_DAYS_SINCE_INSTALL = 3;
+  private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews for testing
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {

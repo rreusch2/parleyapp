@@ -316,9 +316,15 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                   </View>
                   
                   {/* Free Trial Badge */}
-                  <View style={styles.trialBadge}>
-                    <Gift size={12} color="#10B981" />
-                    <Text style={styles.trialText}>7-DAY FREE TRIAL</Text>
+                  <View style={[
+                    styles.trialBadge,
+                    selectedPlan === 'yearly' && styles.trialBadgeSelected
+                  ]}>
+                    <Gift size={12} color={selectedPlan === 'yearly' ? '#FFFFFF' : '#10B981'} />
+                    <Text style={[
+                      styles.trialText,
+                      selectedPlan === 'yearly' && styles.trialTextSelected
+                    ]}>7-DAY FREE TRIAL</Text>
                   </View>
                   
                   <View style={styles.planHeader}>
@@ -326,14 +332,16 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                       <Text style={styles.planName}>Yearly Pro</Text>
                       <View style={styles.yearlyPricing}>
                         <View style={styles.priceContainer}>
-                          <Text style={styles.planPrice}>FREE</Text>
-                          <Text style={styles.planPeriod}>for 7 days</Text>
+                          <Text style={styles.planPrice}>$199.99</Text>
+                          <Text style={styles.planPeriod}>per year</Text>
                         </View>
                         <View style={styles.savingsBadge}>
                           <Text style={styles.savingsText}>Save 50%</Text>
                         </View>
                       </View>
-                      <Text style={styles.billingDetails}>Then $199.99/year ($16.67/month)</Text>
+                      <View style={styles.trialPriceContainer}>
+                        <Text style={styles.trialPriceText}>7-day FREE trial, then $16.67/month</Text>
+                      </View>
                       <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
                     </View>
                     {selectedPlan === 'yearly' && (
@@ -510,6 +518,15 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 </TouchableOpacity>
               </View>
             </View>
+            
+            {/* Restore Purchases Button - moved to scrollable area */}
+            <TouchableOpacity
+              onPress={handleRestore}
+              style={[styles.restoreButton, styles.restoreButtonInScroll, loading && { opacity: 0.7 }]}
+              disabled={loading}
+            >
+              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
+            </TouchableOpacity>
           </ScrollView>
 
           {/* Footer with Action Buttons */}
@@ -574,15 +591,6 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                 <Text style={styles.freeButtonText}>Try Free Account (Limited)</Text>
                 <ArrowRight size={16} color="#94A3B8" />
               </View>
-            </TouchableOpacity>
-
-            {/* Restore Purchases Button - required by Apple */}
-            <TouchableOpacity
-              onPress={handleRestore}
-              style={[styles.restoreButton, loading && { opacity: 0.7 }]}
-              disabled={loading}
-            >
-              <Text style={styles.restoreButtonText}>Restore Purchases</Text>
             </TouchableOpacity>
 
              {/* Benefit Reminder */}
@@ -806,6 +814,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#10B981',
     marginLeft: 4,
+  },
+  trialBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  trialTextSelected: {
+    color: '#FFFFFF',
+  },
+  trialPriceContainer: {
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  trialPriceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    textAlign: 'center',
   },
   premiumBadge: {
     position: 'absolute',
@@ -1034,10 +1058,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   restoreButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  restoreButtonInScroll: {
+    marginTop: 20,
+    marginBottom: 20,
+    alignSelf: 'center',
   },
 });
 
-export default SignupSubscriptionModal; 
+export default SignupSubscriptionModal;

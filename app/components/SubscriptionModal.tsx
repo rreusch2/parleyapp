@@ -359,9 +359,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     </View>
                     
                     {/* Free Trial Badge */}
-                    <View style={styles.trialBadge}>
-                      <Gift size={12} color="#10B981" />
-                      <Text style={styles.trialText}>7-DAY FREE TRIAL</Text>
+                    <View style={[
+                      styles.trialBadge,
+                      selectedPlan === 'yearly' && styles.trialBadgeSelected
+                    ]}>
+                      <Gift size={12} color={selectedPlan === 'yearly' ? '#FFFFFF' : '#10B981'} />
+                      <Text style={[
+                        styles.trialText,
+                        selectedPlan === 'yearly' && styles.trialTextSelected
+                      ]}>7-DAY FREE TRIAL</Text>
                     </View>
                     
                     <View style={styles.planHeader}>
@@ -375,10 +381,12 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           )}
                         </View>
                         <View style={styles.priceContainer}>
-                          <Text style={styles.planPrice}>FREE</Text>
-                          <Text style={styles.planPeriod}>for 7 days</Text>
+                          <Text style={styles.planPrice}>$199.99</Text>
+                          <Text style={styles.planPeriod}>per year</Text>
                         </View>
-                        <Text style={styles.billingDetails}>Then $199.99/year ($16.67/month)</Text>
+                        <View style={styles.trialPriceContainer}>
+                          <Text style={styles.trialPriceText}>7-day FREE trial, then $16.67/month</Text>
+                        </View>
                         <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
                       </View>
                     </View>
@@ -677,6 +685,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#10B981',
     marginLeft: 4,
+  },
+  trialBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  trialTextSelected: {
+    color: '#FFFFFF',
+  },
+  trialPriceContainer: {
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  trialPriceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    textAlign: 'center',
   },
   premiumBadge: {
     position: 'absolute',
