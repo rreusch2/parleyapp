@@ -178,14 +178,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
     }
   };
 
-  const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
-    const prices = {
-      monthly: '$24.99',
-      yearly: '$149.99',
-      lifetime: '$349.99'
-    };
-    return prices[plan];
-  };
+
 
   // Open Terms of Service (Apple required functional link)
   const openTermsOfService = async () => {
@@ -320,7 +313,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     styles.trialBadge,
                     selectedPlan === 'yearly' && styles.trialBadgeSelected
                   ]}>
-                    <Gift size={12} color={selectedPlan === 'yearly' ? '#FFFFFF' : '#10B981'} />
+                    <Gift size={12} color={selectedPlan === 'yearly' ? '#0F172A' : '#F59E0B'} />
                     <Text style={[
                       styles.trialText,
                       selectedPlan === 'yearly' && styles.trialTextSelected
@@ -335,12 +328,10 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                           <Text style={styles.planPrice}>$199.99</Text>
                           <Text style={styles.planPeriod}>per year</Text>
                         </View>
-                        <View style={styles.savingsBadge}>
-                          <Text style={styles.savingsText}>Save 50%</Text>
-                        </View>
+
                       </View>
                       <View style={styles.trialPriceContainer}>
-                        <Text style={styles.trialPriceText}>7-day FREE trial, then $16.67/month</Text>
+                        <Text style={styles.trialPriceText}>7-day FREE trial, then $199.99/year</Text>
                       </View>
                       <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
                     </View>
@@ -804,7 +795,7 @@ const styles = StyleSheet.create({
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -812,14 +803,14 @@ const styles = StyleSheet.create({
   trialText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#F59E0B',
     marginLeft: 4,
   },
   trialBadgeSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   trialTextSelected: {
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   trialPriceContainer: {
     marginTop: 4,
@@ -828,7 +819,7 @@ const styles = StyleSheet.create({
   trialPriceText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10B981',
+    color: '#F59E0B',
     textAlign: 'center',
   },
   premiumBadge: {
