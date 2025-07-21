@@ -116,7 +116,7 @@ export class ChatbotOrchestrator {
           const chunk = words[i] + (i < words.length - 1 ? ' ' : '');
           fullResponse += chunk;
           onChunk(chunk);
-          await new Promise(resolve => setTimeout(resolve, 30)); // Small delay for effect
+          await new Promise(resolve => setTimeout(resolve, 10)); // Reduced delay for faster streaming
         }
       } else {
         // Stream the response in real-time
