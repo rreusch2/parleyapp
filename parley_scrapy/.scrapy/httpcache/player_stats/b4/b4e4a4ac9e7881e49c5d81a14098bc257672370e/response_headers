@@ -1,11 +1,11 @@
-Date: Fri, 18 Jul 2025 13:10:01 GMT
+Date: Mon, 21 Jul 2025 06:43:01 GMT
 Content-Type: text/html; charset=iso-8859-1
 Location: https://www.baseball-reference.com/leagues/majors/2024-batting.shtml
 Strict-Transport-Security: max-age=2592000; includeSubDomains
-Cf-Cache-Status: EXPIRED
-Set-Cookie: __cf_bm=jZB20EjxVQe.NC0oVensDDsug1GuQdEdp6vut6rUvOE-1752844201-1.0.1.1-nC6lULJsliTXH0IDaCrbHjgYkAwSp6ssrfvoZCN9VWPNcuzpA7qe9lGibUDvfkikcOaBZNBCwOYozAQY5TtYbHZroCNaoNwa68G1NL983s8; path=/; expires=Fri, 18-Jul-25 13:40:01 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
-Server-Timing: cfCacheStatus;desc="EXPIRED"
-Server-Timing: cfOrigin;dur=3,cfEdge;dur=36
+Cf-Cache-Status: MISS
+Set-Cookie: __cf_bm=ipADoZJ7n9r2.WhSo4djvRrDStRuc0FvWRWAz3Acl3A-1753080181-1.0.1.1-QjRm0KgFo5Ks4r6wjypbo9.H.yZc7yI1dnpYp5KX3d_O6qpS7o8RikDUyHtPnHHBLIWsG83NJHUDRWjw.FHFpAuSdrSxln.FtvWHavEQk_w; path=/; expires=Mon, 21-Jul-25 07:13:01 GMT; domain=.baseball-reference.com; HttpOnly; Secure; SameSite=None
+Server-Timing: cfCacheStatus;desc="MISS"
+Server-Timing: cfOrigin;dur=4,cfEdge;dur=30
 Vary: Accept-Encoding
 Server: cloudflare
-Cf-Ray: 961237821c1cddf0-CMH
+Cf-Ray: 9628b8bb4b50cf43-CMH

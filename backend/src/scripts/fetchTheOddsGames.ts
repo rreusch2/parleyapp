@@ -60,9 +60,9 @@ const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 // June 2025: MLB and NBA are in season, NFL and NHL are not
 const ACTIVE_LEAGUES = [
   { key: 'baseball_mlb', name: 'MLB' },
-  { key: 'basketball_nba', name: 'NBA' },
-  { key: 'mma_ufc', name: 'UFC' },
-  { key: 'mma_mixed', name: 'MMA' }
+  { key: 'basketball_nba', name: 'NBA' }
+  // { key: 'mma_ufc', name: 'UFC' }, // Removed as it's not supported by the API
+  // { key: 'mma_mixed', name: 'MMA' } // Removed as it's not supported by the API
 ];
 
 // Function to fetch games for a specific sport

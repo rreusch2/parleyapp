@@ -147,23 +147,124 @@ class DatabaseClient:
             return []
         
         try:
-            response = self.supabase.table("team_odds").select(
-                "id, home_team, away_team, bet_type, recommendation, odds, line, event_id, bookmaker"
-            ).in_("event_id", game_ids).execute()
+            # Get the games with their metadata which contains the odds
+            response = self.supabase.table("sports_events").select(
+                "id, home_team, away_team, metadata"
+            ).in_("id", game_ids).execute()
             
             bets = []
-            for row in response.data:
-                bets.append(TeamBet(
-                    id=row["id"],
-                    home_team=row["home_team"],
-                    away_team=row["away_team"],
-                    bet_type=row["bet_type"],
-                    recommendation=row["recommendation"],
-                    odds=int(row["odds"]),
-                    line=float(row["line"]) if row["line"] else None,
-                    event_id=row["event_id"],
-                    bookmaker=row["bookmaker"]
-                ))
+            for game in response.data:
+                if not game.get("metadata") or not isinstance(game["metadata"], dict):
+                    logger.warning(f"No metadata or invalid metadata for game {game['id']}")
+                    continue
+                
+                # Extract odds from the correct metadata structure
+                metadata = game["metadata"]
+                full_data = metadata.get("full_data", {})
+                bookmakers_data = full_data.get("bookmakers", [])
+                
+                if not bookmakers_data:
+                    logger.warning(f"No bookmakers found for game {game['id']}")
+                    continue
+                
+                # Prioritize FanDuel or DraftKings, otherwise use the first available bookmaker
+                preferred_bookmakers = ["fanduel", "draftkings", "bovada", "betmgm"]
+                selected_bookmaker = None
+                
+                # Try to find a preferred bookmaker
+                for preferred in preferred_bookmakers:
+                    for bookmaker in bookmakers_data:
+                        if bookmaker.get("key") == preferred:
+                            selected_bookmaker = bookmaker
+                            break
+                    if selected_bookmaker:
+                        break
+                
+                # If no preferred bookmaker found, use the first one
+                if not selected_bookmaker and bookmakers_data:
+                    selected_bookmaker = bookmakers_data[0]
+                
+                if not selected_bookmaker:
+                    logger.warning(f"No valid bookmaker data for game {game['id']}")
+                    continue
+                
+                bookmaker_key = selected_bookmaker.get("key", "unknown")
+                markets = selected_bookmaker.get("markets", [])
+                
+                # Process different bet types: h2h (moneyline), spreads, totals
+                for market in markets:
+                    market_key = market.get("key")
+                    outcomes = market.get("outcomes", [])
+                    
+                    # 1. Moneyline (h2h)
+                    if market_key == "h2h":
+                        for outcome in outcomes:
+                            team_name = outcome.get("name")
+                            price = outcome.get("price")
+                            
+                            if team_name and price is not None:
+                                is_home = team_name == game["home_team"]
+                                recommendation = game["home_team"] if is_home else game["away_team"]
+                                
+                                bets.append(TeamBet(
+                                    id=f"{game['id']}_ml_{'home' if is_home else 'away'}",
+                                    home_team=game["home_team"],
+                                    away_team=game["away_team"],
+                                    bet_type="moneyline",
+                                    recommendation=recommendation,
+                                    odds=int(price),
+                                    line=None,
+                                    event_id=game["id"],
+                                    bookmaker=bookmaker_key
+                                ))
+                    
+                    # 2. Spread
+                    elif market_key == "spreads":
+                        for outcome in outcomes:
+                            team_name = outcome.get("name")
+                            point = outcome.get("point")
+                            price = outcome.get("price")
+                            
+                            if team_name and point is not None and price is not None:
+                                is_home = team_name == game["home_team"]
+                                recommendation = game["home_team"] if is_home else game["away_team"]
+                                
+                                bets.append(TeamBet(
+                                    id=f"{game['id']}_spread_{'home' if is_home else 'away'}",
+                                    home_team=game["home_team"],
+                                    away_team=game["away_team"],
+                                    bet_type="spread",
+                                    recommendation=recommendation,
+                                    odds=int(price),
+                                    line=float(point),
+                                    event_id=game["id"],
+                                    bookmaker=bookmaker_key
+                                ))
+                    
+                    # 3. Totals
+                    elif market_key == "totals":
+                        for outcome in outcomes:
+                            bet_type = outcome.get("name").lower()
+                            point = outcome.get("point")
+                            price = outcome.get("price")
+                            
+                            if bet_type and point is not None and price is not None:
+                                is_over = "over" in bet_type.lower()
+                                recommendation = "over" if is_over else "under"
+                                
+                                bets.append(TeamBet(
+                                    id=f"{game['id']}_total_{recommendation}",
+                                    home_team=game["home_team"],
+                                    away_team=game["away_team"],
+                                    bet_type="total",
+                                    recommendation=recommendation,
+                                    odds=int(price),
+                                    line=float(point),
+                                    event_id=game["id"],
+                                    bookmaker=bookmaker_key
+                                ))
+            
+            logger.info(f"🎯 Found {len(bets)} available team bets")
             return bets
         except Exception as e:
             logger.error(f"Failed to fetch team odds: {e}")
@@ -805,43 +906,56 @@ REMEMBER:
             
             formatted_picks = []
             for pick in ai_picks:
-                matching_bet = self._find_matching_bet(pick, bets)
-                
-                if matching_bet:
-                    game = next((g for g in games if str(g.get("id")) == str(matching_bet.event_id)), None)
+                try:
+                    # Validate required fields are present in the pick
+                    required_fields = ["home_team", "away_team", "bet_type", "recommendation"]
+                    if not all(field in pick for field in required_fields):
+                        missing = [f for f in required_fields if f not in pick]
+                        logger.warning(f"Pick missing required fields: {missing}. Skipping pick: {pick}")
+                        continue
                     
-                    formatted_picks.append({
-                        "match_teams": f"{matching_bet.home_team} vs {matching_bet.away_team}",
-                        "pick": self._format_pick_string(pick, matching_bet),
-                        "odds": pick.get("odds", matching_bet.odds),
-                        "confidence": pick.get("confidence", 75),
-                        "sport": "MLB",
-                        "event_time": game.get("start_time") if game else None,
-                        "bet_type": pick.get("bet_type", "team_bet"),
-                        "bookmaker": matching_bet.bookmaker,
-                        "event_id": matching_bet.event_id,
-                        "metadata": {
-                            "home_team": pick["home_team"],
-                            "away_team": pick["away_team"],
-                            "bet_type": pick["bet_type"],
-                            "recommendation": pick["recommendation"],
-                            "line": pick.get("line"),
-                            "reasoning": pick.get("reasoning", "AI-generated pick"),
-                            "roi_estimate": pick.get("roi_estimate", "0%"),
-                            "value_percentage": pick.get("value_percentage", "0%"),
-                            "implied_probability": pick.get("implied_probability", "50%"),
-                            "fair_odds": pick.get("fair_odds", pick.get("odds", 0)),
-                            "key_factors": pick.get("key_factors", []),
-                            "risk_level": pick.get("risk_level", "medium"),
-                            "expected_value": pick.get("expected_value", "Positive EV expected"),
-                            "research_support": pick.get("research_support", "Based on comprehensive analysis"),
-                            "ai_generated": True,
-                            "research_insights_count": len(insights),
-                            "model_used": "grok-4-0709"
-                        }
-                    })
-                else:
-                    logger.warning(f"No matching bet found for {pick.get("home_team")} vs {pick.get("away_team")} {pick.get("bet_type")}")
+                    matching_bet = self._find_matching_bet(pick, bets)
+                    
+                    if matching_bet:
+                        game = next((g for g in games if str(g.get("id")) == str(matching_bet.event_id)), None)
+                        
+                        # Use safer dictionary access with get() for all fields
+                        formatted_picks.append({
+                            "match_teams": f"{matching_bet.home_team} vs {matching_bet.away_team}",
+                            "pick": self._format_pick_string(pick, matching_bet),
+                            "odds": pick.get("odds", matching_bet.odds),
+                            "confidence": pick.get("confidence", 75),
+                            "sport": "MLB",
+                            "event_time": game.get("start_time") if game else None,
+                            "bet_type": pick.get("bet_type", "team_bet"),
+                            "bookmaker": matching_bet.bookmaker,
+                            "event_id": matching_bet.event_id,
+                            "metadata": {
+                                "home_team": pick.get("home_team", ""),
+                                "away_team": pick.get("away_team", ""),
+                                "bet_type": pick.get("bet_type", ""),
+                                "recommendation": pick.get("recommendation", ""),
+                                "line": pick.get("line"),
+                                "reasoning": pick.get("reasoning", "AI-generated pick"),
+                                "roi_estimate": pick.get("roi_estimate", "0%"),
+                                "value_percentage": pick.get("value_percentage", "0%"),
+                                "implied_probability": pick.get("implied_probability", "50%"),
+                                "fair_odds": pick.get("fair_odds", pick.get("odds", 0)),
+                                "key_factors": pick.get("key_factors", []) if isinstance(pick.get("key_factors"), list) else [],
+                                "risk_level": pick.get("risk_level", "medium"),
+                                "expected_value": pick.get("expected_value", "Positive EV expected"),
+                                "research_support": pick.get("research_support", "Based on comprehensive analysis"),
+                                "ai_generated": True,
+                                "research_insights_count": len(insights),
+                                "model_used": "grok-4-0709"
+                            }
+                        })
+                    else:
+                        logger.warning(f"No matching bet found for {pick.get('home_team')} vs {pick.get('away_team')} {pick.get('bet_type')}")
+                
+                except Exception as pick_error:
+                    logger.error(f"Error processing individual pick {pick}: {pick_error}")
+                    # Continue processing other picks even if one fails
             
             final_picks = formatted_picks[:target_picks]
             
@@ -918,54 +1032,92 @@ REMEMBER:
         
         return "\n\n".join(formatted)
     
-    def _find_matching_bet(self, pick: Dict, odds: List[TeamBet]) -> TeamBet:
-        home_team = pick.get("home_team", "")
-        away_team = pick.get("away_team", "")
-        bet_type = pick.get("bet_type", "")
-        
-        exact_match = next(
-            (bet for bet in odds 
-             if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == bet_type),
-            None
-        )
-        if exact_match:
-            return exact_match
-        
-        fuzzy_match = next(
-            (bet for bet in odds 
-             if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
-                (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower()) and
-                bet.bet_type == bet_type),
-            None
-        )
-        if fuzzy_match:
-            logger.info(f"✅ Fuzzy matched '{home_team} vs {away_team}' to '{fuzzy_match.home_team} vs {fuzzy_match.away_team}'")
-            return fuzzy_match
-        
-        logger.warning(f"❌ No match found for {home_team} vs {away_team} {bet_type}")
-        return None
+    def _find_matching_bet(self, pick: Dict, odds: List[TeamBet]) -> Optional[TeamBet]:
+        """Find a matching bet from the available odds that corresponds to the AI pick.
+        Returns None if no match is found."""
+        try:
+            # Safely get values with defaults to prevent KeyError
+            home_team = pick.get("home_team", "") 
+            away_team = pick.get("away_team", "")
+            bet_type = pick.get("bet_type", "")
+            
+            if not home_team or not away_team or not bet_type:
+                logger.warning(f"Missing required fields for matching: {pick}")
+                return None
+            
+            # Try exact match first
+            exact_match = next(
+                (bet for bet in odds 
+                if bet.home_team == home_team and bet.away_team == away_team and bet.bet_type == bet_type),
+                None
+            )
+            if exact_match:
+                return exact_match
+            
+            # Try fuzzy match as fallback
+            fuzzy_match = next(
+                (bet for bet in odds 
+                if (home_team.lower() in bet.home_team.lower() or bet.home_team.lower() in home_team.lower()) and
+                   (away_team.lower() in bet.away_team.lower() or bet.away_team.lower() in away_team.lower()) and
+                   bet.bet_type == bet_type),
+                None
+            )
+            if fuzzy_match:
+                logger.info(f"✅ Fuzzy matched '{home_team} vs {away_team}' to '{fuzzy_match.home_team} vs {fuzzy_match.away_team}'")
+                return fuzzy_match
+            
+            logger.warning(f"❌ No match found for {home_team} vs {away_team} {bet_type}")
+            return None
+        except Exception as e:
+            logger.error(f"Error in _find_matching_bet: {e}")
+            return None
 
     def _format_pick_string(self, pick: Dict, matching_bet: TeamBet) -> str:
-        """Formats the pick string for clarity."""
-        home_team = pick.get("home_team", "")
-        away_team = pick.get("away_team", "")
-        bet_type = pick.get("bet_type", "")
-        recommendation = pick.get("recommendation", "").lower()
-        line = pick.get("line")
-
-        if bet_type == "moneyline":
-            if recommendation == "home":
-                return f"{home_team} Moneyline"
-            elif recommendation == "away":
-                return f"{away_team} Moneyline"
-        elif bet_type == "spread":
-            if recommendation == "home":
-                return f"{home_team} {line}"
-            elif recommendation == "away":
-                return f"{away_team} {line}"
-        elif bet_type == "total":
-            return f"Total {recommendation.capitalize()} {line}"
-        return f"{home_team} vs {away_team} {bet_type} {recommendation}" # Fallback
+        """Formats the pick string for clarity with improved error handling."""
+        try:
+            if not matching_bet:
+                return "Unknown Pick (No matching bet found)"
+                
+            # Safely get values with defaults
+            home_team = str(pick.get("home_team", matching_bet.home_team))
+            away_team = str(pick.get("away_team", matching_bet.away_team))
+            bet_type = str(pick.get("bet_type", matching_bet.bet_type))
+            recommendation = str(pick.get("recommendation", "")).lower()
+            line = pick.get("line", matching_bet.line)
+            
+            # Format the pick string based on bet type and recommendation
+            if bet_type == "moneyline":
+                if recommendation == "home":
+                    return f"{home_team} Moneyline"
+                elif recommendation == "away":
+                    return f"{away_team} Moneyline"
+                else:
+                    return f"{'Home' if home_team else matching_bet.home_team} vs {'Away' if away_team else matching_bet.away_team} Moneyline {recommendation}"
+            
+            elif bet_type == "spread":
+                line_str = f"{line:g}" if isinstance(line, (int, float)) else str(line) if line else ""
+                if recommendation == "home":
+                    return f"{home_team} {line_str}"
+                elif recommendation == "away":
+                    return f"{away_team} {line_str}"
+                else:
+                    return f"{'Home' if home_team else matching_bet.home_team} vs {'Away' if away_team else matching_bet.away_team} Spread {recommendation} {line_str}"
+            
+            elif bet_type == "total":
+                line_str = f"{line:g}" if isinstance(line, (int, float)) else str(line) if line else ""
+                rec = recommendation.capitalize() if recommendation else "Unknown"
+                return f"Total {rec} {line_str}"
+                
+            # Fallback format
+            return f"{home_team} vs {away_team} {bet_type} {recommendation}"
+            
+        except Exception as e:
+            logger.error(f"Error formatting pick string: {e}")
+            # Ultimate fallback if anything goes wrong
+            try:
+                return f"{matching_bet.home_team} vs {matching_bet.away_team} {matching_bet.bet_type}"
+            except:
+                return "Unknown Pick Format Error"
 
 async def main():
     logger.info("🤖 Starting Intelligent Teams Agent")

@@ -252,11 +252,12 @@ Create your research roadmap!"""
             for query in queries:
                 logger.info(f"🔍 StatMuse Query: {query}")
                 try:
-                    # Query StatMuse
-                    statmuse_url = "https://api.statmuse.com/nlp/v1/ask"
-                    params = {"query": query}
+                    # Query local StatMuse API server
+                    statmuse_url = "http://localhost:5001/query"
+                    json_data = {"query": query}
                     
-                    response = requests.get(statmuse_url, params=params, timeout=10)
+                    # Use POST with JSON body as the API expects
+                    response = requests.post(statmuse_url, json=json_data, timeout=10)
                     
                     if response.status_code == 200:
                         data = response.json()

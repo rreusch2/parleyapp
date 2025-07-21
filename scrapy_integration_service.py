@@ -201,7 +201,7 @@ class ScrapyIntegrationService:
         teams = []
         
         try:
-            if data_type == 'news' and isinstance(data, list):
+            if data_type == 'sports_news' and isinstance(data, list):
                 for item in data:
                     if 'teams' in item:
                         teams.extend(item['teams'])
@@ -278,14 +278,16 @@ class ScrapyIntegrationService:
         }
         
         for data in scraped_data:
-            insights[data.data_type].append({
-                'content': data.content,
-                'timestamp': data.timestamp.isoformat(),
-                'confidence': data.confidence,
-                'sport': data.sport,
-                'teams': data.teams,
-                'source': data.source
-            })
+            key = 'news' if data.data_type == 'sports_news' else data.data_type
+            if key in insights:
+                insights[key].append({
+                    'content': data.content,
+                    'timestamp': data.timestamp.isoformat(),
+                    'confidence': data.confidence,
+                    'sport': data.sport,
+                    'teams': data.teams,
+                    'source': data.source
+                })
         
         return insights
     

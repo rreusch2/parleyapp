@@ -1,7 +1,7 @@
 Content-Length: 2150
-X-Amz-Id-2: EXnfGXhBvKm/xnPwFolikHLo1+al4i1XkaUVqwwWeq6ZMljnhgPGYv2F3su3UJlCwmae1rM2xwY=
-X-Amz-Request-Id: FSJSZPRZPDQM0CRE
-Date: Mon, 14 Jul 2025 15:11:11 GMT
+X-Amz-Id-2: oOYhwezaBFgcsQ278vAd5FuqlfIroMKDtqTe04/QLH2ZvCSvxKxLERHrzNshh77uYNtRhFovM4E=
+X-Amz-Request-Id: 477CKT9MEDGQ8QWK
+Date: Fri, 18 Jul 2025 20:39:55 GMT
 Last-Modified: Wed, 11 Jun 2025 04:10:24 GMT
 Etag: "e14d67c4cd255024f11842e8d1122b91"
 X-Amz-Server-Side-Encryption: AES256
@@ -9,13 +9,13 @@ Cache-Control: max-age=31536000
 Accept-Ranges: bytes
 Content-Type: text/plain; charset=utf-8
 Server: ATS
-Age: 336214
+Age: 208975
 Strict-Transport-Security: max-age=31536000
-Content-Security-Policy: frame-ancestors 'self' https://*.builtbygirls.com https://*.rivals.com https://*.engadget.com https://*.intheknow.com https://*.autoblog.com https://*.techcrunch.com https://*.yahoo.com https://*.aol.com https://*.huffingtonpost.com https://*.oath.com https://*.search.yahoo.com https://*.pnr.ouryahoo.com https://pnr.ouryahoo.com https://*.search.aol.com https://*.search.huffpost.com https://*.onesearch.com https://*.verizonmedia.com https://*.publishing.oath.com https://*.autoblog.com; sandbox allow-forms allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation; report-uri https://csp.yahoo.com/beacon/csp?src=ats&site=sports&region=US&lang=en-US&device=desktop&yrid=6thnkc9k7a7ge&partner=;
+Content-Security-Policy: frame-ancestors 'self' https://*.builtbygirls.com https://*.rivals.com https://*.engadget.com https://*.intheknow.com https://*.autoblog.com https://*.techcrunch.com https://*.yahoo.com https://*.aol.com https://*.huffingtonpost.com https://*.oath.com https://*.search.yahoo.com https://*.pnr.ouryahoo.com https://pnr.ouryahoo.com https://*.search.aol.com https://*.search.huffpost.com https://*.onesearch.com https://*.verizonmedia.com https://*.publishing.oath.com https://*.autoblog.com; sandbox allow-forms allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-presentation; report-uri https://csp.yahoo.com/beacon/csp?src=ats&site=sports&region=US&lang=en-US&device=desktop&yrid=1pjvd1pk7lc8q&partner=;
 Referrer-Policy: no-referrer-when-downgrade
 X-Content-Type-Options: nosniff
 X-Xss-Protection: 1; mode=block
 X-Frame-Options: SAMEORIGIN
-Set-Cookie: A1=d=AQABBGQ_emgCEDkvB7mNWUkkVKOB0Ip--kQFEgEBAQGQe2iEaNw10iMA_eMCAA&S=AQAAAjaXF2_S2w5KEGl_7IGQeyQ; Expires=Sat, 18 Jul 2026 18:34:44 GMT; Max-Age=31557600; Domain=.yahoo.com; Path=/; SameSite=Lax; Secure; HttpOnly
-Set-Cookie: A3=d=AQABBGQ_emgCEDkvB7mNWUkkVKOB0Ip--kQFEgEBAQGQe2iEaNw10iMA_eMCAA&S=AQAAAjaXF2_S2w5KEGl_7IGQeyQ; Expires=Sat, 18 Jul 2026 18:34:44 GMT; Max-Age=31557600; Domain=.yahoo.com; Path=/; SameSite=None; Secure; HttpOnly
-Set-Cookie: A1S=d=AQABBGQ_emgCEDkvB7mNWUkkVKOB0Ip--kQFEgEBAQGQe2iEaNw10iMA_eMCAA&S=AQAAAjaXF2_S2w5KEGl_7IGQeyQ; Domain=.yahoo.com; Path=/; SameSite=Lax; Secure
+Set-Cookie: A1=d=AQABBGnhfWgCEOSmW6iCfp2qRZ22IvfF3akFEgEBAQEyf2iHaNw10iMA_eMCAA&S=AQAAAnqWBoBXwlLmna-GkJumrdc; Expires=Tue, 21 Jul 2026 12:42:49 GMT; Max-Age=31557600; Domain=.yahoo.com; Path=/; SameSite=Lax; Secure; HttpOnly
+Set-Cookie: A3=d=AQABBGnhfWgCEOSmW6iCfp2qRZ22IvfF3akFEgEBAQEyf2iHaNw10iMA_eMCAA&S=AQAAAnqWBoBXwlLmna-GkJumrdc; Expires=Tue, 21 Jul 2026 12:42:49 GMT; Max-Age=31557600; Domain=.yahoo.com; Path=/; SameSite=None; Secure; HttpOnly
+Set-Cookie: A1S=d=AQABBGnhfWgCEOSmW6iCfp2qRZ22IvfF3akFEgEBAQEyf2iHaNw10iMA_eMCAA&S=AQAAAnqWBoBXwlLmna-GkJumrdc; Domain=.yahoo.com; Path=/; SameSite=Lax; Secure

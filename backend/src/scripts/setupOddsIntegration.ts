@@ -1,6 +1,3 @@
-// Setup script for TheOdds API integration with Player Props
-// This script ensures all reference data is populated before fetching odds and player props
-
 import { supabaseAdmin } from '../services/supabase/client';
 import { fetchAllGameData } from './fetchTheOddsGames';
 import axios from 'axios';

@@ -199,7 +199,7 @@ class InjuryScrapingService {
    * Parse individual injury row
    */
   private parseInjuryRow(
-    $row: cheerio.Cheerio, 
+    $row: cheerio.Cheerio<any>, 
     team: string, 
     sport: string, 
     sourceUrl: string
