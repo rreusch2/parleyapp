@@ -11,7 +11,7 @@ import {
   Alert,
   Dimensions
 } from 'react-native';
-import { normalize, isTablet } from '@/app/services/device';
+import { normalize, isTablet } from '../services/device';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
   TrendingUp, 
@@ -27,24 +27,26 @@ import {
   Shield,
   Trophy
 } from 'lucide-react-native';
-import { aiService, AIPrediction, UserStats } from '@/app/services/api/aiService';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
+import { supabase } from '../services/api/supabaseClient';
 import { router } from 'expo-router';
 
-import { useSubscription } from '@/app/services/subscriptionContext';
-import EnhancedPredictionCard from '@/app/components/EnhancedPredictionCard';
-import ProAIPicksDisplay from '@/app/components/ProAIPicksDisplay';
-import NewsFeed from '@/app/components/NewsFeed';
-import DailyProfessorInsights from '@/app/components/DailyProfessorInsights';
-import InjuryReportsSection from '@/app/components/InjuryReportsSection';
-import NewsModal from '@/app/components/NewsModal';
-import { useAIChat } from '@/app/services/aiChatContext';
+import { useSubscription } from '../services/subscriptionContext';
+import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
+import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
+import NewsFeed from '../components/NewsFeed';
+import DailyProfessorInsights from '../components/DailyProfessorInsights';
+import InjuryReportsSection from '../components/InjuryReportsSection';
+import NewsModal from '../components/NewsModal';
+import { useAIChat } from '../services/aiChatContext';
+import { useReview } from '../hooks/useReview';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { isPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
+  const { trackPositiveInteraction } = useReview();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([]);
@@ -131,6 +133,14 @@ export default function HomeScreen() {
           if (data.success && data.predictions) {
             setTodaysPicks(data.predictions);
             
+            // Track daily picks viewing for potential review prompt
+            if (data.predictions.length > 0) {
+              trackPositiveInteraction({ 
+                eventType: 'daily_picks_viewed', 
+                metadata: { picksViewed: data.predictions.length } 
+              });
+            }
+            
             // Check metadata for new user or welcome bonus status
             if (data.metadata) {
               const isNewUserScenario = data.metadata.isNewUser || false;
@@ -148,15 +158,31 @@ export default function HomeScreen() {
               }
             }
           } else {
-            // Fallback to service method
-            const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-            setTodaysPicks(picks);
+          // Fallback to service method
+          const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
+          setTodaysPicks(picks);
+          
+          // Track daily picks viewing for potential review prompt
+          if (picks.length > 0) {
+            trackPositiveInteraction({ 
+              eventType: 'daily_picks_viewed', 
+              metadata: { picksViewed: picks.length } 
+            });
           }
+        }
         } catch (error) {
           console.error('Error fetching picks with metadata:', error);
           // Fallback to service method
           const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
           setTodaysPicks(picks);
+          
+          // Track daily picks viewing for potential review prompt
+          if (picks.length > 0) {
+            trackPositiveInteraction({ 
+              eventType: 'daily_picks_viewed', 
+              metadata: { picksViewed: picks.length } 
+            });
+          }
         }
       } else {
         // Pro users or no user ID - use service method
@@ -167,6 +193,14 @@ export default function HomeScreen() {
           allPickIds: picks.map(p => p.id)
         });
         setTodaysPicks(picks);
+        
+        // Track daily picks viewing for potential review prompt
+        if (picks.length > 0) {
+          trackPositiveInteraction({ 
+            eventType: 'daily_picks_viewed', 
+            metadata: { picksViewed: picks.length } 
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching today\'s picks:', error);

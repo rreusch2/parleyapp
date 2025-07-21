@@ -2,25 +2,13 @@ import { supabaseAdmin } from '../services/supabase/client';
 import { fetchAllGameData } from './fetchTheOddsGames';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { SUPPORTED_SPORTS, getActiveSportConfigs, BOOKMAKER_CONFIG, logSportStatus } from './multiSportConfig';
 
-// Player prop markets to fetch for MLB - focus on most reliable/popular props
-const MLB_PROP_MARKETS = [
-  // Core batter props (most reliable)
-  'batter_hits',
-  'batter_total_bases',
-  'batter_home_runs',
-  'batter_rbis',
-  'batter_runs_scored',
-  
-  // Core pitcher props
-  'pitcher_strikeouts'
-];
-
-// For team odds (ML, spread, total), we use multiple bookmakers
-const TEAM_ODDS_BOOKMAKERS = ['fanduel', 'draftkings', 'betmgm', 'caesars'];
-
-// For player props, we'll use just ONE reliable American sportsbook to avoid mixed formats
-const PLAYER_PROPS_BOOKMAKER = 'fanduel'; // FanDuel often has better player prop coverage
+// Multi-sport configuration - now using centralized config
+// Legacy constants for backwards compatibility
+const MLB_PROP_MARKETS = SUPPORTED_SPORTS.MLB.propMarkets;
+const TEAM_ODDS_BOOKMAKERS = BOOKMAKER_CONFIG.teamOdds;
+const PLAYER_PROPS_BOOKMAKER = BOOKMAKER_CONFIG.playerProps;
 
 /**
  * Converts decimal odds format to American odds format
@@ -612,18 +600,24 @@ async function checkPlayerPropsData(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log('🚀 Setting up TheOdds API integration with Player Props...\n');
+  console.log('🚀 Starting ParleyApp Multi-Sport Odds Integration Setup...');
   
-  // Check if reference data exists
-  const hasReferenceData = await checkReferenceData();
+  // Log active sports configuration
+  logSportStatus();
   
-  if (!hasReferenceData) {
-    console.log('\n❌ Setup incomplete. Please run the reference data SQL script first.');
-    console.log('   psql -h your-supabase-host -U postgres -d postgres -f backend/src/scripts/setupReferenceData.sql');
-    return;
+  // Safety check for production
+  if (process.env.NODE_ENV === 'production' && process.env.DEVELOPMENT_MODE === 'true') {
+    console.warn('⚠️  DEVELOPMENT_MODE is enabled in production - this may affect live data!');
   }
   
-  console.log('\n✅ Reference data looks good! Proceeding with odds fetch...\n');
+  // Check reference data first
+  const referenceDataOk = await checkReferenceData();
+  if (!referenceDataOk) {
+    console.error('❌ Reference data check failed. Exiting.');
+    process.exit(1);
+  }
+  
+  console.log('\n✅ Reference data looks good! Proceeding with multi-sport odds fetch...\n');
   
   // Ensure player prop types exist
   await ensurePlayerPropTypes();

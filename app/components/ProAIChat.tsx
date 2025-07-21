@@ -40,10 +40,11 @@ import {
   AlertCircle
 } from 'lucide-react-native';
 import Markdown from 'react-native-markdown-display';
-import { useSubscription } from '@/app/services/subscriptionContext';
-import { AIPrediction } from '@/app/services/api/aiService';
-import { useAIChat } from '@/app/services/aiChatContext';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { useSubscription } from '../services/subscriptionContext';
+import { AIPrediction } from '../services/api/aiService';
+import { useAIChat } from '../services/aiChatContext';
+import { supabase } from '../services/api/supabaseClient';
+import { useReview } from '../hooks/useReview';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -199,6 +200,8 @@ export default function ProAIChat({
     isLoadingMessageCount,
     freeUserMessageCount
   } = useAIChat();
+  
+  const { trackPositiveInteraction } = useReview();
 
   // Get the current user ID for API requests
   const getCurrentUserId = async () => {

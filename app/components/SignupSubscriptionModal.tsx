@@ -315,22 +315,63 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     <Text style={styles.popularText}>MOST POPULAR</Text>
                   </View>
                   
+                  {/* Free Trial Badge */}
+                  <View style={styles.trialBadge}>
+                    <Gift size={12} color="#10B981" />
+                    <Text style={styles.trialText}>7-DAY FREE TRIAL</Text>
+                  </View>
+                  
                   <View style={styles.planHeader}>
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>Yearly Pro</Text>
                       <View style={styles.yearlyPricing}>
                         <View style={styles.priceContainer}>
-                          <Text style={styles.planPrice}>$199.99</Text>
-                          <Text style={styles.planPeriod}>per year</Text>
+                          <Text style={styles.planPrice}>FREE</Text>
+                          <Text style={styles.planPeriod}>for 7 days</Text>
                         </View>
                         <View style={styles.savingsBadge}>
                           <Text style={styles.savingsText}>Save 50%</Text>
                         </View>
                       </View>
-                      <Text style={styles.billingDetails}>$16.67/month • billed annually</Text>
-                      <Text style={styles.originalPriceText}>Regular price: $399.98</Text>
+                      <Text style={styles.billingDetails}>Then $199.99/year ($16.67/month)</Text>
+                      <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
                     </View>
                     {selectedPlan === 'yearly' && (
+                      <View style={styles.selectedIndicator}>
+                        <Check size={16} color="#0F172A" />
+                      </View>
+                    )}
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Weekly Plan */}
+              <TouchableOpacity
+                style={[
+                  styles.planCard,
+                  selectedPlan === 'weekly' && styles.planCardSelected,
+                ]}
+                onPress={() => setSelectedPlan('weekly')}
+              >
+                <LinearGradient
+                  colors={
+                    selectedPlan === 'weekly'
+                      ? ['#F59E0B', '#D97706']
+                      : ['#1E293B', '#334155']
+                  }
+                  style={styles.planGradient}
+                >
+                  <View style={styles.planHeader}>
+                    <View style={styles.planInfo}>
+                      <Text style={styles.planName}>Weekly Pro</Text>
+                      <View style={styles.priceContainer}>
+                        <Text style={styles.planPrice}>$12.49</Text>
+                        <Text style={styles.planPeriod}>per week</Text>
+                      </View>
+                      <Text style={styles.billingDetails}>$1.78 per day</Text>
+                      <Text style={styles.originalPriceText}>Perfect for short-term needs</Text>
+                    </View>
+                    {selectedPlan === 'weekly' && (
                       <View style={styles.selectedIndicator}>
                         <Check size={16} color="#0F172A" />
                       </View>
@@ -485,15 +526,29 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     ? ['#8B5CF6', '#7C3AED'] 
                     : selectedPlan === 'yearly' 
                       ? ['#10B981', '#059669'] 
-                      : ['#00E5FF', '#0891B2']
+                      : selectedPlan === 'weekly'
+                        ? ['#F59E0B', '#D97706']
+                        : ['#00E5FF', '#0891B2']
                 }
                 style={styles.subscribeGradient}
               >
-                <Crown size={20} color="#FFFFFF" />
+                {selectedPlan === 'lifetime' ? (
+                  <Gem size={20} color="#FFFFFF" />
+                ) : selectedPlan === 'yearly' ? (
+                  <Gift size={20} color="#FFFFFF" />
+                ) : (
+                  <Crown size={20} color="#FFFFFF" />
+                )}
                 <Text style={styles.subscribeText}>
                   {loading 
                     ? 'Processing...' 
-                    : `Unlock ${selectedPlan === 'lifetime' ? 'Lifetime' : selectedPlan === 'monthly' ? 'Monthly' : 'Yearly'} Pro`
+                    : selectedPlan === 'yearly'
+                      ? 'Start Free Trial'
+                      : selectedPlan === 'weekly'
+                        ? 'Start Weekly Pro'
+                        : selectedPlan === 'monthly'
+                          ? 'Start Monthly Pro'
+                          : 'Get Lifetime Pro'
                   }
                 </Text>
                 <ChevronRight size={20} color="#FFFFFF" />
@@ -733,6 +788,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#F59E0B',
+    marginLeft: 4,
+  },
+  trialBadge: {
+    position: 'absolute',
+    top: 40,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  trialText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
     marginLeft: 4,
   },
   premiumBadge: {

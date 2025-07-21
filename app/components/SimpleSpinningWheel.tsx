@@ -20,6 +20,7 @@ import {
   Star,
   Zap
 } from 'lucide-react-native';
+import { useReview } from '../hooks/useReview';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const WHEEL_SIZE = Math.min(screenWidth * 0.7, 260);
@@ -44,6 +45,8 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
   const [result, setResult] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [currentSegment, setCurrentSegment] = useState(0);
+  
+  const { trackPositiveInteraction } = useReview();
   
   const spinAnimation = useRef(new Animated.Value(0)).current;
   const scaleAnimation = useRef(new Animated.Value(1)).current;
@@ -199,6 +202,12 @@ export default function SimpleSpinningWheel({ visible, onClose, onComplete }: Si
   };
 
   const handleComplete = () => {
+    // Track welcome wheel win for potential review prompt
+    trackPositiveInteraction({ 
+      eventType: 'welcome_wheel_win', 
+      metadata: { wheelPrize: 5 } 
+    });
+    
     onComplete(5); // Always give 5 picks
     onClose();
   };

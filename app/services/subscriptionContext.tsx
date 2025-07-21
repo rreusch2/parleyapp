@@ -10,7 +10,7 @@ interface SubscriptionContextType {
   isLoading: boolean;
   showSubscriptionModal: boolean;
   checkSubscriptionStatus: () => Promise<void>;
-  subscribeToPro: (planId: 'monthly' | 'yearly' | 'lifetime') => Promise<boolean>;
+  subscribeToPro: (planId: SubscriptionPlan) => Promise<boolean>;
   openSubscriptionModal: () => void;
   closeSubscriptionModal: () => void;
   restorePurchases: () => Promise<void>;

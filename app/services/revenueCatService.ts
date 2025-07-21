@@ -20,12 +20,13 @@ const REVENUECAT_API_KEY = Platform.select({
 
 // Product identifier mappings
 const PRODUCT_IDENTIFIERS = {
+  weekly: 'com.parleyapp.premium_weekly',
   monthly: 'com.parleyapp.premium_monthly',
   yearly: 'com.parleyapp.premiumyearly',
   lifetime: 'com.parleyapp.premium_lifetime',
 };
 
-export type SubscriptionPlan = 'monthly' | 'yearly' | 'lifetime';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime';
 
 export interface PurchaseResult {
   success: boolean;
