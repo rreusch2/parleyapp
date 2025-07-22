@@ -2,85 +2,66 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { LogIn, UserPlus, TrendingUp, Target, BarChart3, Activity, Zap } from 'lucide-react-native';
+import { LogIn, UserPlus, TrendingUp, BarChart3 } from 'lucide-react-native';
 import { supabase } from './services/api/supabaseClient';
 
+// Sports Icons Components (using Unicode symbols for compatibility)
+const SportsIcon = ({ type, style }) => {
+  const icons = {
+    football: '🏈',
+    basketball: '🏀', 
+    baseball: '⚾',
+    boxing: '🥊',
+    hockey: '🏒'
+  };
+  
+  return (
+    <Text style={[{ fontSize: 24, textAlign: 'center' }, style]}>
+      {icons[type] || '⚽'}
+    </Text>
+  );
+};
+
 export default function LandingPage() {
-  const router = useRouter();
+  const router = useRouter(); // Initialize router
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const moveAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
   
-  // Sports-themed floating elements
-  const sportsElements = Array(6).fill(0).map((_, index) => ({
+  // Animation for background sports icons
+  const sportsTypes = ['football', 'basketball', 'baseball', 'boxing', 'hockey'];
+  const sportsIconAnims = Array(6).fill(0).map((_, index) => ({
     position: useRef(new Animated.ValueXY({
       x: Math.random() * Dimensions.get('window').width,
       y: Math.random() * Dimensions.get('window').height
     })).current,
-    opacity: useRef(new Animated.Value(Math.random() * 0.3 + 0.1)).current,
+    opacity: useRef(new Animated.Value(Math.random() * 0.3 + 0.15)).current,
     rotation: useRef(new Animated.Value(0)).current,
     scale: useRef(new Animated.Value(Math.random() * 0.5 + 0.5)).current,
-    type: ['chart', 'target', 'trending', 'activity', 'zap', 'bar'][index % 6]
+    type: sportsTypes[index % sportsTypes.length],
   }));
   
   useEffect(() => {
+    // Check for existing session first
     checkSession();
     
-    // Enhanced fade in animation
+    // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 1200,
-      easing: Easing.out(Easing.cubic),
+      duration: 1000,
       useNativeDriver: true,
     }).start();
     
-    // Sophisticated floating animation
+    // Subtle floating animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(moveAnim, {
-          toValue: 15,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(moveAnim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-    
-    // Professional pulsing animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.02,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 2500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-    
-    // Glow effect animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
+          toValue: 10,
           duration: 2000,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-        Animated.timing(glowAnim, {
+        Animated.timing(moveAnim, {
           toValue: 0,
           duration: 2000,
           easing: Easing.inOut(Easing.sin),
@@ -89,9 +70,27 @@ export default function LandingPage() {
       ])
     ).start();
     
-    // Animate sports elements
-    sportsElements.forEach(element => {
-      animateSportsElement(element);
+    // Subtle pulsing animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+    
+    // Animate background sports icons
+    sportsIconAnims.forEach(sportsIcon => {
+      animateSportsIcon(sportsIcon);
     });
   }, []);
   
@@ -109,86 +108,83 @@ export default function LandingPage() {
     }
   };
   
-  const animateSportsElement = (element) => {
-    const newX = Math.random() * (Dimensions.get('window').width - 60);
-    const newY = Math.random() * (Dimensions.get('window').height - 60);
-    const duration = Math.random() * 20000 + 15000;
+  const animateSportsIcon = (sportsIcon) => {
+    const screenWidth = Dimensions.get('window').width;
+    const screenHeight = Dimensions.get('window').height;
+    
+    // Keep icons within screen bounds with padding
+    const newX = Math.random() * (screenWidth - 80) + 40; // 40px padding on each side
+    const newY = Math.random() * (screenHeight - 160) + 80; // 80px padding top/bottom
+    const duration = Math.random() * 12000 + 8000; // 8-20 seconds
     
     Animated.parallel([
-      Animated.timing(element.position, {
+      // Gentle floating movement
+      Animated.timing(sportsIcon.position, {
         toValue: { x: newX, y: newY },
         duration: duration,
         easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }),
-      Animated.timing(element.rotation, {
-        toValue: Math.random() * 360,
-        duration: duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.timing(element.opacity, {
-          toValue: Math.random() * 0.4 + 0.2,
-          duration: duration / 2,
-          useNativeDriver: true,
-        }),
-        Animated.timing(element.opacity, {
-          toValue: Math.random() * 0.2 + 0.1,
-          duration: duration / 2,
+      // Subtle opacity breathing
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(sportsIcon.opacity, {
+            toValue: 0.4,
+            duration: 4000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+          Animated.timing(sportsIcon.opacity, {
+            toValue: 0.15,
+            duration: 4000,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: true,
+          }),
+        ])
+      ),
+      // Very slow rotation
+      Animated.loop(
+        Animated.timing(sportsIcon.rotation, {
+          toValue: 360,
+          duration: 30000, // 30 seconds for full rotation
+          easing: Easing.linear,
           useNativeDriver: true,
         })
-      ])
-    ]).start(() => animateSportsElement(element));
-  };
-  
-  const getSportsIcon = (type, size = 24) => {
-    const iconProps = { size, color: 'rgba(255, 255, 255, 0.3)' };
-    switch (type) {
-      case 'chart': return <BarChart3 {...iconProps} />;
-      case 'target': return <Target {...iconProps} />;
-      case 'trending': return <TrendingUp {...iconProps} />;
-      case 'activity': return <Activity {...iconProps} />;
-      case 'zap': return <Zap {...iconProps} />;
-      case 'bar': return <BarChart3 {...iconProps} />;
-      default: return <TrendingUp {...iconProps} />;
-    }
+      ),
+    ]).start(() => {
+      // Continue the animation loop
+      setTimeout(() => animateSportsIcon(sportsIcon), 1000);
+    });
   };
 
   return (
     <LinearGradient
-      colors={['#0F172A', '#1E293B', '#334155', '#1E40AF']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      colors={['#1a2a6c', '#4a54c4', '#b21f1f']}
       style={styles.container}
     >
-      {/* Sports-themed Background Elements */}
-      {sportsElements.map((element, index) => (
+      {/* Animated Background Sports Icons */}
+      {sportsIconAnims.map((sportsIcon, index) => (
         <Animated.View 
           key={index}
           style={[
-            styles.sportsElement,
+            styles.sportsIcon,
             {
-              opacity: element.opacity,
+              opacity: sportsIcon.opacity,
               transform: [
-                { translateX: element.position.x },
-                { translateY: element.position.y },
-                { rotate: element.rotation.interpolate({
+                { translateX: sportsIcon.position.x },
+                { translateY: sportsIcon.position.y },
+                { scale: sportsIcon.scale },
+                { rotate: sportsIcon.rotation.interpolate({
                   inputRange: [0, 360],
                   outputRange: ['0deg', '360deg']
-                }) },
-                { scale: element.scale }
+                }) }
               ],
             },
           ]}
         >
-          {getSportsIcon(element.type, 32)}
+          <SportsIcon type={sportsIcon.type} style={styles.iconEmoji} />
         </Animated.View>
       ))}
-      
-      {/* Subtle Grid Pattern Overlay */}
-      <View style={styles.gridOverlay} />
-      
       <Animated.View 
         style={[
           styles.content,
@@ -198,227 +194,273 @@ export default function LandingPage() {
           }
         ]}
       >
-        <View style={styles.logoContainer}>
-          <Animated.View style={[
-            styles.logoWrapper,
-            { 
-              transform: [{ scale: scaleAnim }],
-              shadowOpacity: glowAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.8]
-              })
-            }
-          ]}>
-            <Text style={styles.logoTop}>PREDICTIVE</Text>
-            <Text style={styles.logoBottom}>PLAY</Text>
-            <Animated.View 
-              style={[
-                styles.logoGlow,
-                {
-                  opacity: glowAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.2, 0.6]
-                  })
-                }
-              ]}
-            />
+        {/* Hero Section with Enhanced Typography */}
+        <View style={styles.heroSection}>
+          <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+            {/* Premium Brand Identity */}
+            <View style={styles.brandIdentity}>
+              <View style={styles.brandIcon}>
+                <TrendingUp color="#4fc3f7" size={32} strokeWidth={2.5} />
+              </View>
+              
+              <View style={styles.titleContainer}>
+                <Text style={styles.mainTitle}>Predictive Play</Text>
+                <View style={styles.titleUnderline} />
+              </View>
+              
+              <Text style={styles.subtitle}>Smart Betting, Powered by AI</Text>
+              
+              {/* Value Proposition */}
+              <View style={styles.valueProposition}>
+                <View style={styles.featureItem}>
+                  <BarChart3 color="rgba(255,255,255,0.8)" size={16} />
+                  <Text style={styles.featureText}>Advanced Analytics</Text>
+                </View>
+                <Text style={styles.featureSeparator}>•</Text>
+                <View style={styles.featureItem}>
+                  <TrendingUp color="rgba(255,255,255,0.8)" size={16} />
+                  <Text style={styles.featureText}>Predictive Intelligence</Text>
+                </View>
+              </View>
+            </View>
           </Animated.View>
-          <Text style={styles.tagline}>Smart Betting, Powered by AI</Text>
-          <View style={styles.featureHighlights}>
-            <View style={styles.featureItem}>
-              <TrendingUp size={16} color="#00E5FF" />
-              <Text style={styles.featureText}>AI Predictions</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Target size={16} color="#00E5FF" />
-              <Text style={styles.featureText}>Expert Analysis</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <BarChart3 size={16} color="#00E5FF" />
-              <Text style={styles.featureText}>Live Stats</Text>
-            </View>
-          </View>
         </View>
 
-        <View style={styles.buttonContainer}>
+        {/* Enhanced Call-to-Action Section */}
+        <View style={styles.ctaSection}>
           <TouchableOpacity 
-            style={[styles.button, styles.loginButton]} 
-            onPress={() => router.push('/login')}
-            activeOpacity={0.8}
+            style={[styles.primaryButton]} 
+            onPress={() => router.push('/signup')}
           >
             <LinearGradient
-              colors={['#1E40AF', '#3B82F6']}
+              colors={['#4fc3f7', '#29b6f6']}
+              style={styles.buttonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.buttonGradient}
             >
-              <LogIn color="white" size={20} style={styles.iconStyle} />
-              <Text style={styles.loginButtonText}>Login</Text>
+              <UserPlus color="#ffffff" size={22} strokeWidth={2} style={styles.buttonIcon} />
+              <Text style={styles.primaryButtonText}>Get Started</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.button, styles.signupButton]}
-            onPress={() => router.push('/signup')}
-            activeOpacity={0.8}
+            style={[styles.secondaryButton]}
+            onPress={() => router.push('/login')}
           >
-            <LinearGradient
-              colors={['#7C3AED', '#A855F7']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.buttonGradient}
-            >
-              <UserPlus color="white" size={20} style={styles.iconStyle} />
-              <Text style={styles.signupButtonText}>Sign Up</Text>
-            </LinearGradient>
+            <LogIn color="#4fc3f7" size={20} strokeWidth={2} style={styles.buttonIcon} />
+            <Text style={styles.secondaryButtonText}>Sign In</Text>
           </TouchableOpacity>
+          
+          {/* Trust Indicator */}
+          <Text style={styles.trustIndicator}>Join thousands of smart bettors</Text>
         </View>
       </Animated.View>
     </LinearGradient>
   );
 }
 
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const isTablet = screenWidth > 768;
+
 const styles = StyleSheet.create({
+  // Sports Icon Styles
+  sportsIcon: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconEmoji: {
+    fontSize: 22,
+    opacity: 0.25,
+    color: '#ffffff',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  
+  // Main Container Styles
   container: {
     flex: 1,
   },
-  sportsElement: {
-    position: 'absolute',
-    width: 50,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gridOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.03,
-    backgroundColor: 'transparent',
-  },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: isTablet ? 60 : 24,
+    paddingVertical: 40,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  
+  // Hero Section Styles
+  heroSection: {
+    flex: 1,
     justifyContent: 'center',
-  },
-  logoContainer: {
     alignItems: 'center',
-    marginBottom: 50,
+    width: '100%',
+    maxWidth: isTablet ? 600 : '100%',
   },
-  logoWrapper: {
+  
+  // Brand Identity Styles
+  brandIdentity: {
     alignItems: 'center',
-    position: 'relative',
-    shadowColor: '#00E5FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 20,
-    elevation: 10,
+    width: '100%',
   },
-  logoGlow: {
-    position: 'absolute',
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
-    backgroundColor: '#00E5FF',
-    borderRadius: 100,
-    zIndex: -1,
+  
+  brandIcon: {
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 50,
+    backgroundColor: 'rgba(79, 195, 247, 0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(79, 195, 247, 0.3)',
   },
-  logoTop: {
-    fontSize: 48,
-    fontWeight: '900',
+  
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  
+  mainTitle: {
+    fontSize: isTablet ? 64 : screenWidth > 400 ? 52 : 44,
+    fontWeight: Platform.OS === 'ios' ? '700' : 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
     color: '#ffffff',
-    letterSpacing: 2,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 229, 255, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'Roboto',
-  },
-  logoBottom: {
-    fontSize: 52,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 2,
-    marginBottom: 20,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 229, 255, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'Roboto',
-  },
-  tagline: {
-    fontSize: 20,
-    color: '#E2E8F0',
-    opacity: 0.9,
-    textAlign: 'center',
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    marginBottom: 25,
+    letterSpacing: -0.5,
+    lineHeight: isTablet ? 72 : screenWidth > 400 ? 58 : 50,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    marginBottom: 8,
+  },
+  
+  titleUnderline: {
+    width: 60,
+    height: 4,
+    backgroundColor: '#4fc3f7',
+    borderRadius: 2,
+    shadowColor: '#4fc3f7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  
+  subtitle: {
+    fontSize: isTablet ? 22 : 18,
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    lineHeight: isTablet ? 28 : 24,
+    marginBottom: 32,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
-  featureHighlights: {
+  
+  // Value Proposition Styles
+  valueProposition: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
     paddingHorizontal: 20,
-    marginTop: 15,
   },
+  
   featureItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    opacity: 0.8,
   },
+  
   featureText: {
-    color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginLeft: 6,
+    letterSpacing: 0.3,
   },
-  buttonContainer: {
-    marginVertical: 40,
+  
+  featureSeparator: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 16,
+  },
+  
+  // CTA Section Styles
+  ctaSection: {
+    width: '100%',
+    maxWidth: isTablet ? 400 : '100%',
     alignItems: 'center',
+    paddingTop: 20,
   },
-  button: {
-    marginVertical: 8,
-    width: '85%',
-    borderRadius: 25,
+  
+  // Primary Button Styles
+  primaryButton: {
+    width: '100%',
+    marginBottom: 16,
+    borderRadius: 28,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: '#4fc3f7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
+  
   buttonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+  },
+  
+  primaryButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  
+  // Secondary Button Styles
+  secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 32,
+    width: '100%',
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(79, 195, 247, 0.4)',
+    marginBottom: 24,
   },
-  loginButton: {
-    // Gradient styling handled by LinearGradient component
+  
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4fc3f7',
+    letterSpacing: 0.3,
   },
-  signupButton: {
-    // Gradient styling handled by LinearGradient component
+  
+  // Button Icon Styles
+  buttonIcon: {
+    marginRight: 10,
   },
-  loginButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  signupButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  iconStyle: {
-    marginRight: 12,
+  
+  // Trust Indicator
+  trustIndicator: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    fontStyle: 'italic',
   },
 });
