@@ -141,7 +141,10 @@ router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
     }
 
     // Apply sorting
-    const [sortField, sortDirection] = (sortBy as string).split('_');
+    const sortByStr = sortBy as string;
+    const lastUnderscoreIndex = sortByStr.lastIndexOf('_');
+    const sortField = lastUnderscoreIndex > 0 ? sortByStr.substring(0, lastUnderscoreIndex) : 'created_at';
+    const sortDirection = lastUnderscoreIndex > 0 ? sortByStr.substring(lastUnderscoreIndex + 1) : 'desc';
     query = query.order(sortField, { ascending: sortDirection === 'asc' });
 
     // Apply pagination
