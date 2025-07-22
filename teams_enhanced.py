@@ -273,41 +273,50 @@ class DatabaseClient:
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
         try:
             for pred in predictions:
+                # Extract reasoning from metadata if available
                 reasoning = pred.get("reasoning", "")
                 if not reasoning and pred.get("metadata"):
                     reasoning = pred["metadata"].get("reasoning", "")
                 
-                roi_estimate_str = pred["metadata"].get("roi_estimate", "0%") if pred.get("metadata") else "0%"
-                value_percentage_str = pred["metadata"].get("value_percentage", "0%") if pred.get("metadata") else "0%"
+                # Extract ROI and value percentages from metadata
+                metadata = pred.get("metadata", {})
+                roi_estimate_str = metadata.get("roi_estimate", "0%")
+                value_percentage_str = metadata.get("value_percentage", "0%")
                 
+                # Convert percentage strings to floats
                 try:
-                    roi_estimate = float(roi_estimate_str.replace("%", "")) if roi_estimate_str else 0.0
-                    value_percentage = float(value_percentage_str.replace("%", "")) if value_percentage_str else 0.0
+                    roi_estimate = float(str(roi_estimate_str).replace("%", "")) if roi_estimate_str else 0.0
+                    value_percentage = float(str(value_percentage_str).replace("%", "")) if value_percentage_str else 0.0
                 except (ValueError, AttributeError):
                     roi_estimate = 0.0
                     value_percentage = 0.0
                 
+                # Map to actual ai_predictions table schema
                 prediction_data = {
-                    "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",
-                    "confidence": pred.get("confidence", 0),
+                    "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",  # Global AI user
+                    "match_teams": pred.get("match_teams", ""),
                     "pick": pred.get("pick", ""),
                     "odds": str(pred.get("odds", 0)),
+                    "confidence": pred.get("confidence", 75),
                     "sport": pred.get("sport", "MLB"),
                     "event_time": pred.get("event_time"),
-                    "bet_type": pred.get("bet_type", "team_bet"),
-                    "game_id": str(pred.get("event_id", "")),
-                    "match_teams": pred.get("match_teams", ""),
                     "reasoning": reasoning,
-                    "line_value": pred.get("line_value") or pred.get("line", 0),
-                    "prediction_value": pred.get("prediction_value"),
-                    "prop_market_type": pred.get("prop_market_type") or pred.get("bet_type", ""),
-                    "roi_estimate": roi_estimate,
                     "value_percentage": value_percentage,
+                    "roi_estimate": roi_estimate,
                     "status": "pending",
-                    "metadata": pred.get("metadata", {})
+                    "game_id": str(pred.get("event_id", "")),
+                    "bet_type": pred.get("bet_type", "moneyline"),
+                    "prop_market_type": pred.get("prop_market_type"),
+                    "line_value": pred.get("line_value") or pred.get("line"),
+                    "prediction_value": pred.get("prediction_value"),
+                    "metadata": metadata
                 }
                 
-                self.supabase.table("ai_predictions").insert(prediction_data).execute()
+                # Remove None values to avoid database errors
+                prediction_data = {k: v for k, v in prediction_data.items() if v is not None}
+                
+                result = self.supabase.table("ai_predictions").insert(prediction_data).execute()
+                logger.info(f"✅ Stored prediction: {pred.get('pick', 'Unknown')} (ID: {result.data[0]['id'] if result.data else 'Unknown'})")
                 
             logger.info(f"Successfully stored {len(predictions)} AI predictions")
             
@@ -855,6 +864,14 @@ FORMAT RESPONSE AS JSON ARRAY:
   }}
 ]
 
+🚨 **CRITICAL RECOMMENDATION FORMAT RULES:**
+- For MONEYLINE bets: Use "home" or "away" ONLY
+- For SPREAD bets: Use "home" or "away" ONLY  
+- For TOTAL bets: Use "over" or "under" ONLY
+- NEVER use team names in the recommendation field
+- NEVER use "Detroit Tigers" or "Pittsburgh Pirates" - use "home"/"away" instead
+- Example: If you like Detroit Tigers moneyline, use "recommendation": "away" (not "Detroit Tigers")
+
 🧮 **CALCULATION REQUIREMENTS:**
 
 **ROI Estimate:** (Expected Win Amount / Risk Amount) - 1
@@ -913,6 +930,42 @@ REMEMBER:
                         missing = [f for f in required_fields if f not in pick]
                         logger.warning(f"Pick missing required fields: {missing}. Skipping pick: {pick}")
                         continue
+                    
+                    # Validate recommendation field has correct values
+                    valid_recommendations = ["home", "away", "over", "under"]
+                    recommendation = pick.get("recommendation", "").lower()
+                    
+                    if recommendation not in valid_recommendations:
+                        logger.warning(f"Invalid recommendation '{pick.get('recommendation')}' - must be one of {valid_recommendations}. Attempting to fix...")
+                        
+                        # Try to fix common issues where AI puts team name instead of home/away
+                        home_team = pick.get("home_team", "")
+                        away_team = pick.get("away_team", "")
+                        bet_type = pick.get("bet_type", "")
+                        original_rec = pick.get("recommendation", "")
+                        
+                        # If recommendation matches home team name, change to "home"
+                        if original_rec == home_team:
+                            pick["recommendation"] = "home"
+                            logger.info(f"Fixed recommendation from '{original_rec}' to 'home'")
+                        # If recommendation matches away team name, change to "away"
+                        elif original_rec == away_team:
+                            pick["recommendation"] = "away"
+                            logger.info(f"Fixed recommendation from '{original_rec}' to 'away'")
+                        # For totals, try to infer over/under
+                        elif bet_type == "total":
+                            if "over" in original_rec.lower():
+                                pick["recommendation"] = "over"
+                                logger.info(f"Fixed recommendation from '{original_rec}' to 'over'")
+                            elif "under" in original_rec.lower():
+                                pick["recommendation"] = "under"
+                                logger.info(f"Fixed recommendation from '{original_rec}' to 'under'")
+                            else:
+                                logger.warning(f"Could not fix recommendation '{original_rec}' for total bet. Skipping pick.")
+                                continue
+                        else:
+                            logger.warning(f"Could not fix recommendation '{original_rec}'. Skipping pick.")
+                            continue
                     
                     matching_bet = self._find_matching_bet(pick, bets)
                     

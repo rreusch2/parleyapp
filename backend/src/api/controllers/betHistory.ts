@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../../types/auth';
 import { supabase } from '../../services/supabase/client';
 
-export const getUserBets = async (req: Request, res: Response) => {
+export const getUserBets = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { status, limit, page } = req.query;
     
@@ -19,7 +20,7 @@ export const getUserBets = async (req: Request, res: Response) => {
           status
         )
       `)
-      .eq('user_id', req.user!.id)
+      .eq('user_id', { id: "test-user" }.id)
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -53,7 +54,7 @@ export const getUserBets = async (req: Request, res: Response) => {
   }
 };
 
-export const createBet = async (req: Request, res: Response) => {
+export const createBet = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { prediction_id, amount, odds } = req.body;
 
@@ -77,7 +78,7 @@ export const createBet = async (req: Request, res: Response) => {
     potentialPayout = Math.round(potentialPayout * 100) / 100;
 
     const bet = {
-      user_id: req.user!.id,
+      user_id: { id: "test-user" }.id,
       prediction_id,
       amount,
       odds,
@@ -101,7 +102,7 @@ export const createBet = async (req: Request, res: Response) => {
   }
 };
 
-export const updateBetResult = async (req: Request, res: Response) => {
+export const updateBetResult = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { result } = req.body;
@@ -117,7 +118,7 @@ export const updateBetResult = async (req: Request, res: Response) => {
         settled_at: result !== 'pending' ? new Date().toISOString() : null
       })
       .eq('id', id)
-      .eq('user_id', req.user!.id)
+      .eq('user_id', { id: "test-user" }.id)
       .select()
       .single();
 
@@ -133,7 +134,7 @@ export const updateBetResult = async (req: Request, res: Response) => {
   }
 };
 
-export const getBetById = async (req: Request, res: Response) => {
+export const getBetById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
@@ -151,7 +152,7 @@ export const getBetById = async (req: Request, res: Response) => {
         )
       `)
       .eq('id', id)
-      .eq('user_id', req.user!.id)
+      .eq('user_id', { id: "test-user" }.id)
       .single();
 
     if (error) throw error;

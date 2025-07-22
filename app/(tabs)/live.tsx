@@ -81,6 +81,13 @@ interface EnhancedSportsEvent extends SportsEvent {
     home: number;
     away: number;
   };
+  // Ensure all required properties from API response are available
+  id: string;
+  league: string;
+  home_team: string;
+  away_team: string;
+  start_time: string;
+  stats?: any;
 }
 
 export default function GamesScreen() {
@@ -104,8 +111,9 @@ export default function GamesScreen() {
 
   const sportFilters = [
     { id: 'all', name: 'All' },
-    { id: 'NBA', name: 'NBA' },
     { id: 'MLB', name: 'MLB' },
+    { id: 'NBA', name: 'NBA' },
+    { id: 'WNBA', name: 'WNBA' },
     { id: 'UFC', name: 'UFC' },
     { id: 'MMA', name: 'MMA' },
     { id: 'NHL', name: 'NHL' },
@@ -136,8 +144,19 @@ export default function GamesScreen() {
       if (!isAuthenticated) return;
 
       console.log('Fetching games for sport:', selectedSport);
+      
+      // Map frontend sport filters to backend league values
+      let leagueFilter = undefined;
+      if (selectedSport !== 'all') {
+        if (selectedSport === 'UFC') {
+          leagueFilter = 'MMA'; // UFC fights are stored as MMA in backend
+        } else {
+          leagueFilter = selectedSport.toUpperCase();
+        }
+      }
+      
       const response = await sportsApi.getGames(
-        selectedSport !== 'all' ? { league: selectedSport.toUpperCase() } : undefined
+        leagueFilter ? { league: leagueFilter } : undefined
       );
 
       // Extract games from the paginated response
