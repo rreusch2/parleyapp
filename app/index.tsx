@@ -285,10 +285,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: isTablet ? 60 : 24,
-    paddingVertical: 40,
+    paddingHorizontal: isTablet ? 80 : 24, // Increased iPad margins for safety
+    paddingVertical: isTablet ? 60 : 40, // More vertical padding on iPad
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: screenHeight * 0.9, // Ensure content fits within safe area
   },
   
   // Hero Section Styles
@@ -346,14 +347,14 @@ const styles = StyleSheet.create({
   },
   
   subtitle: {
-    fontSize: isTablet ? 22 : 18,
+    fontSize: isTablet ? 22 : screenWidth > 400 ? 20 : 18,
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif',
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     letterSpacing: 0.5,
     lineHeight: isTablet ? 28 : 24,
-    marginBottom: 32,
+    marginBottom: isTablet ? 24 : 20, // Slightly more space on iPad for safety
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
@@ -364,9 +365,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: isTablet ? 12 : 8, // Slightly more space on iPad
     paddingHorizontal: isTablet ? 40 : 32,
     maxWidth: '100%',
+    marginBottom: isTablet ? 20 : 16, // Add bottom margin for iPad safety
   },
   
   featureItem: {
