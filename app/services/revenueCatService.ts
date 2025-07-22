@@ -201,7 +201,7 @@ class RevenueCatService {
 
       // Update user's subscription status in Supabase
       console.log('🔄 Updating user subscription status in Supabase...');
-      await this.updateUserSubscriptionStatus(customerInfo);
+      await this.updateUserSubscriptionStatus(customerInfo, planId);
 
       return {
         success: true,
@@ -311,9 +311,9 @@ class RevenueCatService {
   }
 
   /**
-   * Update user's subscription status in Supabase
+   * Update user's subscription status in Supabase with detailed plan information
    */
-  private async updateUserSubscriptionStatus(customerInfo: CustomerInfo): Promise<void> {
+  private async updateUserSubscriptionStatus(customerInfo: CustomerInfo, planId?: SubscriptionPlan): Promise<void> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -323,19 +323,23 @@ class RevenueCatService {
       console.log('🔍 Checking user entitlements:', {
         allEntitlements: Object.keys(customerInfo.entitlements.all),
         activeEntitlements: Object.keys(customerInfo.entitlements.active),
-        entitlementDetails: customerInfo.entitlements.active
+        entitlementDetails: customerInfo.entitlements.active,
+        originalAppUserId: customerInfo.originalAppUserId,
+        latestExpirationDate: customerInfo.latestExpirationDate
       });
 
       // Check if user has active entitlements - try multiple possible entitlement names
       const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
       let hasActiveSubscription = false;
       let activeEntitlementName = null;
+      let activeEntitlement = null;
 
       for (const entitlementName of possibleEntitlements) {
         const entitlement = customerInfo.entitlements.active[entitlementName];
         if (entitlement?.isActive === true) {
           hasActiveSubscription = true;
           activeEntitlementName = entitlementName;
+          activeEntitlement = entitlement;
           console.log(`✅ Found active entitlement: ${entitlementName}`);
           break;
         }
@@ -348,23 +352,101 @@ class RevenueCatService {
         if (firstActiveEntitlement?.isActive === true) {
           hasActiveSubscription = true;
           activeEntitlementName = Object.keys(customerInfo.entitlements.active)[0];
+          activeEntitlement = firstActiveEntitlement;
           console.log(`✅ Using first active entitlement: ${activeEntitlementName}`);
         }
+      }
+
+      // Determine subscription plan type from product identifier or planId
+      let subscriptionPlanType: string | null = null;
+      let subscriptionProductId: string | null = null;
+      let subscriptionStatus = hasActiveSubscription ? 'active' : 'inactive';
+      let subscriptionExpiresAt: string | null = null;
+      let autoRenewEnabled: boolean | null = null;
+
+      if (hasActiveSubscription && activeEntitlement) {
+        // Get product identifier from active entitlement
+        subscriptionProductId = activeEntitlement.productIdentifier;
+        
+        // Map product ID to plan type
+        const productToPlanMap: { [key: string]: string } = {
+          'com.parleyapp.premium_weekly': 'weekly',
+          'com.parleyapp.premium_monthly': 'monthly', 
+          'com.parleyapp.premiumyearly': 'yearly',
+          'com.parleyapp.premium_lifetime': 'lifetime'
+        };
+        
+        subscriptionPlanType = productToPlanMap[subscriptionProductId] || null;
+        
+        // Use planId if provided (from purchase flow)
+        if (planId && !subscriptionPlanType) {
+          subscriptionPlanType = planId;
+        }
+        
+        // Set expiration date
+        if (activeEntitlement.expirationDate) {
+          subscriptionExpiresAt = activeEntitlement.expirationDate;
+        } else if (customerInfo.latestExpirationDate) {
+          subscriptionExpiresAt = customerInfo.latestExpirationDate;
+        }
+        
+        // Check auto-renew status (lifetime subscriptions don't auto-renew)
+        autoRenewEnabled = subscriptionPlanType !== 'lifetime';
+        
+        console.log('📊 Subscription details extracted:', {
+          planType: subscriptionPlanType,
+          productId: subscriptionProductId,
+          expiresAt: subscriptionExpiresAt,
+          autoRenew: autoRenewEnabled
+        });
       }
 
       console.log('📊 Subscription status determination:', {
         hasActiveSubscription,
         activeEntitlementName,
+        subscriptionPlanType,
+        subscriptionProductId,
         willSetTier: hasActiveSubscription ? 'pro' : 'free'
       });
+      
+      // Prepare update data
+      const updateData: any = {
+        subscription_tier: hasActiveSubscription ? 'pro' : 'free',
+        subscription_status: subscriptionStatus,
+        subscription_expires_at: subscriptionExpiresAt,
+        revenuecat_customer_id: customerInfo.originalAppUserId,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Only update plan-specific fields if we have an active subscription
+      if (hasActiveSubscription) {
+        updateData.subscription_plan_type = subscriptionPlanType;
+        updateData.subscription_product_id = subscriptionProductId;
+        updateData.auto_renew_enabled = autoRenewEnabled;
+        updateData.subscription_renewed_at = new Date().toISOString();
+        
+        // Set subscription_started_at only if it's a new subscription
+        // (we'll check if the user was previously free tier)
+        const { data: currentProfile } = await supabase
+          .from('profiles')
+          .select('subscription_tier, subscription_started_at')
+          .eq('id', user.id)
+          .single();
+          
+        if (currentProfile?.subscription_tier === 'free' || !currentProfile?.subscription_started_at) {
+          updateData.subscription_started_at = new Date().toISOString();
+        }
+      } else {
+        // Clear subscription-specific fields when downgrading to free
+        updateData.subscription_plan_type = null;
+        updateData.subscription_product_id = null;
+        updateData.auto_renew_enabled = null;
+      }
       
       // Update user profile
       const { error } = await supabase
         .from('profiles')
-        .update({
-          subscription_tier: hasActiveSubscription ? 'pro' : 'free',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', user.id);
 
       if (error) {
@@ -372,7 +454,12 @@ class RevenueCatService {
         throw error;
       }
 
-      console.log(`✅ User subscription status updated in Supabase to: ${hasActiveSubscription ? 'pro' : 'free'}`);
+      console.log(`✅ User subscription status updated in Supabase:`, {
+        tier: hasActiveSubscription ? 'pro' : 'free',
+        planType: subscriptionPlanType,
+        productId: subscriptionProductId,
+        expiresAt: subscriptionExpiresAt
+      });
       
     } catch (error) {
       console.error('❌ Failed to update subscription status:', error);

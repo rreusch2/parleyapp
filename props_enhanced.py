@@ -74,61 +74,87 @@ class StatMuseClient:
 
 class WebSearchClient:
     def __init__(self):
-        self.backend_url = os.getenv("BACKEND_URL", "https://zooming-rebirth-production-a305.up.railway.app")
-        self.user_id = "ai_props_agent"
+        self.google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+        self.search_engine_id = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+        self.google_search_url = "https://www.googleapis.com/customsearch/v1"
+        
+        if not self.google_api_key or not self.search_engine_id:
+            logger.warning("Google Search API credentials not found. Web search will use fallback.")
     
     def search(self, query: str) -> Dict[str, Any]:
-        logger.info(f"Web search: {query}")
+        logger.info(f"🌐 Web search: {query}")
         
         try:
-            search_prompt = f"Search the web for current information about: {query}. Focus on finding recent, relevant information that would be useful for sports betting analysis. Provide a clear summary of what you found."
-            
-            url = f"{self.backend_url}/api/ai/chat"
-            payload = {
-                "message": search_prompt,
-                "userId": self.user_id,
-                "context": {
-                    "screen": "web_search_agent",
-                    "userTier": "pro",
-                    "task": "web_search"
-                },
-                "conversationHistory": []
-            }
-            
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
-            
-            if response.status_code == 200:
-                result = response.json()
-                search_response = result.get("response", "No results found")
-                
-                web_result = {
-                    "query": query,
-                    "results": [{
-                        "title": "AI Web Search Result",
-                        "snippet": search_response[:300] + "..." if len(search_response) > 300 else search_response,
-                        "url": "AI-generated"
-                    }],
-                    "summary": search_response[:500] + "..." if len(search_response) > 500 else search_response
-                }
-                
-                logger.info(f"🌐 Web search result: {web_result["summary"][:150]}{"..." if len(web_result["summary"]) > 150 else ""}")
-                return web_result
-                
+            # Try Google Custom Search first
+            if self.google_api_key and self.search_engine_id:
+                return self._google_search(query)
             else:
-                logger.warning(f"Web search API failed: {response.status_code}")
-                return {
-                    "query": query,
-                    "results": [],
-                    "summary": f"Web search API error: {response.status_code}"
-                }
+                logger.warning("Google Search API not configured, using fallback")
+                return self._fallback_search(query)
                 
         except Exception as e:
-            logger.warning(f"Web search failed for \'{query}\': {e}")
-            return {
-                "query": query,
-                "results": [],
-                "summary": f"Search failed: {str(e)}"
+            logger.error(f"Web search failed: {e}")
+            return self._fallback_search(query)
+    
+    def _google_search(self, query: str) -> Dict[str, Any]:
+        """Perform real Google Custom Search"""
+        try:
+            params = {
+                "q": query,
+                "key": self.google_api_key,
+                "cx": self.search_engine_id,
+                "num": 5  # Limit to 5 results
             }
+            
+            response = requests.get(self.google_search_url, params=params, timeout=15)
+            response.raise_for_status()
+            
+            data = response.json()
+            items = data.get("items", [])
+            
+            results = []
+            for item in items:
+                results.append({
+                    "title": item.get("title", ""),
+                    "snippet": item.get("snippet", ""),
+                    "url": item.get("link", ""),
+                    "source": "Google Search"
+                })
+            
+            # Create summary from top results
+            summary_parts = []
+            for result in results[:3]:  # Use top 3 results for summary
+                if result["snippet"]:
+                    summary_parts.append(f"{result['title']}: {result['snippet']}")
+            
+            summary = " | ".join(summary_parts) if summary_parts else "No relevant information found."
+            
+            web_result = {
+                "query": query,
+                "results": results,
+                "summary": summary[:800] + "..." if len(summary) > 800 else summary
+            }
+            
+            logger.info(f"🌐 Google search returned {len(results)} results for: {query}")
+            return web_result
+            
+        except Exception as e:
+            logger.error(f"Google search failed: {e}")
+            return self._fallback_search(query)
+    
+    def _fallback_search(self, query: str) -> Dict[str, Any]:
+        """Fallback when Google Search is unavailable"""
+        logger.warning(f"Using fallback search for: {query}")
+        return {
+            "query": query,
+            "results": [{
+                "title": "Search Unavailable",
+                "snippet": "Real-time web search is currently unavailable. Using cached data where possible.",
+                "url": "N/A",
+                "source": "Fallback"
+            }],
+            "summary": f"Web search unavailable for query: {query}. Using available data sources."
+        }
 
 class DatabaseClient:
     def __init__(self):
@@ -283,7 +309,7 @@ class IntelligentPlayerPropsAgent:
         return self.db.get_player_props_for_games(game_ids)
         
     def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute props across sports: MLB (primary), WNBA (secondary)"""
+        """Distribute props across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
         sport_counts = {"MLB": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -296,22 +322,22 @@ class IntelligentPlayerPropsAgent:
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # Distribution strategy: MLB 75%, WNBA 25% (only sports with player props)
+        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
         distribution = {
-            "MLB": max(1, int(target_picks * 0.75)) if sport_counts["MLB"] > 0 else 0,
-            "WNBA": max(1, int(target_picks * 0.25)) if sport_counts["WNBA"] > 0 else 0
+            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
+            "MLB": 7 if sport_counts["MLB"] > 0 else 0     # MLB second
         }
         
         # Adjust if we don't have enough games in a sport
-        for sport in ["MLB", "WNBA"]:
-            if distribution[sport] > sport_counts[sport]:
-                distribution[sport] = sport_counts[sport]
-        
-        # Redistribute remaining picks to MLB if needed
-        total_distributed = sum(distribution.values())
-        if total_distributed < target_picks and sport_counts["MLB"] > distribution["MLB"]:
-            remaining = target_picks - total_distributed
-            distribution["MLB"] += min(remaining, sport_counts["MLB"] - distribution["MLB"])
+        if distribution["WNBA"] > sport_counts["WNBA"]:
+            # If not enough WNBA games, give remaining to MLB
+            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
+            distribution["WNBA"] = sport_counts["WNBA"]
+            distribution["MLB"] += remaining_wnba
+            
+        if distribution["MLB"] > sport_counts["MLB"]:
+            # If not enough MLB games, cap at available
+            distribution["MLB"] = sport_counts["MLB"]
         
         logger.info(f"Props distribution: {distribution}")
         return distribution
@@ -385,51 +411,75 @@ class IntelligentPlayerPropsAgent:
         # STEP 2: Analyze the actual props data to understand what we're working with
         props_analysis = self._analyze_available_props(props, games)
         
-        prompt = f"""You are an elite sports betting analyst. You have access to REAL betting props data from multiple sportsbooks AND current StatMuse insights.
+        # Get sport distribution for balanced research
+        sport_distribution = props_analysis.get('sport_distribution', {})
+        wnba_props = sport_distribution.get('WNBA', 0)
+        mlb_props = sport_distribution.get('MLB', 0)
+        
+        # Calculate balanced research allocation
+        total_props = wnba_props + mlb_props
+        if total_props > 0:
+            wnba_research_ratio = min(0.4, wnba_props / total_props)  # Cap WNBA at 40%
+            mlb_research_ratio = 1.0 - wnba_research_ratio
+        else:
+            wnba_research_ratio = 0.3
+            mlb_research_ratio = 0.7
+        
+        # Target: 8-12 WNBA players for 3 picks, 15-20 MLB players for 7 picks
+        target_wnba_queries = min(12, max(8, int(18 * wnba_research_ratio)))
+        target_mlb_queries = min(20, max(15, int(18 * mlb_research_ratio)))
+        
+        prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE research strategy.
 
-Your task: Analyze the available props data and current StatMuse context to create an intelligent research strategy to find the BEST betting edges.
+# CRITICAL REQUIREMENTS - BALANCED RESEARCH STRATEGY:
 
-# AVAILABLE PROPS DATA ANALYSIS:
+## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
+- **WNBA Research**: {target_wnba_queries} different players (for 3 final picks)
+- **MLB Research**: {target_mlb_queries} different players (for 7 final picks)
+- **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
+- **Web Searches**: 5 total (3 MLB injury/lineup, 2 WNBA injury/lineup)
+
+## DIVERSITY REQUIREMENTS:
+- **NO REPETITIVE STAR PICKS**: Avoid A'ja Wilson, Breanna Stewart every time
+- **RESEARCH DIFFERENT PLAYERS**: Mix stars, role players, value plays
+- **VARIED PROP TYPES**: Don't just research points - include rebounds, assists, hits, home runs, etc.
+- **TEAM VARIETY**: Research players from different teams, not just popular teams
+
+# AVAILABLE PROPS DATA:
 {json.dumps(props_analysis, indent=2)}
 
-# CURRENT STATMUSE CONTEXT (from main pages):
+# CURRENT STATMUSE CONTEXT:
 {json.dumps(statmuse_context, indent=2)}
 
-# YOUR RESEARCH TOOLS:
+# YOUR TASK:
+Generate a research plan that follows the EXACT allocation above and focuses on DIVERSE players from the actual props data.
 
-## StatMuse API
-Query real sports statistics for ACTUAL players in the data above.
-
-## Web Search
-Find current information about injuries, weather, lineups, etc.
-
-# REQUIREMENTS:
-
-1. **ANALYZE THE DATA**: Focus on the ACTUAL players, prop types, and odds shown above
-2. **USE CURRENT CONTEXT**: Leverage the StatMuse insights (trending players, recent performances, league leaders) to identify hot players and value opportunities
-3. **IDENTIFY VALUE**: Which props have the best potential for profitable bets based on current form and trends?
-4. **PROPORTIONAL RESEARCH**: Allocate research queries proportionally to the sports breakdown above. If MLB has 8 props and WNBA has 2 props (4:1 ratio), then research should be ~6 MLB queries and ~2 WNBA queries out of 8 total.
-5. **PLAN RESEARCH**: Generate 5-8 StatMuse queries about REAL players from the data, prioritizing trending/hot players from the context
-6. **BE STRATEGIC**: Balance research across sports based on available props and current trends, maintaining proportional allocation
+**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA players (mix of stars, role players, value opportunities)
+**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB players (variety of batters, pitchers, different teams)
 
 Return ONLY valid JSON:
 {{
-    "analysis_summary": "Brief analysis of available props",
+    "analysis_summary": "Balanced research strategy focusing on diversity",
     "statmuse_queries": [
+        // {target_wnba_queries} WNBA player queries (different players, varied prop types)
+        // {target_mlb_queries} MLB player queries (different players, varied prop types)
         {{
-            "query": "[Real Player Name] [stat] this season",
-            "priority": "high/medium/low"
+            "query": "[Diverse Player Name] [varied stat] this season",
+            "priority": "high/medium/low",
+            "sport": "WNBA/MLB"
         }}
     ],
     "web_searches": [
+        // 3 MLB injury/lineup searches, 2 WNBA injury/lineup searches
         {{
-            "query": "[Real Player Name] injury status recent news",
-            "priority": "high/medium/low"
+            "query": "[Player Name] injury status lineup news",
+            "priority": "high/medium/low",
+            "sport": "WNBA/MLB"
         }}
     ]
 }}
 
-Focus on REAL players from the props data, not examples!"""
+**CRITICAL**: Use REAL diverse players from the props data above. NO repetitive A'ja Wilson/Breanna Stewart pattern!"""
         
         try:
             response = await self.grok_client.chat.completions.create(
@@ -548,7 +598,13 @@ Focus on REAL players from the props data, not examples!"""
         insights = []
         
         statmuse_queries = plan.get("statmuse_queries", [])[:8]
-        for query_obj in statmuse_queries:
+        web_searches = plan.get("web_searches", [])[:3]
+        
+        # BALANCED LIMITS: More MLB research since 7 picks needed vs 3 WNBA picks
+        max_statmuse = min(18, len(statmuse_queries))  # Reasonable limit for both sports
+        max_web = min(12, len(web_searches))  # Focused web searches
+        
+        for query_obj in statmuse_queries[:max_statmuse]:
             try:
                 query_text = query_obj.get("query", query_obj) if isinstance(query_obj, dict) else query_obj
                 priority = query_obj.get("priority", "medium") if isinstance(query_obj, dict) else "medium"
@@ -667,27 +723,22 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             end_idx = followup_text.rfind("}") + 1
             followup_plan = json.loads(followup_text[start_idx:end_idx])
             
-            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get("analysis", "No analysis provided")}")
+            # Execute the follow-up queries
+            followup_insights = []
             
-            insights = []
+            # Execute StatMuse follow-up queries
             for query_obj in followup_plan.get("followup_statmuse_queries", [])[:5]:
                 try:
-                    query_text = query_obj.get("query", "")
-                    reasoning = query_obj.get("reasoning", "")
-                    priority = query_obj.get("priority", "medium")
+                    query_text = query_obj.get("query", query_obj) if isinstance(query_obj, dict) else query_obj
+                    priority = query_obj.get("priority", "medium") if isinstance(query_obj, dict) else "medium"
                     
-                    logger.info(f"🔍 Adaptive StatMuse ({priority}): {query_text}")
-                    logger.info(f"   Reasoning: {reasoning}")
-                    
+                    logger.info(f"🔍 Follow-up StatMuse ({priority}): {query_text}")
                     result = self.statmuse.query(query_text)
                     
                     if result and "error" not in result:
-                        result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
-                        logger.info(f"📊 Adaptive result: {result_preview}")
-                        
-                        confidence = 0.95 if priority == "high" else 0.8 if priority == "medium" else 0.6
-                        insights.append(ResearchInsight(
-                            source="statmuse_adaptive",
+                        confidence = 0.9 if priority == "high" else 0.7 if priority == "medium" else 0.5
+                        followup_insights.append(ResearchInsight(
+                            source="statmuse_followup",
                             query=query_text,
                             data=result,
                             confidence=confidence,
@@ -697,32 +748,33 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     await asyncio.sleep(1.5)
                     
                 except Exception as e:
-                    logger.error(f"❌ Adaptive StatMuse query failed: {e}")
+                    logger.error(f"❌ Follow-up StatMuse query failed: {e}")
             
+            # Execute web follow-up searches
             for search_obj in followup_plan.get("followup_web_searches", [])[:3]:
                 try:
-                    search_query = search_obj.get("query", "")
-                    reasoning = search_obj.get("reasoning", "")
-                    priority = search_obj.get("priority", "medium")
+                    search_query = search_obj.get("query", search_obj) if isinstance(search_obj, dict) else search_obj
+                    priority = search_obj.get("priority", "medium") if isinstance(search_obj, dict) else "medium"
                     
-                    logger.info(f"🌐 Adaptive Web Search ({priority}): {search_query}")
-                    logger.info(f"   Reasoning: {reasoning}")
-                    
+                    logger.info(f"🌐 Follow-up web search ({priority}): {search_query}")
                     result = self.web_search.search(search_query)
                     
-                    confidence = 0.85 if priority == "high" else 0.7 if priority == "medium" else 0.5
-                    insights.append(ResearchInsight(
-                        source="web_search_adaptive",
-                        query=search_query,
-                        data=result,
-                        confidence=confidence,
-                        timestamp=datetime.now()
-                    ))
+                    if result:
+                        confidence = 0.8 if priority == "high" else 0.6 if priority == "medium" else 0.4
+                        followup_insights.append(ResearchInsight(
+                            source="web_followup",
+                            query=search_query,
+                            data=result,
+                            confidence=confidence,
+                            timestamp=datetime.now()
+                        ))
+                    
+                    await asyncio.sleep(0.5)
                     
                 except Exception as e:
-                    logger.error(f"❌ Adaptive web search failed: {e}")
+                    logger.error(f"❌ Follow-up web search failed: {e}")
             
-            return insights
+            return followup_insights
             
         except Exception as e:
             logger.error(f"Failed to generate adaptive follow-up: {e}")
@@ -738,49 +790,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         if len(all_insights) < 8:
             logger.info("🎯 Adding final broad research queries")
-            
-            # Get sport-aware player queries
-            sport_players = {}
-            for prop in props[:20]:
-                sport = "Unknown"
-                # Determine sport from prop context
-                if any(keyword in prop.prop_type.lower() for keyword in ['hits', 'home runs', 'rbis', 'strikeouts', 'era']):
-                    sport = "MLB"
-                elif any(keyword in prop.prop_type.lower() for keyword in ['points', 'rebounds', 'assists', 'steals']):
-                    sport = "WNBA"
-                
-                if sport not in sport_players:
-                    sport_players[sport] = []
-                if prop.player_name not in sport_players[sport]:
-                    sport_players[sport].append(prop.player_name)
-            
-            # Generate sport-appropriate queries
-            for sport, players in sport_players.items():
-                for player in players[:2]:  # Max 2 players per sport
-                    try:
-                        if sport == "MLB":
-                            query = f"{player} batting average last 15 games"
-                        elif sport == "WNBA":
-                            query = f"{player} points per game this season"
-                        else:
-                            query = f"{player} recent performance"
-                        
-                        logger.info(f"🔍 Final {sport} query: {query}")
-                        
-                        result = self.statmuse.query(query, sport)
-                        if result and "error" not in result:
-                            final_insights.append(ResearchInsight(
-                                source="statmuse_final",
-                                query=query,
-                                data=result,
-                                confidence=0.7,
-                                timestamp=datetime.now()
-                            ))
-                        
-                        await asyncio.sleep(1.5)
-                        
-                    except Exception as e:
-                        logger.error(f"❌ Final query failed: {e}")
+            # Could add more research here if needed
         
         return final_insights
     
@@ -873,6 +883,21 @@ Available players in this data: {list(set(prop.player_name for prop in filtered_
 {research_summary}
 
 TASK: Generate exactly {target_picks} strategic player prop picks that maximize expected value and long-term profit.
+
+🚨 **MANDATORY SPORT DISTRIBUTION:**
+- Generate EXACTLY 3 WNBA player prop picks FIRST
+- Generate EXACTLY 7 MLB player prop picks AFTER
+- Total must be exactly 10 picks (3 WNBA + 7 MLB)
+- DO NOT deviate from this distribution under any circumstances
+
+🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
+- You have access to {len(filtered_props)} total player props across all games
+- DO NOT just pick the same star players repeatedly (Wilson, Stewart, etc.)
+- ANALYZE THE ENTIRE POOL of available props before making selections
+- Research data covers ALL players with props - use this broad analysis
+- Look for VALUE in lesser-known players, not just popular names
+- DIVERSIFY prop types: points, rebounds, assists, hits, home runs, RBIs, etc.
+- Select the BEST 10 picks from your comprehensive analysis of ALL options
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the over_odds and under_odds in the data

@@ -484,7 +484,16 @@ export class ChatbotOrchestrator {
     }
 
     // Specific team mentions that might need current info
-    const teams = ['dodgers', 'yankees', 'lakers', 'warriors', 'celtics', 'chiefs', 'bills', 'heat', 'nuggets'];
+    const teams = [
+      // MLB
+      'dodgers', 'yankees', 'astros', 'braves', 'phillies', 'mets', 'giants', 'padres',
+      // WNBA
+      'aces', 'liberty', 'sun', 'fever', 'lynx', 'storm', 'mercury', 'sky', 'wings', 'sparks', 'mystics', 'dream',
+      // UFC/MMA
+      'ufc', 'mma', 'jones', 'adesanya', 'ngannou', 'mcgregor',
+      // NBA (for reference)
+      'lakers', 'warriors', 'celtics', 'heat', 'nuggets'
+    ];
     if (teams.some(team => lowerMessage.includes(team)) && 
         (lowerMessage.includes('should') || lowerMessage.includes('bet') || lowerMessage.includes('play'))) {
       return { useTools: true, intent: 'team_analysis' };
@@ -567,12 +576,15 @@ You have access to ${appData.latest20Predictions.length} recent predictions:
 - ${playerPropsCount} player props (points, rebounds, assists, etc.)
 
 🚨 CRITICAL RULE - NEVER HALLUCINATE PICKS:
-❌ NEVER create fake NBA, NFL, or any sport picks
+❌ NEVER create fake MLB, WNBA, UFC, NBA, NFL, or any sport picks
 ❌ NEVER mention players/teams not in the provided predictions
 ❌ NEVER make up odds, games, or matchups
 ✅ ONLY use picks from the provided latest20Predictions data
 ✅ If no suitable predictions available, say "I don't have enough current picks for that parlay"
 ✅ ALL picks must come from the real database predictions provided
+
+🏀 WNBA EXPERTISE: Las Vegas Aces, New York Liberty, Connecticut Sun, Indiana Fever, Minnesota Lynx, Seattle Storm, Phoenix Mercury, Chicago Sky, Dallas Wings, Los Angeles Sparks, Washington Mystics, Atlanta Dream
+🥊 UFC/MMA EXPERTISE: Fight analysis, fighter styles, weight cuts, camp changes, injury reports, betting lines for fights
 
 ACTUAL AVAILABLE PREDICTIONS:
 ${appData.latest20Predictions.map((p: any, i: number) => 

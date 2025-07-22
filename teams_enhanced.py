@@ -62,61 +62,87 @@ class StatMuseClient:
 
 class WebSearchClient:
     def __init__(self):
-        self.backend_url = os.getenv("BACKEND_URL", "https://zooming-rebirth-production-a305.up.railway.app")
-        self.user_id = "ai_teams_agent"
+        self.google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+        self.search_engine_id = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+        self.google_search_url = "https://www.googleapis.com/customsearch/v1"
+        
+        if not self.google_api_key or not self.search_engine_id:
+            logger.warning("Google Search API credentials not found. Web search will use fallback.")
     
     def search(self, query: str) -> Dict[str, Any]:
-        logger.info(f"Web search: {query}")
+        logger.info(f"🌐 Web search: {query}")
         
         try:
-            search_prompt = f"Search the web for current information about: {query}. Focus on finding recent, relevant information that would be useful for sports betting analysis. Provide a clear summary of what you found."
-            
-            url = f"{self.backend_url}/api/ai/chat"
-            payload = {
-                "message": search_prompt,
-                "userId": self.user_id,
-                "context": {
-                    "screen": "web_search_agent",
-                    "userTier": "pro",
-                    "task": "web_search"
-                },
-                "conversationHistory": []
-            }
-            
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
-            
-            if response.status_code == 200:
-                result = response.json()
-                search_response = result.get("response", "No results found")
-                
-                web_result = {
-                    "query": query,
-                    "results": [{
-                        "title": "AI Web Search Result",
-                        "snippet": search_response[:300] + "..." if len(search_response) > 300 else search_response,
-                        "url": "AI-generated"
-                    }],
-                    "summary": search_response[:500] + "..." if len(search_response) > 500 else search_response
-                }
-                
-                logger.info(f"🌐 Web search result: {web_result["summary"][:150]}{"..." if len(web_result["summary"]) > 150 else ""}")
-                return web_result
-                
+            # Try Google Custom Search first
+            if self.google_api_key and self.search_engine_id:
+                return self._google_search(query)
             else:
-                logger.warning(f"Web search API failed: {response.status_code}")
-                return {
-                    "query": query,
-                    "results": [],
-                    "summary": f"Web search API error: {response.status_code}"
-                }
+                logger.warning("Google Search API not configured, using fallback")
+                return self._fallback_search(query)
                 
         except Exception as e:
-            logger.warning(f"Web search failed for '{query}': {e}")
-            return {
-                "query": query,
-                "results": [],
-                "summary": f"Search failed: {str(e)}"
+            logger.error(f"Web search failed: {e}")
+            return self._fallback_search(query)
+    
+    def _google_search(self, query: str) -> Dict[str, Any]:
+        """Perform real Google Custom Search"""
+        try:
+            params = {
+                "q": query,
+                "key": self.google_api_key,
+                "cx": self.search_engine_id,
+                "num": 5  # Limit to 5 results
             }
+            
+            response = requests.get(self.google_search_url, params=params, timeout=15)
+            response.raise_for_status()
+            
+            data = response.json()
+            items = data.get("items", [])
+            
+            results = []
+            for item in items:
+                results.append({
+                    "title": item.get("title", ""),
+                    "snippet": item.get("snippet", ""),
+                    "url": item.get("link", ""),
+                    "source": "Google Search"
+                })
+            
+            # Create summary from top results
+            summary_parts = []
+            for result in results[:3]:  # Use top 3 results for summary
+                if result["snippet"]:
+                    summary_parts.append(f"{result['title']}: {result['snippet']}")
+            
+            summary = " | ".join(summary_parts) if summary_parts else "No relevant information found."
+            
+            web_result = {
+                "query": query,
+                "results": results,
+                "summary": summary[:800] + "..." if len(summary) > 800 else summary
+            }
+            
+            logger.info(f"🌐 Google search returned {len(results)} results for: {query}")
+            return web_result
+            
+        except Exception as e:
+            logger.error(f"Google search failed: {e}")
+            return self._fallback_search(query)
+    
+    def _fallback_search(self, query: str) -> Dict[str, Any]:
+        """Fallback when Google Search is unavailable"""
+        logger.warning(f"Using fallback search for: {query}")
+        return {
+            "query": query,
+            "results": [{
+                "title": "Search Unavailable",
+                "snippet": "Real-time web search is currently unavailable. Using cached data where possible.",
+                "url": "N/A",
+                "source": "Fallback"
+            }],
+            "summary": f"Web search unavailable for query: {query}. Using available data sources."
+        }
 
 class DatabaseClient:
     def __init__(self):
@@ -364,7 +390,7 @@ class IntelligentTeamsAgent:
         self.statmuse_base_url = "http://localhost:5001"
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute picks across sports: MLB (primary), WNBA (some), UFC (little)"""
+        """Distribute picks across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
         sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -379,23 +405,23 @@ class IntelligentTeamsAgent:
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # Distribution strategy: MLB 70%, WNBA 25%, UFC 5%
+        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
         distribution = {
-            "MLB": max(1, int(target_picks * 0.7)) if sport_counts["MLB"] > 0 else 0,
-            "WNBA": max(1, int(target_picks * 0.25)) if sport_counts["WNBA"] > 0 else 0,
-            "MMA": max(1, int(target_picks * 0.05)) if sport_counts["MMA"] > 0 else 0
+            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
+            "MLB": 7 if sport_counts["MLB"] > 0 else 0,     # MLB second
+            "MMA": 0  # No MMA for now, focus on WNBA + MLB
         }
         
         # Adjust if we don't have enough games in a sport
-        for sport in ["MLB", "WNBA", "MMA"]:
-            if distribution[sport] > sport_counts[sport]:
-                distribution[sport] = sport_counts[sport]
-        
-        # Redistribute remaining picks to MLB if needed
-        total_distributed = sum(distribution.values())
-        if total_distributed < target_picks and sport_counts["MLB"] > distribution["MLB"]:
-            remaining = target_picks - total_distributed
-            distribution["MLB"] += min(remaining, sport_counts["MLB"] - distribution["MLB"])
+        if distribution["WNBA"] > sport_counts["WNBA"]:
+            # If not enough WNBA games, give remaining to MLB
+            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
+            distribution["WNBA"] = sport_counts["WNBA"]
+            distribution["MLB"] += remaining_wnba
+            
+        if distribution["MLB"] > sport_counts["MLB"]:
+            # If not enough MLB games, cap at available
+            distribution["MLB"] = sport_counts["MLB"]
         
         logger.info(f"Pick distribution: {distribution}")
         return distribution
@@ -468,20 +494,51 @@ class IntelligentTeamsAgent:
         sports_in_data = set(game.get('sport', 'Unknown') for game in games)
         sports_summary = ", ".join(sports_in_data)
         
-        prompt = f"""You are an elite multi-sport betting analyst and data scientist with years of experience in MLB, WNBA, and UFC. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST team bets across all available sports.
+        # STEP 3: Calculate balanced research allocation for team bets
+        mlb_games = len([g for g in games if g.get('sport') == 'MLB'])
+        wnba_games = len([g for g in games if g.get('sport') in ['WNBA', "Women's National Basketball Association"]])
+        total_games = mlb_games + wnba_games
+        
+        if total_games > 0:
+            wnba_research_ratio = min(0.4, wnba_games / total_games)  # Cap WNBA at 40%
+            mlb_research_ratio = 1.0 - wnba_research_ratio
+        else:
+            wnba_research_ratio = 0.3
+            mlb_research_ratio = 0.7
+        
+        # Target: 8-12 WNBA teams for 3 picks, 15-20 MLB teams for 7 picks
+        target_wnba_queries = min(12, max(8, int(15 * wnba_research_ratio)))
+        target_mlb_queries = min(20, max(15, int(15 * mlb_research_ratio)))
+        
+        prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE team research strategy.
 
-# CONTEXT
-You have access to {len(games)} upcoming games across multiple sports ({sports_summary}) and {len(bets)} team bets with live odds from multiple sportsbooks.
+# CRITICAL REQUIREMENTS - BALANCED TEAM RESEARCH STRATEGY:
 
-**CRITICAL**: Generate research queries for ALL sports present in the data, not just MLB.
+## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
+- **WNBA Team Research**: {target_wnba_queries} different teams/matchups (for 3 final picks)
+- **MLB Team Research**: {target_mlb_queries} different teams/matchups (for 7 final picks)
+- **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
+- **Web Searches**: 5 total (3 MLB injury/lineup/weather, 2 WNBA injury/lineup)
 
-# CURRENT STATMUSE CONTEXT (from main pages):
+## DIVERSITY REQUIREMENTS FOR TEAMS:
+- **NO REPETITIVE POPULAR TEAMS**: Avoid Yankees, Dodgers, Lakers-style teams every time
+- **RESEARCH DIFFERENT TEAMS**: Mix contenders, underdogs, value plays, different divisions
+- **VARIED BET TYPES**: Don't just research moneyline - include spreads, totals, team props
+- **MATCHUP VARIETY**: Research different types of matchups (pitcher vs hitter friendly, pace, etc.)
+- **AVOID BIAS**: Don't just research "sexy" teams - find value in overlooked matchups
+
+# AVAILABLE DATA:
+Games: {len(games)} across {sports_summary}
+MLB Games: {mlb_games}, WNBA Games: {wnba_games}
+Total Team Bets: {len(bets)}
+
+# CURRENT STATMUSE CONTEXT:
 {json.dumps(statmuse_context, indent=2)}
 
-UPCOMING GAMES:
+UPCOMING GAMES SAMPLE:
 {json.dumps(games[:10], indent=2, default=str)}
 
-SAMPLE AVAILABLE BETS (showing first 30 of {len(bets)}):
+AVAILABLE TEAM BETS SAMPLE:
 {json.dumps([{
     "home_team": b.home_team,
     "away_team": b.away_team,
@@ -491,6 +548,12 @@ SAMPLE AVAILABLE BETS (showing first 30 of {len(bets)}):
     "line": b.line,
     "bookmaker": b.bookmaker
 } for b in bets[:30]], indent=2)}
+
+# YOUR TASK:
+Generate a research plan that follows the EXACT allocation above and focuses on DIVERSE teams from the actual games data.
+
+**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups (mix of contenders, underdogs, pace plays)
+**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups (variety of divisions, ballparks, situations)"
 
 # YOUR TOOLS
 
@@ -528,50 +591,39 @@ You can search the web for:
 - Recent team interviews or motivation factors
 - Public betting trends and sharp money movements
 
-# YOUR MISSION
+# RESEARCH STRATEGY:
 
-Create an intelligent research strategy that will give you maximum edge. Think like a professional sharp bettor:
-
-1. **IDENTIFY VALUE**: Which bets have the best odds vs true probability?
-2. **FIND EDGES**: What specific situations, matchups, or trends can you exploit?
-3. **PROPORTIONAL RESEARCH**: Allocate research queries proportionally to the sports breakdown above. If you have 70% MLB games and 30% WNBA games, then research should be ~70% MLB queries and ~30% WNBA queries.
-4. **BE STRATEGIC**: Focus on the most profitable research, not everything
-5. **THINK DEEP**: Consider park factors, weather, recent form, motivation, public sentiment, etc.
+1. **FOLLOW EXACT ALLOCATION**: Use the precise query counts specified above
+2. **MAXIMIZE DIVERSITY**: Research different teams, not the same popular ones repeatedly
+3. **FIND VALUE**: Focus on overlooked matchups and mispriced lines
+4. **STRATEGIC DEPTH**: Consider park factors, weather, recent form, motivation, public sentiment
 
 # RESPONSE FORMAT
 
 Return ONLY a valid JSON object with this structure:
 
 {{
-    "research_strategy": "Brief summary of your overall approach and reasoning",
-    "priority_bets": [
-        {{
-            "home_team": "Home Team Name",
-            "away_team": "Away Team Name",
-            "bet_type": "moneyline",
-            "reasoning": "Why this bet caught your attention",
-            "edge_hypothesis": "Your theory on why this might be mispriced"
-        }}
-    ],
+    "research_strategy": "Balanced diverse research strategy focusing on team diversity",
     "statmuse_queries": [
+        // {target_wnba_queries} WNBA team queries (different teams, varied bet types)
+        // {target_mlb_queries} MLB team queries (different teams, varied bet types)
         {{
-            "query": "Specific StatMuse question",
-            "purpose": "What you're trying to learn",
-            "priority": "high"
+            "query": "[Diverse Team Name] [varied stat/matchup] this season",
+            "priority": "high/medium/low",
+            "sport": "WNBA/MLB"
         }}
     ],
     "web_searches": [
+        // 3 MLB injury/lineup/weather searches, 2 WNBA injury/lineup searches
         {{
-            "query": "Web search query",
-            "purpose": "What information you need",
-            "priority": "high"
+            "query": "[Team Name] injury status lineup news weather",
+            "priority": "high/medium/low",
+            "sport": "WNBA/MLB"
         }}
-    ],
-    "key_factors": ["List of the most important factors you'll analyze"],
-    "expected_insights": "What you expect to discover from this research"
+    ]
 }}
 
-Be strategic, be smart, and focus on finding real edges. Quality over quantity - better to research 10 bets deeply than 50 superficially."""
+**CRITICAL**: Use REAL diverse teams from the games data above. NO repetitive Yankees/Dodgers/popular teams pattern!"""
         
         try:
             response = await self.grok_client.chat.completions.create(
@@ -624,7 +676,11 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
     async def _execute_initial_research(self, plan: Dict[str, Any]) -> List[ResearchInsight]:
         insights = []
         
-        statmuse_queries = plan.get("statmuse_queries", [])[:8]
+        # BALANCED RESEARCH LIMITS: More focus on MLB since 7 picks needed vs 3 WNBA picks
+        max_statmuse = min(15, len(plan.get("statmuse_queries", [])))
+        max_web = min(10, len(plan.get("web_searches", [])))
+        
+        statmuse_queries = plan.get("statmuse_queries", [])[:max_statmuse]
         for query_obj in statmuse_queries:
             try:
                 query_text = query_obj.get("query", query_obj) if isinstance(query_obj, dict) else query_obj
@@ -653,7 +709,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             except Exception as e:
                 logger.error(f"❌ StatMuse query failed for '{query_text}': {e}")
         
-        web_searches = plan.get("web_searches", [])[:3]
+        web_searches = plan.get("web_searches", [])[:max_web]
         for search_obj in web_searches:
             try:
                 search_query = search_obj.get("query", search_obj) if isinstance(search_obj, dict) else search_obj
@@ -925,6 +981,12 @@ Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]
 {research_summary}
 
 TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
+
+🚨 **MANDATORY SPORT DISTRIBUTION:**
+- Generate EXACTLY 3 WNBA team picks FIRST
+- Generate EXACTLY 7 MLB team picks AFTER
+- Total must be exactly 10 picks (3 WNBA + 7 MLB)
+- DO NOT deviate from this distribution under any circumstances
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data

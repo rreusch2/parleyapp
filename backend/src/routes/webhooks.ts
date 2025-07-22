@@ -89,20 +89,155 @@ router.post('/google', express.json(), async (req, res) => {
 // Process Apple notification
 async function processAppleNotification(signedPayload: string) {
   try {
-    // In production, you would:
-    // 1. Verify the JWT signature using Apple's public key
-    // 2. Decode the JWT payload
-    // 3. Process the notification based on notificationType
-    
     console.log('🔄 Processing Apple notification...');
     
-    // For now, just log that we received it
-    // TODO: Implement proper JWT verification and processing
-    console.log('✅ Apple notification processed (stub)');
+    // Decode the JWT payload (basic implementation)
+    // In production, you should verify the JWT signature using Apple's public key
+    const parts = signedPayload.split('.');
+    if (parts.length !== 3) {
+      console.error('❌ Invalid JWT format');
+      return;
+    }
+    
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    console.log('📦 Decoded Apple notification payload:', payload);
+    
+    const notificationType = payload.notificationType;
+    const subtype = payload.subtype;
+    const data = payload.data;
+    
+    if (!data || !data.appAppleId) {
+      console.log('ℹ️ No app data in notification, skipping...');
+      return;
+    }
+    
+    // Extract transaction info
+    const transactionInfo = data.signedTransactionInfo;
+    const renewalInfo = data.signedRenewalInfo;
+    
+    if (!transactionInfo) {
+      console.log('ℹ️ No transaction info in notification');
+      return;
+    }
+    
+    // Decode transaction info
+    const transactionParts = transactionInfo.split('.');
+    if (transactionParts.length !== 3) {
+      console.error('❌ Invalid transaction JWT format');
+      return;
+    }
+    
+    const transaction = JSON.parse(Buffer.from(transactionParts[1], 'base64').toString());
+    console.log('💳 Transaction details:', {
+      originalTransactionId: transaction.originalTransactionId,
+      productId: transaction.productId,
+      purchaseDate: transaction.purchaseDate,
+      expiresDate: transaction.expiresDate,
+      transactionId: transaction.transactionId
+    });
+    
+    // Find user by original transaction ID or app account token
+    let userId = null;
+    
+    // Try to find user by RevenueCat customer ID (stored in revenuecat_customer_id)
+    if (transaction.appAccountToken) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('revenuecat_customer_id', transaction.appAccountToken)
+        .single();
+      
+      if (profile) {
+        userId = profile.id;
+        console.log('✅ Found user by app account token:', userId);
+      }
+    }
+    
+    // If not found, try to find by apple receipt data
+    if (!userId && transaction.originalTransactionId) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('apple_receipt_data', `%${transaction.originalTransactionId}%`)
+        .single();
+      
+      if (profile) {
+        userId = profile.id;
+        console.log('✅ Found user by original transaction ID:', userId);
+      }
+    }
+    
+    if (!userId) {
+      console.log('⚠️ Could not find user for transaction, storing for manual processing');
+      // Store for manual processing later
+      await supabaseAdmin
+        .from('webhook_events')
+        .update({
+          processed: false,
+          error_message: 'User not found',
+          revenuecat_customer_id: transaction.appAccountToken,
+          subscription_event_type: notificationType
+        })
+        .eq('notification_data->signedPayload', signedPayload);
+      return;
+    }
+    
+    // Process based on notification type
+    console.log(`🔔 Processing ${notificationType} for user ${userId}`);
+    
+    switch (notificationType) {
+      case 'SUBSCRIBED':
+      case 'DID_RENEW':
+        await handleSubscriptionRenewal(userId, transaction.productId, transaction.expiresDate / 1000);
+        break;
+        
+      case 'DID_CHANGE_RENEWAL_STATUS':
+        if (subtype === 'AUTO_RENEW_DISABLED') {
+          await handleSubscriptionCancellation(userId, transaction.productId, transaction.expiresDate / 1000);
+        }
+        break;
+        
+      case 'EXPIRED':
+        await handleSubscriptionExpiration(userId, transaction.productId);
+        break;
+        
+      case 'DID_FAIL_TO_RENEW':
+        await handlePaymentFailure(userId, transaction.productId);
+        break;
+        
+      case 'REFUND':
+        await handleRefund(userId, transaction.productId);
+        break;
+        
+      default:
+        console.log(`ℹ️ Unhandled notification type: ${notificationType}`);
+    }
+    
+    // Mark webhook as processed
+    await supabaseAdmin
+      .from('webhook_events')
+      .update({
+        processed: true,
+        processed_at: new Date().toISOString(),
+        revenuecat_customer_id: transaction.appAccountToken,
+        subscription_event_type: notificationType
+      })
+      .eq('notification_data->signedPayload', signedPayload);
+      
+    console.log('✅ Apple notification processed successfully');
     
   } catch (error) {
     console.error('❌ Error processing Apple notification:', error);
-    throw error;
+    
+    // Mark webhook as failed
+    await supabaseAdmin
+      .from('webhook_events')
+      .update({
+        processed: false,
+        error_message: error.message,
+        retry_count: 1 // Simple increment instead of raw SQL
+      })
+      .eq('notification_data->signedPayload', signedPayload);
   }
 };
 
