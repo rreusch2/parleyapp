@@ -483,18 +483,36 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
               {/* Apple-Required Subscription Information - Inside ScrollView */}
               <View style={styles.appleRequiredInfo}>
-                <Text style={styles.subscriptionInfoTitle}>
-                  {selectedPlan === 'monthly' ? 'Monthly Pro Subscription'
-                  : selectedPlan === 'yearly' ? 'Yearly Pro Subscription'
-                  : 'Lifetime Pro Purchase'}
-                </Text>
-                <Text style={styles.subscriptionInfoText}>
-                  {selectedPlan === 'monthly'
-                    ? '$24.99 per month, auto-renewable'
-                    : selectedPlan === 'yearly'
-                      ? '$199.99 per year, auto-renewable'
-                      : '$349.99 one-time payment'}
-                </Text>
+                {/* Dynamically show Apple-required subscription information */}
+                {(() => {
+                  const planInfo = {
+                    weekly: {
+                      title: 'Weekly Pro Subscription',
+                      price: '$12.49 per week, auto-renewable',
+                    },
+                    monthly: {
+                      title: 'Monthly Pro Subscription',
+                      price: '$24.99 per month, auto-renewable',
+                    },
+                    yearly: {
+                      title: 'Yearly Pro Subscription',
+                      price: '$199.99 per year, auto-renewable',
+                    },
+                    lifetime: {
+                      title: 'Lifetime Pro Purchase',
+                      price: '$349.99 one-time payment',
+                    },
+                  } as const;
+
+                  const { title, price } = planInfo[selectedPlan] ?? planInfo.lifetime;
+
+                  return (
+                    <>
+                      <Text style={styles.subscriptionInfoTitle}>{title}</Text>
+                      <Text style={styles.subscriptionInfoText}>{price}</Text>
+                    </>
+                  );
+                })()}
                 
                 <View style={styles.termsRow}>
                   <Text style={[styles.subscriptionInfoText, { marginBottom: 8 }]}>By subscribing you agree to our:</Text>
