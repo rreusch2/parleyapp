@@ -980,13 +980,13 @@ Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]
 **RAW RESEARCH DATA:**
 {research_summary}
 
-TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
+TASK: Generate {target_picks + 3} strategic team picks that maximize expected value and long-term profit. We need extra picks to compensate for potential filtering losses.
 
-🚨 **MANDATORY SPORT DISTRIBUTION:**
-- Generate EXACTLY 3 WNBA team picks FIRST
-- Generate EXACTLY 7 MLB team picks AFTER
-- Total must be exactly 10 picks (3 WNBA + 7 MLB)
-- DO NOT deviate from this distribution under any circumstances
+🎯 **PICK DISTRIBUTION REQUIREMENTS:**
+- Generate 4-5 WNBA team picks FIRST (we need at least 3 final picks after filtering)
+- Generate 8-10 MLB team picks AFTER (we need at least 7 final picks after filtering)
+- TOTAL: Generate {target_picks + 3} picks to compensate for potential filtering losses
+- GOAL: Ensure we get exactly {target_picks} valid picks after bet matching and filtering
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data
@@ -1144,12 +1144,21 @@ REMEMBER:
                         game = next((g for g in games if str(g.get("id")) == str(matching_bet.event_id)), None)
                         
                         # Use safer dictionary access with get() for all fields
+                        # Determine sport from game data - map from database sport names to display names
+                        game_sport = game.get("sport", "MLB") if game else "MLB"
+                        if game_sport == "Women's National Basketball Association":
+                            display_sport = "WNBA"
+                        elif game_sport == "Ultimate Fighting Championship":
+                            display_sport = "MMA"
+                        else:
+                            display_sport = "MLB"  # Default to MLB for unknown or MLB games
+                        
                         formatted_picks.append({
                             "match_teams": f"{matching_bet.home_team} vs {matching_bet.away_team}",
                             "pick": self._format_pick_string(pick, matching_bet),
                             "odds": pick.get("odds", matching_bet.odds),
                             "confidence": pick.get("confidence", 75),
-                            "sport": "MLB",
+                            "sport": display_sport,
                             "event_time": game.get("start_time") if game else None,
                             "bet_type": pick.get("bet_type", "team_bet"),
                             "bookmaker": matching_bet.bookmaker,
@@ -1180,6 +1189,13 @@ REMEMBER:
                 except Exception as pick_error:
                     logger.error(f"Error processing individual pick {pick}: {pick_error}")
                     # Continue processing other picks even if one fails
+            
+            # Ensure we have exactly the target number of picks
+            # If we have fewer than target due to filtering/matching failures, log the shortfall
+            if len(formatted_picks) < target_picks:
+                shortfall = target_picks - len(formatted_picks)
+                logger.warning(f"⚠️  Pick shortfall: Generated {len(formatted_picks)} picks, need {target_picks}. Missing {shortfall} picks due to bet matching failures.")
+                logger.info(f"💡 Tip: Some AI picks couldn't find matching odds (likely filtered as long shots or unavailable bet types)")
             
             final_picks = formatted_picks[:target_picks]
             

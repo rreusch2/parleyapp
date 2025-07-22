@@ -31,7 +31,7 @@ interface AboutModalProps {
 
 export default function AboutModal({ visible, onClose }: AboutModalProps) {
   const achievements = [
-    { icon: Brain, label: 'AI-Powered Predictions', value: '67%+ Win Rate' },
+    { icon: Brain, label: 'AI-Powered Predictions', value: '60%+ Win Rate' },
     { icon: Zap, label: 'Real-Time Analysis', value: 'Live Odds & Data' },
     { icon: Trophy, label: 'Multi-Sport Coverage', value: '5+ Major Leagues' },
     { icon: Target, label: 'Precision Technology', value: 'DeepSeek AI' },

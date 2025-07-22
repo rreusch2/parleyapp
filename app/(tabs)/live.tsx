@@ -14,7 +14,7 @@ import {
   TextInput
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { normalize, isTablet } from '@/app/services/device';
+import { normalize, isTablet } from '../services/device';
 import { 
   ChevronRight, 
   Clock, 
@@ -34,14 +34,14 @@ import {
   AlertCircle,
   Building2
 } from 'lucide-react-native';
-import { sportsApi } from '@/app/services/api/sportsApi';
-import type { SportsEvent } from '@/app/services/api/sportsApi';
+import { sportsApi } from '../services/api/sportsApi';
+import type { SportsEvent } from '../services/api/sportsApi';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
-import { aiService, AIPrediction } from '@/app/services/api/aiService';
-import { useSubscription } from '@/app/services/subscriptionContext';
+import { supabase } from '../services/api/supabaseClient';
+import { aiService, AIPrediction } from '../services/api/aiService';
+import { useSubscription } from '../services/subscriptionContext';
 
-import { useAIChat } from '@/app/services/aiChatContext';
+import { useAIChat } from '../services/aiChatContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -470,7 +470,17 @@ export default function GamesScreen() {
     let filtered = upcomingGames;
 
     if (selectedSport !== 'all') {
-      filtered = filtered.filter(game => game.league.toLowerCase() === selectedSport.toLowerCase());
+      // Fix UFC/MMA filtering issue
+      if (selectedSport === 'UFC') {
+        // UFC tab should show MMA games (since UFC fights are stored as MMA)
+        filtered = filtered.filter(game => game.league.toLowerCase() === 'mma');
+      } else if (selectedSport === 'MMA') {
+        // MMA tab should show MMA games
+        filtered = filtered.filter(game => game.league.toLowerCase() === 'mma');
+      } else {
+        // All other sports filter normally
+        filtered = filtered.filter(game => game.league.toLowerCase() === selectedSport.toLowerCase());
+      }
     }
 
     if (searchQuery.trim()) {
@@ -482,7 +492,11 @@ export default function GamesScreen() {
       );
     }
 
-    // Pro filters removed
+    console.log(`🔍 Filtered games for sport '${selectedSport}':`, filtered.length);
+    console.log('Games by league:', filtered.reduce((acc, game) => {
+      acc[game.league] = (acc[game.league] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>));
 
     return filtered;
   };
@@ -611,13 +625,17 @@ export default function GamesScreen() {
             </View>
           </View>
 
-          {/* Teams and Odds Grid */}
+          {/* Teams and Odds Grid - Conditional layout for MMA vs other sports */}
           <View style={styles.teamsOddsContainer}>
-            {/* Column Headers */}
+            {/* Column Headers - Different for MMA */}
             <View style={styles.oddsHeaders}>
               <View style={styles.teamColumn} />
-              <Text style={styles.oddsHeader}>Spread</Text>
-              <Text style={styles.oddsHeader}>Total</Text>
+              {game.league.toLowerCase() !== 'mma' && (
+                <>
+                  <Text style={styles.oddsHeader}>Spread</Text>
+                  <Text style={styles.oddsHeader}>Total</Text>
+                </>
+              )}
               <Text style={styles.oddsHeader}>Money</Text>
             </View>
 
@@ -626,32 +644,39 @@ export default function GamesScreen() {
               <View style={styles.teamInfo}>
                 <Text style={styles.modernTeamName}>{game.away_team}</Text>
                 <Text style={styles.teamRecord}>
-                  {game.stats.away_score !== null ? game.stats.away_score : ''}
+                  {game.stats?.away_score !== null ? game.stats.away_score : ''}
                 </Text>
               </View>
               
-              {/* Spread */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.spreadLine}>
-                  {selectedBookData?.spread.away.startsWith('-') ? selectedBookData.spread.away : `+${selectedBookData?.spread.away || '1.5'}`}
-                </Text>
-                <Text style={styles.oddsPrice}>
-                  {selectedBookData?.spread.line.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
-                </Text>
-              </TouchableOpacity>
+              {/* Only show spread and total for non-MMA sports */}
+              {game.league.toLowerCase() !== 'mma' && (
+                <>
+                  {/* Spread */}
+                  <TouchableOpacity style={styles.oddsButton}>
+                    <Text style={styles.spreadLine} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.spread.away?.startsWith('-') ? selectedBookData.spread.away : `+${selectedBookData?.spread.away || '1.5'}`}
+                    </Text>
+                    <Text style={styles.oddsPrice} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.spread.line?.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
+                    </Text>
+                  </TouchableOpacity>
 
-              {/* Total */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.totalLine}>O{selectedBookData?.total.over || '8.5'}</Text>
-                <Text style={styles.oddsPrice}>
-                  {selectedBookData?.total.line.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
-                </Text>
-              </TouchableOpacity>
+                  {/* Total */}
+                  <TouchableOpacity style={styles.oddsButton}>
+                    <Text style={styles.totalLine} numberOfLines={1} adjustsFontSizeToFit>
+                      O{selectedBookData?.total.over || '8.5'}
+                    </Text>
+                    <Text style={styles.oddsPrice} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.total.line?.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
-              {/* Moneyline */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.moneylineOdds}>
-                  {selectedBookData?.moneyline.away.startsWith('-') ? selectedBookData.moneyline.away : `+${selectedBookData?.moneyline.away || '150'}`}
+              {/* Moneyline - Always show */}
+              <TouchableOpacity style={[styles.oddsButton, game.league.toLowerCase() === 'mma' && styles.mmaMoneylineButton]}>
+                <Text style={[styles.moneylineOdds, game.league.toLowerCase() === 'mma' && styles.mmaMoneylineOdds]} numberOfLines={1} adjustsFontSizeToFit>
+                  {selectedBookData?.moneyline.away?.startsWith('-') ? selectedBookData.moneyline.away : `+${selectedBookData?.moneyline.away || '150'}`}
                 </Text>
                 <Text style={styles.oddsPrice}> </Text>
               </TouchableOpacity>
@@ -662,32 +687,39 @@ export default function GamesScreen() {
               <View style={styles.teamInfo}>
                 <Text style={styles.modernTeamName}>{game.home_team}</Text>
                 <Text style={styles.teamRecord}>
-                  {game.stats.home_score !== null ? game.stats.home_score : ''}
+                  {game.stats?.home_score !== null ? game.stats.home_score : ''}
                 </Text>
               </View>
               
-              {/* Spread */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.spreadLine}>
-                  {selectedBookData?.spread.home.startsWith('-') ? selectedBookData.spread.home : `+${selectedBookData?.spread.home || '1.5'}`}
-                </Text>
-                <Text style={styles.oddsPrice}>
-                  {selectedBookData?.spread.line.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
-                </Text>
-              </TouchableOpacity>
+              {/* Only show spread and total for non-MMA sports */}
+              {game.league.toLowerCase() !== 'mma' && (
+                <>
+                  {/* Spread */}
+                  <TouchableOpacity style={styles.oddsButton}>
+                    <Text style={styles.spreadLine} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.spread.home?.startsWith('-') ? selectedBookData.spread.home : `+${selectedBookData?.spread.home || '1.5'}`}
+                    </Text>
+                    <Text style={styles.oddsPrice} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.spread.line?.startsWith('-') ? selectedBookData.spread.line : `+${selectedBookData?.spread.line || '110'}`}
+                    </Text>
+                  </TouchableOpacity>
 
-              {/* Total */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.totalLine}>U{selectedBookData?.total.under || '8.5'}</Text>
-                <Text style={styles.oddsPrice}>
-                  {selectedBookData?.total.line.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
-                </Text>
-              </TouchableOpacity>
+                  {/* Total */}
+                  <TouchableOpacity style={styles.oddsButton}>
+                    <Text style={styles.totalLine} numberOfLines={1} adjustsFontSizeToFit>
+                      U{selectedBookData?.total.under || '8.5'}
+                    </Text>
+                    <Text style={styles.oddsPrice} numberOfLines={1} adjustsFontSizeToFit>
+                      {selectedBookData?.total.line?.startsWith('-') ? selectedBookData.total.line : `+${selectedBookData?.total.line || '110'}`}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
-              {/* Moneyline */}
-              <TouchableOpacity style={styles.oddsButton}>
-                <Text style={styles.moneylineOdds}>
-                  {selectedBookData?.moneyline.home.startsWith('-') ? selectedBookData.moneyline.home : `+${selectedBookData?.moneyline.home || '150'}`}
+              {/* Moneyline - Always show */}
+              <TouchableOpacity style={[styles.oddsButton, game.league.toLowerCase() === 'mma' && styles.mmaMoneylineButton]}>
+                <Text style={[styles.moneylineOdds, game.league.toLowerCase() === 'mma' && styles.mmaMoneylineOdds]} numberOfLines={1} adjustsFontSizeToFit>
+                  {selectedBookData?.moneyline.home?.startsWith('-') ? selectedBookData.moneyline.home : `+${selectedBookData?.moneyline.home || '150'}`}
                 </Text>
                 <Text style={styles.oddsPrice}> </Text>
               </TouchableOpacity>
@@ -1628,6 +1660,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
     textAlignVertical: 'center',
+  },
+  mmaMoneylineButton: {
+    flex: 2, // Make MMA moneyline buttons wider since they're the only odds shown
+    minWidth: normalize(80),
+  },
+  mmaMoneylineOdds: {
+    fontSize: normalize(14), // Slightly larger for MMA since it's the primary focus
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   oddsPrice: {
     fontSize: normalize(11),
