@@ -56,13 +56,12 @@ interface GameData {
 const THEODDS_API_KEY = process.env.THEODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
-// Only include leagues that are currently in season
-// June 2025: MLB and NBA are in season, NFL and NHL are not
+// Multi-sport leagues based on environment configuration
+// July 2025: MLB, WNBA, and UFC are active
 const ACTIVE_LEAGUES = [
   { key: 'baseball_mlb', name: 'MLB' },
-  { key: 'basketball_nba', name: 'NBA' }
-  // { key: 'mma_ufc', name: 'UFC' }, // Removed as it's not supported by the API
-  // { key: 'mma_mixed', name: 'MMA' } // Removed as it's not supported by the API
+  { key: 'basketball_wnba', name: 'WNBA' },
+  { key: 'mma_mixed_martial_arts', name: 'UFC' }
 ];
 
 // Function to fetch games for a specific sport
@@ -111,7 +110,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
         id: existingGame?.id || uuidv4(),
         external_event_id: game.id,
         sport: sportInfo.name, // Required field - set to our standard sport key (MLB, NBA, etc.)
-        sport_key: sportInfo.name, // Also set sport_key for consistency
+        sport_key: sportInfo.key, // Use TheOdds API key for foreign key constraint
         league: game.sport_title,
         home_team: game.home_team,
         away_team: game.away_team,
@@ -274,9 +273,14 @@ export async function fetchAllGameData(): Promise<number> {
   
   let totalGames = 0;
   
-  // Fetch games for each active league
-  for (const sport of ACTIVE_LEAGUES) {
-    const count = await fetchGamesWithOdds(sport);
+  // Import centralized multi-sport configuration
+  const { getActiveSportConfigs } = await import('./multiSportConfig');
+  const activeSports = getActiveSportConfigs();
+  
+  // Fetch games for each active sport from centralized config
+  for (const sportConfig of activeSports) {
+    const sportInfo = { key: sportConfig.theoddsKey, name: sportConfig.sportName };
+    const count = await fetchGamesWithOdds(sportInfo);
     totalGames += count;
   }
   

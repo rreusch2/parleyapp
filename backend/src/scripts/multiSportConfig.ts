@@ -79,9 +79,21 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
   }
 };
 
-// Get only active sports
+// Get only active sports (dynamic check)
 export const getActiveSportConfigs = (): SportConfig[] => {
-  return Object.values(SUPPORTED_SPORTS).filter(sport => sport.isActive);
+  const activeSports = getActiveSports();
+  return Object.values(SUPPORTED_SPORTS).filter(sport => {
+    if (sport.sportKey === 'MLB') {
+      return activeSports.includes('MLB') && process.env.ENABLE_MLB_DATA !== 'false';
+    }
+    if (sport.sportKey === 'WNBA') {
+      return activeSports.includes('WNBA') && process.env.ENABLE_WNBA_DATA === 'true';
+    }
+    if (sport.sportKey === 'UFC') {
+      return activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
+    }
+    return false;
+  });
 };
 
 // Bookmaker configurations

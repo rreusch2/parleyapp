@@ -167,13 +167,22 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
   }
   
   try {
+    // Get sport-specific prop markets from configuration
+    const sportConfig = Object.values(SUPPORTED_SPORTS).find(sport => sport.theoddsKey === sportKey);
+    const propMarkets = sportConfig?.propMarkets || [];
+    
+    if (propMarkets.length === 0) {
+      console.log(`  ⚠️ No prop markets configured for sport ${sportKey}`);
+      return null;
+    }
+    
     const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/events/${eventId}/odds`;
     const params = {
       apiKey,
       regions: 'us',
-      markets: MLB_PROP_MARKETS.join(','),
+      markets: propMarkets.join(','),
       oddsFormat: 'american',
-      bookmakers: PLAYER_PROPS_BOOKMAKER  // Just get DraftKings for player props
+      bookmakers: PLAYER_PROPS_BOOKMAKER  // Just get FanDuel for player props
     };
     
     console.log(`  🎯 Fetching player props for event ${eventId}...`);
@@ -193,12 +202,12 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
       
       // Check if we actually got prop markets (not just standard markets)
       let hasProps = false;
-      const foundPropMarkets = Array.from(availableMarkets).filter(market => MLB_PROP_MARKETS.includes(market));
+      const foundPropMarkets = Array.from(availableMarkets).filter(market => propMarkets.includes(market));
       console.log(`  🎯 Found ${foundPropMarkets.length} matching prop markets:`, foundPropMarkets);
       
       for (const bookmaker of data.bookmakers || []) {
         for (const market of bookmaker.markets || []) {
-          if (MLB_PROP_MARKETS.includes(market.key)) {
+          if (propMarkets.includes(market.key)) {
             hasProps = true;
             break;
           }
@@ -501,41 +510,66 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string)
 async function fetchPlayerPropsForAllGames(): Promise<void> {
   console.log('\n🎯 Fetching player props for upcoming games...');
   
-  // Get upcoming games from the database
-  const { data: games, error: gamesError } = await supabaseAdmin
-    .from('sports_events')
-    .select('id, external_event_id, sport, home_team, away_team, start_time')
-    .eq('sport', 'MLB')
-    .gte('start_time', new Date().toISOString())
-    .limit(10); // Limit to avoid rate limits
+  // Import centralized multi-sport configuration
+  const { getActiveSportConfigs } = await import('./multiSportConfig');
+  const activeSports = getActiveSportConfigs();
   
-  if (gamesError) {
-    console.error('❌ Error fetching games:', gamesError.message);
+  if (activeSports.length === 0) {
+    console.log('⚠️ No active sports configured for player props');
     return;
   }
   
-  if (!games || games.length === 0) {
-    console.log('⚠️ No upcoming MLB games found');
-    return;
-  }
+  let totalPropsFound = 0;
   
-  console.log(`📊 Found ${games.length} upcoming MLB games, fetching props...`);
-  
-  let propsFound = 0;
-  
-  for (const game of games) {
-    const propsData = await fetchPlayerPropsForGame(game.external_event_id, 'baseball_mlb');
-    
-    if (propsData) {
-      await storePlayerPropsData(propsData, game.id);
-      propsFound++;
+  // Process each active sport
+  for (const sportConfig of activeSports) {
+    // Skip sports that don't have prop markets (like UFC)
+    if (sportConfig.propMarkets.length === 0) {
+      console.log(`⚠️ Skipping ${sportConfig.sportName} - no prop markets configured`);
+      continue;
     }
     
-    // Small delay to be respectful to the API
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log(`\n📊 Fetching ${sportConfig.sportName} player props...`);
+    
+    // Get upcoming games for this sport from the database
+    const { data: games, error: gamesError } = await supabaseAdmin
+      .from('sports_events')
+      .select('id, external_event_id, sport, home_team, away_team, start_time')
+      .eq('sport', sportConfig.sportKey)
+      .gte('start_time', new Date().toISOString())
+      .limit(10); // Limit to avoid rate limits
+    
+    if (gamesError) {
+      console.error(`❌ Error fetching ${sportConfig.sportName} games:`, gamesError.message);
+      continue;
+    }
+    
+    if (!games || games.length === 0) {
+      console.log(`⚠️ No upcoming ${sportConfig.sportName} games found`);
+      continue;
+    }
+    
+    console.log(`📊 Found ${games.length} upcoming ${sportConfig.sportName} games, fetching props...`);
+    
+    let propsFound = 0;
+    
+    for (const game of games) {
+      const propsData = await fetchPlayerPropsForGame(game.external_event_id, sportConfig.theoddsKey);
+      
+      if (propsData) {
+        await storePlayerPropsData(propsData, game.id);
+        propsFound++;
+      }
+      
+      // Small delay to be respectful to the API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    console.log(`✅ Successfully fetched props for ${propsFound} out of ${games.length} ${sportConfig.sportName} games`);
+    totalPropsFound += propsFound;
   }
   
-  console.log(`✅ Successfully fetched props for ${propsFound} out of ${games.length} games`);
+  console.log(`\n✅ Total: Successfully fetched props for ${totalPropsFound} games across all active sports`);
 }
 
 async function checkCurrentGames(): Promise<void> {
