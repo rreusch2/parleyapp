@@ -41,6 +41,9 @@ export const getSportsEvents = async (req: Request, res: Response) => {
         query = query.or(`sport.eq.${leagueFilter},league.eq.${leagueFilter}`);
       }
     }
+    
+    // When no league filter is applied ("All" tab), we want all games
+    // No additional filtering needed - let all sports through
 
     if (status) {
       console.log('Filtering by status:', status);
@@ -78,7 +81,7 @@ export const getSportsEvents = async (req: Request, res: Response) => {
 
     // Paginate results
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 50; // Increased from 20 to 50 to handle all games
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 

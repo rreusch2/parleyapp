@@ -156,7 +156,7 @@ export default function GamesScreen() {
       }
       
       const response = await sportsApi.getGames(
-        leagueFilter ? { league: leagueFilter } : undefined
+        leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 }
       );
 
       // Extract games from the paginated response
