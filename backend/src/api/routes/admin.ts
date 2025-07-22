@@ -123,8 +123,7 @@ router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
         is_active,
         welcome_bonus_claimed,
         revenuecat_customer_id
-      `, { count: 'exact' })
-      .eq('is_active', true);
+      `, { count: 'exact' });
 
     // Apply search filter
     if (search) {
@@ -152,7 +151,18 @@ router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
 
     if (error) {
       console.error('Error fetching users:', error);
-      return res.status(500).json({ error: 'Failed to fetch users' });
+      console.error('Query details:', {
+        page: pageNum,
+        pageSize: pageSizeNum,
+        search,
+        tier,
+        plan,
+        sortBy
+      });
+      return res.status(500).json({ 
+        error: 'Failed to fetch users',
+        details: error.message 
+      });
     }
 
     res.json({
