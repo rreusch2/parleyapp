@@ -213,13 +213,12 @@ export default function LandingPage() {
               {/* Value Proposition */}
               <View style={styles.valueProposition}>
                 <View style={styles.featureItem}>
-                  <BarChart3 color="rgba(255,255,255,0.8)" size={16} />
-                  <Text style={styles.featureText}>Advanced Analytics</Text>
+                  <BarChart3 color="rgba(255,255,255,0.8)" size={18} />
+                  <Text style={styles.featureText}>AI Analytics</Text>
                 </View>
-                <Text style={styles.featureSeparator}>•</Text>
                 <View style={styles.featureItem}>
-                  <TrendingUp color="rgba(255,255,255,0.8)" size={16} />
-                  <Text style={styles.featureText}>Predictive Intelligence</Text>
+                  <TrendingUp color="rgba(255,255,255,0.8)" size={18} />
+                  <Text style={styles.featureText}>Smart Predictions</Text>
                 </View>
               </View>
             </View>
@@ -327,7 +326,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif',
     color: '#ffffff',
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: 1.0,
     lineHeight: isTablet ? 72 : screenWidth > 400 ? 58 : 50,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 2 },
@@ -362,30 +361,34 @@ const styles = StyleSheet.create({
   
   // Value Proposition Styles
   valueProposition: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    paddingHorizontal: 20,
+    marginTop: 16,
+    paddingHorizontal: isTablet ? 40 : 32,
+    maxWidth: '100%',
   },
   
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 6,
   },
   
   featureText: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : 14,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.8)',
     marginLeft: 6,
     letterSpacing: 0.3,
+    flexShrink: 1, // Allow text to shrink if needed
   },
   
   featureSeparator: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.6)',
-    marginHorizontal: 16,
+    marginHorizontal: isTablet ? 20 : 12,
+    flexShrink: 0, // Don't shrink the separator
   },
   
   // CTA Section Styles
