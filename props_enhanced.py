@@ -141,15 +141,29 @@ class DatabaseClient:
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
+        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
         try:
             now = datetime.now().isoformat()
             future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
             
-            response = self.supabase.table("sports_events").select(
-                "id, home_team, away_team, start_time, sport, metadata"
-            ).gt("start_time", now).lt("start_time", future).eq("sport", "MLB").order("start_time").execute()
+            # Fetch games from all supported sports
+            all_games = []
+            sports = ["MLB", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
             
-            return response.data
+            for sport in sports:
+                response = self.supabase.table("sports_events").select(
+                    "id, home_team, away_team, start_time, sport, metadata"
+                ).gt("start_time", now).lt("start_time", future).eq("sport", sport).order("start_time").execute()
+                
+                if response.data:
+                    logger.info(f"Found {len(response.data)} upcoming {sport} games with potential props")
+                    all_games.extend(response.data)
+            
+            # Sort all games by start time
+            all_games.sort(key=lambda x: x['start_time'])
+            logger.info(f"Total upcoming games for props: {len(all_games)}")
+            
+            return all_games
         except Exception as e:
             logger.error(f"Failed to fetch upcoming games: {e}")
             return []
@@ -190,7 +204,20 @@ class DatabaseClient:
     
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
         try:
-            for pred in predictions:
+            # Sort predictions: WNBA first, MLB last (so MLB shows on top in UI)
+            def sport_priority(pred):
+                sport = pred.get("sport", "MLB")
+                if sport == "WNBA":
+                    return 1  # Save first
+                elif sport == "MLB":
+                    return 3  # Save last
+                else:
+                    return 2  # Other sports in middle
+            
+            sorted_predictions = sorted(predictions, key=sport_priority)
+            logger.info(f"📊 Saving predictions in UI order: WNBA first, MLB last")
+            
+            for pred in sorted_predictions:
                 reasoning = pred.get("reasoning", "")
                 if not reasoning and pred.get("metadata"):
                     reasoning = pred["metadata"].get("reasoning", "")
@@ -241,6 +268,9 @@ class IntelligentPlayerPropsAgent:
             api_key=os.getenv("XAI_API_KEY"),
             base_url="https://api.x.ai/v1"
         )
+        # Add session for StatMuse context scraping
+        self.session = requests.Session()
+        self.statmuse_base_url = "http://localhost:5001"
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         return self.db.get_upcoming_games(hours_ahead=48)
@@ -252,19 +282,56 @@ class IntelligentPlayerPropsAgent:
         game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
+    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
+        """Distribute props across sports: MLB (primary), WNBA (secondary)"""
+        sport_counts = {"MLB": 0, "WNBA": 0}
+        
+        # Count available games by sport (map full names to abbreviations)
+        for game in games:
+            sport = game.get("sport", "")
+            if sport == "MLB":
+                sport_counts["MLB"] += 1
+            elif sport == "Women's National Basketball Association":
+                sport_counts["WNBA"] += 1
+        
+        logger.info(f"Available games by sport for props: {sport_counts}")
+        
+        # Distribution strategy: MLB 75%, WNBA 25% (only sports with player props)
+        distribution = {
+            "MLB": max(1, int(target_picks * 0.75)) if sport_counts["MLB"] > 0 else 0,
+            "WNBA": max(1, int(target_picks * 0.25)) if sport_counts["WNBA"] > 0 else 0
+        }
+        
+        # Adjust if we don't have enough games in a sport
+        for sport in ["MLB", "WNBA"]:
+            if distribution[sport] > sport_counts[sport]:
+                distribution[sport] = sport_counts[sport]
+        
+        # Redistribute remaining picks to MLB if needed
+        total_distributed = sum(distribution.values())
+        if total_distributed < target_picks and sport_counts["MLB"] > distribution["MLB"]:
+            remaining = target_picks - total_distributed
+            distribution["MLB"] += min(remaining, sport_counts["MLB"] - distribution["MLB"])
+        
+        logger.info(f"Props distribution: {distribution}")
+        return distribution
+    
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent player props analysis...")
+        logger.info("🚀 Starting intelligent multi-sport player props analysis...")
         
         games = self.db.get_upcoming_games(hours_ahead=48)
-        logger.info(f"📅 Found {len(games)} upcoming games")
+        logger.info(f"📅 Found {len(games)} upcoming games across MLB and WNBA")
         
         if not games:
             logger.warning("No upcoming games found")
             return []
         
+        # Get sport distribution for props
+        sport_distribution = self._distribute_props_by_sport(games, target_picks)
+        
         game_ids = [game["id"] for game in games]
         available_props = self.db.get_player_props_for_games(game_ids)
-        logger.info(f"🎯 Found {len(available_props)} available player props")
+        logger.info(f"🎯 Found {len(available_props)} available player props across all sports")
         
         if not available_props:
             logger.warning("No player props found")
@@ -288,106 +355,81 @@ class IntelligentPlayerPropsAgent:
         
         return picks
     
+    def scrape_statmuse_context(self) -> Dict[str, Any]:
+        """Scrape StatMuse main pages for current context and insights"""
+        try:
+            logger.info("🔍 Scraping StatMuse main pages for current context...")
+            response = self.session.get(
+                f"{self.statmuse_base_url}/scrape-context",
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('success'):
+                logger.info("✅ StatMuse context scraping successful")
+                return result.get('context', {})
+            else:
+                logger.warning(f"⚠️ StatMuse context scraping failed: {result.get('error')}")
+                return {}
+        except Exception as e:
+            logger.error(f"❌ StatMuse context scraping error: {e}")
+            return {}
+    
     async def create_research_plan(self, props: List[PlayerProp], games: List[Dict]) -> Dict[str, Any]:
-        prompt = f"""You are an elite MLB betting analyst and data scientist with years of experience. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST player prop bets for today.
+        """Create intelligent research plan based on actual available props data and current StatMuse context"""
+        
+        # STEP 1: Scrape StatMuse main pages for current context
+        statmuse_context = self.scrape_statmuse_context()
+        
+        # STEP 2: Analyze the actual props data to understand what we're working with
+        props_analysis = self._analyze_available_props(props, games)
+        
+        prompt = f"""You are an elite sports betting analyst. You have access to REAL betting props data from multiple sportsbooks AND current StatMuse insights.
 
-# CONTEXT
-You have access to {len(games)} upcoming MLB games and {len(props)} player props with live odds from multiple sportsbooks.
+Your task: Analyze the available props data and current StatMuse context to create an intelligent research strategy to find the BEST betting edges.
 
-UPCOMING GAMES:
-{json.dumps(games[:10], indent=2, default=str)}
+# AVAILABLE PROPS DATA ANALYSIS:
+{json.dumps(props_analysis, indent=2)}
 
-SAMPLE AVAILABLE PROPS (showing first 30 of {len(props)}):
-{json.dumps([{
-    "player": p.player_name,
-    "prop_type": p.prop_type,
-    "line": p.line,
-    "over_odds": p.over_odds,
-    "under_odds": p.under_odds,
-    "team": p.team,
-    "bookmaker": p.bookmaker
-} for p in props[:30]], indent=2)}
+# CURRENT STATMUSE CONTEXT (from main pages):
+{json.dumps(statmuse_context, indent=2)}
 
-# YOUR TOOLS
+# YOUR RESEARCH TOOLS:
 
-## StatMuse Tool
-You have access to a powerful StatMuse API that can answer baseball questions with real data.
+## StatMuse API
+Query real sports statistics for ACTUAL players in the data above.
 
-**SUCCESSFUL QUERY EXAMPLES** (these work well but dont feel limited to just these):
-- "Kyle Schwarber home runs this season" 
-- "Bryce Harper hits in last 10 games"
-- "Vladimir Guerrero Jr RBIs this season"
-- "Gerrit Cole strikeouts per game this season"
-- "Trea Turner batting average vs right handed pitching"
-- "Jose Altuve stolen bases in 2025"
-- "Coors Field home runs allowed this season"
-- "Yankee Stadium runs scored in day games"
+## Web Search
+Find current information about injuries, weather, lineups, etc.
 
-**QUERIES THAT MAY FAIL** (avoid these patterns):
-- Very specific situational stats ("with runners in scoring position")
-- Complex multi-condition queries ("vs left-handed pitchers in day games")
-- Obscure historical comparisons
-- Real-time injury/lineup status
-- Weather-dependent statistics
+# REQUIREMENTS:
 
-**BEST PRACTICES**:
-- Keep queries simple and direct
-- Focus on season totals, averages, recent games (last 5-15)
-- Use player names exactly as they appear in MLB
-- Ask about standard stats: hits, home runs, RBIs, strikeouts, ERA
-- Venue-specific queries work well for major stadiums
+1. **ANALYZE THE DATA**: Focus on the ACTUAL players, prop types, and odds shown above
+2. **USE CURRENT CONTEXT**: Leverage the StatMuse insights (trending players, recent performances, league leaders) to identify hot players and value opportunities
+3. **IDENTIFY VALUE**: Which props have the best potential for profitable bets based on current form and trends?
+4. **PROPORTIONAL RESEARCH**: Allocate research queries proportionally to the sports breakdown above. If MLB has 8 props and WNBA has 2 props (4:1 ratio), then research should be ~6 MLB queries and ~2 WNBA queries out of 8 total.
+5. **PLAN RESEARCH**: Generate 5-8 StatMuse queries about REAL players from the data, prioritizing trending/hot players from the context
+6. **BE STRATEGIC**: Balance research across sports based on available props and current trends, maintaining proportional allocation
 
-## Web Search Tool
-You can search the web for:
-- Injury reports and player news
-- Weather forecasts for outdoor games
-- Lineup announcements and batting order changes
-- Pitcher matchup analysis  
-- Recent player interviews or motivation factors
-
-# YOUR MISSION
-
-Create an intelligent research strategy that will give you maximum edge. Think like a professional sharp bettor:
-
-1. **IDENTIFY VALUE**: Which props have the best odds vs true probability?
-2. **FIND EDGES**: What specific situations, matchups, or trends can you exploit?
-3. **BE STRATEGIC**: Focus on the most profitable research, not everything
-4. **THINK DEEP**: Consider park factors, weather, recent form, motivation, etc.
-
-# RESPONSE FORMAT
-
-Return ONLY a valid JSON object with this structure:
-
+Return ONLY valid JSON:
 {{
-    "research_strategy": "Brief summary of your overall approach and reasoning",
-    "priority_props": [
-        {{
-            "player": "Player Name",
-            "prop_type": "Prop Type",
-            "line": 1.5,
-            "reasoning": "Why this prop caught your attention",
-            "edge_hypothesis": "Your theory on why this might be mispriced"
-        }}
-    ],
+    "analysis_summary": "Brief analysis of available props",
     "statmuse_queries": [
         {{
-            "query": "Specific StatMuse question",
-            "purpose": "What you\'re trying to learn",
-            "priority": "high"
+            "query": "[Real Player Name] [stat] this season",
+            "priority": "high/medium/low"
         }}
     ],
     "web_searches": [
         {{
-            "query": "Web search query",
-            "purpose": "What information you need",
-            "priority": "high"
+            "query": "[Real Player Name] injury status recent news",
+            "priority": "high/medium/low"
         }}
-    ],
-    "key_factors": ["List of the most important factors you\'ll analyze"],
-    "expected_insights": "What you expect to discover from this research"
+    ]
 }}
 
-Be strategic, be smart, and focus on finding real edges. Quality over quantity - better to research 10 props deeply than 50 props superficially."""
+Focus on REAL players from the props data, not examples!"""
         
         try:
             response = await self.grok_client.chat.completions.create(
@@ -405,15 +447,84 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             
         except Exception as e:
             logger.error(f"Failed to create research plan: {e}")
-            return {
-                "priority_players": [p.player_name for p in props[:15]],
-                "statmuse_queries": [
-                    f"{p.player_name} {p.prop_type.replace('batter_', '').replace('pitcher_', '')} last 10 games"
-                    for p in props[:10]
-                ],
-                "research_focus": ["recent_performance", "matchups"],
-                "prop_priorities": ["batter_hits", "batter_home_runs", "pitcher_strikeouts"]
-            }
+            return self._create_fallback_research_plan(props)
+    
+    def _analyze_available_props(self, props: List[PlayerProp], games: List[Dict]) -> Dict[str, Any]:
+        """Analyze the actual props data to understand what's available"""
+        
+        # Group props by sport
+        props_by_sport = {}
+        players_by_sport = {}
+        prop_types_by_sport = {}
+        
+        for prop in props:
+            # Determine sport from games data
+            sport = "Unknown"
+            for game in games:
+                if (game.get('home_team') == prop.team or 
+                    game.get('away_team') == prop.team or
+                    prop.team in [game.get('home_team', ''), game.get('away_team', '')]):
+                    sport = game.get('sport', 'Unknown')
+                    break
+            
+            # Normalize sport names
+            if sport == "Women's National Basketball Association":
+                sport = "WNBA"
+            elif sport == "Major League Baseball":
+                sport = "MLB"
+            
+            if sport not in props_by_sport:
+                props_by_sport[sport] = []
+                players_by_sport[sport] = set()
+                prop_types_by_sport[sport] = set()
+            
+            props_by_sport[sport].append({
+                "player": prop.player_name,
+                "prop_type": prop.prop_type,
+                "line": prop.line,
+                "over_odds": prop.over_odds,
+                "under_odds": prop.under_odds,
+                "team": prop.team
+            })
+            
+            players_by_sport[sport].add(prop.player_name)
+            prop_types_by_sport[sport].add(prop.prop_type)
+        
+        # Create analysis summary
+        analysis = {
+            "total_props": len(props),
+            "sports_breakdown": {},
+            "top_players_by_sport": {},
+            "prop_types_by_sport": {},
+            "sample_props_by_sport": {}
+        }
+        
+        for sport, sport_props in props_by_sport.items():
+            analysis["sports_breakdown"][sport] = len(sport_props)
+            analysis["top_players_by_sport"][sport] = list(players_by_sport[sport])[:15]
+            analysis["prop_types_by_sport"][sport] = list(prop_types_by_sport[sport])
+            analysis["sample_props_by_sport"][sport] = sport_props[:20]  # Sample for analysis
+        
+        return analysis
+    
+    def _create_fallback_research_plan(self, props: List[PlayerProp]) -> Dict[str, Any]:
+        """Create a basic research plan if AI planning fails"""
+        
+        # Get diverse set of players and prop types
+        unique_players = list(set(prop.player_name for prop in props))[:15]
+        unique_prop_types = list(set(prop.prop_type for prop in props))
+        
+        return {
+            "analysis_summary": "Fallback research plan based on available props",
+            "statmuse_queries": [{
+                "query": f"{player} {prop_type.replace('Batter ', '').replace('Player ', '').lower()} this season",
+                "priority": "medium"
+            } for player, prop_type in zip(unique_players[:8], unique_prop_types[:8])],
+            "web_searches": [{
+                "query": f"{player} injury status and recent news",
+                "priority": "medium"
+            } for player in unique_players[:3]]
+        }
     
     async def execute_research_plan(self, plan: Dict[str, Any], props: List[PlayerProp]) -> List[ResearchInsight]:
         all_insights = []
@@ -628,27 +739,48 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         if len(all_insights) < 8:
             logger.info("🎯 Adding final broad research queries")
             
-            top_players = list(set([prop.player_name for prop in props[:20]]))
+            # Get sport-aware player queries
+            sport_players = {}
+            for prop in props[:20]:
+                sport = "Unknown"
+                # Determine sport from prop context
+                if any(keyword in prop.prop_type.lower() for keyword in ['hits', 'home runs', 'rbis', 'strikeouts', 'era']):
+                    sport = "MLB"
+                elif any(keyword in prop.prop_type.lower() for keyword in ['points', 'rebounds', 'assists', 'steals']):
+                    sport = "WNBA"
+                
+                if sport not in sport_players:
+                    sport_players[sport] = []
+                if prop.player_name not in sport_players[sport]:
+                    sport_players[sport].append(prop.player_name)
             
-            for player in top_players[:3]:
-                try:
-                    query = f"{player} batting average last 15 games"
-                    logger.info(f"🔍 Final query: {query}")
-                    
-                    result = self.statmuse.query(query)
-                    if result and "error" not in result:
-                        final_insights.append(ResearchInsight(
-                            source="statmuse_final",
-                            query=query,
-                            data=result,
-                            confidence=0.7,
-                            timestamp=datetime.now()
-                        ))
-                    
-                    await asyncio.sleep(1.5)
-                    
-                except Exception as e:
-                    logger.error(f"❌ Final query failed: {e}")
+            # Generate sport-appropriate queries
+            for sport, players in sport_players.items():
+                for player in players[:2]:  # Max 2 players per sport
+                    try:
+                        if sport == "MLB":
+                            query = f"{player} batting average last 15 games"
+                        elif sport == "WNBA":
+                            query = f"{player} points per game this season"
+                        else:
+                            query = f"{player} recent performance"
+                        
+                        logger.info(f"🔍 Final {sport} query: {query}")
+                        
+                        result = self.statmuse.query(query, sport)
+                        if result and "error" not in result:
+                            final_insights.append(ResearchInsight(
+                                source="statmuse_final",
+                                query=query,
+                                data=result,
+                                confidence=0.7,
+                                timestamp=datetime.now()
+                            ))
+                        
+                        await asyncio.sleep(1.5)
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Final query failed: {e}")
         
         return final_insights
     
@@ -708,8 +840,12 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         props = filtered_props
         
         prompt = f"""
-You are a professional sports betting analyst with 15+ years experience handicapping MLB player props.
-Your job is to find PROFITABLE betting opportunities, not just predict outcomes.
+You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props (MLB, WNBA).
+Your job is to find PROFITABLE betting opportunities across all sports, not just predict outcomes.
+
+🏆 **SPORT EXPERTISE:**
+- **MLB**: Batter performance trends, pitcher matchups, weather impacts, ballpark factors
+- **WNBA**: Player usage rates, pace of play, defensive matchups, rest/travel factors
 
 TODAY\'S DATA:
 
@@ -743,7 +879,9 @@ TASK: Generate exactly {target_picks} strategic player prop picks that maximize 
 2. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350 (even if available)
 3. **AVOID LONG SHOTS**: Props with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
 4. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
-5. **DIVERSIFY PROP TYPES**: Use various props like Hits, Home Runs, RBIs, Runs Scored, Stolen Bases (see available props below)
+5. **DIVERSIFY PROP TYPES**: 
+   - **MLB**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases, Total Bases
+   - **WNBA**: Points, Rebounds, Assists (see available props below)
 6. **MIX OVER/UNDER**: Don\'t just pick all overs - find spots where under has value
 7. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
 8. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
@@ -841,14 +979,37 @@ REMEMBER:
                 
                 if matching_prop:
                     game = next((g for g in games if str(g.get("id")) == str(matching_prop.event_id)), None)
-                    game_info = f"{matching_prop.team} game" if game else "Unknown matchup"
+                    
+                    # Determine sport from game data, not hardcoded
+                    sport = "MLB"  # default
+                    if game:
+                        game_sport = game.get('sport', 'MLB')
+                        if game_sport == "Women's National Basketball Association":
+                            sport = "WNBA"
+                        elif game_sport == "MLB":
+                            sport = "MLB"
+                        elif game_sport == "Ultimate Fighting Championship":
+                            sport = "UFC"
+                        
+                        # Create proper game info with team matchup
+                        home_team = game.get('home_team', 'Unknown')
+                        away_team = game.get('away_team', 'Unknown')
+                        game_info = f"{away_team} @ {home_team}"
+                    else:
+                        # Fallback: try to determine sport from player name patterns
+                        player_name = pick.get('player_name', '').lower()
+                        wnba_players = ['paige bueckers', 'arike ogunbowale', 'skylar diggins-smith', 
+                                       'nneka ogwumike', 'gabby williams', 'li yueru', 'erica wheeler']
+                        if any(wnba_player in player_name for wnba_player in wnba_players):
+                            sport = "WNBA"
+                        game_info = f"{matching_prop.team} game"
                     
                     formatted_picks.append({
                         "match_teams": game_info,
                         "pick": self._format_pick_string(pick, matching_prop),
                         "odds": pick.get("odds", matching_prop.over_odds if pick["recommendation"] == "over" else matching_prop.under_odds),
                         "confidence": pick.get("confidence", 75),
-                        "sport": "MLB",
+                        "sport": sport,
                         "event_time": game.get("start_time") if game else None,
                         "bet_type": "player_prop",
                         "bookmaker": matching_prop.bookmaker,

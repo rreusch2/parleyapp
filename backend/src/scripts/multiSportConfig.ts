@@ -51,9 +51,8 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
     propMarkets: [
       'player_points',
       'player_rebounds',
-      'player_assists',
-      'player_threes',
-      'player_steals_blocks'
+      'player_assists'
+      // Note: player_threes and player_steals_blocks not available for WNBA
     ],
     teamOddsMarkets: ['h2h', 'spreads', 'totals'],
     isActive: getActiveSports().includes('WNBA') && process.env.ENABLE_WNBA_DATA === 'true',

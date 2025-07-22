@@ -192,11 +192,113 @@ class WebSearchService {
   }
 
   /**
-   * Enhanced fallback search method with intelligent mock data
+   * Enhanced fallback search using multiple search engines and scraping
    * @param query - Search query
    */
   private async fallbackSearch(query: string): Promise<SearchResult[]> {
-    logger.info('Using intelligent fallback search for: ' + query);
+    logger.info('Using enhanced fallback search for: ' + query);
+    
+    // Try multiple search approaches
+    const results: SearchResult[] = [];
+    
+    // Try Yahoo search as fallback
+    try {
+      const yahooResults = await this.searchWithYahoo(query);
+      results.push(...yahooResults);
+    } catch (error) {
+      logger.warn(`Yahoo search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    // Try Startpage as another fallback
+    try {
+      const startpageResults = await this.searchWithStartpage(query);
+      results.push(...startpageResults);
+    } catch (error) {
+      logger.warn(`Startpage search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    // If we have results, return them
+    if (results.length > 0) {
+      return results.slice(0, 5);
+    }
+    
+    // Only use intelligent mock data as absolute last resort
+    return this.generateIntelligentFallback(query);
+  }
+  
+  /**
+   * Search using Yahoo as fallback
+   */
+  private async searchWithYahoo(query: string): Promise<SearchResult[]> {
+    const searchUrl = `https://search.yahoo.com/search?p=${encodeURIComponent(query)}`;
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    
+    const html = response.data;
+    const results: SearchResult[] = [];
+    
+    // Parse Yahoo HTML for search results
+    const resultPattern = /<h3[^>]*><a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a><\/h3>[\s\S]*?<span[^>]*>([^<]+)<\/span>/g;
+    let match;
+    
+    while ((match = resultPattern.exec(html)) !== null && results.length < 5) {
+      const [, link, title, snippet] = match;
+      if (link && title && snippet) {
+        results.push({
+          title: title.trim().replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+          link: link,
+          snippet: snippet.trim().replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+          source: 'Yahoo'
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Search using Startpage as fallback
+   */
+  private async searchWithStartpage(query: string): Promise<SearchResult[]> {
+    const searchUrl = `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+    const response = await axios.get(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    
+    const html = response.data;
+    const results: SearchResult[] = [];
+    
+    // Parse Startpage HTML for search results
+    const resultPattern = /<h3[^>]*><a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a><\/h3>[\s\S]*?<p[^>]*>([^<]+)<\/p>/g;
+    let match;
+    
+    while ((match = resultPattern.exec(html)) !== null && results.length < 5) {
+      const [, link, title, snippet] = match;
+      if (link && title && snippet) {
+        results.push({
+          title: title.trim().replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+          link: link,
+          snippet: snippet.trim().replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+          source: 'Startpage'
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * Generate intelligent fallback only as last resort
+   */
+  private generateIntelligentFallback(query: string): SearchResult[] {
+    logger.warn('All search engines failed, using intelligent fallback for: ' + query);
     
     const queryLower = query.toLowerCase();
     const isInjuryQuery = queryLower.includes('injury') || queryLower.includes('injured') || queryLower.includes('hurt');

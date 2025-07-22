@@ -161,42 +161,212 @@ class StatMuseClient:
     async def query(self, query: str) -> Optional[StatMuseResult]:
         """Query StatMuse with caching and rate limiting"""
         
-        # Check cache first (with timeout to prevent hanging)
+        # Check cache first
         try:
             cached_result = self.cache.get(query)
             if cached_result:
-                logger.info(f"💾 Cache hit for: {query}")
+                logger.info(f"📦 Cache hit for: {query}")
                 return cached_result
         except Exception as e:
-            logger.warning(f"⚠️ Cache error (continuing anyway): {e}")
+            logger.warning(f"⚠️ Cache get error (continuing anyway): {e}")
         
-        # Rate limit (with timeout to prevent hanging)
-        try:
-            await asyncio.wait_for(self.rate_limiter.wait_if_needed(), timeout=5.0)
-        except asyncio.TimeoutError:
-            logger.warning("⏱️ Rate limiter timeout - continuing anyway")
+        logger.info(f"🔍 Querying StatMuse: {query}")
         
+        # Try direct search first
+        result = await self._try_statmuse_search(query)
+        if result:
+            return result
+        
+        # If search fails, try WNBA-specific scraping for WNBA queries
+        if self._is_wnba_query(query):
+            logger.info(f"🏀 Trying WNBA-specific scraping for: {query}")
+            result = await self._try_wnba_scraping(query)
+            if result:
+                return result
+        
+        logger.warning(f"❌ All StatMuse methods failed for: {query}")
+        return None
+    
+    def _is_wnba_query(self, query: str) -> bool:
+        """Check if query is likely about WNBA"""
+        wnba_keywords = [
+            "a'ja wilson", "aja wilson", "breanna stewart", "sabrina ionescu", 
+            "alyssa thomas", "kelsey plum", "jewell loyd", "candace parker",
+            "diana taurasi", "sue bird", "maya moore", "elena delle donne",
+            "wnba", "las vegas aces", "new york liberty", "seattle storm",
+            "phoenix mercury", "chicago sky", "connecticut sun", "minnesota lynx",
+            "atlanta dream", "dallas wings", "indiana fever", "washington mystics",
+            "kamilla cardoso", "paige bueckers", "caitlin clark"
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in wnba_keywords)
+    
+    async def _try_wnba_scraping(self, query: str) -> Optional[StatMuseResult]:
+        """Try WNBA-specific scraping from statmuse.com/wnba"""
         try:
-            logger.info(f"🔍 Querying StatMuse: {query}")
+            # Extract player name from query
+            player_name = self._extract_player_name(query)
+            if not player_name:
+                return None
             
-            # Format query for URL
-            formatted_query = query.lower().replace(' ', '-').replace(',', '').replace('?', '')
-            url = f"https://www.statmuse.com/mlb/ask/{formatted_query}"
+            # Try WNBA main page first
+            wnba_url = "https://www.statmuse.com/wnba"
             
-            # Use shorter timeout and better error handling
-            timeout = aiohttp.ClientTimeout(total=10, connect=5)
-            
-            async with aiohttp.ClientSession(headers=self.headers, timeout=timeout) as session:
-                logger.info(f"🌐 Making request to: {url}")
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
                 
-                async with session.get(url) as response:
-                    logger.info(f"📊 Response status: {response.status}")
-                    
+                logger.info(f"🏀 Scraping WNBA page: {wnba_url}")
+                async with session.get(wnba_url, headers=headers) as response:
                     if response.status == 200:
-                        logger.info("📄 Reading response content...")
                         html = await response.text()
-                        logger.info(f"📊 Content length: {len(html)} characters")
+                        soup = BeautifulSoup(html, 'html.parser')
                         
+                        # Look for player stats in various formats
+                        answer = self._extract_wnba_player_stats(soup, player_name, query)
+                        if answer:
+                            result = StatMuseResult(
+                                query=query,
+                                answer=answer,
+                                additional_stats=[],
+                                url=wnba_url
+                            )
+                            
+                            # Cache the result
+                            try:
+                                self.cache.set(query, result)
+                            except Exception as e:
+                                logger.warning(f"⚠️ Cache set error: {e}")
+                            
+                            logger.info(f"✅ WNBA scraping success: {answer}")
+                            return result
+                        
+                        # If not found on main page, try direct player search
+                        player_url = f"https://www.statmuse.com/wnba/player/{player_name.lower().replace(' ', '-').replace(chr(39), '')}"
+                        logger.info(f"🏀 Trying player page: {player_url}")
+                        
+                        async with session.get(player_url, headers=headers) as player_response:
+                            if player_response.status == 200:
+                                player_html = await player_response.text()
+                                player_soup = BeautifulSoup(player_html, 'html.parser')
+                                
+                                answer = self._extract_wnba_player_stats(player_soup, player_name, query)
+                                if answer:
+                                    result = StatMuseResult(
+                                        query=query,
+                                        answer=answer,
+                                        additional_stats=[],
+                                        url=player_url
+                                    )
+                                    
+                                    try:
+                                        self.cache.set(query, result)
+                                    except Exception as e:
+                                        logger.warning(f"⚠️ Cache set error: {e}")
+                                    
+                                    logger.info(f"✅ WNBA player page success: {answer}")
+                                    return result
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ WNBA scraping error: {e}")
+            return None
+    
+    def _extract_player_name(self, query: str) -> Optional[str]:
+        """Extract player name from query"""
+        # Common WNBA players
+        wnba_players = [
+            "A'ja Wilson", "Breanna Stewart", "Sabrina Ionescu", "Alyssa Thomas",
+            "Kelsey Plum", "Jewell Loyd", "Candace Parker", "Diana Taurasi",
+            "Sue Bird", "Maya Moore", "Elena Delle Donne", "Kamilla Cardoso",
+            "Paige Bueckers", "Caitlin Clark", "Angel Reese", "Napheesa Collier"
+        ]
+        
+        query_lower = query.lower()
+        for player in wnba_players:
+            if player.lower() in query_lower:
+                return player
+        
+        return None
+    
+    def _extract_wnba_player_stats(self, soup: BeautifulSoup, player_name: str, query: str) -> Optional[str]:
+        """Extract WNBA player stats from parsed HTML"""
+        try:
+            # Look for stat mentions in text
+            text_content = soup.get_text().lower()
+            player_lower = player_name.lower()
+            
+            # Common stat patterns
+            if "points" in query.lower():
+                # Look for points stats
+                import re
+                patterns = [
+                    rf"{re.escape(player_lower)}.*?(\d+(?:\.\d+)?)\s*points?",
+                    rf"(\d+(?:\.\d+)?)\s*points?.*?{re.escape(player_lower)}",
+                    rf"{re.escape(player_lower)}.*?averaging\s*(\d+(?:\.\d+)?)\s*ppg",
+                    rf"{re.escape(player_lower)}.*?has\s*(\d+(?:\.\d+)?)\s*points?"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, text_content, re.IGNORECASE)
+                    if match:
+                        points = match.group(1)
+                        return f"{player_name} has {points} points this season."
+            
+            elif "rebounds" in query.lower():
+                import re
+                patterns = [
+                    rf"{re.escape(player_lower)}.*?(\d+(?:\.\d+)?)\s*rebounds?",
+                    rf"(\d+(?:\.\d+)?)\s*rebounds?.*?{re.escape(player_lower)}",
+                    rf"{re.escape(player_lower)}.*?averaging\s*(\d+(?:\.\d+)?)\s*rpg"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, text_content, re.IGNORECASE)
+                    if match:
+                        rebounds = match.group(1)
+                        return f"{player_name} has {rebounds} rebounds this season."
+            
+            elif "assists" in query.lower():
+                import re
+                patterns = [
+                    rf"{re.escape(player_lower)}.*?(\d+(?:\.\d+)?)\s*assists?",
+                    rf"(\d+(?:\.\d+)?)\s*assists?.*?{re.escape(player_lower)}",
+                    rf"{re.escape(player_lower)}.*?averaging\s*(\d+(?:\.\d+)?)\s*apg"
+                ]
+                
+                for pattern in patterns:
+                    match = re.search(pattern, text_content, re.IGNORECASE)
+                    if match:
+                        assists = match.group(1)
+                        return f"{player_name} has {assists} assists this season."
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error extracting WNBA stats: {e}")
+            return None
+    
+    async def _try_statmuse_search(self, query: str) -> Optional[StatMuseResult]:
+        """Try the standard StatMuse search approach"""
+        try:
+            # Create StatMuse search URL
+            query_encoded = query.replace(' ', '+')
+            url = f"https://www.statmuse.com/search?q={query_encoded}"
+            
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                
+                logger.info(f"🌐 Fetching: {url}")
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        html = await response.text()
                         logger.info("🍲 Parsing with BeautifulSoup...")
                         soup = BeautifulSoup(html, 'html.parser')
                         
@@ -227,27 +397,73 @@ class StatMuseClient:
                                 url=url
                             )
                             
-                            # Cache the result (with error handling)
+                            # Cache the result
                             try:
                                 self.cache.set(query, result)
                             except Exception as e:
-                                logger.warning(f"⚠️ Cache set error (continuing anyway): {e}")
+                                logger.warning(f"⚠️ Cache set error: {e}")
                             
                             logger.info(f"✅ StatMuse success: {answer_text[:100]}...")
                             return result
-                        else:
-                            logger.warning(f"❌ No answer found in HTML for: {query}")
-                            return None
+                        
+                        # If not found on search page, try direct query
+                        formatted_query = query.lower().replace(' ', '-').replace(',', '').replace('?', '')
+                        url = f"https://www.statmuse.com/mlb/ask/{formatted_query}"
+                        
+                        async with session.get(url, headers=headers) as response:
+                            if response.status == 200:
+                                html = await response.text()
+                                logger.info("🍲 Parsing with BeautifulSoup...")
+                                soup = BeautifulSoup(html, 'html.parser')
+                                
+                                # Look for main answer
+                                main_answer = soup.find('h1') or soup.find('h2')
+                                if main_answer:
+                                    answer_text = main_answer.get_text(strip=True)
+                                    logger.info(f"📈 Found answer: {answer_text}")
+                                    
+                                    # Look for additional stats in tables
+                                    additional_stats = []
+                                    tables = soup.find_all('table')
+                                    logger.info(f"📊 Found {len(tables)} tables")
+                                    
+                                    for table in tables[:1]:  # Just first table
+                                        rows = table.find_all('tr')
+                                        for row in rows[:3]:  # First 3 rows
+                                            cells = row.find_all(['td', 'th'])
+                                            if len(cells) >= 3:
+                                                row_data = [cell.get_text(strip=True) for cell in cells[:5]]
+                                                if any(cell.replace('.', '').isdigit() for cell in row_data):
+                                                    additional_stats.append(' | '.join(row_data))
+                                    
+                                    result = StatMuseResult(
+                                        query=query,
+                                        answer=answer_text,
+                                        additional_stats=additional_stats[:3],
+                                        url=url
+                                    )
+                                    
+                                    # Cache the result
+                                    try:
+                                        self.cache.set(query, result)
+                                    except Exception as e:
+                                        logger.warning(f"⚠️ Cache set error: {e}")
+                                    
+                                    logger.info(f"✅ StatMuse success: {answer_text[:100]}...")
+                                    return result
+                                else:
+                                    logger.warning(f"❌ No answer found in HTML for: {query}")
+                                    return None
+                            else:
+                                logger.warning(f"❌ StatMuse HTTP error: {response.status}")
+                                response_text = await response.text()
+                                logger.warning(f"Response: {response_text[:200]}")
+                                return None
                     else:
                         logger.warning(f"❌ StatMuse HTTP error: {response.status}")
                         response_text = await response.text()
                         logger.warning(f"Response: {response_text[:200]}")
                         return None
-                        
-        except asyncio.TimeoutError:
-            logger.error(f"⏱️ Timeout querying StatMuse for: {query}")
-            return None
-        except aiohttp.ClientError as e:
             logger.error(f"🌐 Network error querying StatMuse: {e}")
             return None
         except Exception as e:

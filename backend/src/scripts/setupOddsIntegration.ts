@@ -186,6 +186,9 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
     };
     
     console.log(`  🎯 Fetching player props for event ${eventId}...`);
+    console.log(`  🔍 API URL: ${url}`);
+    console.log(`  🔍 Markets: ${propMarkets.join(',')}`);
+    console.log(`  🔍 Bookmaker: ${PLAYER_PROPS_BOOKMAKER}`);
     const response = await axios.get(url, { params, timeout: 30000 });
     
     if (response.status === 200 && response.data) {
@@ -234,7 +237,7 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
   return null;
 }
 
-async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string): Promise<void> {
+async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string, sportKey: string): Promise<void> {
   console.log(`  💾 Storing player props for event ${eventId}...`);
   
   // Get game info to extract team names for players
@@ -268,9 +271,22 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string)
     return;
   }
   
+  // Get sport-specific prop markets
+  const sportConfig = SUPPORTED_SPORTS[sportKey.toUpperCase()];
+  if (!sportConfig) {
+    console.log(`⚠️ Unknown sport: ${sportKey}`);
+    return;
+  }
+  
+  const validPropMarkets = sportConfig.propMarkets;
+  console.log(`  🎯 Valid prop markets for ${sportKey}: ${validPropMarkets.join(', ')}`);
+  
   // Process markets from DraftKings only
   for (const market of draftkingsBookmaker.markets || []) {
-    if (!MLB_PROP_MARKETS.includes(market.key)) continue;
+    if (!validPropMarkets.includes(market.key)) {
+      console.log(`  ⚠️ Skipping unsupported market: ${market.key} for sport ${sportKey}`);
+      continue;
+    }
     
     for (const outcome of market.outcomes || []) {
       // Extract FULL player name from outcome description (not just first name!)
@@ -369,7 +385,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string)
         .from('players')
         .select('id, name, team')
         .eq('name', prop.playerName)
-        .eq('sport', 'MLB')
+        .eq('sport', sportKey.toUpperCase())
         .not('team', 'is', null)
         .not('team', 'eq', '')
         .single();
@@ -382,7 +398,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string)
         const { data: allPlayers, error: allPlayersError } = await supabaseAdmin
           .from('players')
           .select('id, name, team')
-          .eq('sport', 'MLB')
+          .eq('sport', sportKey.toUpperCase())
           .not('team', 'is', null)
           .not('team', 'eq', '');
         
@@ -405,8 +421,59 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string)
             playerId = matchedPlayer.id;
             console.log(`✅ Matched "${prop.playerName}" to existing player "${matchedPlayer.name}" (${matchedPlayer.team})`);
           } else {
-            console.log(`⚠️ No match found for "${prop.playerName}" - SKIPPING to avoid creating incomplete records`);
-            continue;
+            // For WNBA, create new players automatically since we're building the roster
+            if (sportKey.toUpperCase() === 'WNBA') {
+              console.log(`🆕 Creating new WNBA player: ${prop.playerName}`);
+              
+              // Determine team from game data
+              let playerTeam = '';
+              if (gameData) {
+                // Extract team from WNBA game context
+                // For WNBA, we'll use team abbreviations from the game data
+                const homeTeam = gameData.home_team;
+                const awayTeam = gameData.away_team;
+                
+                // Create team abbreviations from full team names
+                const homeAbbr = homeTeam.split(' ').pop() || homeTeam; // e.g., "Seattle Storm" -> "Storm"
+                const awayAbbr = awayTeam.split(' ').pop() || awayTeam; // e.g., "Dallas Wings" -> "Wings"
+                
+                // For now, assign to home team by default (this could be improved with roster data)
+                // In production, you'd want to use actual roster/team assignment data
+                playerTeam = homeAbbr;
+                console.log(`📍 Assigned WNBA player ${prop.playerName} to team: ${playerTeam} (from game: ${awayTeam} @ ${homeTeam})`);
+              }
+              
+              const newPlayerId = uuidv4();
+              // Create a unique player key for WNBA players
+              const playerKey = `wnba_${prop.playerName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${newPlayerId.slice(0, 8)}`;
+              
+              const { data: newPlayer, error: createError } = await supabaseAdmin
+                .from('players')
+                .insert({
+                  id: newPlayerId,
+                  external_player_id: newPlayerId, // Use UUID as external ID
+                  name: prop.playerName,
+                  player_name: prop.playerName, // Required field
+                  player_key: playerKey, // Required field
+                  team: playerTeam,
+                  sport: 'WNBA',
+                  position: null,
+                  active: true
+                })
+                .select('id')
+                .single();
+              
+              if (createError || !newPlayer) {
+                console.log(`❌ Failed to create player ${prop.playerName}: ${createError?.message}`);
+                continue;
+              }
+              
+              playerId = newPlayer.id;
+              console.log(`✅ Created new WNBA player: ${prop.playerName}`);
+            } else {
+              console.log(`⚠️ No match found for "${prop.playerName}" - SKIPPING to avoid creating incomplete records`);
+              continue;
+            }
           }
         } else {
           console.log(`⚠️ Could not fetch player list for matching "${prop.playerName}" - SKIPPING`);
@@ -532,10 +599,11 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
     console.log(`\n📊 Fetching ${sportConfig.sportName} player props...`);
     
     // Get upcoming games for this sport from the database
+    // Use the sport name (not the TheOdds key) to match database records
     const { data: games, error: gamesError } = await supabaseAdmin
       .from('sports_events')
       .select('id, external_event_id, sport, home_team, away_team, start_time')
-      .eq('sport', sportConfig.sportKey)
+      .eq('sport', sportConfig.sportName)
       .gte('start_time', new Date().toISOString())
       .limit(10); // Limit to avoid rate limits
     
@@ -557,7 +625,7 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
       const propsData = await fetchPlayerPropsForGame(game.external_event_id, sportConfig.theoddsKey);
       
       if (propsData) {
-        await storePlayerPropsData(propsData, game.id);
+        await storePlayerPropsData(propsData, game.id, sportConfig.sportKey);
         propsFound++;
       }
       

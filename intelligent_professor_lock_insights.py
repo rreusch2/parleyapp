@@ -48,29 +48,66 @@ class IntelligentInsightsGenerator:
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1'
         }
+        
+        # StatMuse context scraping
+        self.statmuse_base_url = "http://localhost:5001"
+
+    def scrape_statmuse_context(self) -> dict:
+        """Scrape StatMuse main pages for current context and insights"""
+        try:
+            logger.info("🔍 Scraping StatMuse main pages for current context...")
+            response = requests.get(
+                f"{self.statmuse_base_url}/scrape-context",
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('success'):
+                logger.info("✅ StatMuse context scraping successful")
+                return result.get('context', {})
+            else:
+                logger.warning(f"⚠️ StatMuse context scraping failed: {result.get('error')}")
+                return {}
+        except Exception as e:
+            logger.error(f"❌ StatMuse context scraping error: {e}")
+            return {}
 
     def fetch_upcoming_games_with_odds(self):
-        """Fetch upcoming games with odds from database"""
+        """Fetch upcoming multi-sport games with odds from database"""
         try:
-            logger.info("📊 Fetching upcoming games with odds...")
+            logger.info("📊 Fetching upcoming multi-sport games with odds...")
             
-            # Get upcoming games with odds (next 2 days)
-            result = self.supabase.table('sports_events').select(
-                'id, home_team, away_team, start_time, sport, metadata'
-            ).gte(
-                'start_time', datetime.now().isoformat()
-            ).lte(
-                'start_time', (datetime.now() + timedelta(days=2)).isoformat()
-            ).eq(
-                'status', 'scheduled'
-            ).order('start_time').limit(12).execute()
+            # Get upcoming games from multiple sports (next 2 days)
+            all_games = []
+            sports = ["MLB", "Women's National Basketball Association", "Ultimate Fighting Championship"]
             
-            if not result.data:
-                logger.warning("No upcoming games found")
+            for sport in sports:
+                result = self.supabase.table('sports_events').select(
+                    'id, home_team, away_team, start_time, sport, metadata'
+                ).gte(
+                    'start_time', datetime.now().isoformat()
+                ).lte(
+                    'start_time', (datetime.now() + timedelta(days=2)).isoformat()
+                ).eq(
+                    'status', 'scheduled'
+                ).eq(
+                    'sport', sport
+                ).order('start_time').limit(8).execute()
+                
+                if result.data:
+                    all_games.extend(result.data)
+            
+            # Sort all games by start time and limit total
+            all_games.sort(key=lambda x: x['start_time'])
+            result_data = all_games[:12]
+            
+            if not result_data:
+                logger.warning("No upcoming multi-sport games found")
                 return []
             
             games_with_odds = []
-            for game in result.data:
+            for game in result_data:
                 # Check if game has odds data
                 if (game.get('metadata') and 
                     game['metadata'].get('full_data') and 
@@ -117,14 +154,17 @@ class IntelligentInsightsGenerator:
             logger.error(f"Error fetching upcoming games: {e}")
             return []
 
-    def query_statmuse(self, query):
-        """Query StatMuse for real MLB stats"""
+    def query_statmuse(self, query, sport="MLB"):
+        """Query StatMuse for real multi-sport stats (MLB, WNBA)"""
         try:
-            logger.info(f"🔍 StatMuse Query: {query}")
+            logger.info(f"🔍 StatMuse Query ({sport}): {query}")
             
             # Format the query for URL
             formatted_query = query.lower().replace(' ', '-').replace(',', '').replace('?', '')
-            url = f"https://www.statmuse.com/mlb/ask/{formatted_query}"
+            
+            # Determine sport endpoint
+            sport_endpoint = "mlb" if sport.upper() == "MLB" else "wnba" if sport.upper() == "WNBA" else "mlb"
+            url = f"https://www.statmuse.com/{sport_endpoint}/ask/{formatted_query}"
             
             response = requests.get(url, headers=self.headers, timeout=15)
             
@@ -396,25 +436,33 @@ class IntelligentInsightsGenerator:
         try:
             logger.info("🧠 Generating intelligent insights with AI-driven research...")
             
-            # Create the intelligent prompt
+            # STEP 1: Scrape StatMuse main pages for current context
+            statmuse_context = self.scrape_statmuse_context()
+            
+            # STEP 2: Create the intelligent prompt with context
             games_data = self.format_games_data(games)
             
-            intelligent_prompt = f"""Professor Lock, you're analyzing today's MLB slate. Here are the games with live odds:
+            intelligent_prompt = f"""Professor Lock, you're analyzing today's multi-sport slate (MLB, WNBA, UFC). Here are the games with live odds:
 
 {games_data}
 
+# CURRENT STATMUSE CONTEXT (from main pages):
+{json.dumps(statmuse_context, indent=2)}
+
 🎯 **YOUR MISSION:**
-Research these games using StatMuse queries and web searches to generate 5-8 valuable insights for sports bettors.
+Research these games using StatMuse queries and web searches to generate 5-8 valuable insights for sports bettors across all sports.
 
 **INSIGHT CATEGORIES:**
 You must assign ONE category to each insight:
-- trends: Team performance trends, records, streaks, head-to-head history
-- pitcher: Starting pitcher analysis, ERA, matchups, recent performance
-- bullpen: Relief pitching, closer analysis, late-game situations
-- injury: Player injuries, disabled list, lineup changes
-- weather: Weather conditions, wind, temperature effects
-- matchup: Team vs team analysis, style matchups, advantages
+- trends: Team/fighter performance trends, records, streaks, head-to-head history
+- pitcher: Starting pitcher analysis, ERA, matchups, recent performance (MLB only)
+- bullpen: Relief pitching, closer analysis, late-game situations (MLB only)
+- injury: Player/fighter injuries, disabled list, lineup changes
+- weather: Weather conditions, wind, temperature effects (outdoor sports)
+- matchup: Team vs team/fighter vs fighter analysis, style matchups, advantages
 - research: General research findings, statistical analysis
+- wnba: WNBA-specific analysis (pace, usage rates, rest/travel)
+- ufc: UFC-specific analysis (fighting styles, reach, recent form)
 
 **FORMAT FOR EACH INSIGHT:**
 [CATEGORY: trends] Your insight text here about team trends...
@@ -439,7 +487,8 @@ You must assign ONE category to each insight:
 **EXAMPLE FORMAT:**
 [CATEGORY: trends] StatMuse shows the Yankees are 12-3 in their last 15 home games, indicating strong home-field performance this season.
 [CATEGORY: pitcher] Analysis reveals the starting pitcher has a 2.85 ERA in his last 5 starts, showing consistent recent form.
-[CATEGORY: weather] Web search reveals 15-20 mph winds blowing out to center field tonight, potentially impacting fly balls and total runs.
+[CATEGORY: wnba] The Liberty are averaging 85.2 points per game at home while the Sparks struggle on the road with 78.1 PPG.
+[CATEGORY: ufc] Fighter A has a 75% takedown defense rate against southpaw opponents, which could be crucial in tonight's matchup.
 
 Generate 5-8 analytical insights using this exact format with categories."""
 

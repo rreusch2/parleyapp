@@ -20,16 +20,25 @@ export const getSportsEvents = async (req: Request, res: Response) => {
       const leagueFilter = league.toUpperCase();
       console.log('Filtering by league:', leagueFilter);
       
-      // Backend mapping to support frontend filters without frontend changes
+      // Backend mapping to support frontend filters and handle inconsistent DB naming
       if (leagueFilter === 'NBA') {
-        // Show both NBA and WNBA games under NBA filter
-        query = query.in('league', ['NBA', 'WNBA']);
+        // Show NBA games only (WNBA has its own tab now)
+        query = query.eq('sport', 'NBA');
+      } else if (leagueFilter === 'WNBA') {
+        // Handle WNBA games stored with full name in sport field
+        query = query.eq('sport', "Women's National Basketball Association");
       } else if (leagueFilter === 'UFC') {
         // Show UFC/MMA games under UFC filter
-        query = query.eq('league', 'MMA');
+        query = query.eq('sport', 'Ultimate Fighting Championship');
+      } else if (leagueFilter === 'MMA') {
+        // Show MMA games under MMA filter
+        query = query.eq('sport', 'Ultimate Fighting Championship');
+      } else if (leagueFilter === 'MLB') {
+        // Handle MLB games with inconsistent naming
+        query = query.in('sport', ['MLB', 'Major League Baseball']);
       } else {
-        // Standard filtering for other leagues
-        query = query.eq('league', leagueFilter);
+        // Standard filtering for other leagues - try both sport and league fields
+        query = query.or(`sport.eq.${leagueFilter},league.eq.${leagueFilter}`);
       }
     }
 

@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -68,6 +69,221 @@ class StatMuseAPI:
         
         return text
     
+    def is_wnba_query(self, query: str) -> bool:
+        """Check if query is likely about WNBA"""
+        wnba_keywords = [
+            "a'ja wilson", "aja wilson", "breanna stewart", "sabrina ionescu", 
+            "alyssa thomas", "kelsey plum", "jewell loyd", "candace parker",
+            "diana taurasi", "sue bird", "maya moore", "elena delle donne",
+            "wnba", "las vegas aces", "new york liberty", "seattle storm",
+            "phoenix mercury", "chicago sky", "connecticut sun", "minnesota lynx",
+            "atlanta dream", "dallas wings", "indiana fever", "washington mystics",
+            "kamilla cardoso", "paige bueckers", "caitlin clark", "angel reese"
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in wnba_keywords)
+    
+    def scrape_main_sports_pages(self) -> dict:
+        """Scrape main StatMuse sports pages to gather current context and insights"""
+        logger.info("🔍 Scraping main StatMuse sports pages for current context...")
+        
+        context = {
+            'mlb': {},
+            'wnba': {},
+            'trending_players': [],
+            'recent_performances': [],
+            'league_leaders': {},
+            'betting_trends': {}
+        }
+        
+        # Scrape MLB main page
+        try:
+            mlb_url = "https://www.statmuse.com/mlb"
+            response = requests.get(mlb_url, headers=self.headers, timeout=15)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                context['mlb'] = self._extract_sports_page_insights(soup, 'MLB')
+                logger.info(f"✅ MLB main page scraped successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ MLB main page scraping failed: {e}")
+        
+        # Scrape WNBA main page
+        try:
+            wnba_url = "https://www.statmuse.com/wnba"
+            response = requests.get(wnba_url, headers=self.headers, timeout=15)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                context['wnba'] = self._extract_sports_page_insights(soup, 'WNBA')
+                logger.info(f"✅ WNBA main page scraped successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ WNBA main page scraping failed: {e}")
+        
+        return context
+    
+    def _extract_sports_page_insights(self, soup: BeautifulSoup, sport: str) -> dict:
+        """Extract key insights from a StatMuse sports main page"""
+        insights = {
+            'trending_players': [],
+            'recent_performances': [],
+            'league_leaders': {},
+            'betting_trends': {},
+            'trending_searches': [],
+            'standings': {},
+            'player_stats': []
+        }
+        
+        try:
+            # Get all text content and parse it intelligently
+            full_text = soup.get_text()
+            lines = [line.strip() for line in full_text.split('\n') if line.strip()]
+            
+            # Clean up lines - remove extra whitespace and merge broken lines
+            cleaned_lines = []
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                # If line ends with incomplete info, try to merge with next line
+                if i + 1 < len(lines) and len(line) < 50 and not line.endswith(':') and not line.endswith('.'):
+                    next_line = lines[i + 1]
+                    if len(next_line) < 100:  # Avoid merging with very long lines
+                        merged = f"{line} {next_line}"
+                        cleaned_lines.append(merged)
+                        i += 2
+                        continue
+                cleaned_lines.append(line)
+                i += 1
+            
+            lines = cleaned_lines
+            
+            # Extract player performance data (e.g., "A'ja Wilson vs Golden State:")
+            current_player = None
+            current_stats = []
+            
+            for i, line in enumerate(lines):
+                # Look for player vs team patterns
+                if ' vs ' in line and ':' in line:
+                    # Save previous player if exists
+                    if current_player and current_stats:
+                        insights['recent_performances'].append({
+                            'player': current_player,
+                            'matchup': current_player,
+                            'stats': current_stats[:],
+                            'text': f"{current_player}: {', '.join(current_stats)}"
+                        })
+                    
+                    # Start new player
+                    current_player = line
+                    current_stats = []
+                    
+                    # Look ahead for stats (PTS, REB, AST, etc.)
+                    for j in range(i+1, min(i+10, len(lines))):
+                        next_line = lines[j]
+                        if any(stat in next_line.upper() for stat in ['PTS', 'REB', 'AST', 'BLK', 'STL', 'FG', 'HR', 'RBI', 'HITS']):
+                            current_stats.append(next_line)
+                        elif next_line and not any(stat in next_line.upper() for stat in ['PTS', 'REB', 'AST', 'BLK', 'STL', 'FG', 'HR', 'RBI', 'HITS']) and len(next_line) > 20:
+                            # Stop if we hit a description line
+                            break
+                
+                # Look for season stats (e.g., "Brittney Sykes this season:")
+                elif 'this season:' in line.lower():
+                    if current_player and current_stats:
+                        insights['recent_performances'].append({
+                            'player': current_player,
+                            'matchup': current_player,
+                            'stats': current_stats[:],
+                            'text': f"{current_player}: {', '.join(current_stats)}"
+                        })
+                    
+                    current_player = line
+                    current_stats = []
+                    
+                    # Look ahead for season stats
+                    for j in range(i+1, min(i+8, len(lines))):
+                        next_line = lines[j]
+                        if any(stat in next_line.upper() for stat in ['PPG', 'RPG', 'APG', 'SPG', 'BPG', 'AVG', 'ERA']):
+                            current_stats.append(next_line)
+                        elif next_line and len(next_line) > 20:
+                            break
+            
+            # Don't forget the last player
+            if current_player and current_stats:
+                insights['recent_performances'].append({
+                    'player': current_player,
+                    'matchup': current_player,
+                    'stats': current_stats[:],
+                    'text': f"{current_player}: {', '.join(current_stats)}"
+                })
+            
+            # Extract League Leaders section
+            league_leaders_start = -1
+            for i, line in enumerate(lines):
+                if 'League Leaders' in line:
+                    league_leaders_start = i
+                    break
+            
+            if league_leaders_start >= 0:
+                # Look for stat categories and leaders
+                for i in range(league_leaders_start, min(league_leaders_start + 30, len(lines))):
+                    line = lines[i]
+                    # Look for stat categories (PPG, RPG, APG, etc.)
+                    if any(stat in line.upper() for stat in ['PPG', 'RPG', 'APG', '3PM', 'TS%', 'AVG', 'HR', 'RBI', 'ERA']):
+                        stat_category = line
+                        # Get the next few lines for leaders
+                        leaders = []
+                        for j in range(i+1, min(i+4, len(lines))):
+                            if lines[j] and not any(stat in lines[j].upper() for stat in ['PPG', 'RPG', 'APG', '3PM', 'TS%', 'AVG', 'HR', 'RBI', 'ERA']):
+                                # Try to extract number and player name
+                                leader_line = lines[j]
+                                if any(char.isdigit() for char in leader_line):
+                                    leaders.append(leader_line)
+                            else:
+                                break
+                        
+                        if leaders:
+                            insights['league_leaders'][stat_category] = leaders
+            
+            # Extract Trending Players section
+            trending_players_start = -1
+            for i, line in enumerate(lines):
+                if 'Trending' in line and ('Players' in line or 'WNBA Players' in line or 'MLB Players' in line):
+                    trending_players_start = i
+                    break
+            
+            if trending_players_start >= 0:
+                for i in range(trending_players_start, min(trending_players_start + 20, len(lines))):
+                    line = lines[i]
+                    # Look for numbered lists (1, 2, 3, etc.) followed by player names
+                    if line.isdigit() and int(line) <= 10 and i+1 < len(lines):
+                        player_name = lines[i+1]
+                        # Clean up player name and validate
+                        if len(player_name) > 2 and len(player_name) < 50:
+                            # Remove common non-player text
+                            if not any(word in player_name.lower() for word in ['trending', 'players', 'teams', 'searches', 'home', 'money']):
+                                if player_name not in insights['trending_players']:
+                                    insights['trending_players'].append(player_name)
+            
+            # Extract Trending Searches section
+            trending_searches_start = -1
+            for i, line in enumerate(lines):
+                if 'Trending' in line and 'Searches' in line:
+                    trending_searches_start = i
+                    break
+            
+            if trending_searches_start >= 0:
+                for i in range(trending_searches_start, min(trending_searches_start + 15, len(lines))):
+                    line = lines[i]
+                    if line.isdigit() and i+1 < len(lines):
+                        search_query = lines[i+1]
+                        if len(search_query) > 5 and search_query not in insights['trending_searches']:
+                            insights['trending_searches'].append(search_query)
+            
+            logger.info(f"📊 Extracted {len(insights['trending_players'])} trending players, {len(insights['recent_performances'])} performances, {len(insights['league_leaders'])} leader categories for {sport}")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Error extracting insights from {sport} page: {e}")
+        
+        return insights
+    
     def query_statmuse(self, query: str) -> dict:
         """Query StatMuse with caching"""
         cache_key = query.lower()
@@ -81,12 +297,38 @@ class StatMuseAPI:
                 cached_data['cached'] = True
                 return cached_data
         
+        # Execute the query using standard approach
+        result = self._try_standard_query(query, current_time, cache_key)
+        return result
+    
+    def _try_standard_query(self, query: str, current_time: float, cache_key: str) -> dict:
+        """Try the standard StatMuse query approach"""
         try:
             logger.info(f"🔍 StatMuse Query: {query}")
             
-            # Format query for URL (same as working insights)
-            formatted_query = query.lower().replace(' ', '-').replace(',', '').replace('?', '')
-            url = f"https://www.statmuse.com/mlb/ask/{formatted_query}"
+            # Format query for URL to match working StatMuse format
+            # Examples: "A'ja Wilson points this season" -> "aja-wilson-points-this-season"
+            #          "Caitlin Clark stats last 5 games" -> "caitlin-clark-stats-last-5-games"
+            formatted_query = query.lower()
+            # Remove apostrophes and special characters
+            formatted_query = formatted_query.replace("'", "").replace("'", "")
+            # Replace spaces with hyphens and clean up
+            formatted_query = formatted_query.replace(' ', '-').replace(',', '').replace('?', '').replace('!', '')
+            # Remove multiple consecutive hyphens
+            formatted_query = re.sub(r'-+', '-', formatted_query)
+            # Remove leading/trailing hyphens
+            formatted_query = formatted_query.strip('-')
+            
+            # Determine the correct StatMuse endpoint based on sport
+            if self.is_wnba_query(query):
+                base_url = "https://www.statmuse.com/wnba/ask"
+                sport_context = "WNBA"
+            else:
+                base_url = "https://www.statmuse.com/mlb/ask"
+                sport_context = "MLB"
+            
+            url = f"{base_url}/{formatted_query}"
+            logger.info(f"🎯 Using {sport_context} endpoint: {url}")
             
             # Make request (same as working insights)
             response = requests.get(url, headers=self.headers, timeout=15)
@@ -171,6 +413,25 @@ def query_statmuse():
         
     except Exception as e:
         logger.error(f"API error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/scrape-context', methods=['GET'])
+def scrape_sports_context():
+    """Scrape main StatMuse sports pages for current context and insights"""
+    try:
+        context = statmuse_api.scrape_main_sports_pages()
+        
+        return jsonify({
+            'success': True,
+            'context': context,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Context scraping error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

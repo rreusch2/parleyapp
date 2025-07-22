@@ -112,12 +112,12 @@ export default function GamesScreen() {
   const sportFilters = [
     { id: 'all', name: 'All' },
     { id: 'MLB', name: 'MLB' },
-    { id: 'NBA', name: 'NBA' },
     { id: 'WNBA', name: 'WNBA' },
     { id: 'UFC', name: 'UFC' },
     { id: 'MMA', name: 'MMA' },
-    { id: 'NHL', name: 'NHL' },
-    { id: 'NFL', name: 'NFL' }
+    { id: 'NBA', name: 'NBA' },
+    { id: 'NFL', name: 'NFL' },
+    { id: 'NHL', name: 'NHL' }
   ];
 
   const checkSession = async () => {

@@ -129,15 +129,29 @@ class DatabaseClient:
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
+        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
         try:
             now = datetime.now().isoformat()
             future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
             
-            response = self.supabase.table("sports_events").select(
-                "id, home_team, away_team, start_time, sport, metadata"
-            ).gt("start_time", now).lt("start_time", future).eq("sport", "MLB").order("start_time").execute()
+            # Fetch games from all supported sports
+            all_games = []
+            sports = ["MLB", "Women's National Basketball Association", "Ultimate Fighting Championship"]
             
-            return response.data
+            for sport in sports:
+                response = self.supabase.table("sports_events").select(
+                    "id, home_team, away_team, start_time, sport, metadata"
+                ).gt("start_time", now).lt("start_time", future).eq("sport", sport).order("start_time").execute()
+                
+                if response.data:
+                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
+                    all_games.extend(response.data)
+            
+            # Sort all games by start time
+            all_games.sort(key=lambda x: x['start_time'])
+            logger.info(f"Total upcoming games across all sports: {len(all_games)}")
+            
+            return all_games
         except Exception as e:
             logger.error(f"Failed to fetch upcoming games: {e}")
             return []
@@ -272,7 +286,20 @@ class DatabaseClient:
     
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
         try:
-            for pred in predictions:
+            # Sort predictions: WNBA first, MLB last (so MLB shows on top in UI)
+            def sport_priority(pred):
+                sport = pred.get("sport", "MLB")
+                if sport == "WNBA":
+                    return 1  # Save first
+                elif sport == "MLB":
+                    return 3  # Save last
+                else:
+                    return 2  # Other sports in middle
+            
+            sorted_predictions = sorted(predictions, key=sport_priority)
+            logger.info(f"📊 Saving predictions in UI order: WNBA first, MLB last")
+            
+            for pred in sorted_predictions:
                 # Extract reasoning from metadata if available
                 reasoning = pred.get("reasoning", "")
                 if not reasoning and pred.get("metadata"):
@@ -332,20 +359,63 @@ class IntelligentTeamsAgent:
             api_key=os.getenv("XAI_API_KEY"),
             base_url="https://api.x.ai/v1"
         )
+        # Add session for StatMuse context scraping
+        self.session = requests.Session()
+        self.statmuse_base_url = "http://localhost:5001"
+    
+    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
+        """Distribute picks across sports: MLB (primary), WNBA (some), UFC (little)"""
+        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
+        
+        # Count available games by sport (map full names to abbreviations)
+        for game in games:
+            sport = game.get("sport", "")
+            if sport == "MLB":
+                sport_counts["MLB"] += 1
+            elif sport == "Women's National Basketball Association":
+                sport_counts["WNBA"] += 1
+            elif sport == "Ultimate Fighting Championship":
+                sport_counts["MMA"] += 1
+        
+        logger.info(f"Available games by sport: {sport_counts}")
+        
+        # Distribution strategy: MLB 70%, WNBA 25%, UFC 5%
+        distribution = {
+            "MLB": max(1, int(target_picks * 0.7)) if sport_counts["MLB"] > 0 else 0,
+            "WNBA": max(1, int(target_picks * 0.25)) if sport_counts["WNBA"] > 0 else 0,
+            "MMA": max(1, int(target_picks * 0.05)) if sport_counts["MMA"] > 0 else 0
+        }
+        
+        # Adjust if we don't have enough games in a sport
+        for sport in ["MLB", "WNBA", "MMA"]:
+            if distribution[sport] > sport_counts[sport]:
+                distribution[sport] = sport_counts[sport]
+        
+        # Redistribute remaining picks to MLB if needed
+        total_distributed = sum(distribution.values())
+        if total_distributed < target_picks and sport_counts["MLB"] > distribution["MLB"]:
+            remaining = target_picks - total_distributed
+            distribution["MLB"] += min(remaining, sport_counts["MLB"] - distribution["MLB"])
+        
+        logger.info(f"Pick distribution: {distribution}")
+        return distribution
     
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent team analysis...")
+        logger.info("🚀 Starting intelligent multi-sport team analysis...")
         
         games = self.db.get_upcoming_games(hours_ahead=48)
-        logger.info(f"📅 Found {len(games)} upcoming games")
+        logger.info(f"📅 Found {len(games)} upcoming games across all sports")
         
         if not games:
             logger.warning("No upcoming games found")
             return []
         
+        # Get sport distribution for picks
+        sport_distribution = self._distribute_picks_by_sport(games, target_picks)
+        
         game_ids = [game["id"] for game in games]
         available_bets = self.db.get_team_odds_for_games(game_ids)
-        logger.info(f"🎯 Found {len(available_bets)} available team bets")
+        logger.info(f"🎯 Found {len(available_bets)} available team bets across all sports")
         
         if not available_bets:
             logger.warning("No team bets found")
@@ -369,11 +439,44 @@ class IntelligentTeamsAgent:
         
         return picks
     
+    def scrape_statmuse_context(self) -> Dict[str, Any]:
+        """Scrape StatMuse main pages for current context and insights"""
+        try:
+            logger.info("🔍 Scraping StatMuse main pages for current context...")
+            response = self.session.get(
+                f"{self.statmuse_base_url}/scrape-context",
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            if result.get('success'):
+                logger.info("✅ StatMuse context scraping successful")
+                return result.get('context', {})
+            else:
+                logger.warning(f"⚠️ StatMuse context scraping failed: {result.get('error')}")
+                return {}
+        except Exception as e:
+            logger.error(f"❌ StatMuse context scraping error: {e}")
+            return {}
+    
     async def create_research_plan(self, bets: List[TeamBet], games: List[Dict]) -> Dict[str, Any]:
-        prompt = f"""You are an elite MLB betting analyst and data scientist with years of experience. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST team bets for today.
+        # STEP 1: Scrape StatMuse main pages for current context
+        statmuse_context = self.scrape_statmuse_context()
+        
+        # STEP 2: Analyze what sports are actually in the data
+        sports_in_data = set(game.get('sport', 'Unknown') for game in games)
+        sports_summary = ", ".join(sports_in_data)
+        
+        prompt = f"""You are an elite multi-sport betting analyst and data scientist with years of experience in MLB, WNBA, and UFC. Your mission is to create the most comprehensive research plan possible to identify the absolute BEST team bets across all available sports.
 
 # CONTEXT
-You have access to {len(games)} upcoming MLB games and {len(bets)} team bets with live odds from multiple sportsbooks.
+You have access to {len(games)} upcoming games across multiple sports ({sports_summary}) and {len(bets)} team bets with live odds from multiple sportsbooks.
+
+**CRITICAL**: Generate research queries for ALL sports present in the data, not just MLB.
+
+# CURRENT STATMUSE CONTEXT (from main pages):
+{json.dumps(statmuse_context, indent=2)}
 
 UPCOMING GAMES:
 {json.dumps(games[:10], indent=2, default=str)}
@@ -431,8 +534,9 @@ Create an intelligent research strategy that will give you maximum edge. Think l
 
 1. **IDENTIFY VALUE**: Which bets have the best odds vs true probability?
 2. **FIND EDGES**: What specific situations, matchups, or trends can you exploit?
-3. **BE STRATEGIC**: Focus on the most profitable research, not everything
-4. **THINK DEEP**: Consider park factors, weather, recent form, motivation, public sentiment, etc.
+3. **PROPORTIONAL RESEARCH**: Allocate research queries proportionally to the sports breakdown above. If you have 70% MLB games and 30% WNBA games, then research should be ~70% MLB queries and ~30% WNBA queries.
+4. **BE STRATEGIC**: Focus on the most profitable research, not everything
+5. **THINK DEEP**: Consider park factors, weather, recent form, motivation, public sentiment, etc.
 
 # RESPONSE FORMAT
 
@@ -787,8 +891,13 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         bets = filtered_bets
         
         prompt = f"""
-You are a professional sports betting analyst with 15+ years experience handicapping MLB team bets.
-Your job is to find PROFITABLE betting opportunities, not just predict outcomes.
+You are a professional sports betting analyst with 15+ years experience handicapping multi-sport team bets (MLB, WNBA, UFC/MMA).
+Your job is to find PROFITABLE betting opportunities across all sports, not just predict outcomes.
+
+🏆 **SPORT EXPERTISE:**
+- **MLB**: Team dynamics, pitching matchups, weather, bullpen usage
+- **WNBA**: Player rotations, pace of play, defensive schemes, rest advantages  
+- **UFC/MMA**: Fighter styles, reach advantages, cardio, recent performance trends
 
 TODAY'S DATA:
 
