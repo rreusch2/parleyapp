@@ -141,11 +141,34 @@ router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
     }
 
     // Apply sorting
-    const sortByStr = sortBy as string;
-    const lastUnderscoreIndex = sortByStr.lastIndexOf('_');
-    const sortField = lastUnderscoreIndex > 0 ? sortByStr.substring(0, lastUnderscoreIndex) : 'created_at';
-    const sortDirection = lastUnderscoreIndex > 0 ? sortByStr.substring(lastUnderscoreIndex + 1) : 'desc';
-    query = query.order(sortField, { ascending: sortDirection === 'asc' });
+    let sortField = 'created_at';
+    let ascending = false;
+    
+    switch (sortBy) {
+      case 'newest':
+      case 'created_at_desc':
+        sortField = 'created_at';
+        ascending = false;
+        break;
+      case 'oldest':
+      case 'created_at_asc':
+        sortField = 'created_at';
+        ascending = true;
+        break;
+      case 'username_asc':
+        sortField = 'username';
+        ascending = true;
+        break;
+      case 'username_desc':
+        sortField = 'username';
+        ascending = false;
+        break;
+      default:
+        sortField = 'created_at';
+        ascending = false;
+    }
+    
+    query = query.order(sortField, { ascending });
 
     // Apply pagination
     query = query.range(offset, offset + pageSizeNum - 1);
