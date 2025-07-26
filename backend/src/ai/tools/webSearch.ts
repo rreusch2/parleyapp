@@ -34,40 +34,24 @@ class WebSearchService {
     logger.info(`Performing web search for: "${query}"`);
     
     try {
-      // Try Google Custom Search FIRST if available (most reliable)
+      // URGENT FIX: Use Google Custom Search API FIRST (most reliable)
       if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
         try {
+          logger.info(`Attempting Google Custom Search for: "${query}"`);
           const results = await this.searchWithGoogleCustomSearch(query);
           if (results.length > 0) {
-            logger.info(`Google Custom Search returned ${results.length} results for "${query}"`);
+            logger.info(`✅ Google Custom Search SUCCESS: ${results.length} results for "${query}"`);
             return results;
           }
+          logger.warn(`Google Custom Search returned 0 results for "${query}"`);
         } catch (error) {
-          logger.warn(`Google Custom Search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
+          logger.error(`❌ Google Custom Search FAILED for "${query}": ${error instanceof Error ? error.message : String(error)}`);
         }
+      } else {
+        logger.error('❌ Google Custom Search API keys not configured!');
       }
       
-      // Try DuckDuckGo as backup
-      try {
-        const results = await this.searchWithDuckDuckGo(query);
-        if (results.length > 0) {
-          return results;
-        }
-      } catch (error) {
-        logger.warn(`DuckDuckGo search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      
-      // Try Bing search as third option
-      try {
-        const results = await this.searchWithBing(query);
-        if (results.length > 0) {
-          return results;
-        }
-      } catch (error) {
-        logger.warn(`Bing search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      
-      // Final fallback with intelligent mock data
+      // Skip other methods - they're broken, go straight to fallback
       logger.warn('All search methods failed. Using intelligent fallback.');
       return await this.fallbackSearch(query);
     } catch (error) {

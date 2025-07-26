@@ -2,8 +2,7 @@ import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import { createLogger } from '../../utils/logger';
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
-// URGENT FIX: Use fixed web search implementation
-const { webSearchPerformSearchTool } = require('../tools/webSearchFixed.js');
+import { webSearchPerformSearchTool } from '../tools/webSearch';
 import { freeDataTeamNewsTool, freeDataInjuryReportsTool } from '../tools/freeDataSources';
 
 dotenv.config();
