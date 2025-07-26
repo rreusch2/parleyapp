@@ -30,28 +30,48 @@ class WebSearchService {
    * @param query - Search query
    * @returns Array of search results
    */
+  /**
+   * Perform a web search using the most reliable provider available.
+   * Order of precedence:
+   * 1. Google Custom Search (official API – most reliable & up-to-date)
+   * 2. DuckDuckGo HTML scrape (no key required)
+   * 3. Bing HTML scrape (no key required)
+   * 4. Yahoo / Startpage scrape fallback
+   * 5. Intelligent mock data
+   */
   async performSearch(query: string): Promise<SearchResult[]> {
     logger.info(`Performing web search for: "${query}"`);
     
     try {
-      // URGENT FIX: Use Google Custom Search API FIRST (most reliable)
+      // 1️⃣ Use Google Custom Search API when credentials are present
       if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
         try {
-          logger.info(`Attempting Google Custom Search for: "${query}"`);
-          const results = await this.searchWithGoogleCustomSearch(query);
-          if (results.length > 0) {
-            logger.info(`✅ Google Custom Search SUCCESS: ${results.length} results for "${query}"`);
-            return results;
-          }
-          logger.warn(`Google Custom Search returned 0 results for "${query}"`);
+          return await this.searchWithGoogleCustomSearch(query);
         } catch (error) {
-          logger.error(`❌ Google Custom Search FAILED for "${query}": ${error instanceof Error ? error.message : String(error)}`);
+          logger.warn(`Google Custom Search failed, falling back: ${error instanceof Error ? error.message : String(error)}`);
         }
-      } else {
-        logger.error('❌ Google Custom Search API keys not configured!');
+      }
+
+      // 2️⃣ DuckDuckGo (free HTML scraping)
+      try {
+        return await this.searchWithDuckDuckGo(query);
+      } catch (error) {
+        logger.warn(`DuckDuckGo search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
       }
       
-      // Skip other methods - they're broken, go straight to fallback
+      // 3️⃣ Bing search (HTML scraping)
+      try {
+        return await this.searchWithBing(query);
+      } catch (error) {
+        logger.warn(`Bing search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      // Fall back to Google Custom Search if available
+      if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
+        return await this.searchWithGoogleCustomSearch(query);
+      }
+      
+      // Final fallback with intelligent mock data
       logger.warn('All search methods failed. Using intelligent fallback.');
       return await this.fallbackSearch(query);
     } catch (error) {
@@ -128,42 +148,21 @@ class WebSearchService {
         params: {
           q: query,
           key: GOOGLE_SEARCH_API_KEY,
-          cx: GOOGLE_SEARCH_ENGINE_ID,
-          num: 5, // Limit to 5 results
-          safe: 'off', // Allow all content for news searches
-          dateRestrict: 'm1' // Prefer results from last month for freshness
-        },
-        timeout: 10000
+          cx: GOOGLE_SEARCH_ENGINE_ID
+        }
       });
       
       const items = response.data.items || [];
       
-      if (items.length === 0) {
-        logger.warn(`Google Custom Search returned no results for "${query}"`);
-        return [];
-      }
-      
-      const results = items.map((item: any) => ({
-        title: item.title || 'No title',
-        link: item.link || '',
-        snippet: item.snippet || 'No description available',
+      return items.map((item: any) => ({
+        title: item.title,
+        link: item.link,
+        snippet: item.snippet,
         source: 'Google Custom Search',
-        publishedDate: item.pagemap?.metatags?.[0]?.['article:published_time'] || 
-                      item.pagemap?.metatags?.[0]?.['og:updated_time'] ||
-                      item.pagemap?.metatags?.[0]?.['date']
-      })).filter(result => result.link && result.title !== 'No title');
-      
-      logger.info(`Google Custom Search processed ${results.length} valid results for "${query}"`);
-      return results;
+        publishedDate: item.pagemap?.metatags?.[0]?.['article:published_time']
+      })).slice(0, 5); // Limit to top 5 results
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (error.response?.status === 429) {
-        logger.error(`Google Custom Search rate limit exceeded for "${query}"`);
-      } else if (error.response?.status === 403) {
-        logger.error(`Google Custom Search API key invalid or quota exceeded for "${query}"`);
-      } else {
-        logger.error(`Google Custom Search failed for "${query}": ${errorMsg}`);
-      }
+      logger.error(`Google Custom Search failed: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }

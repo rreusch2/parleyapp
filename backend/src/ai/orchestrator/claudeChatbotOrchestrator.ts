@@ -451,7 +451,11 @@ export class ChatbotOrchestrator {
         lowerMessage.includes('search') ||
         lowerMessage.includes('what happened') ||
         lowerMessage.includes('recent') ||
-        lowerMessage.includes('update')) {
+        lowerMessage.includes('update') ||
+        lowerMessage.includes('died') ||
+        lowerMessage.includes('death') ||
+        lowerMessage.includes('dead') ||
+        lowerMessage.includes('passed away')) {
       return { useTools: true, intent: 'news_search' };
     }
 
