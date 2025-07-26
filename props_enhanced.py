@@ -174,7 +174,7 @@ class DatabaseClient:
             
             # Fetch games from all supported sports
             all_games = []
-            sports = ["MLB", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
+            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -310,22 +310,23 @@ class IntelligentPlayerPropsAgent:
         
     def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
         """Distribute props across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
-        sport_counts = {"MLB": 0, "WNBA": 0}
+        sport_counts = {"Major League Baseball": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
-            if sport == "MLB":
-                sport_counts["MLB"] += 1
+            if sport == "Major League Baseball":
+                sport_counts["Major League Baseball"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
         # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
+        # Use the same keys as sport_counts to avoid KeyErrors and simplify downstream logic
         distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0     # MLB second
+            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,   # exactly three WNBA props
+            "Major League Baseball": 7 if sport_counts["Major League Baseball"] > 0 else 0  # seven MLB props
         }
         
         # Adjust if we don't have enough games in a sport
@@ -333,11 +334,11 @@ class IntelligentPlayerPropsAgent:
             # If not enough WNBA games, give remaining to MLB
             remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
             distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
+            distribution["Major League Baseball"] += remaining_wnba
             
-        if distribution["MLB"] > sport_counts["MLB"]:
+        if distribution["Major League Baseball"] > sport_counts["Major League Baseball"]:
             # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+            distribution["Major League Baseball"] = sport_counts["Major League Baseball"]
         
         logger.info(f"Props distribution: {distribution}")
         return distribution
@@ -1008,10 +1009,10 @@ REMEMBER:
                     # Determine sport from game data, not hardcoded
                     sport = "MLB"  # default
                     if game:
-                        game_sport = game.get('sport', 'MLB')
+                        game_sport = game.get('sport', 'Major League Baseball')
                         if game_sport == "Women's National Basketball Association":
                             sport = "WNBA"
-                        elif game_sport == "MLB":
+                        elif game_sport == "Major League Baseball":
                             sport = "MLB"
                         elif game_sport == "Ultimate Fighting Championship":
                             sport = "UFC"

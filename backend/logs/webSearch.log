@@ -341,3 +341,5 @@
 {"level":"info","message":"DuckDuckGo search returned 2 results for \"MLB injury report today\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}
 {"level":"info","message":"Performing web search for: \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}
 {"level":"info","message":"DuckDuckGo search returned 0 results for \"Kyle Schwarber Phillies lineup news\"","service":"webSearch","timestamp":"2025-07-06 22:33:58"}
+{"level":"info","message":"Performing web search for: \"Hulk Hogan death 2025\"","service":"webSearch","timestamp":"2025-07-26 02:16:53"}
+{"level":"info","message":"DuckDuckGo search returned 0 results for \"Hulk Hogan death 2025\"","service":"webSearch","timestamp":"2025-07-26 02:16:54"}

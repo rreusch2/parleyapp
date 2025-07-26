@@ -34,23 +34,37 @@ class WebSearchService {
     logger.info(`Performing web search for: "${query}"`);
     
     try {
-      // Try DuckDuckGo first (free alternative)
+      // Try Google Custom Search FIRST if available (most reliable)
+      if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
+        try {
+          const results = await this.searchWithGoogleCustomSearch(query);
+          if (results.length > 0) {
+            logger.info(`Google Custom Search returned ${results.length} results for "${query}"`);
+            return results;
+          }
+        } catch (error) {
+          logger.warn(`Google Custom Search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      
+      // Try DuckDuckGo as backup
       try {
-        return await this.searchWithDuckDuckGo(query);
+        const results = await this.searchWithDuckDuckGo(query);
+        if (results.length > 0) {
+          return results;
+        }
       } catch (error) {
         logger.warn(`DuckDuckGo search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
       }
       
-      // Try Bing search as second option
+      // Try Bing search as third option
       try {
-        return await this.searchWithBing(query);
+        const results = await this.searchWithBing(query);
+        if (results.length > 0) {
+          return results;
+        }
       } catch (error) {
         logger.warn(`Bing search failed, trying other options: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      
-      // Fall back to Google Custom Search if available
-      if (GOOGLE_SEARCH_API_KEY && GOOGLE_SEARCH_ENGINE_ID) {
-        return await this.searchWithGoogleCustomSearch(query);
       }
       
       // Final fallback with intelligent mock data
@@ -130,21 +144,42 @@ class WebSearchService {
         params: {
           q: query,
           key: GOOGLE_SEARCH_API_KEY,
-          cx: GOOGLE_SEARCH_ENGINE_ID
-        }
+          cx: GOOGLE_SEARCH_ENGINE_ID,
+          num: 5, // Limit to 5 results
+          safe: 'off', // Allow all content for news searches
+          dateRestrict: 'm1' // Prefer results from last month for freshness
+        },
+        timeout: 10000
       });
       
       const items = response.data.items || [];
       
-      return items.map((item: any) => ({
-        title: item.title,
-        link: item.link,
-        snippet: item.snippet,
+      if (items.length === 0) {
+        logger.warn(`Google Custom Search returned no results for "${query}"`);
+        return [];
+      }
+      
+      const results = items.map((item: any) => ({
+        title: item.title || 'No title',
+        link: item.link || '',
+        snippet: item.snippet || 'No description available',
         source: 'Google Custom Search',
-        publishedDate: item.pagemap?.metatags?.[0]?.['article:published_time']
-      })).slice(0, 5); // Limit to top 5 results
+        publishedDate: item.pagemap?.metatags?.[0]?.['article:published_time'] || 
+                      item.pagemap?.metatags?.[0]?.['og:updated_time'] ||
+                      item.pagemap?.metatags?.[0]?.['date']
+      })).filter(result => result.link && result.title !== 'No title');
+      
+      logger.info(`Google Custom Search processed ${results.length} valid results for "${query}"`);
+      return results;
     } catch (error) {
-      logger.error(`Google Custom Search failed: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (error.response?.status === 429) {
+        logger.error(`Google Custom Search rate limit exceeded for "${query}"`);
+      } else if (error.response?.status === 403) {
+        logger.error(`Google Custom Search API key invalid or quota exceeded for "${query}"`);
+      } else {
+        logger.error(`Google Custom Search failed for "${query}": ${errorMsg}`);
+      }
       throw error;
     }
   }

@@ -154,20 +154,22 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
+    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
         try:
-            now = datetime.now().isoformat()
-            future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
+            tomorrow_date = (datetime.now() + timedelta(days=1)).date()
+            start_dt = datetime.combine(tomorrow_date, datetime.min.time())
+            end_dt = start_dt + timedelta(days=1)
+            start_iso = start_dt.isoformat()
+            end_iso = end_dt.isoformat()
             
             # Fetch games from all supported sports
             all_games = []
-            sports = ["MLB", "Women's National Basketball Association", "Ultimate Fighting Championship"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gt("start_time", now).lt("start_time", future).eq("sport", sport).order("start_time").execute()
+                ).gt("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
                     logger.info(f"Found {len(response.data)} upcoming {sport} games")
@@ -175,8 +177,7 @@ class DatabaseClient:
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total upcoming games across all sports: {len(all_games)}")
-            
+            logger.info(f"Total tomorrow games across all sports: {len(all_games)}")
             return all_games
         except Exception as e:
             logger.error(f"Failed to fetch upcoming games: {e}")
@@ -391,13 +392,13 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
         """Distribute picks across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
+        sport_counts = {"Major League Baseball": 0, "WNBA": 0, "MMA": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
-            if sport == "MLB":
-                sport_counts["MLB"] += 1
+            if sport == "Major League Baseball":
+                sport_counts["Major League Baseball"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
@@ -408,7 +409,7 @@ class IntelligentTeamsAgent:
         # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
         distribution = {
             "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0,     # MLB second
+            "Major League Baseball": 7 if sport_counts["Major League Baseball"] > 0 else 0,     # MLB second
             "MMA": 0  # No MMA for now, focus on WNBA + MLB
         }
         
@@ -417,11 +418,11 @@ class IntelligentTeamsAgent:
             # If not enough WNBA games, give remaining to MLB
             remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
             distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
+            distribution["Major League Baseball"] += remaining_wnba
             
-        if distribution["MLB"] > sport_counts["MLB"]:
+        if distribution["Major League Baseball"] > sport_counts["Major League Baseball"]:
             # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+            distribution["Major League Baseball"] = sport_counts["Major League Baseball"]
         
         logger.info(f"Pick distribution: {distribution}")
         return distribution
@@ -429,7 +430,7 @@ class IntelligentTeamsAgent:
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport team analysis...")
         
-        games = self.db.get_upcoming_games(hours_ahead=48)
+        games = self.db.get_tomorrow_games()
         logger.info(f"📅 Found {len(games)} upcoming games across all sports")
         
         if not games:
@@ -495,7 +496,7 @@ class IntelligentTeamsAgent:
         sports_summary = ", ".join(sports_in_data)
         
         # STEP 3: Calculate balanced research allocation for team bets
-        mlb_games = len([g for g in games if g.get('sport') == 'MLB'])
+        mlb_games = len([g for g in games if g.get('sport') == 'Major League Baseball'])
         wnba_games = len([g for g in games if g.get('sport') in ['WNBA', "Women's National Basketball Association"]])
         total_games = mlb_games + wnba_games
         
@@ -913,19 +914,25 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 "timestamp": insight.timestamp.isoformat()
             })
         
-        MAX_ODDS = 350
+        MAX_POSITIVE_ODDS = 400  # Maximum underdog price we will consider (e.g. +400)
+        MAX_NEGATIVE_ODDS = -400  # Maximum favorite price we will consider (e.g. -400)
+
         
         filtered_bets = []
         long_shot_count = 0
         
         for bet in bets:
-            if abs(bet.odds) <= MAX_ODDS:
+            # Keep bet if it is within our defined odds window
+            if (bet.odds >= 0 and bet.odds <= MAX_POSITIVE_ODDS) or (bet.odds < 0 and bet.odds >= MAX_NEGATIVE_ODDS):
                 filtered_bets.append(bet)
             else:
                 long_shot_count += 1
                 logger.info(f"🚫 Filtered long shot: {bet.home_team} vs {bet.away_team} {bet.bet_type} ({bet.odds})")
         
-        logger.info(f"🎯 Filtered bets: {len(bets)} → {len(filtered_bets)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
+        logger.info(
+                f"🎯 Filtered bets: {len(bets)} → {len(filtered_bets)} "
+                f"(removed {long_shot_count} long shots outside {MAX_NEGATIVE_ODDS}/+{MAX_POSITIVE_ODDS})"
+            )
         
         bets_data = []
         for bet in filtered_bets:
@@ -1090,7 +1097,24 @@ REMEMBER:
                 return []
             
             json_str = picks_text[start_idx:end_idx]
-            ai_picks = json.loads(json_str)
+            logger.info(f"🔍 Attempting to parse JSON: {json_str[:200]}...")
+            
+            try:
+                ai_picks = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing failed: {e}")
+                logger.error(f"Raw JSON string: {json_str}")
+                # Try to clean up common JSON issues
+                cleaned_json = json_str.replace('\n', ' ').replace('\r', ' ')
+                # Remove any trailing commas before closing brackets
+                import re
+                cleaned_json = re.sub(r',\s*([}\]])', r'\1', cleaned_json)
+                try:
+                    ai_picks = json.loads(cleaned_json)
+                    logger.info("✅ JSON parsing succeeded after cleanup")
+                except json.JSONDecodeError as e2:
+                    logger.error(f"JSON parsing failed even after cleanup: {e2}")
+                    return []
             
             formatted_picks = []
             for pick in ai_picks:
@@ -1145,13 +1169,15 @@ REMEMBER:
                         
                         # Use safer dictionary access with get() for all fields
                         # Determine sport from game data - map from database sport names to display names
-                        game_sport = game.get("sport", "MLB") if game else "MLB"
+                        game_sport = game.get("sport", "Major League Baseball") if game else "Major League Baseball"
                         if game_sport == "Women's National Basketball Association":
                             display_sport = "WNBA"
                         elif game_sport == "Ultimate Fighting Championship":
                             display_sport = "MMA"
+                        elif game_sport == "Major League Baseball":
+                            display_sport = "MLB"
                         else:
-                            display_sport = "MLB"  # Default to MLB for unknown or MLB games
+                            display_sport = "MLB"  # Default to MLB for unknown games
                         
                         formatted_picks.append({
                             "match_teams": f"{matching_bet.home_team} vs {matching_bet.away_team}",
@@ -1227,7 +1253,11 @@ REMEMBER:
                 logger.info(f"📝 Generated {len(final_picks)} diverse picks:")
                 for i, pick in enumerate(final_picks, 1):
                     meta = pick["metadata"]
-                    logger.info(f"  {i}. {meta["home_team"]} vs {meta["away_team"]} {meta["bet_type"]} {meta["recommendation"].upper()} {pick["confidence"]}% conf)")
+                    logger.info(
+                        f"  {i}. {meta['home_team']} vs {meta['away_team']} "
+                        f"{meta['bet_type']} {meta['recommendation'].upper()} "
+                        f"{pick['confidence']}% conf"
+                    )
             
             return final_picks
             

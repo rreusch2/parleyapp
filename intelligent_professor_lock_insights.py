@@ -80,7 +80,7 @@ class IntelligentInsightsGenerator:
             
             # Get upcoming games from multiple sports (next 2 days)
             all_games = []
-            sports = ["MLB", "Women's National Basketball Association", "Ultimate Fighting Championship"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
             
             for sport in sports:
                 result = self.supabase.table('sports_events').select(
@@ -442,40 +442,52 @@ class IntelligentInsightsGenerator:
             # STEP 2: Create the intelligent prompt with context
             games_data = self.format_games_data(games)
             
-            intelligent_prompt = f"""Professor Lock, you're analyzing today's multi-sport slate (MLB, WNBA, UFC). Here are the games with live odds:
+            intelligent_prompt = f"""Professor Lock, you're analyzing today's COMPLETE multi-sport slate. Here are ALL {len(games)} games with live odds:
 
 {games_data}
 
 # CURRENT STATMUSE CONTEXT (from main pages):
 {json.dumps(statmuse_context, indent=2)}
 
-🎯 **YOUR MISSION:**
-Research these games using StatMuse queries and web searches to generate 5-8 valuable insights for sports bettors across all sports.
+🎯 **CRITICAL MISSION - COMPREHENSIVE ANALYSIS:**
+You MUST analyze the ENTIRE slate of {len(games)} games to find the 7 BEST insights across ALL sports. Do NOT focus on just one game.
 
-**INSIGHT CATEGORIES:**
-You must assign ONE category to each insight:
+**MANDATORY RESEARCH STRATEGY:**
+1. **SCAN ALL GAMES**: Look at every single matchup for potential insights
+2. **DIVERSIFY SPORTS**: Include insights from MLB, WNBA, and UFC (if available)
+3. **RESEARCH DEPTH**: Use 8-12 StatMuse queries across DIFFERENT games/teams
+4. **WEB INTELLIGENCE**: Use 4-6 web searches for injuries, weather, breaking news
+5. **QUALITY FILTER**: Only generate insights that provide real betting value
+
+**RESEARCH REQUIREMENTS:**
+- Query StatMuse for at least 3 DIFFERENT MLB games/teams
+- Query StatMuse for WNBA games if available
+- Web search for weather conditions affecting multiple games
+- Web search for injury reports across different teams
+- Research head-to-head records for key matchups
+- Analyze recent form trends across the slate
+
+**INSIGHT CATEGORIES (assign ONE per insight):**
 - trends: Team/fighter performance trends, records, streaks, head-to-head history
 - pitcher: Starting pitcher analysis, ERA, matchups, recent performance (MLB only)
 - bullpen: Relief pitching, closer analysis, late-game situations (MLB only)
-- injury: Player/fighter injuries, disabled list, lineup changes
+- injury: Player/fighter injuries, disabled list, lineup changes affecting multiple games
 - weather: Weather conditions, wind, temperature effects (outdoor sports)
 - matchup: Team vs team/fighter vs fighter analysis, style matchups, advantages
-- research: General research findings, statistical analysis
+- research: Cross-game statistical analysis, slate-wide trends
 - wnba: WNBA-specific analysis (pace, usage rates, rest/travel)
 - ufc: UFC-specific analysis (fighting styles, reach, recent form)
 
-**FORMAT FOR EACH INSIGHT:**
-[CATEGORY: trends] Your insight text here about team trends...
-[CATEGORY: pitcher] Your insight text here about pitching...
-[CATEGORY: bullpen] Your insight text here about bullpen...
+**MANDATORY FORMAT:**
+[CATEGORY: trends] Your insight about trends across multiple games...
+[CATEGORY: pitcher] Your insight about a specific pitcher matchup...
+[CATEGORY: weather] Your insight about weather affecting multiple games...
 
-**RESEARCH & ATTRIBUTION:**
-- Query StatMuse for any stats you want to investigate
-- Use web search for weather, injuries, and recent news
-- Use "My research shows..." or "Analysis indicates..." for general findings
-- Use "StatMuse confirms..." only when you actually query StatMuse
+**RESEARCH ATTRIBUTION RULES:**
+- Use "StatMuse confirms..." ONLY when you actually query StatMuse
 - Use "Web search reveals..." when referencing web search results
-- No fake website citations - just honest research language
+- Use "Analysis shows..." for your own analytical findings
+- NO fake citations - be honest about your research sources
 
 **ANALYTICAL APPROACH - NO BETTING PICKS:**
 - Present DATA and TRENDS, let users draw their own conclusions
@@ -484,13 +496,15 @@ You must assign ONE category to each insight:
 - NO promotional language: Don't say "easy money", "lock", "juice", "bankroll", etc.
 - DO NOT include any closing message, question, or call to action at the end
 
-**EXAMPLE FORMAT:**
-[CATEGORY: trends] StatMuse shows the Yankees are 12-3 in their last 15 home games, indicating strong home-field performance this season.
-[CATEGORY: pitcher] Analysis reveals the starting pitcher has a 2.85 ERA in his last 5 starts, showing consistent recent form.
-[CATEGORY: wnba] The Liberty are averaging 85.2 points per game at home while the Sparks struggle on the road with 78.1 PPG.
-[CATEGORY: ufc] Fighter A has a 75% takedown defense rate against southpaw opponents, which could be crucial in tonight's matchup.
+**EXAMPLE FORMAT (showing cross-game analysis):**
+[CATEGORY: trends] StatMuse confirms 3 home teams tonight are on winning streaks: Yankees (5-1 L6), Dodgers (7-2 L9), and Braves (4-1 L5) at home.
+[CATEGORY: pitcher] Web search reveals weather delays may affect 4 games tonight, with rain expected in Chicago, Cleveland, and Washington.
+[CATEGORY: injury] Analysis shows road teams are 2-8 ATS in their last 10 games when traveling more than 1,500 miles, affecting tonight's West Coast games.
+[CATEGORY: wnba] StatMuse shows Liberty and Aces both average 90+ PPG at home while their opponents average under 80 PPG on the road.
+[CATEGORY: research] Cross-slate analysis reveals 6 of tonight's games feature teams with opposite rest advantages (fresh vs tired).
 
-Generate 5-8 analytical insights using this exact format with categories."""
+**CRITICAL REQUIREMENT:**
+Generate EXACTLY 7 analytical insights covering MULTIPLE games across the slate. Do NOT focus on just one matchup."""
 
             # Send to Professor Lock for intelligent analysis
             url = f"{self.backend_url}/api/ai/chat"
@@ -534,9 +548,9 @@ Generate 5-8 analytical insights using this exact format with categories."""
             statmuse_queries = self.generate_intelligent_statmuse_queries(games)
             web_search_queries = self.generate_intelligent_web_search_queries(games)
             
-            # Execute the most valuable StatMuse queries
+            # Execute comprehensive StatMuse queries for thorough analysis
             statmuse_results = []
-            for query in statmuse_queries[:4]:  # Limit to prevent overload
+            for query in statmuse_queries[:8]:  # Increased for comprehensive coverage
                 result = self.query_statmuse(query)
                 if result:
                     statmuse_results.append(result)
@@ -544,7 +558,7 @@ Generate 5-8 analytical insights using this exact format with categories."""
             
             # Execute web search queries
             web_search_results = []
-            for query in web_search_queries[:3]:  # Limit to prevent overload
+            for query in web_search_queries[:6]:  # Increased for comprehensive coverage
                 result = self.web_search(query)
                 if result:
                     web_search_results.append(result)
@@ -577,50 +591,81 @@ Generate 5-8 analytical insights using this exact format with categories."""
         return queries  # Return empty for now - let generate_intelligent_queries handle it
 
     def generate_intelligent_statmuse_queries(self, games):
-        """Generate intelligent StatMuse queries based on actual games"""
+        """Generate intelligent StatMuse queries covering ALL games for comprehensive analysis"""
         queries = []
         
-        # Take first 3 games and generate relevant queries
-        for game in games[:3]:
-            home_team = game['home_team']
-            away_team = game['away_team']
-            
-            # Generate team-specific queries for most valuable insights
-            team_queries = [
-                f"{away_team} vs {home_team} last 5 meetings",
-                f"{home_team} home record 2025",
-                f"{away_team} road record 2025",
-                f"{home_team} last 10 games",
-                f"{away_team} last 10 games"
-            ]
-            
-            queries.extend(team_queries)
+        # Separate games by sport for balanced coverage
+        mlb_games = [g for g in games if g.get('sport') == 'Major League Baseball']
+        wnba_games = [g for g in games if g.get('sport') == "Women's National Basketball Association"]
+        ufc_games = [g for g in games if g.get('sport') == 'Ultimate Fighting Championship']
         
-        # Remove duplicates and limit to most valuable
-        unique_queries = list(dict.fromkeys(queries))[:6]
-        return unique_queries
+        # MLB queries - cover multiple games, not just one
+        if mlb_games:
+            # Take different MLB games for diverse analysis
+            for i, game in enumerate(mlb_games[:4]):  # Cover up to 4 MLB games
+                home_team = game['home_team']
+                away_team = game['away_team']
+                
+                if i == 0:  # First game - head to head
+                    queries.append(f"{away_team} vs {home_team} last 5 meetings")
+                elif i == 1:  # Second game - home/road records
+                    queries.append(f"{home_team} home record 2025")
+                    queries.append(f"{away_team} road record 2025")
+                elif i == 2:  # Third game - recent form
+                    queries.append(f"{home_team} last 10 games")
+                elif i == 3:  # Fourth game - season stats
+                    queries.append(f"{away_team} season stats 2025")
+        
+        # WNBA queries - if available
+        if wnba_games:
+            for i, game in enumerate(wnba_games[:2]):  # Cover up to 2 WNBA games
+                home_team = game['home_team']
+                away_team = game['away_team']
+                
+                if i == 0:
+                    queries.append(f"{home_team} home record WNBA 2025")
+                else:
+                    queries.append(f"{away_team} road record WNBA 2025")
+        
+        # Return up to 8 queries for comprehensive coverage
+        return queries[:8]
 
     def generate_intelligent_web_search_queries(self, games):
-        """Generate intelligent web search queries based on actual games"""
+        """Generate intelligent web search queries covering multiple games for comprehensive analysis"""
         queries = []
         
-        # Take first 3 games and generate relevant queries
-        for game in games[:3]:
+        # Separate games by sport for balanced coverage
+        mlb_games = [g for g in games if g.get('sport') == 'Major League Baseball']
+        wnba_games = [g for g in games if g.get('sport') == "Women's National Basketball Association"]
+        
+        # MLB weather and injury queries - cover multiple games
+        if mlb_games:
+            # Weather queries for different games/cities
+            for i, game in enumerate(mlb_games[:3]):
+                home_team = game['home_team']
+                away_team = game['away_team']
+                
+                if i == 0:  # Weather for first game
+                    queries.append(f"{home_team} vs {away_team} weather forecast")
+                elif i == 1:  # Injury report for second game
+                    queries.append(f"{home_team} {away_team} injury report")
+                elif i == 2:  # Starting pitchers for third game
+                    queries.append(f"{home_team} {away_team} starting pitchers today")
+        
+        # WNBA queries - if available
+        if wnba_games:
+            game = wnba_games[0]
             home_team = game['home_team']
             away_team = game['away_team']
-            
-            # Generate team-specific queries for most valuable insights
-            team_queries = [
-                f"{home_team} vs {away_team} weather forecast",
-                f"{home_team} {away_team} injury report",
-                f"{home_team} {away_team} starting pitchers today"
-            ]
-            
-            queries.extend(team_queries)
+            queries.append(f"{home_team} {away_team} WNBA injury report")
         
-        # Remove duplicates and limit to most valuable
-        unique_queries = list(dict.fromkeys(queries))[:6]
-        return unique_queries
+        # General slate-wide queries
+        if len(games) >= 5:
+            queries.append("MLB weather delays today")
+            queries.append("MLB injury report today")
+        
+        # Return up to 6 queries for comprehensive coverage
+        return queries[:6]
 
     def enhance_ai_response_with_research(self, ai_response, statmuse_results, web_search_results):
         """Enhance AI response with real research data"""
