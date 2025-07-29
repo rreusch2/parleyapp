@@ -50,9 +50,12 @@ android/
 .vscode/
 
 # Google Cloud Service Account Keys (NEVER COMMIT THESE!)
-*.json
+# *.json  # DON'T exclude all JSON - breaks package.json!
 personal-finance-app-*.json
 service-account-*.json
+*-service-account.json
+google-services.json
+googleservices.json
 *.swp
 *.swo
 
