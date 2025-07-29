@@ -52,9 +52,10 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onClose,
   onSubscribe,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly'); // Default to yearly (best value)
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('weekly'); // Default to weekly as user mentioned
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   // Include restorePurchases so users (and Apple reviewers) can easily restore previous transactions
   const { subscribeToPro, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
@@ -63,6 +64,9 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      // Force re-render to ensure bottom section appears
+      setIsInitialized(false);
+      setTimeout(() => setIsInitialized(true), 100);
     }
   }, [visible]);
 

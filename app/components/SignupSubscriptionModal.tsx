@@ -57,12 +57,16 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly');
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const { subscribeToPro, restorePurchases } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      // Force re-render to ensure bottom section appears
+      setIsInitialized(false);
+      setTimeout(() => setIsInitialized(true), 100);
     }
   }, [visible]);
 

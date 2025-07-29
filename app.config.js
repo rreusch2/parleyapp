@@ -31,7 +31,8 @@ module.exports = {
       icon: "./assets/images/icon.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
-        backgroundColor: "#111827"
+        backgroundColor: "#111827",
+        monochromeImage: "./assets/images/adaptive-icon.png"
       },
       package: "com.parleyapp.mobile",
       versionCode: 1,
