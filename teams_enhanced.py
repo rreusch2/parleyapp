@@ -156,20 +156,23 @@ class DatabaseClient:
     
     def get_tomorrow_games(self) -> List[Dict[str, Any]]:
         try:
-            tomorrow_date = (datetime.now() + timedelta(days=1)).date()
-            start_dt = datetime.combine(tomorrow_date, datetime.min.time())
+            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
+            target_date = datetime(2025, 7, 29).date()
+            start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            # Fetch games from all supported sports
+            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            
+            # Fetch games from all supported sports - using correct sport names from database
             all_games = []
             sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gt("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
                     logger.info(f"Found {len(response.data)} upcoming {sport} games")
@@ -178,6 +181,48 @@ class DatabaseClient:
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
             logger.info(f"Total tomorrow games across all sports: {len(all_games)}")
+            return all_games
+        except Exception as e:
+            logger.error(f"Failed to fetch upcoming games: {e}")
+            return []
+    
+    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
+        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
+        try:
+            # Get today's date range in UTC (database stores times in UTC)
+            from datetime import timezone
+            
+            # Get current time in UTC
+            now_utc = datetime.now(timezone.utc)
+            today_utc = now_utc.date()
+            
+            # Start of today in UTC
+            start_of_today_utc = datetime.combine(today_utc, datetime.min.time(), timezone.utc)
+            # End of today in UTC (include early tomorrow for games that start after midnight local time)
+            end_of_today_utc = start_of_today_utc + timedelta(hours=30)  # 30 hours to catch late games
+            
+            start_iso = start_of_today_utc.isoformat()
+            end_iso = end_of_today_utc.isoformat()
+            
+            logger.info(f"🗓️ Fetching games for TODAY (UTC): {today_utc} ({start_iso} to {end_iso})")
+            
+            # Fetch games from all supported sports
+            all_games = []
+            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
+            
+            for sport in sports:
+                response = self.supabase.table("sports_events").select(
+                    "id, home_team, away_team, start_time, sport, metadata"
+                ).gte("start_time", start_iso).lte("start_time", end_iso).eq("sport", sport).order("start_time").execute()
+                
+                if response.data:
+                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
+                    all_games.extend(response.data)
+            
+            # Sort all games by start time
+            all_games.sort(key=lambda x: x['start_time'])
+            logger.info(f"Total upcoming games across all sports: {len(all_games)}")
+            
             return all_games
         except Exception as e:
             logger.error(f"Failed to fetch upcoming games: {e}")
@@ -392,13 +437,13 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
         """Distribute picks across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
-        sport_counts = {"Major League Baseball": 0, "WNBA": 0, "MMA": 0}
+        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
             if sport == "Major League Baseball":
-                sport_counts["Major League Baseball"] += 1
+                sport_counts["MLB"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
@@ -409,7 +454,7 @@ class IntelligentTeamsAgent:
         # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
         distribution = {
             "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "Major League Baseball": 7 if sport_counts["Major League Baseball"] > 0 else 0,     # MLB second
+            "MLB": 7 if sport_counts["MLB"] > 0 else 0,     # MLB second
             "MMA": 0  # No MMA for now, focus on WNBA + MLB
         }
         
@@ -418,11 +463,11 @@ class IntelligentTeamsAgent:
             # If not enough WNBA games, give remaining to MLB
             remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
             distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["Major League Baseball"] += remaining_wnba
+            distribution["MLB"] += remaining_wnba
             
-        if distribution["Major League Baseball"] > sport_counts["Major League Baseball"]:
+        if distribution["MLB"] > sport_counts["MLB"]:
             # If not enough MLB games, cap at available
-            distribution["Major League Baseball"] = sport_counts["Major League Baseball"]
+            distribution["MLB"] = sport_counts["MLB"]
         
         logger.info(f"Pick distribution: {distribution}")
         return distribution
@@ -430,8 +475,8 @@ class IntelligentTeamsAgent:
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport team analysis...")
         
-        games = self.db.get_tomorrow_games()
-        logger.info(f"📅 Found {len(games)} upcoming games across all sports")
+        games = self.db.get_tomorrow_games()  # Gets tomorrow's games only
+        logger.info(f"📅 Found {len(games)} tomorrow games across all sports")
         
         if not games:
             logger.warning("No upcoming games found")
@@ -448,7 +493,7 @@ class IntelligentTeamsAgent:
             logger.warning("No team bets found")
             return []
         
-        research_plan = await self.create_research_plan(available_bets, games)
+        research_plan = await self.create_research_plan(available_bets, games, sport_distribution)
         statmuse_count = len(research_plan.get("statmuse_queries", []))
         web_search_count = len(research_plan.get("web_searches", []))
         total_queries = statmuse_count + web_search_count
@@ -487,7 +532,7 @@ class IntelligentTeamsAgent:
             logger.error(f"❌ StatMuse context scraping error: {e}")
             return {}
     
-    async def create_research_plan(self, bets: List[TeamBet], games: List[Dict]) -> Dict[str, Any]:
+    async def create_research_plan(self, bets: List[TeamBet], games: List[Dict], sport_distribution: Dict[str, int]) -> Dict[str, Any]:
         # STEP 1: Scrape StatMuse main pages for current context
         statmuse_context = self.scrape_statmuse_context()
         
@@ -497,19 +542,25 @@ class IntelligentTeamsAgent:
         
         # STEP 3: Calculate balanced research allocation for team bets
         mlb_games = len([g for g in games if g.get('sport') == 'Major League Baseball'])
-        wnba_games = len([g for g in games if g.get('sport') in ['WNBA', "Women's National Basketball Association"]])
+        wnba_games = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])
         total_games = mlb_games + wnba_games
         
-        if total_games > 0:
-            wnba_research_ratio = min(0.4, wnba_games / total_games)  # Cap WNBA at 40%
-            mlb_research_ratio = 1.0 - wnba_research_ratio
-        else:
-            wnba_research_ratio = 0.3
-            mlb_research_ratio = 0.7
+        # Default research ratios
+        wnba_research_ratio = 0.0
+        mlb_research_ratio = 1.0
         
-        # Target: 8-12 WNBA teams for 3 picks, 15-20 MLB teams for 7 picks
-        target_wnba_queries = min(12, max(8, int(15 * wnba_research_ratio)))
-        target_mlb_queries = min(20, max(15, int(15 * mlb_research_ratio)))
+        if sport_distribution["WNBA"] > 0 and sport_distribution["MLB"] > 0:
+            # Both sports available - focus heavily on MLB since we need 7 picks vs 3 WNBA
+            wnba_research_ratio = 0.25  # Reduced WNBA research
+            mlb_research_ratio = 0.75   # Increased MLB research
+        elif sport_distribution["MLB"] > 0:
+            # Only MLB available
+            wnba_research_ratio = 0.0
+            mlb_research_ratio = 1.0
+        
+        # Target: 6-8 WNBA teams for 3 picks, 16-20 MLB teams for 7 picks  
+        target_wnba_queries = min(8, max(6, int(15 * wnba_research_ratio)))
+        target_mlb_queries = min(20, max(16, int(15 * mlb_research_ratio)))
         
         prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE team research strategy.
 
@@ -519,7 +570,7 @@ class IntelligentTeamsAgent:
 - **WNBA Team Research**: {target_wnba_queries} different teams/matchups (for 3 final picks)
 - **MLB Team Research**: {target_mlb_queries} different teams/matchups (for 7 final picks)
 - **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
-- **Web Searches**: 5 total (3 MLB injury/lineup/weather, 2 WNBA injury/lineup)
+- **Web Searches**: 6 total (4 MLB injury/lineup/weather, 2 WNBA injury/lineup)
 
 ## DIVERSITY REQUIREMENTS FOR TEAMS:
 - **NO REPETITIVE POPULAR TEAMS**: Avoid Yankees, Dodgers, Lakers-style teams every time
@@ -987,13 +1038,13 @@ Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]
 **RAW RESEARCH DATA:**
 {research_summary}
 
-TASK: Generate {target_picks + 3} strategic team picks that maximize expected value and long-term profit. We need extra picks to compensate for potential filtering losses.
+TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
 
 🎯 **PICK DISTRIBUTION REQUIREMENTS:**
-- Generate 4-5 WNBA team picks FIRST (we need at least 3 final picks after filtering)
-- Generate 8-10 MLB team picks AFTER (we need at least 7 final picks after filtering)
-- TOTAL: Generate {target_picks + 3} picks to compensate for potential filtering losses
-- GOAL: Ensure we get exactly {target_picks} valid picks after bet matching and filtering
+- Generate EXACTLY 3 WNBA team picks FIRST (no more, no less)
+- Generate EXACTLY 7 MLB team picks AFTER (no more, no less) 
+- TOTAL: Generate EXACTLY {target_picks} picks (3 WNBA + 7 MLB = 10 total)
+- DO NOT generate extra picks - we want exactly 3 WNBA and 7 MLB
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data
@@ -1004,6 +1055,8 @@ TASK: Generate {target_picks + 3} strategic team picks that maximize expected va
 6. **MIX HOME/AWAY/OVER/UNDER**: Don't just pick all favorites - find spots where underdog or total has value
 7. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
 8. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
+9. **🚫 NO CONFLICTING PICKS**: NEVER pick both sides of the same game (e.g., don't pick both Connecticut Sun +12 AND Seattle Storm -12)
+10. **🚫 ONE PICK PER GAME**: Only make ONE bet per game - either moneyline OR spread OR total, never multiple bets on same game
 
 PROFITABLE BETTING STRATEGY:
 - **Focus on -200 to +200 odds**: This is the profitable betting sweet spot
@@ -1083,7 +1136,7 @@ REMEMBER:
                 model="grok-4-0709",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=4000
+                max_tokens=8000  # Increased for detailed 10-pick responses
             )
             
             picks_text = response.choices[0].message.content.strip()
@@ -1103,18 +1156,51 @@ REMEMBER:
                 ai_picks = json.loads(json_str)
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing failed: {e}")
-                logger.error(f"Raw JSON string: {json_str}")
-                # Try to clean up common JSON issues
-                cleaned_json = json_str.replace('\n', ' ').replace('\r', ' ')
-                # Remove any trailing commas before closing brackets
+                logger.error(f"Raw JSON string: {json_str[:1000]}...")  # Limit log output
+                
+                # Try multiple cleanup strategies for truncated JSON
                 import re
+                
+                # Strategy 1: Basic cleanup
+                cleaned_json = json_str.replace('\n', ' ').replace('\r', ' ')
                 cleaned_json = re.sub(r',\s*([}\]])', r'\1', cleaned_json)
+                
                 try:
                     ai_picks = json.loads(cleaned_json)
-                    logger.info("✅ JSON parsing succeeded after cleanup")
-                except json.JSONDecodeError as e2:
-                    logger.error(f"JSON parsing failed even after cleanup: {e2}")
-                    return []
+                    logger.info("✅ JSON parsing succeeded after basic cleanup")
+                except json.JSONDecodeError:
+                    # Strategy 2: Handle truncated response - try to close incomplete JSON
+                    logger.warning("🔧 Attempting to fix truncated JSON response")
+                    
+                    # Count open/close brackets to see if we need to close the array
+                    open_brackets = json_str.count('{')
+                    close_brackets = json_str.count('}')
+                    
+                    if open_brackets > close_brackets:
+                        # We have unclosed objects, try to close them
+                        missing_closes = open_brackets - close_brackets
+                        fixed_json = json_str.rstrip(', \n\r')
+                        
+                        # Add missing closing braces
+                        for _ in range(missing_closes):
+                            fixed_json += '}'
+                        
+                        # Ensure array is properly closed
+                        if not fixed_json.endswith(']'):
+                            fixed_json += ']'
+                        
+                        try:
+                            ai_picks = json.loads(fixed_json)
+                            logger.info(f"✅ JSON parsing succeeded after fixing truncation ({len(ai_picks)} picks recovered)")
+                        except json.JSONDecodeError as e3:
+                            logger.error(f"JSON parsing failed after all attempts: {e3}")
+                            return []
+                    else:
+                        logger.error("Unable to fix JSON - not a simple truncation issue")
+                        return []
+            
+            # Remove conflicting picks (both sides of same game)
+            ai_picks = self._remove_conflicting_picks(ai_picks)
             
             formatted_picks = []
             for pick in ai_picks:
@@ -1301,6 +1387,41 @@ REMEMBER:
             formatted.append(f"• Search: {query}\n  Result: {data_clean}")
         
         return "\n\n".join(formatted)
+    
+    def _remove_conflicting_picks(self, picks: List[Dict]) -> List[Dict]:
+        """Remove conflicting picks (both sides of same game)"""
+        try:
+            seen_games = {}  # game_key -> pick_index
+            valid_picks = []
+            conflicts_removed = 0
+            
+            for i, pick in enumerate(picks):
+                home_team = pick.get("home_team", "")
+                away_team = pick.get("away_team", "")
+                bet_type = pick.get("bet_type", "")
+                
+                # Create game key (normalize team order)
+                teams = sorted([home_team.lower().strip(), away_team.lower().strip()])
+                game_key = f"{teams[0]}_vs_{teams[1]}_{bet_type}"
+                
+                if game_key in seen_games:
+                    logger.warning(f"🚫 CONFLICT DETECTED: Removing duplicate pick for {home_team} vs {away_team} ({bet_type})")
+                    logger.warning(f"   Previous pick: {picks[seen_games[game_key]]}")
+                    logger.warning(f"   Conflicting pick: {pick}")
+                    conflicts_removed += 1
+                    continue
+                
+                seen_games[game_key] = i
+                valid_picks.append(pick)
+            
+            if conflicts_removed > 0:
+                logger.info(f"🛡️ Removed {conflicts_removed} conflicting picks. Valid picks: {len(valid_picks)}")
+            
+            return valid_picks
+            
+        except Exception as e:
+            logger.error(f"Error in conflict detection: {e}")
+            return picks  # Return original picks if error
     
     def _find_matching_bet(self, pick: Dict, odds: List[TeamBet]) -> Optional[TeamBet]:
         """Find a matching bet from the available odds that corresponds to the AI pick.

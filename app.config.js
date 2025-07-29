@@ -28,16 +28,19 @@ module.exports = {
 
     },
     android: {
+      icon: "./assets/images/icon.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon.png",
         backgroundColor: "#111827"
       },
       package: "com.parleyapp.mobile",
       versionCode: 1,
-      // Only include permissions that your app actually uses
+      jsEngine: "hermes",
+      // Permissions for sports betting app
       permissions: [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "BILLING"
       ]
     },
     web: {
@@ -66,7 +69,8 @@ module.exports = {
       apiUrl: process.env.EXPO_PUBLIC_BACKEND_URL, // ← Changed from EXPO_PUBLIC_API_URL
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      revenueCatApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
+      revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
+      revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"
       }

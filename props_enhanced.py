@@ -194,6 +194,50 @@ class DatabaseClient:
             logger.error(f"Failed to fetch upcoming games: {e}")
             return []
     
+    def _safe_int_convert(self, value) -> Optional[int]:
+        """Safely convert a value to int, handling strings and None"""
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            logger.warning(f"Could not convert odds value to int: {value}")
+            return None
+    
+    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
+        """Fetch games specifically for June 29th, 2025"""
+        try:
+            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
+            target_date = datetime(2025, 7, 29).date()
+            start_dt = datetime.combine(target_date, datetime.min.time())
+            end_dt = start_dt + timedelta(days=1)
+            start_iso = start_dt.isoformat()
+            end_iso = end_dt.isoformat()
+            
+            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            
+            # Fetch games from all supported sports - using correct sport names from database
+            all_games = []
+            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
+            
+            for sport in sports:
+                response = self.supabase.table("sports_events").select(
+                    "id, home_team, away_team, start_time, sport, metadata"
+                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
+                
+                if response.data:
+                    logger.info(f"Found {len(response.data)} tomorrow {sport} games with potential props")
+                    all_games.extend(response.data)
+            
+            # Sort all games by start time
+            all_games.sort(key=lambda x: x['start_time'])
+            logger.info(f"Total tomorrow games for props: {len(all_games)}")
+            
+            return all_games
+        except Exception as e:
+            logger.error(f"Failed to fetch tomorrow games: {e}")
+            return []
+    
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
         if not game_ids:
             return []
@@ -216,8 +260,8 @@ class DatabaseClient:
                         player_name=row["players"]["name"],
                         prop_type=row["player_prop_types"]["prop_name"],
                         line=float(row["line"]),
-                        over_odds=int(row["over_odds"]) if row["over_odds"] is not None else None,
-                        under_odds=int(row["under_odds"]) if row["under_odds"] is not None else None,
+                        over_odds=self._safe_int_convert(row["over_odds"]),
+                        under_odds=self._safe_int_convert(row["under_odds"]),
                         event_id=row["event_id"],
                         team=row["players"]["team"] if row["players"]["team"] else "Unknown",
                         bookmaker="fanduel"
@@ -310,23 +354,22 @@ class IntelligentPlayerPropsAgent:
         
     def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
         """Distribute props across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
-        sport_counts = {"Major League Baseball": 0, "WNBA": 0}
+        sport_counts = {"MLB": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
             if sport == "Major League Baseball":
-                sport_counts["Major League Baseball"] += 1
+                sport_counts["MLB"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
         # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
-        # Use the same keys as sport_counts to avoid KeyErrors and simplify downstream logic
         distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,   # exactly three WNBA props
-            "Major League Baseball": 7 if sport_counts["Major League Baseball"] > 0 else 0  # seven MLB props
+            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
+            "MLB": 7 if sport_counts["MLB"] > 0 else 0     # MLB second
         }
         
         # Adjust if we don't have enough games in a sport
@@ -334,11 +377,11 @@ class IntelligentPlayerPropsAgent:
             # If not enough WNBA games, give remaining to MLB
             remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
             distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["Major League Baseball"] += remaining_wnba
+            distribution["MLB"] += remaining_wnba
             
-        if distribution["Major League Baseball"] > sport_counts["Major League Baseball"]:
+        if distribution["MLB"] > sport_counts["MLB"]:
             # If not enough MLB games, cap at available
-            distribution["Major League Baseball"] = sport_counts["Major League Baseball"]
+            distribution["MLB"] = sport_counts["MLB"]
         
         logger.info(f"Props distribution: {distribution}")
         return distribution
@@ -346,8 +389,8 @@ class IntelligentPlayerPropsAgent:
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport player props analysis...")
         
-        games = self.db.get_upcoming_games(hours_ahead=48)
-        logger.info(f"📅 Found {len(games)} upcoming games across MLB and WNBA")
+        games = self.db.get_tomorrow_games()
+        logger.info(f"📅 Found {len(games)} tomorrow games across MLB and WNBA")
         
         if not games:
             logger.warning("No upcoming games found")
@@ -417,28 +460,39 @@ class IntelligentPlayerPropsAgent:
         wnba_props = sport_distribution.get('WNBA', 0)
         mlb_props = sport_distribution.get('MLB', 0)
         
-        # Calculate balanced research allocation
-        total_props = wnba_props + mlb_props
-        if total_props > 0:
-            wnba_research_ratio = min(0.4, wnba_props / total_props)  # Cap WNBA at 40%
-            mlb_research_ratio = 1.0 - wnba_research_ratio
-        else:
-            wnba_research_ratio = 0.3
-            mlb_research_ratio = 0.7
+        # Calculate research allocation based on PICK NEEDS, not prop counts
+        # Need 7 MLB picks vs 3 WNBA picks = 70% MLB research, 30% WNBA research
         
-        # Target: 8-12 WNBA players for 3 picks, 15-20 MLB players for 7 picks
-        target_wnba_queries = min(12, max(8, int(18 * wnba_research_ratio)))
-        target_mlb_queries = min(20, max(15, int(18 * mlb_research_ratio)))
+        # Fixed allocation based on actual pick distribution needs
+        if wnba_props > 0 and mlb_props > 0:
+            # Both sports available - prioritize MLB since we need 7 picks vs 3 WNBA
+            target_wnba_queries = 8   # 8 diverse WNBA players for 3 picks
+            target_mlb_queries = 15   # 15 diverse MLB players for 7 picks
+        elif mlb_props > 0:
+            # Only MLB available
+            target_wnba_queries = 0
+            target_mlb_queries = 20
+        elif wnba_props > 0:
+            # Only WNBA available
+            target_wnba_queries = 15
+            target_mlb_queries = 0
+        else:
+            # No props available
+            target_wnba_queries = 0
+            target_mlb_queries = 0
+        
+        logger.info(f"🎯 Research allocation: WNBA={target_wnba_queries}, MLB={target_mlb_queries}, Total={target_wnba_queries + target_mlb_queries}")
         
         prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE research strategy.
 
 # CRITICAL REQUIREMENTS - BALANCED RESEARCH STRATEGY:
 
 ## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
-- **WNBA Research**: {target_wnba_queries} different players (for 3 final picks)
-- **MLB Research**: {target_mlb_queries} different players (for 7 final picks)
+- **MLB PRIORITY**: {target_mlb_queries} different MLB players (for 7 final picks - MAIN FOCUS)
+- **WNBA Secondary**: {target_wnba_queries} different WNBA players (for 3 final picks - SECONDARY)
 - **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
 - **Web Searches**: 5 total (3 MLB injury/lineup, 2 WNBA injury/lineup)
+- **CRITICAL**: Do MORE MLB research since we need 7 MLB picks vs only 3 WNBA picks!
 
 ## DIVERSITY REQUIREMENTS:
 - **NO REPETITIVE STAR PICKS**: Avoid A'ja Wilson, Breanna Stewart every time
@@ -509,12 +563,17 @@ Return ONLY valid JSON:
         prop_types_by_sport = {}
         
         for prop in props:
-            # Determine sport from games data
+            # Determine sport from games data with better team matching
             sport = "Unknown"
             for game in games:
-                if (game.get('home_team') == prop.team or 
-                    game.get('away_team') == prop.team or
-                    prop.team in [game.get('home_team', ''), game.get('away_team', '')]):
+                home_team = game.get('home_team', '').lower()
+                away_team = game.get('away_team', '').lower()
+                prop_team = prop.team.lower()
+                
+                # Try exact match first, then partial match
+                if (prop_team == home_team or prop_team == away_team or
+                    prop_team in home_team or prop_team in away_team or
+                    home_team in prop_team or away_team in prop_team):
                     sport = game.get('sport', 'Unknown')
                     break
             
@@ -545,6 +604,7 @@ Return ONLY valid JSON:
         analysis = {
             "total_props": len(props),
             "sports_breakdown": {},
+            "sport_distribution": {},  # Add this for research allocation
             "top_players_by_sport": {},
             "prop_types_by_sport": {},
             "sample_props_by_sport": {}
@@ -552,6 +612,7 @@ Return ONLY valid JSON:
         
         for sport, sport_props in props_by_sport.items():
             analysis["sports_breakdown"][sport] = len(sport_props)
+            analysis["sport_distribution"][sport] = len(sport_props)  # Same as sports_breakdown for now
             analysis["top_players_by_sport"][sport] = list(players_by_sport[sport])[:15]
             analysis["prop_types_by_sport"][sport] = list(prop_types_by_sport[sport])
             analysis["sample_props_by_sport"][sport] = sport_props[:20]  # Sample for analysis
@@ -818,16 +879,25 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         long_shot_count = 0
         
         for prop in props:
-            over_reasonable = prop.over_odds is None or abs(prop.over_odds) <= MAX_ODDS
-            under_reasonable = prop.under_odds is None or abs(prop.under_odds) <= MAX_ODDS
+            # Allow props with either over OR under odds (not requiring both)
+            has_over = prop.over_odds is not None
+            has_under = prop.under_odds is not None
             
-            if over_reasonable and under_reasonable:
-                filtered_props.append(prop)
+            # Must have at least one side with reasonable odds
+            if has_over or has_under:
+                over_reasonable = not has_over or abs(prop.over_odds) <= MAX_ODDS
+                under_reasonable = not has_under or abs(prop.under_odds) <= MAX_ODDS
+                
+                if over_reasonable and under_reasonable:
+                    filtered_props.append(prop)
+                else:
+                    long_shot_count += 1
+                    over_str = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else str(prop.over_odds) if prop.over_odds else "N/A"
+                    under_str = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else str(prop.under_odds) if prop.under_odds else "N/A"
+                    logger.info(f"🚫 Filtered long shot: {prop.player_name} {prop.prop_type} (Over: {over_str}, Under: {under_str})")
             else:
                 long_shot_count += 1
-                over_str = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else str(prop.over_odds)
-                under_str = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else str(prop.under_odds)
-                logger.info(f"🚫 Filtered long shot: {prop.player_name} {prop.prop_type} (Over: {over_str}, Under: {under_str})")
+                logger.info(f"🚫 Filtered no odds: {prop.player_name} {prop.prop_type} (no odds available)")
         
         logger.info(f"🎯 Filtered props: {len(props)} → {len(filtered_props)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
         
@@ -883,13 +953,13 @@ Available players in this data: {list(set(prop.player_name for prop in filtered_
 **RAW RESEARCH DATA:**
 {research_summary}
 
-TASK: Generate exactly {target_picks} strategic player prop picks that maximize expected value and long-term profit.
+TASK: Generate exactly {target_picks + 5} strategic player prop picks that maximize expected value and long-term profit.
 
 🚨 **MANDATORY SPORT DISTRIBUTION:**
-- Generate EXACTLY 3 WNBA player prop picks FIRST
-- Generate EXACTLY 7 MLB player prop picks AFTER
-- Total must be exactly 10 picks (3 WNBA + 7 MLB)
-- DO NOT deviate from this distribution under any circumstances
+- Generate EXACTLY 5 WNBA player prop picks FIRST (extras will be filtered to 3 best)
+- Generate EXACTLY 10 MLB player prop picks AFTER (extras will be filtered to 7 best)
+- Total must be exactly 15 picks (5 WNBA + 10 MLB) - system will select best 10
+- Generate EXTRA picks to account for filtering of picks with missing odds
 
 🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
 - You have access to {len(filtered_props)} total player props across all games
@@ -902,15 +972,16 @@ TASK: Generate exactly {target_picks} strategic player prop picks that maximize 
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the over_odds and under_odds in the data
-2. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350 (even if available)
-3. **AVOID LONG SHOTS**: Props with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
-4. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
-5. **DIVERSIFY PROP TYPES**: 
+2. **ONLY PICK PROPS WITH BOTH ODDS**: Skip any prop where over_odds OR under_odds is null/missing
+3. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350 (even if available)
+4. **AVOID LONG SHOTS**: Props with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
+5. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
+6. **DIVERSIFY PROP TYPES**: 
    - **MLB**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases, Total Bases
    - **WNBA**: Points, Rebounds, Assists (see available props below)
-6. **MIX OVER/UNDER**: Don\'t just pick all overs - find spots where under has value
-7. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
-8. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
+7. **MIX OVER/UNDER**: Don\'t just pick all overs - find spots where under has value
+8. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
+9. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
 
 PROFITABLE BETTING STRATEGY:
 - **Focus on -200 to +200 odds**: This is the profitable betting sweet spot
@@ -976,6 +1047,13 @@ REMEMBER:
 - Each pick should be one you\'d bet your own money on
 - **Available Batter Props**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases
 - **Available Pitcher Props**: Hits Allowed, Innings Pitched, Strikeouts, Walks Allowed
+
+**CRITICAL ODDS RULES:**
+- **NEVER recommend "UNDER 0.5 Home Runs"** - impossible (can't get negative home runs)
+- **NEVER recommend "UNDER 0.5 Stolen Bases"** - impossible (can't get negative steals)
+- **Only recommend props where both over/under make logical sense**
+- **Home Runs 0.5**: Only bet OVER (under is impossible)
+- **Stolen Bases 0.5**: Only bet OVER (under is impossible)
 """
         
         try:
@@ -1004,12 +1082,42 @@ REMEMBER:
                 matching_prop = self._find_matching_prop(pick, props)
                 
                 if matching_prop:
+                    # CRITICAL: Validate that the pick has valid odds for the recommendation
+                    recommendation = pick.get("recommendation", "").lower()
+                    prop_type = pick.get("prop_type", "").lower()
+                    line = float(pick.get("line", 0))
+                    
+                    # Check for impossible props that should be skipped
+                    is_impossible = False
+                    
+                    # Home runs under 0.5 is impossible (can't get negative home runs)
+                    if "home run" in prop_type and recommendation == "under" and line <= 0.5:
+                        logger.warning(f"🚫 Skipping impossible prop: {pick['player_name']} {prop_type} UNDER {line} (impossible)")
+                        is_impossible = True
+                    
+                    # Stolen bases under 0.5 is impossible
+                    if "stolen base" in prop_type and recommendation == "under" and line <= 0.5:
+                        logger.warning(f"🚫 Skipping impossible prop: {pick['player_name']} {prop_type} UNDER {line} (impossible)")
+                        is_impossible = True
+                    
+                    # Check if the recommendation has valid odds
+                    if not is_impossible:
+                        if recommendation == "over" and matching_prop.over_odds is None:
+                            logger.warning(f"🚫 Skipping pick with missing over odds: {pick['player_name']} {prop_type} OVER {line}")
+                            is_impossible = True
+                        elif recommendation == "under" and matching_prop.under_odds is None:
+                            logger.warning(f"🚫 Skipping pick with missing under odds: {pick['player_name']} {prop_type} UNDER {line}")
+                            is_impossible = True
+                    
+                    if is_impossible:
+                        continue
+                    
                     game = next((g for g in games if str(g.get("id")) == str(matching_prop.event_id)), None)
                     
                     # Determine sport from game data, not hardcoded
                     sport = "MLB"  # default
                     if game:
-                        game_sport = game.get('sport', 'Major League Baseball')
+                        game_sport = game.get('sport', 'MLB')
                         if game_sport == "Women's National Basketball Association":
                             sport = "WNBA"
                         elif game_sport == "Major League Baseball":
@@ -1033,7 +1141,11 @@ REMEMBER:
                     formatted_picks.append({
                         "match_teams": game_info,
                         "pick": self._format_pick_string(pick, matching_prop),
-                        "odds": pick.get("odds", matching_prop.over_odds if pick["recommendation"] == "over" else matching_prop.under_odds),
+                        "odds": pick.get("odds") or (
+                            matching_prop.over_odds if pick["recommendation"] == "over" and matching_prop.over_odds is not None
+                            else matching_prop.under_odds if pick["recommendation"] == "under" and matching_prop.under_odds is not None
+                            else None  # Don't use wrong odds as fallback
+                        ),
                         "confidence": pick.get("confidence", 75),
                         "sport": sport,
                         "event_time": game.get("start_time") if game else None,
@@ -1063,7 +1175,17 @@ REMEMBER:
                 else:
                     logger.warning(f"No matching prop found for {pick.get("player_name")} {pick.get("prop_type")}")
             
-            final_picks = formatted_picks[:target_picks]
+            # Select best picks with proper sport distribution: 3 WNBA + 7 MLB
+            wnba_picks = [p for p in formatted_picks if p["sport"] == "WNBA"]
+            mlb_picks = [p for p in formatted_picks if p["sport"] == "MLB"]
+            
+            # Take best picks from each sport (sorted by confidence)
+            wnba_picks.sort(key=lambda x: x["confidence"], reverse=True)
+            mlb_picks.sort(key=lambda x: x["confidence"], reverse=True)
+            
+            final_picks = wnba_picks[:3] + mlb_picks[:7]  # 3 WNBA + 7 MLB = 10 total
+            
+            logger.info(f"🎯 Final selection: {len(wnba_picks[:3])} WNBA + {len(mlb_picks[:7])} MLB = {len(final_picks)} total picks")
             
             if final_picks:
                 prop_types = {}
@@ -1220,5 +1342,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 

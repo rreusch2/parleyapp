@@ -14,12 +14,25 @@ import Constants from 'expo-constants';
 
 // RevenueCat API Keys - You'll need to set these up in RevenueCat dashboard
 const REVENUECAT_API_KEY = Platform.select({
-  ios: Constants.expoConfig?.extra?.revenueCatApiKey || process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'your_ios_key_here',
-  android: Constants.expoConfig?.extra?.revenueCatApiKey || process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || 'your_android_key_here',
+  ios: Constants.expoConfig?.extra?.revenueCatIosApiKey || process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY || 'your_ios_key_here',
+  android: Constants.expoConfig?.extra?.revenueCatAndroidApiKey || process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || 'your_android_key_here',
 });
 
-// Product identifier mappings
-const PRODUCT_IDENTIFIERS = {
+// Product identifier mappings - Platform specific
+const PRODUCT_IDENTIFIERS = Platform.select({
+  ios: {
+    weekly: 'com.parleyapp.premium_weekly',
+    monthly: 'com.parleyapp.premium_monthly',
+    yearly: 'com.parleyapp.premiumyearly',
+    lifetime: 'com.parleyapp.premium_lifetime',
+  },
+  android: {
+    weekly: 'com.parleyapp.premium_weekly:weekly-pro2025',
+    monthly: 'com.parleyapp.premium_monthly:monthly-pro2025',
+    yearly: 'com.parleyapp.premiumyearly:yearly-pro2025',
+    lifetime: 'com.parleyapp.premium_lifetime',
+  },
+}) || {
   weekly: 'com.parleyapp.premium_weekly',
   monthly: 'com.parleyapp.premium_monthly',
   yearly: 'com.parleyapp.premiumyearly',
@@ -241,6 +254,7 @@ class RevenueCatService {
 
     // Map plan IDs to package types
     const packageTypeMap = {
+      weekly: PACKAGE_TYPE.WEEKLY,
       monthly: PACKAGE_TYPE.MONTHLY,
       yearly: PACKAGE_TYPE.ANNUAL,
       lifetime: PACKAGE_TYPE.LIFETIME,
