@@ -12,7 +12,7 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
+import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,7 +44,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface SubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe?: (planId: SubscriptionPlan) => Promise<void>;
+  onSubscribe?: (planId: SubscriptionPlan, tier: SubscriptionTier) => Promise<void>;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
@@ -52,7 +52,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   onClose,
   onSubscribe,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('weekly'); // Default to weekly as user mentioned
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -103,7 +104,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             onPress: () => {
               onClose();
               if (onSubscribe) {
-                onSubscribe(selectedPlan);
+                onSubscribe(selectedPlan, selectedTier);
               }
             }
           }]
@@ -136,23 +137,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   };
 
 
-  const getSubscriptionPrice = (plan: 'monthly' | 'yearly' | 'lifetime'): string => {
-    // Use RevenueCat packages to get pricing
-    const packageForPlan = packages.find(pkg => {
-      const productId = pkg.product.identifier;
-      return (
-        (plan === 'monthly' && productId.includes('monthly')) ||
-        (plan === 'yearly' && productId.includes('yearly')) ||
-        (plan === 'lifetime' && productId.includes('lifetime'))
-      );
-    });
-    
-    return packageForPlan?.product.priceString || (
-      plan === 'monthly' ? '$24.99' : 
-      plan === 'yearly' ? '$199.99' : 
-      '$349.99'
-    );
-  };
+
 
   // Open Terms of Service (Apple required functional link)
   const openTermsOfService = async () => {

@@ -6,7 +6,7 @@ import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
-import SubscriptionModal from './components/SubscriptionModal';
+import TieredSubscriptionModal from './components/TieredSubscriptionModal';
 import { useReview } from './hooks/useReview';
 
 // Get device dimensions to adapt UI for iPad
@@ -27,11 +27,11 @@ function AppContent() {
       <Slot />
       <StatusBar style="auto" />
       
-      <SubscriptionModal
+      <TieredSubscriptionModal
         visible={showSubscriptionModal}
         onClose={closeSubscriptionModal}
-        onSubscribe={async (planId) => {
-          await subscribeToPro(planId);
+        onSubscribe={async (plan, tier) => {
+          await subscribeToPro(plan);
         }}
       />
     </View>

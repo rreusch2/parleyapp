@@ -68,11 +68,21 @@ export const userPreferencesApi = {
 
 export const userApi = {
   deleteAccount: async (userId: string) => {
-    const response = await apiClient.delete('/user/delete-account', {
+    const response = await apiClient.delete(`/user/delete-account`, {
       data: { userId }
     });
     return response.data;
   },
+  
+  updateUserPreferences: async (userId: string, preferences: any) => {
+    const response = await apiClient.put('/user/preferences', preferences);
+    return response.data;
+  },
+  
+  getUserPreferences: async (userId: string) => {
+    const response = await apiClient.get('/user/preferences');
+    return response.data;
+  },
 };
 
-export default apiClient; 
+export default apiClient;

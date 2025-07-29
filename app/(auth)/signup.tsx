@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lucide-react-native';
 import { normalize, isTablet } from '../services/device';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
-import SignupSubscriptionModal from '../components/SignupSubscriptionModal';
+import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -198,7 +198,7 @@ export default function SignupScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleSubscribe = async (planId: 'monthly' | 'yearly' | 'lifetime') => {
+  const handleSubscribe = async (planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'allstar_weekly' | 'allstar_monthly' | 'allstar_yearly') => {
     try {
       console.log(`🚀 User attempting to subscribe to ${planId} plan`);
       setLoading(true);
@@ -780,10 +780,12 @@ export default function SignupScreen() {
       </KeyboardAvoidingView>
 
       {/* Subscription Modal */}
-      <SignupSubscriptionModal
+      <TieredSignupSubscriptionModal
         visible={showSubscriptionModal}
         onClose={handleSubscriptionModalClose}
-        onSubscribe={handleSubscribe}
+        onSubscribe={async (plan, tier) => {
+          await handleSubscribe(plan);
+        }}
         onContinueFree={handleContinueFree}
       />
 

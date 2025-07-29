@@ -18,28 +18,87 @@ const REVENUECAT_API_KEY = Platform.select({
   android: Constants.expoConfig?.extra?.revenueCatAndroidApiKey || process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || 'your_android_key_here',
 });
 
-// Product identifier mappings - Platform specific
+// Product identifier mappings - Platform specific with tiered subscriptions
 const PRODUCT_IDENTIFIERS = Platform.select({
   ios: {
+    // Pro Tier
+    pro_weekly: 'com.parleyapp.premium_weekly',
+    pro_monthly: 'com.parleyapp.premium_monthly', 
+    pro_yearly: 'com.parleyapp.premiumyearly',
+    pro_daypass: 'com.parleyapp.premiumdaypass',
+    // All-Star Tier
+    allstar_weekly: 'com.parleyapp.allstarweekly',
+    allstar_monthly: 'com.parleyapp.allstarmonthly',
+    allstar_yearly: 'com.parleyapp.allstaryearly',
+    // Legacy products (maintain backward compatibility)
     weekly: 'com.parleyapp.premium_weekly',
     monthly: 'com.parleyapp.premium_monthly',
     yearly: 'com.parleyapp.premiumyearly',
     lifetime: 'com.parleyapp.premium_lifetime',
   },
   android: {
+    // Pro Tier
+    pro_weekly: 'com.parleyapp.pro_weekly:weekly-pro2025',
+    pro_monthly: 'com.parleyapp.pro_monthly:monthly-pro2025',
+    pro_yearly: 'com.parleyapp.pro_yearly:yearly-pro2025',
+    pro_daypass: 'com.parleyapp.pro_daypass',
+    // All-Star Tier
+    allstar_weekly: 'com.parleyapp.allstar_weekly:weekly-allstar2025',
+    allstar_monthly: 'com.parleyapp.allstar_monthly:monthly-allstar2025',
+    allstar_yearly: 'com.parleyapp.allstar_yearly:yearly-allstar2025',
+    // Legacy products (maintain backward compatibility)
     weekly: 'com.parleyapp.premium_weekly:weekly-pro2025',
     monthly: 'com.parleyapp.premium_monthly:monthly-pro2025',
     yearly: 'com.parleyapp.premiumyearly:yearly-pro2025',
     lifetime: 'com.parleyapp.premium_lifetime',
   },
 }) || {
+  // Pro Tier
+  pro_weekly: 'com.parleyapp.pro_weekly',
+  pro_monthly: 'com.parleyapp.pro_monthly',
+  pro_yearly: 'com.parleyapp.pro_yearly',
+  pro_daypass: 'com.parleyapp.pro_daypass',
+  // All-Star Tier
+  allstar_weekly: 'com.parleyapp.allstar_weekly',
+  allstar_monthly: 'com.parleyapp.allstar_monthly',
+  allstar_yearly: 'com.parleyapp.allstar_yearly',
+  // Legacy products
   weekly: 'com.parleyapp.premium_weekly',
   monthly: 'com.parleyapp.premium_monthly',
   yearly: 'com.parleyapp.premiumyearly',
   lifetime: 'com.parleyapp.premium_lifetime',
 };
 
-export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime';
+// Subscription tiers and plans
+export type SubscriptionTier = 'free' | 'pro' | 'allstar';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'allstar_weekly' | 'allstar_monthly' | 'allstar_yearly';
+
+// Tier configuration
+export const SUBSCRIPTION_TIERS = {
+  free: { 
+    picks: 2, 
+    insights: 2, 
+    chatMessages: 3,
+    playOfTheDay: false,
+    advancedProfessorLock: false
+  },
+  pro: { 
+    picks: 20, 
+    insights: 8, 
+    chatMessages: 'unlimited' as const,
+    playOfTheDay: true,
+    advancedProfessorLock: false,
+    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99 }
+  },
+  allstar: { 
+    picks: 30, 
+    insights: 12, 
+    chatMessages: 'unlimited' as const,
+    playOfTheDay: true,
+    advancedProfessorLock: true,
+    pricing: { weekly: 14.99, monthly: 29.99, yearly: 199.99 }
+  }
+};
 
 export interface PurchaseResult {
   success: boolean;

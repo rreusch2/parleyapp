@@ -33,7 +33,7 @@ import {
   Gift,
   ArrowRight,
 } from 'lucide-react-native';
-import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
+import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
 import Colors from '../constants/Colors';
 
@@ -44,7 +44,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 interface SignupSubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubscribe?: (planId: SubscriptionPlan) => Promise<void>;
+  onSubscribe?: (planId: SubscriptionPlan, tier: SubscriptionTier) => Promise<void>;
   onContinueFree: () => void;
 }
 
@@ -54,7 +54,8 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   onSubscribe,
   onContinueFree,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('yearly');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_yearly'); // Default to Pro yearly
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -100,7 +101,7 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
         
         // If parent provided onSubscribe callback, use it
         if (onSubscribe) {
-          await onSubscribe(selectedPlan);
+          await onSubscribe(selectedPlan, selectedTier);
         } else {
           // Otherwise show success message here
           Alert.alert(

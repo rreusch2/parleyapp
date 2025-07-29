@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import UserPreferencesModal from '../components/UserPreferencesModal';
 import { 
   Bell,
   Shield,
@@ -52,6 +53,18 @@ interface UserProfile {
   avatar_url: string | null;
   subscription_tier: 'free' | 'pro';
   created_at: string;
+  sport_preferences?: Record<string, boolean>;
+  betting_style?: 'conservative' | 'balanced' | 'aggressive';
+  pick_distribution?: Record<string, number>;
+  max_daily_picks?: number;
+  confidence_range?: [number, number];
+  preferred_sports?: string[];
+  risk_tolerance?: string;
+  phone_number?: string;
+  has_used_trial?: boolean;
+  referral_code?: string;
+  referred_by?: string;
+  discount_eligible?: boolean;
 }
 
 export default function SettingsScreen() {
@@ -71,6 +84,7 @@ export default function SettingsScreen() {
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showUserPreferencesModal, setShowUserPreferencesModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Auth state - check if user has Apple auth and/or password
@@ -679,6 +693,13 @@ export default function SettingsScreen() {
           badge: isPro ? 'PRO' : 'FREE',
           badgeColor: isPro ? '#F59E0B' : '#6B7280',
           action: handleManageSubscription
+        },
+        {
+          id: 'preferences',
+          title: 'User Preferences',
+          type: 'link',
+          subtitle: 'Sports, betting style & pick distribution',
+          action: () => setShowUserPreferencesModal(true)
         },
         { 
           id: 'payment', 
@@ -1331,6 +1352,20 @@ export default function SettingsScreen() {
       <PrivacyPolicyModal
         visible={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* User Preferences Modal */}
+      <UserPreferencesModal
+        visible={showUserPreferencesModal}
+        onClose={() => setShowUserPreferencesModal(false)}
+        currentPreferences={userProfile ? {
+          sport_preferences: userProfile.sport_preferences || {},
+          betting_style: userProfile.betting_style || 'balanced',
+          pick_distribution: userProfile.pick_distribution || {},
+          max_daily_picks: userProfile.max_daily_picks || 20,
+          confidence_range: userProfile.confidence_range || [70, 100]
+        } : undefined}
+        onPreferencesUpdated={fetchUserProfile}
       />
     </ScrollView>
   );
