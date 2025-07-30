@@ -422,7 +422,6 @@ export default function SignupScreen() {
             })
             .eq('id', data.user.id);
 
-          if (data.user) {
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
           AppEventsLogger.logEvent('CompleteRegistration');
           
@@ -431,7 +430,7 @@ export default function SignupScreen() {
           setShowPreferencesModal(true);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       if (error.code === 'ERR_REQUEST_CANCELED') {
         // User canceled the sign-in
         console.log('User canceled Apple Sign Up');

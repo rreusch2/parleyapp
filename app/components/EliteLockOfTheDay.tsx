@@ -174,99 +174,100 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
   }
 
   return (
-    <View style={styles.container}>
-      {/* Remove TouchableOpacity to prevent chatbot popup */}
-      <LinearGradient
-        colors={['#8B5CF6', '#EC4899', '#F59E0B']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
-      >
-        {/* Elite Badge with Confidence % moved to the right */}
-        <View style={styles.eliteBadge}>
-          <View style={styles.eliteBadgeLeft}>
-            <Crown size={16} color="#FFFFFF" />
-            <Text style={styles.eliteBadgeText}>ELITE EXCLUSIVE</Text>
-          </View>
-          <View style={styles.confidenceBadge}>
-            <Text style={styles.confidenceText}>{lockPick.confidence}%</Text>
-          </View>
-        </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Lock size={28} color="#FFFFFF" />
-            <Text style={styles.title}>Lock of the Day</Text>
-          </View>
-        </View>
-
-        {/* Pick Details */}
-        <View style={styles.pickDetails}>
-          <Text style={styles.matchTeams}>{lockPick.match_teams}</Text>
-          <View style={styles.pickRow}>
-            <View style={styles.pickInfo}>
-              <Text style={styles.pickLabel}>PICK</Text>
-              <Text style={styles.pickValue} numberOfLines={2} adjustsFontSizeToFit>{lockPick.pick}</Text>
+    <>
+      <View style={styles.container}>
+        {/* Remove TouchableOpacity to prevent chatbot popup */}
+        <LinearGradient
+          colors={['#8B5CF6', '#EC4899', '#F59E0B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.card}
+        >
+          {/* Elite Badge with Confidence % moved to the right */}
+          <View style={styles.eliteBadge}>
+            <View style={styles.eliteBadgeLeft}>
+              <Crown size={16} color="#FFFFFF" />
+              <Text style={styles.eliteBadgeText}>ELITE EXCLUSIVE</Text>
             </View>
-            <View style={styles.oddsInfo}>
-              <Text style={styles.pickLabel}>ODDS</Text>
-              <Text style={styles.pickValue}>{lockPick.odds}</Text>
+            <View style={styles.confidenceBadge}>
+              <Text style={styles.confidenceText}>{lockPick.confidence}%</Text>
             </View>
           </View>
-        </View>
 
-        {/* Confidence & Analytics */}
-        <View style={styles.analytics}>
-          <View style={styles.analyticsRow}>
-            <View style={styles.analyticsItem}>
-              <Target size={16} color="#FFFFFF" />
-              <Text style={styles.analyticsLabel}>Confidence</Text>
-              <Text style={[styles.analyticsValue, styles.confidenceLabelText]}>
-                {getConfidenceLabel(lockPick.confidence)}
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Lock size={28} color="#FFFFFF" />
+              <Text style={styles.title}>Lock of the Day</Text>
+            </View>
+          </View>
+
+          {/* Pick Details */}
+          <View style={styles.pickDetails}>
+            <Text style={styles.matchTeams}>{lockPick.match_teams}</Text>
+            <View style={styles.pickRow}>
+              <View style={styles.pickInfo}>
+                <Text style={styles.pickLabel}>PICK</Text>
+                <Text style={styles.pickValue} numberOfLines={2} adjustsFontSizeToFit>{lockPick.pick}</Text>
+              </View>
+              <View style={styles.oddsInfo}>
+                <Text style={styles.pickLabel}>ODDS</Text>
+                <Text style={styles.pickValue}>{lockPick.odds}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Confidence & Analytics */}
+          <View style={styles.analytics}>
+            <View style={styles.analyticsRow}>
+              <View style={styles.analyticsItem}>
+                <Target size={16} color="#FFFFFF" />
+                <Text style={styles.analyticsLabel}>Confidence</Text>
+                <Text style={[styles.analyticsValue, styles.confidenceLabelText]}>
+                  {getConfidenceLabel(lockPick.confidence)}
+                </Text>
+              </View>
+              
+              {lockPick.roi_estimate && (
+                <View style={styles.analyticsItem}>
+                  <TrendingUp size={16} color="#FFFFFF" />
+                  <Text style={styles.analyticsLabel}>ROI Est.</Text>
+                  <Text style={styles.analyticsValue}>{lockPick.roi_estimate}</Text>
+                </View>
+              )}
+              
+              {lockPick.value_percentage && (
+                <View style={styles.analyticsItem}>
+                  <BarChart3 size={16} color="#FFFFFF" />
+                  <Text style={styles.analyticsLabel}>Value</Text>
+                  <Text style={styles.analyticsValue}>{lockPick.value_percentage}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Reasoning (if available) */}
+          {lockPick.reasoning && (
+            <View style={styles.reasoning}>
+              <Text style={styles.reasoningLabel}>🧠 Elite Analysis</Text>
+              <Text style={styles.reasoningText} numberOfLines={3}>
+                {lockPick.reasoning}
               </Text>
             </View>
-            
-            {lockPick.roi_estimate && (
-              <View style={styles.analyticsItem}>
-                <TrendingUp size={16} color="#FFFFFF" />
-                <Text style={styles.analyticsLabel}>ROI Est.</Text>
-                <Text style={styles.analyticsValue}>{lockPick.roi_estimate}</Text>
-              </View>
-            )}
-            
-            {lockPick.value_percentage && (
-              <View style={styles.analyticsItem}>
-                <BarChart3 size={16} color="#FFFFFF" />
-                <Text style={styles.analyticsLabel}>Value</Text>
-                <Text style={styles.analyticsValue}>{lockPick.value_percentage}</Text>
-              </View>
-            )}
-          </View>
-        </View>
+          )}
 
-        {/* Reasoning (if available) */}
-        {lockPick.reasoning && (
-          <View style={styles.reasoning}>
-            <Text style={styles.reasoningLabel}>🧠 Elite Analysis</Text>
-            <Text style={styles.reasoningText} numberOfLines={3}>
-              {lockPick.reasoning}
-            </Text>
-          </View>
-        )}
-
-        {/* Action Button */}
-        <TouchableOpacity 
-          style={styles.actionButton} 
-          onPress={() => setShowAnalysisModal(true)}
-          activeOpacity={0.8}
-        >
-          <Trophy size={20} color="#8B5CF6" />
-          <Text style={styles.actionButtonText}>View Full Analysis</Text>
-          <Zap size={20} color="#8B5CF6" />
-        </TouchableOpacity>
-      </LinearGradient>
-    </View>
+          {/* Action Button */}
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={() => setShowAnalysisModal(true)}
+            activeOpacity={0.8}
+          >
+            <Trophy size={20} color="#8B5CF6" />
+            <Text style={styles.actionButtonText}>View Full Analysis</Text>
+            <Zap size={20} color="#8B5CF6" />
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
 
       {/* Full Analysis Modal */}
       <Modal
@@ -373,7 +374,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 };
 

@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Predictive Play",
     slug: "parleyapp",
-    version: "1.0.0",
+    version: "1.2.0",
     orientation: "portrait",
     scheme: "predictiveplay",
     userInterfaceStyle: "automatic",
@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "140",
+      buildNumber: "28",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
