@@ -46,10 +46,29 @@ router.get('/stats', async (req, res) => {
 router.put('/preferences', async (req, res) => {
   try {
     const preferences = req.body;
-    logger.info('Saving user preferences:', preferences);
+    const { authorization } = req.headers;
     
-    // This would normally save to your database
-    // For now, just validate the data structure
+    if (!authorization) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Authentication token required'
+      });
+    }
+    
+    // Extract token from Bearer
+    const token = authorization.replace('Bearer ', '');
+    
+    // Get user from token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      logger.error(`Auth error: ${authError?.message}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Invalid authentication token'
+      });
+    }
+    
     if (!preferences) {
       return res.status(400).json({
         success: false,
@@ -57,11 +76,48 @@ router.put('/preferences', async (req, res) => {
       });
     }
     
-    // Validate expected fields
-    const validFields = [
-      'risk_tolerance', 'sports', 'bet_types', 'max_bet_size', 
-      'notification_preferences'
-    ];
+    logger.info(`Updating preferences for user ${user.id}:`, preferences);
+    
+    // Update the specific columns in profiles table
+    const updateData: Record<string, any> = {};
+    
+    // Map incoming preferences to database columns
+    if (preferences.sport_preferences !== undefined) {
+      updateData.sport_preferences = preferences.sport_preferences;
+    }
+    
+    if (preferences.betting_style !== undefined) {
+      updateData.betting_style = preferences.betting_style;
+    }
+    
+    if (preferences.pick_distribution !== undefined) {
+      updateData.pick_distribution = preferences.pick_distribution;
+    }
+    
+    if (preferences.preferred_sports !== undefined) {
+      updateData.preferred_sports = preferences.preferred_sports;
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid preferences provided for update'
+      });
+    }
+    
+    // Update profile with new preferences
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update(updateData)
+      .eq('id', user.id);
+    
+    if (updateError) {
+      logger.error(`Error updating preferences: ${updateError.message}`);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save preferences to database'
+      });
+    }
     
     return res.status(200).json({
       success: true,

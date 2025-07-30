@@ -94,7 +94,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       if (result.success) {
         console.log('✅ Purchase completed successfully!');
         
-        const tierName = selectedTier === 'pro' ? 'Pro' : 'All-Star';
+        const tierName = selectedTier === 'pro' ? 'Pro' : 'Elite';
         if (onSubscribe) {
           await onSubscribe(selectedPlan, selectedTier);
         } else {
@@ -247,7 +247,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* All-Star Tier Card */}
+        {/* Elite Tier Card */}
         <TouchableOpacity
           style={[styles.tierCard, selectedTier === 'allstar' && styles.tierCardSelected]}
           onPress={() => handleTierSelection('allstar')}
@@ -263,7 +263,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             
             <Trophy size={24} color={selectedTier === 'allstar' ? '#FFFFFF' : '#94A3B8'} />
             <Text style={[styles.tierTitle, selectedTier === 'allstar' && styles.tierTitleSelected]}>
-              All-Star
+              Elite
             </Text>
             <Text style={[styles.tierSubtitle, selectedTier === 'allstar' && styles.tierSubtitleSelected]}>
               Ultimate betting experience
@@ -297,7 +297,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
-      ? ['pro_yearly', 'pro_monthly', 'pro_weekly']
+      ? ['pro_yearly', 'pro_monthly', 'pro_weekly', 'pro_daypass']
       : ['allstar_yearly', 'allstar_monthly', 'allstar_weekly'];
 
     return (
@@ -329,6 +329,10 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             period = 'per year';
             savings = 'Save 50%';
             isTrialEligible = true;
+          } else if (plan.includes('daypass')) {
+            planName = 'Day Pass';
+            price = '$4.99';
+            period = 'for 24 hours';
           }
 
           return (
@@ -446,7 +450,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   <>
                     <Crown size={20} color="#FFFFFF" />
                     <Text style={styles.subscribeButtonText}>
-                      Start {selectedTier === 'pro' ? 'Pro' : 'All-Star'} Experience
+                      Start {selectedTier === 'pro' ? 'Pro' : 'Elite'} Experience
                     </Text>
                   </>
                 )}
@@ -466,7 +470,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             {/* Apple-Required Subscription Information */}
             <View style={styles.appleRequiredInfo}>
               <Text style={styles.subscriptionSectionTitle}>
-                {selectedTier === 'pro' ? 'Pro Tier' : 'All-Star Tier'} Subscription Options
+                {selectedTier === 'pro' ? 'Pro Tier' : 'Elite Tier'} Subscription Options
               </Text>
               
               {selectedTier === 'pro' ? (
@@ -495,17 +499,17 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Weekly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Monthly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Yearly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                     <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>

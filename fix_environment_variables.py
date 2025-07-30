@@ -44,8 +44,8 @@ def main():
         'GROK_API_KEY': 'XAI_API_KEY',
         'STATMUSE_API_KEY': 'API_SPORTS_KEY',
         'DATABASE_URL': 'SUPABASE_URL',
-        'grok-4': 'grok-beta',
-        'model_used.*grok-4': 'model_used": "grok-beta'
+        'grok-4': 'grok-3',
+        'model_used.*grok-4': 'model_used": "grok-3'
     }
     
     # Files to fix
@@ -74,7 +74,7 @@ def main():
     print("   - XAI_API_KEY for xAI Grok API")
     print("   - API_SPORTS_KEY for sports data")
     print("   - SUPABASE_URL for database connection")
-    print("   - grok-beta as the AI model")
+    print("   - grok-3 as the AI model")
     
     # Create a summary of the correct configuration
     print("\n📋 Correct Environment Variables Summary:")

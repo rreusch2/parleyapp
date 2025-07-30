@@ -59,7 +59,7 @@ class EnhancedSystemConfig:
     JWT_SECRET = os.getenv('JWT_SECRET')
     
     # Enhanced System Settings
-    PRIMARY_AI_MODEL = 'grok-beta'  # Using xAI Grok as primary
+    PRIMARY_AI_MODEL = 'grok-3'  # Using xAI Grok as primary
     FALLBACK_AI_MODEL = 'gemini-pro'  # Gemini as fallback
     
     @classmethod

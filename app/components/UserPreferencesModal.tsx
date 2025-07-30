@@ -11,7 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import OnboardingFlow, { UserPreferences } from './onboarding/OnboardingFlow';
-import { userApi } from '../services/api/client';
 import { supabase } from '../services/api/supabaseClient';
 
 interface UserPreferencesModalProps {
@@ -49,7 +48,10 @@ const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
     setIsLoading(true);
 
     try {
-      // Transform preferences to match backend format
+      console.log('🔄 Updating user preferences for user:', user.id);
+      console.log('📦 Preferences data:', preferences);
+      
+      // Transform preferences to match database format
       const updateData = {
         sport_preferences: preferences.sportPreferences,
         betting_style: preferences.bettingStyle,
@@ -58,10 +60,34 @@ const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
         preferred_sports: Object.keys(preferences.sportPreferences).filter(
           sport => preferences.sportPreferences[sport as keyof typeof preferences.sportPreferences]
         ),
+        updated_at: new Date().toISOString(),
       };
 
-      // Update preferences via API
-      await userApi.updateUserPreferences(user.id, updateData);
+      console.log('🔄 Database update data:', updateData);
+
+      // Update preferences directly via Supabase (bypassing broken API)
+      const { error } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('❌ Supabase update error:', error);
+        throw new Error(`Database update failed: ${error.message}`);
+      }
+
+      console.log('✅ Preferences successfully updated in database!');
+      
+      // Verify the update worked
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('sport_preferences, betting_style, pick_distribution')
+        .eq('id', user.id)
+        .single();
+        
+      if (!verifyError && verifyData) {
+        console.log('✅ Verification - Database now contains:', verifyData);
+      }
 
       // Notify parent component
       onPreferencesUpdated?.(preferences);
@@ -74,10 +100,10 @@ const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
       );
 
     } catch (error) {
-      console.error('Failed to update preferences:', error);
+      console.error('❌ Failed to update preferences:', error);
       Alert.alert(
         'Update Failed',
-        'Failed to save your preferences. Please try again.',
+        `Failed to save your preferences: ${error instanceof Error ? error.message : 'Unknown error'}`,
         [{ text: 'OK' }]
       );
     } finally {

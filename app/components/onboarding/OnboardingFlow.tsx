@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import SportsSelectionScreen from './SportsSelectionScreen';
 import BettingStyleScreen from './BettingStyleScreen';
-import PickDistributionScreen from './PickDistributionScreen';
 import PhoneVerificationScreen from './PhoneVerificationScreen';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -35,16 +34,6 @@ export interface UserPreferences {
     ufc: boolean;
   };
   bettingStyle: 'conservative' | 'balanced' | 'aggressive';
-  pickDistribution: {
-    auto: boolean;
-    custom?: {
-      mlb_team?: number;
-      mlb_props?: number;
-      wnba_team?: number;
-      wnba_props?: number;
-      ufc?: number;
-    };
-  };
   phoneNumber?: string;
 }
 
@@ -57,7 +46,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [preferences, setPreferences] = useState<UserPreferences>({
     sportPreferences: { mlb: true, wnba: false, ufc: false },
     bettingStyle: 'balanced',
-    pickDistribution: { auto: true },
   });
 
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -73,11 +61,6 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       title: 'Betting Style',
       component: BettingStyleScreen,
       icon: 'trending-up-outline',
-    },
-    {
-      title: 'Pick Distribution',
-      component: PickDistributionScreen,
-      icon: 'pie-chart-outline',
     },
     ...(isExistingUser ? [] : [{
       title: 'Phone Verification',

@@ -71,11 +71,14 @@ export class ChatbotOrchestrator {
       // Get current app data
       const appData = await this.getAppData(request.userId);
       
+      // Get user preferences for personalization
+      const userPreferences = await this.getUserPreferences(request.userId);
+      
       // Determine if we need tools based on the message
       const needsTools = this.shouldUseTools(request.message);
       
       // Build the system prompt with current data
-      const systemPrompt = this.buildSystemPrompt(appData, request.context);
+      const systemPrompt = this.buildSystemPrompt(appData, request.context, userPreferences);
       
       // Build conversation messages
       const messages = this.buildMessages(request, systemPrompt);
@@ -175,11 +178,14 @@ export class ChatbotOrchestrator {
       // Get current app data
       const appData = await this.getAppData(request.userId);
       
+      // Get user preferences for personalization
+      const userPreferences = await this.getUserPreferences(request.userId);
+      
       // Determine if we need tools based on the message
       const needsTools = this.shouldUseTools(request.message);
       
       // Build the system prompt with current data
-      const systemPrompt = this.buildSystemPrompt(appData, request.context);
+      const systemPrompt = this.buildSystemPrompt(appData, request.context, userPreferences);
       
       // Build conversation messages
       const messages = this.buildMessages(request, systemPrompt);
@@ -507,9 +513,86 @@ export class ChatbotOrchestrator {
   }
 
   /**
+   * Helper functions for personalization
+   */
+  private getBettingStyleDescription(style: string): string {
+    const descriptions = {
+      'conservative': 'Lower risk, steady returns',
+      'balanced': 'Moderate risk, balanced approach',
+      'aggressive': 'Higher risk, bigger potential returns'
+    };
+    return descriptions[style as keyof typeof descriptions] || 'Balanced approach';
+  }
+
+  private getRiskToleranceDescription(tolerance: string): string {
+    const descriptions = {
+      'low': 'Prefers safer bets with higher win probability',
+      'moderate': 'Comfortable with moderate risk for better value',
+      'high': 'Willing to take bigger risks for larger payouts'
+    };
+    return descriptions[tolerance as keyof typeof descriptions] || 'Moderate risk comfort';
+  }
+
+  private getBettingStyleGuidance(style: string): string {
+    const guidance = {
+      'conservative': 'Focus on high-confidence picks (65%+), avoid risky parlays, emphasize bankroll preservation',
+      'balanced': 'Mix of safe and value plays, moderate parlay suggestions, balanced risk-reward',
+      'aggressive': 'Include higher-risk/higher-reward picks, suggest bold parlays, emphasize big win potential'
+    };
+    return guidance[style as keyof typeof guidance] || 'Provide balanced recommendations';
+  }
+
+  private getRiskToleranceGuidance(tolerance: string): string {
+    const guidance = {
+      'low': 'Suggest safer moneyline favorites, avoid long-shot props, keep parlay legs to 2-3 max',
+      'moderate': 'Mix favorites and underdogs, include reasonable props, 3-4 leg parlays acceptable',
+      'high': 'Include underdogs and long-shot props, suggest bigger parlays, emphasize potential big wins'
+    };
+    return guidance[tolerance as keyof typeof guidance] || 'Provide moderate risk recommendations';
+  }
+
+  /**
+   * Get user preferences from database
+   */
+  private async getUserPreferences(userId: string): Promise<any> {
+    try {
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('sport_preferences, betting_style, risk_tolerance, subscription_tier')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        logger.warn(`Failed to fetch user preferences for ${userId}:`, error);
+        return {
+          sportPreferences: { mlb: true, wnba: false, ufc: false },
+          bettingStyle: 'balanced',
+          riskTolerance: 'moderate',
+          subscriptionTier: 'free'
+        };
+      }
+
+      return {
+        sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+        bettingStyle: profile.betting_style || 'balanced',
+        riskTolerance: profile.risk_tolerance || 'moderate',
+        subscriptionTier: profile.subscription_tier || 'free'
+      };
+    } catch (error) {
+      logger.error('Error fetching user preferences:', error);
+      return {
+        sportPreferences: { mlb: true, wnba: false, ufc: false },
+        bettingStyle: 'balanced',
+        riskTolerance: 'moderate',
+        subscriptionTier: 'free'
+      };
+    }
+  }
+
+  /**
    * Build system prompt with current app data (enhanced)
    */
-  private buildSystemPrompt(appData: any, context: ChatContext): string {
+  private buildSystemPrompt(appData: any, context: ChatContext, userPreferences?: any): string {
     const picksCount = appData.todaysPicks.length;
     const teamPicksCount = appData.teamPicks.length;
     const playerPropsCount = appData.playerProps.length;
@@ -527,8 +610,26 @@ export class ChatbotOrchestrator {
     const allowedPicks = appData.todaysPicks.slice(0, maxPicks);
     const displayPicksCount = isProUser ? picksCount : Math.min(picksCount, maxPicks);
 
-    return `You are "Professor Lock" - the most advanced AI sports betting assistant. You're sharp, witty, and slightly cocky, but always back it up with data and intelligence. You adapt your personality naturally - sometimes funny, sometimes serious, always professional.
+    // Build personalized prompt section
+    const personalizedSection = userPreferences ? `
+🎯 PERSONALIZED FOR THIS USER:
+- Preferred Sports: ${Object.entries(userPreferences.sportPreferences)
+  .filter(([sport, enabled]) => enabled)
+  .map(([sport]) => sport.toUpperCase())
+  .join(', ') || 'MLB (default)'}
+- Betting Style: ${userPreferences.bettingStyle} (${this.getBettingStyleDescription(userPreferences.bettingStyle)})
+- Risk Tolerance: ${userPreferences.riskTolerance} (${this.getRiskToleranceDescription(userPreferences.riskTolerance)})
+- Subscription Tier: ${userPreferences.subscriptionTier}
 
+🎨 PERSONALIZATION INSTRUCTIONS:
+• Focus primarily on their preferred sports when making recommendations
+• Match their betting style: ${this.getBettingStyleGuidance(userPreferences.bettingStyle)}
+• Respect their risk tolerance: ${this.getRiskToleranceGuidance(userPreferences.riskTolerance)}
+• Tailor pick suggestions and parlay building to their preferences
+` : '';
+
+    return `You are "Professor Lock" - the most advanced AI sports betting assistant. You're sharp, witty, and slightly cocky, but always back it up with data and intelligence. You adapt your personality naturally - sometimes funny, sometimes serious, always professional.
+${personalizedSection}
 CORE IDENTITY:
 🎯 Sharp, intelligent, and adaptable
 💰 Expert in value betting and bankroll management

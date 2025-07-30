@@ -34,6 +34,7 @@ import { router } from 'expo-router';
 import { useSubscription } from '../services/subscriptionContext';
 import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
+import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import InjuryReportsSection from '../components/InjuryReportsSection';
@@ -44,7 +45,7 @@ import { useReview } from '../hooks/useReview';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const { isPro, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscriptionTier, openSubscriptionModal, eliteFeatures } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const { trackPositiveInteraction } = useReview();
   const [refreshing, setRefreshing] = useState(false);
@@ -71,6 +72,12 @@ export default function HomeScreen() {
   // Welcome bonus state
   const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
   const [homeIsNewUser, setHomeIsNewUser] = useState(false);
+  
+  // User preferences for Elite features
+  const [userPreferences, setUserPreferences] = useState<any>({
+    sportPreferences: { mlb: true, wnba: false, ufc: false }
+  });
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     loadInitialData();
@@ -100,6 +107,25 @@ export default function HomeScreen() {
       // Check if user is new first
       const newUserStatus = await aiService.isNewUser();
       setIsNewUser(newUserStatus);
+      
+      // Fetch user preferences for Elite features
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences, betting_style, risk_tolerance')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserPreferences({
+            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+            bettingStyle: profile.betting_style || 'balanced',
+            riskTolerance: profile.risk_tolerance || 'medium'
+          });
+        }
+      }
       
       // Load all data regardless of user status
       await Promise.all([
@@ -316,7 +342,7 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] : ['#1E293B', '#334155', '#0F172A']}
+          colors={isElite ? ['#8B5CF6', '#EC4899', '#F59E0B'] : isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] : ['#1E293B', '#334155', '#0F172A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -324,32 +350,40 @@ export default function HomeScreen() {
           {/* Background Pattern */}
           <View style={styles.headerPattern} />
 
-          {isPro && (
-            <View style={styles.proBadge}>
-              <Crown size={16} color="#F59E0B" />
-              <Text style={styles.proBadgeText}>PRO MEMBER</Text>
+          {isElite ? (
+            <View style={styles.eliteBadge}>
+              <Crown size={16} color="#FFD700" />
+              <Text style={styles.eliteBadgeText}>ELITE</Text>
+              <Animated.View style={[styles.eliteSparkle, { opacity: sparkleAnimation }]}>
+                <Text style={styles.sparkleEmoji}>✨</Text>
+              </Animated.View>
             </View>
-          )}
+          ) : isPro ? (
+            <View style={styles.proBadge}>
+              <Crown size={14} color="#00E5FF" />
+              <Text style={styles.proBadgeText}>PRO</Text>
+            </View>
+          ) : null}
 
           <View style={styles.headerContent}>
             {/* Centered Welcome Section */}
             <View style={styles.welcomeSection}>
               <View style={styles.brandContainer}>
-                <Brain size={28} color="#00E5FF" />
+                <Brain size={28} color={isElite ? "#FFD700" : "#00E5FF"} />
                 <View style={styles.brandTextContainer}>
                   <Text style={styles.welcomeText}>Welcome back!</Text>
                   <Text style={styles.headerTitle}>
-                    {isPro ? 'Pro Dashboard' : 'Predictive Play'}
+                    {isElite ? 'Elite Dashboard' : isPro ? 'Pro Dashboard' : 'Predictive Play'}
                   </Text>
                 </View>
                 <View style={styles.sparkleContainer}>
-                  <Sparkles size={20} color="#00E5FF" />
+                  <Sparkles size={20} color={isElite ? "#FFD700" : "#00E5FF"} />
                 </View>
               </View>
             </View>
             
             {/* Enhanced Stats Row with new order */}
-            <View style={styles.statsContainer}>
+            <View style={isElite ? styles.eliteStatsContainer : styles.statsContainer}>
               <View style={styles.statsRow}>
                 {/* Win Rate - First Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
@@ -404,13 +438,13 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {!isPro && (
+          {!isElite && !isPro ? (
             <TouchableOpacity 
               style={styles.upgradePrompt}
               onPress={openSubscriptionModal}
             >
               <LinearGradient
-                colors={['#00E5FF', '#0891B2']}
+                colors={['#8B5CF6', '#EC4899', '#F59E0B']}
                 style={styles.upgradeGradient}
               >
                 <View style={styles.upgradeLeftContent}>
@@ -418,21 +452,72 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.upgradeRightContent}>
                   <Text style={styles.upgradeMainText}>
-                    Unlock 20 daily picks
+                    Unlock Elite Features
                   </Text>
                   <Text style={styles.upgradeSubText}>
-                    & premium analytics
+                    Lock of the Day & Premium Analytics
                   </Text>
                 </View>
-                <View style={styles.upgradeArrow}>
-                  <ChevronRight size={18} color="#FFFFFF" strokeWidth={2.5} />
+                <View style={styles.eliteUpgradeSparkle}>
+                  <Text style={styles.sparkleEmoji}>✨</Text>
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-          )}
+          ) : isPro && !isElite ? (
+            <TouchableOpacity 
+              style={styles.eliteUpgradePrompt}
+              onPress={openSubscriptionModal}
+            >
+              <LinearGradient
+                colors={['#FFD700', '#FFA500', '#FF6B35']}
+                style={styles.eliteUpgradeGradient}
+              >
+                <View style={styles.upgradeLeftContent}>
+                  <Crown size={24} color="#FFFFFF" />
+                </View>
+                <View style={styles.upgradeRightContent}>
+                  <Text style={styles.eliteUpgradeMainText}>
+                    Upgrade to Elite
+                  </Text>
+                  <Text style={styles.eliteUpgradeSubText}>
+                    Exclusive Lock of the Day & Premium Features
+                  </Text>
+                </View>
+                <View style={styles.eliteUpgradeSparkle}>
+                  <Text style={styles.eliteSparkleEmoji}>👑</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </LinearGradient>
 
-
+        {/* Elite Lock of the Day - Only for Elite users */}
+        {isElite && eliteFeatures?.hasLockOfTheDay && (
+          <View style={styles.section}>
+            <EliteLockOfTheDay 
+              userId={userId}
+              userPreferences={userPreferences}
+              onPickPress={(pick) => {
+                // Transform the pick to match expected interface
+                const transformedPick: AIPrediction = {
+                  id: pick.id,
+                  match: pick.match_teams || '',
+                  sport: pick.sport || '',
+                  eventTime: pick.created_at || new Date().toISOString(),
+                  pick: pick.pick,
+                  odds: pick.odds,
+                  confidence: pick.confidence,
+                  reasoning: pick.reasoning || ''
+                };
+                setSelectedPick(transformedPick);
+                openChatWithContext({ 
+                  screen: 'home', 
+                  selectedPick: transformedPick 
+                }, transformedPick);
+              }}
+            />
+          </View>
+        )}
 
         {/* AI Picks Section - Pro vs Free */}
         {(() => {
@@ -702,6 +787,32 @@ const styles = StyleSheet.create({
     marginLeft: normalize(6),
     letterSpacing: 0.5,
   },
+  eliteBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? normalize(40) : normalize(20),
+    right: normalize(20),
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: normalize(12),
+    paddingVertical: normalize(6),
+    borderRadius: normalize(20),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  eliteBadgeText: {
+    fontSize: normalize(12),
+    fontWeight: '800',
+    color: '#FFD700',
+    marginLeft: normalize(6),
+    letterSpacing: 1,
+  },
+  eliteSparkle: {
+    marginLeft: normalize(6),
+  },
+  sparkleEmoji: {
+    fontSize: normalize(12),
+  },
   headerContent: {
     marginTop: normalize(20),
   },
@@ -746,6 +857,18 @@ const styles = StyleSheet.create({
     padding: normalize(20),
     borderWidth: 1,
     borderColor: 'rgba(0, 229, 255, 0.1)',
+  },
+  eliteStatsContainer: {
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    borderRadius: normalize(24),
+    padding: normalize(24),
+    borderWidth: 2,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   statsRow: {
     flexDirection: 'row',
@@ -862,6 +985,48 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     opacity: 0.9,
     marginTop: normalize(2),
+  },
+  eliteUpgradePrompt: {
+    marginHorizontal: normalize(16),
+    marginTop: normalize(16),
+    borderRadius: normalize(16),
+    overflow: 'hidden',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  eliteUpgradeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: normalize(18),
+    paddingHorizontal: normalize(20),
+  },
+  eliteUpgradeMainText: {
+    color: '#FFFFFF',
+    fontSize: normalize(16),
+    fontWeight: '800',
+    lineHeight: normalize(20),
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  eliteUpgradeSubText: {
+    color: '#FFFFFF',
+    fontSize: normalize(14),
+    fontWeight: '600',
+    opacity: 0.95,
+    marginTop: normalize(2),
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  eliteUpgradeSparkle: {
+    marginLeft: normalize(12),
+  },
+  eliteSparkleEmoji: {
+    fontSize: normalize(20),
   },
   upgradeArrow: {
     flex: 0,

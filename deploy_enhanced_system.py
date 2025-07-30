@@ -330,7 +330,7 @@ class EnhancedSystemDeployer:
                 'user_agent': 'ParleyApp Enhanced Sports Betting AI 1.0'
             },
             'ai_settings': {
-                'model': 'grok-beta',
+                'model': 'grok-3',
                 'max_tokens': 4000,
                 'temperature': 0.1,
                 'confidence_threshold': 0.7

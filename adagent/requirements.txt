@@ -8,3 +8,5 @@ fastapi
 uvicorn
 python-dotenv
 unstructured
+langchain-agent
+google-api-python-client

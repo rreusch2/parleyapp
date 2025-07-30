@@ -361,12 +361,29 @@ function getSubscriptionTier(productId: string): string {
   
   // Handle exact product IDs
   const tierMapping: { [key: string]: string } = {
-    'com.parleyapp.premium_monthly': 'pro_monthly',
-    'com.parleyapp.premiumyearly': 'pro_yearly', 
-    'com.parleyapp.premium_lifetime': 'pro_lifetime',
-    'premium_monthly': 'pro_monthly', // Android
-    'premium_yearly': 'pro_yearly',   // Android
-    'premium_lifetime': 'pro_lifetime' // Android
+    // Pro tier products
+    'com.parleyapp.premium_monthly': 'pro',
+    'com.parleyapp.premiumyearly': 'pro', 
+    'com.parleyapp.premium_lifetime': 'pro',
+    'premium_monthly': 'pro', // Android
+    'premium_yearly': 'pro',   // Android
+    'premium_lifetime': 'pro', // Android
+    'com.parleyapp.pro_weekly': 'pro',
+    'com.parleyapp.pro_monthly': 'pro',
+    'com.parleyapp.pro_yearly': 'pro',
+    'com.parleyapp.pro_daypass': 'pro',
+    'pro_weekly': 'pro', // Android
+    'pro_monthly': 'pro', // Android
+    'pro_yearly': 'pro', // Android
+    'pro_daypass': 'pro', // Android
+    
+    // Elite tier products
+    'com.parleyapp.elite_weekly': 'elite',
+    'com.parleyapp.elite_monthly': 'elite',
+    'com.parleyapp.elite_yearly': 'elite',
+    'elite_weekly': 'elite', // Android
+    'elite_monthly': 'elite', // Android
+    'elite_yearly': 'elite' // Android
   };
   
   const tier = tierMapping[productId];

@@ -20,6 +20,7 @@ import { Mail, Lock, User, CheckSquare, Square, UserPlus, Eye, EyeOff } from 'lu
 import { normalize, isTablet } from '../services/device';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
+import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -30,12 +31,14 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showSpinningWheel, setShowSpinningWheel] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Focus states for better UX
   const [usernameFocused, setUsernameFocused] = useState(false);
@@ -420,8 +423,9 @@ export default function SignupScreen() {
 
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
           
-          // Show the subscription modal first, then spinning wheel or main app
-          setShowSubscriptionModal(true);
+          // Store user ID and show preferences modal first
+          setCurrentUserId(data.user.id);
+          setShowPreferencesModal(true);
         }
       }
     } catch (error: any) {
@@ -521,10 +525,11 @@ export default function SignupScreen() {
 
       if (data.user) {
         console.log('✅ Signup successful! User ID:', data.user.id);
-        console.log('🎯 About to show subscription modal...');
+        console.log('🎯 About to show preferences modal...');
         
-        // Show the subscription modal first, then spinning wheel or main app
-        setShowSubscriptionModal(true);
+        // Store user ID and show preferences modal first
+        setCurrentUserId(data.user.id);
+        setShowPreferencesModal(true);
       } else {
         console.log('⚠️ No user data returned');
         Alert.alert('Signup Warning', 'Account may have been created but no user data returned.');
@@ -779,13 +784,36 @@ export default function SignupScreen() {
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
-      {/* Subscription Modal */}
+      <TermsOfServiceModal visible={showTermsModal} onClose={closeTermsModal} />
+      
+      <UserPreferencesModal 
+        visible={showPreferencesModal} 
+        onClose={() => {
+          setShowPreferencesModal(false);
+          // Show subscription modal after preferences
+          setShowSubscriptionModal(true);
+        }}
+        onPreferencesUpdated={(preferences) => {
+          console.log('✅ User preferences updated:', preferences);
+          setShowPreferencesModal(false);
+          // Show subscription modal after preferences
+          setShowSubscriptionModal(true);
+        }}
+      />
+      
       <TieredSignupSubscriptionModal
         visible={showSubscriptionModal}
-        onClose={handleSubscriptionModalClose}
-        onSubscribe={async (plan, tier) => {
-          await handleSubscribe(plan);
+        onClose={() => {
+          setShowSubscriptionModal(false);
+          // Show spinning wheel for free users
+          if (!hasSubscribedToPro) {
+            setShowSpinningWheel(true);
+          } else {
+            // Go straight to the app for Pro subscribers
+            router.replace('/(tabs)');
+          }
         }}
+        onSubscribe={handleSubscribe}
         onContinueFree={handleContinueFree}
       />
 

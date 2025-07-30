@@ -269,7 +269,7 @@ await workflow_manager.workflow_data_cleanup()
     "download_delay": 1
   },
   "ai_settings": {
-    "model": "grok-beta",
+    "model": "grok-3",
     "max_tokens": 4000,
     "temperature": 0.1,
     "confidence_threshold": 0.7

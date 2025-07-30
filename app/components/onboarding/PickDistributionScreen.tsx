@@ -8,9 +8,11 @@ import {
   Dimensions,
   Switch,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSubscription } from '../../services/subscriptionContext';
 import Slider from '@react-native-community/slider';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -21,13 +23,19 @@ interface PickDistributionScreenProps {
   onComplete: (data: { pickDistribution: any }) => void;
   currentPreferences: any;
   isExistingUser?: boolean;
+  showUpgradePrompt?: boolean;
+  onUpgrade?: () => void;
 }
 
 const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
   onComplete,
   currentPreferences,
   isExistingUser,
+  showUpgradePrompt = true,
+  onUpgrade,
 }) => {
+  const { isPro, openSubscriptionModal } = useSubscription();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isAutoMode, setIsAutoMode] = useState(
     currentPreferences?.pickDistribution?.auto ?? true
   );
@@ -84,11 +92,39 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
   };
 
   const handleContinue = () => {
-    const pickDistribution = isAutoMode 
+    // If user tries to use custom mode but isn't Pro and we're showing upgrade prompts,
+    // show the upgrade modal instead
+    if (!isAutoMode && !isPro && showUpgradePrompt && isExistingUser) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    // Force auto mode for free users when saving
+    const pickDistribution = (isAutoMode || (!isPro && showUpgradePrompt)) 
       ? { auto: true }
       : { auto: false, custom: customDistribution };
     
     onComplete({ pickDistribution });
+  };
+  
+  const handleModeToggle = (value: boolean) => {
+    // If toggling to custom mode, check if user is Pro
+    if (value === false && !isPro && showUpgradePrompt && isExistingUser) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setIsAutoMode(value);
+  };
+  
+  const handleUpgrade = () => {
+    setShowUpgradeModal(false);
+    
+    if (onUpgrade) {
+      onUpgrade();
+    } else {
+      openSubscriptionModal();
+    }
   };
 
   const renderCustomSlider = (label: string, key: string, max: number = 15) => {
@@ -119,7 +155,7 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
   const totalCustomPicks = getTotalCustomPicks();
   const isValidDistribution = totalCustomPicks <= totalPicks && totalCustomPicks > 0;
 
-  return (
+  const renderContent = () => (
     <View style={styles.container}>
       <ScrollView 
         style={styles.scrollContainer}
@@ -155,7 +191,7 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setIsAutoMode(false)}
+            onPress={() => handleModeToggle(false)}
             style={[styles.modeButton, !isAutoMode && styles.modeButtonActive]}
           >
             <LinearGradient
@@ -263,12 +299,164 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
       </TouchableOpacity>
     </View>
   );
+
+  const renderUpgradeModal = () => (
+    <Modal
+      visible={showUpgradeModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowUpgradeModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <LinearGradient
+            colors={['#1a1a2e', '#16213e', '#0f3460']}
+            style={styles.modalGradient}
+          >
+            <View style={styles.modalHeader}>
+              <Ionicons name="star" size={40} color="#FFD700" />
+              <Text style={styles.modalTitle}>Pro Feature</Text>
+            </View>
+            
+            <Text style={styles.modalDescription}>
+              Custom pick distribution is a Pro feature that lets you fine-tune exactly how many picks you want from each sport and category.
+            </Text>
+            
+            <View style={styles.modalFeatures}>
+              <View style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={24} color="#00d4ff" />
+                <Text style={styles.featureText}>Customize pick allocations</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={24} color="#00d4ff" />
+                <Text style={styles.featureText}>Prioritize favorite sports</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={24} color="#00d4ff" />
+                <Text style={styles.featureText}>Balance team vs prop picks</Text>
+              </View>
+            </View>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={styles.upgradeButton}
+                onPress={handleUpgrade}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade to Pro</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setShowUpgradeModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Not Now</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  return (
+    <>
+      {renderContent()}
+      {renderUpgradeModal()}
+    </>
+  );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'space-between',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  modalGradient: {
+    padding: 24,
+    borderRadius: 20,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginTop: 12,
+  },
+  modalDescription: {
+    fontSize: 16,
+    color: '#e0e0e0',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalFeatures: {
+    marginBottom: 24,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featureText: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginLeft: 10,
+  },
+  modalActions: {
+    gap: 12,
+  },
+  upgradeButton: {
+    backgroundColor: '#00d4ff',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  upgradeButtonText: {
+    color: '#000000',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  cancelButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  upgradeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  upgradeText: {
+    color: '#FFD700',
+    marginLeft: 6,
+    fontWeight: '600',
   },
   scrollContainer: {
     flex: 1,
@@ -393,10 +581,9 @@ const styles = StyleSheet.create({
   },
   sliderValue: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#00d4ff',
-    minWidth: 30,
-    textAlign: 'right',
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
   slider: {
     height: isTablet ? 50 : 40,

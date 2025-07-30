@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { normalize, isTablet } from '@/app/services/device';
+import { normalize, isTablet } from '../services/device';
 import {
   View,
   Text,
@@ -30,19 +30,23 @@ import {
   ChevronRight,
   Brain,
   Shield,
-  DollarSign
+  DollarSign,
+  AlertCircle,
+  RefreshCw,
+  Settings
 } from 'lucide-react-native';
-import { aiService, AIPrediction } from '@/app/services/api/aiService';
-import { useSubscription } from '@/app/services/subscriptionContext';
-import EnhancedPredictionCard from '@/app/components/EnhancedPredictionCard';
-import { TwoTabPredictionsLayout } from '@/app/components/TwoTabPredictionsLayout';
-import { useAIChat } from '@/app/services/aiChatContext';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { aiService, AIPrediction } from '../services/api/aiService';
+import { useSubscription } from '../services/subscriptionContext';
+import { ElitePickDistribution } from '../components/ElitePickDistribution';
+import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
+import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
+import { useAIChat } from '../services/aiChatContext';
+import { supabase } from '../services/api/supabaseClient';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PredictionsScreen() {
-  const { isPro, proFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,23 +59,180 @@ export default function PredictionsScreen() {
   const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
   const [welcomeBonusExpires, setWelcomeBonusExpires] = useState<string | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
+  
+  // Elite user preferences for filtering predictions
+  const [userPreferences, setUserPreferences] = useState<any>({
+    sportPreferences: { mlb: true, wnba: false, ufc: false },
+    pickDistribution: { auto: true }
+  });
+  const [userId, setUserId] = useState<string>('');
+  const [showEliteDistribution, setShowEliteDistribution] = useState(false);
 
   useEffect(() => {
+    loadUserPreferences();
     loadPredictions();
-  }, [isPro]); // Added isPro to dependencies to re-render when subscription changes
+  }, [isPro, isElite]); // Added isElite to dependencies to re-render when subscription changes
+
+  const loadUserPreferences = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences, pick_distribution')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserPreferences({
+            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+            pickDistribution: profile.pick_distribution || { auto: true }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+    }
+  };
+
+  const loadElitePredictions = async () => {
+    try {
+      console.log('🏆 Loading Elite predictions (30 picks: 15 Team, 15 Prop)');
+      
+      // Get user's preferred sports
+      const preferredSports = Object.entries(userPreferences.sportPreferences || {})
+        .filter(([sport, enabled]) => enabled)
+        .map(([sport]) => sport.toUpperCase());
+      
+      console.log('🎯 User preferred sports:', preferredSports);
+      
+      // Build sport filter for SQL query
+      let sportFilter = '';
+      if (preferredSports.length > 0) {
+        const sportConditions = preferredSports.map(sport => `sport ILIKE '%${sport}%'`).join(' OR ');
+        sportFilter = `AND (${sportConditions})`;
+      }
+      
+      // Fetch 15 Team picks
+      const { data: teamPicks, error: teamError } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('user_id', userId)
+        .not('pick', 'ilike', '%over%')
+        .not('pick', 'ilike', '%under%')
+        .not('pick', 'ilike', '%total%')
+        .order('created_at', { ascending: false })
+        .limit(15);
+      
+      if (teamError) {
+        console.error('Error fetching team picks:', teamError);
+        throw teamError;
+      }
+      
+      // Fetch 15 Prop picks
+      const { data: propPicks, error: propError } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('user_id', userId)
+        .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+        .order('created_at', { ascending: false })
+        .limit(15);
+      
+      if (propError) {
+        console.error('Error fetching prop picks:', propError);
+        throw propError;
+      }
+      
+      // Combine and filter by preferred sports
+      const allPicks = [...(teamPicks || []), ...(propPicks || [])];
+      let filteredPicks = allPicks;
+      
+      if (preferredSports.length > 0) {
+        filteredPicks = allPicks.filter(pick => {
+          const pickSport = pick.sport?.toUpperCase() || '';
+          return preferredSports.some(sport => pickSport.includes(sport));
+        });
+      }
+      
+      // Sort by created_at and limit to 30
+      const sortedPicks = filteredPicks
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 30);
+      
+      // Transform to AIPrediction interface
+      const transformedPredictions: AIPrediction[] = sortedPicks.map(pred => ({
+        id: pred.id,
+        match: pred.match_teams || 'TBD vs TBD',
+        pick: pred.pick,
+        odds: pred.odds,
+        confidence: pred.confidence,
+        sport: pred.sport,
+        eventTime: pred.event_time || pred.created_at,
+        reasoning: pred.reasoning || 'AI-generated prediction',
+        value: pred.value_percentage ? parseFloat(pred.value_percentage) : undefined,
+        roi_estimate: pred.roi_estimate ? parseFloat(pred.roi_estimate) : undefined,
+        status: pred.status as 'pending' | 'won' | 'lost',
+        created_at: pred.created_at
+      }));
+      
+      console.log(`🏆 Loaded ${transformedPredictions.length} Elite predictions (Target: 30)`);
+      setPredictions(transformedPredictions);
+      
+    } catch (error) {
+      console.error('Error loading Elite predictions:', error);
+      // Fallback to regular Pro logic if Elite loading fails
+      const { data: fallbackPicks, error: fallbackError } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (!fallbackError && fallbackPicks) {
+        const transformedFallback: AIPrediction[] = fallbackPicks.map(pred => ({
+          id: pred.id,
+          match: pred.match_teams || 'TBD vs TBD',
+          pick: pred.pick,
+          odds: pred.odds,
+          confidence: pred.confidence,
+          sport: pred.sport,
+          eventTime: pred.event_time || pred.created_at,
+          reasoning: pred.reasoning || 'AI-generated prediction',
+          value: pred.value_percentage ? parseFloat(pred.value_percentage) : undefined,
+          roi_estimate: pred.roi_estimate ? parseFloat(pred.roi_estimate) : undefined,
+          status: pred.status as 'pending' | 'won' | 'lost',
+          created_at: pred.created_at
+        }));
+        setPredictions(transformedFallback);
+      }
+    }
+  };
+
+  const handleEliteDistributionSave = (newDistribution: any) => {
+    setUserPreferences(prev => ({
+      ...prev,
+      pickDistribution: newDistribution
+    }));
+    // Reload predictions with new distribution
+    loadPredictions();
+  };
 
   const loadPredictions = async () => {
     setLoading(true);
     try {
-      // For Pro users, fetch all today's predictions directly from Supabase
-      // For Free users, use the existing service with limits
-      if (isPro) {
-        // Fetch directly from ai_predictions table for Pro users (10 most recent)
+      // Enhanced logic for Elite, Pro, and Free users
+      if (isElite) {
+        // Elite users get 30 picks (15 Team, 15 Prop) filtered by preferences
+        await loadElitePredictions();
+      } else if (isPro) {
+        // Pro users get 20 picks from ai_predictions table
         const { data: rawPredictions, error } = await supabase
           .from('ai_predictions')
           .select('*')
+          .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(20);
 
         if (error) {
           console.error('Error fetching predictions from database:', error);
@@ -271,12 +432,26 @@ What are your thoughts on this prediction?`;
       >
         {/* Header Stats */}
         <LinearGradient
-          colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#334155', '#1E293B']}
+          colors={isElite ? ['#FFD700', '#FFA500', '#FF8C00'] : isPro ? ['#7C3AED', '#1E40AF'] : ['#334155', '#1E293B']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerStats}
         >
-          {isPro && (
+          {isElite && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={[styles.proBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' }]}>
+                <Crown size={16} color="#FFD700" />
+                <Text style={[styles.proBadgeText, { color: '#FFD700' }]}>✨ ELITE MEMBER ✨</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.eliteSettingsButton}
+                onPress={() => setShowEliteDistribution(true)}
+              >
+                <Settings size={20} color="#FFD700" />
+              </TouchableOpacity>
+            </View>
+          )}
+          {isPro && !isElite && (
             <View style={styles.proBadge}>
               <Crown size={16} color="#00E5FF" />
               <Text style={styles.proBadgeText}>PRO MEMBER</Text>
@@ -286,13 +461,15 @@ What are your thoughts on this prediction?`;
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Activity size={20} color="#00E5FF" />
-              <Text style={styles.statValue}>
-                {isPro ? predictions.length : 
+              <Text style={[styles.statValue, isElite && { color: '#FFD700' }]}>
+                {isElite ? `${predictions.length}/30` :
+                 isPro ? predictions.length : 
                  (isNewUser || welcomeBonusActive) ? `${predictions.length}/5` : 
                  `${Math.min(predictions.length, 2)}/2`}
               </Text>
-              <Text style={styles.statLabel}>
-                {isPro ? 'Total Picks' : 
+              <Text style={[styles.statLabel, isElite && { color: '#FFD700' }]}>
+                {isElite ? 'Elite Picks' :
+                 isPro ? 'Total Picks' : 
                  isNewUser ? 'Welcome Picks' :
                  welcomeBonusActive ? 'Bonus Picks' : 
                  'Daily Picks'}
@@ -534,6 +711,16 @@ What are your thoughts on this prediction?`;
           </Text>
         </View>
       </ScrollView>
+      
+      {/* Elite Pick Distribution Modal */}
+      {isElite && (
+        <ElitePickDistribution
+          visible={showEliteDistribution}
+          onClose={() => setShowEliteDistribution(false)}
+          userPreferences={userPreferences}
+          onSave={handleEliteDistributionSave}
+        />
+      )}
     </View>
   );
 }
@@ -573,11 +760,20 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   proBadgeText: {
-    fontSize: normalize(11),
+    fontSize: normalize(10),
     fontWeight: '700',
     color: '#00E5FF',
-    marginLeft: normalize(6),
-    letterSpacing: 0.5,
+    marginLeft: normalize(4),
+  },
+  eliteSettingsButton: {
+    width: normalize(40),
+    height: normalize(40),
+    borderRadius: normalize(20),
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsRow: {
     flexDirection: 'row',

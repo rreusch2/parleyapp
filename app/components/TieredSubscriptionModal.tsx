@@ -97,7 +97,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         
         trackPositiveInteraction({ eventType: 'successful_subscription' });
         
-        const tierName = selectedTier === 'pro' ? 'Pro' : 'All-Star';
+        const tierName = selectedTier === 'pro' ? 'Pro' : 'Elite';
         Alert.alert(
           `🎉 Welcome to ${tierName}!`,
           `You've successfully subscribed to the ${tierName} plan. Welcome to the premium experience!`,
@@ -210,7 +210,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         >
           <Trophy size={20} color={selectedTier === 'allstar' ? '#FFFFFF' : '#94A3B8'} />
           <Text style={[styles.tierTabText, selectedTier === 'allstar' && styles.tierTabTextSelected]}>
-            All-Star
+            Elite
           </Text>
           <View style={styles.premiumBadge}>
             <Sparkles size={10} color="#8B5CF6" />
@@ -392,7 +392,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   <>
                     <Crown size={20} color="#FFFFFF" />
                     <Text style={styles.subscribeButtonText}>
-                      Start {selectedTier === 'pro' ? 'Pro' : 'All-Star'} Subscription
+                      Start {selectedTier === 'pro' ? 'Pro' : 'Elite'} Subscription
                     </Text>
                   </>
                 )}
@@ -409,7 +409,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             {/* Apple-Required Subscription Information */}
             <View style={styles.appleRequiredInfo}>
               <Text style={styles.subscriptionSectionTitle}>
-                {selectedTier === 'pro' ? 'Pro Tier' : 'All-Star Tier'} Subscription Options
+                {selectedTier === 'pro' ? 'Pro Tier' : 'Elite Tier'} Subscription Options
               </Text>
               
               {selectedTier === 'pro' ? (
@@ -438,17 +438,17 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Weekly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Monthly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Yearly All-Star Subscription</Text>
+                    <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                     <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>

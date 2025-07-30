@@ -7,6 +7,8 @@ import { Alert, Platform } from 'react-native';
 
 interface SubscriptionContextType {
   isPro: boolean;
+  isElite: boolean;
+  subscriptionTier: 'free' | 'pro' | 'elite';
   isLoading: boolean;
   showSubscriptionModal: boolean;
   checkSubscriptionStatus: () => Promise<void>;
@@ -22,6 +24,15 @@ interface SubscriptionContextType {
     hasUnlimitedInsights: boolean;
     hasPrioritySupport: boolean;
   };
+  eliteFeatures: {
+    hasLockOfTheDay: boolean;
+    hasAdvancedAnalytics: boolean;
+    hasEliteTheme: boolean;
+    hasEarlyAccess: boolean;
+    hasEliteInsights: boolean;
+    hasPrioritySupport: boolean;
+    maxPicks: number;
+  };
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -36,6 +47,8 @@ export const useSubscription = () => {
 
 export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isPro, setIsPro] = useState(false);
+  const [isElite, setIsElite] = useState(false);
+  const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro' | 'elite'>('free');
   const [isLoading, setIsLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
@@ -87,14 +100,26 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           if (hasActiveWelcomeBonus) {
             console.log('🎁 User has active welcome bonus - keeping as FREE tier');
             setIsPro(false);
+            setIsElite(false);
+            setSubscriptionTier('free');
             await AsyncStorage.setItem('subscriptionStatus', 'free');
+          } else if (profile.subscription_tier === 'elite') {
+            console.log('👑 User is Elite according to database');
+            setIsPro(true); // Elite users are also Pro
+            setIsElite(true);
+            setSubscriptionTier('elite');
+            await AsyncStorage.setItem('subscriptionStatus', 'elite');
           } else if (profile.subscription_tier === 'pro') {
             console.log('✅ User is Pro according to database');
             setIsPro(true);
+            setIsElite(false);
+            setSubscriptionTier('pro');
             await AsyncStorage.setItem('subscriptionStatus', 'pro');
           } else {
             console.log('ℹ️ User is Free according to database');
             setIsPro(false);
+            setIsElite(false);
+            setSubscriptionTier('free');
             await AsyncStorage.setItem('subscriptionStatus', 'free');
           }
         } else {
@@ -222,11 +247,23 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     hasUnlimitedInsights: isPro,
     hasPrioritySupport: isPro,
   };
+
+  const eliteFeatures = {
+    hasLockOfTheDay: isElite,
+    hasAdvancedAnalytics: isElite,
+    hasEliteTheme: isElite,
+    hasEarlyAccess: isElite,
+    hasEliteInsights: isElite,
+    hasPrioritySupport: isElite,
+    maxPicks: isElite ? 999 : (isPro ? 999 : 2),
+  };
   
   return (
     <SubscriptionContext.Provider
       value={{
         isPro,
+        isElite,
+        subscriptionTier,
         isLoading,
         showSubscriptionModal,
         checkSubscriptionStatus,
@@ -235,6 +272,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         closeSubscriptionModal,
         restorePurchases,
         proFeatures,
+        eliteFeatures,
       }}
     >
       {children}
