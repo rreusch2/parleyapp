@@ -24,6 +24,7 @@ import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -421,7 +422,9 @@ export default function SignupScreen() {
             })
             .eq('id', data.user.id);
 
+          if (data.user) {
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
+          AppEventsLogger.logEvent('CompleteRegistration');
           
           // Store user ID and show preferences modal first
           setCurrentUserId(data.user.id);
@@ -525,6 +528,7 @@ export default function SignupScreen() {
 
       if (data.user) {
         console.log('✅ Signup successful! User ID:', data.user.id);
+        AppEventsLogger.logEvent('CompleteRegistration');
         console.log('🎯 About to show preferences modal...');
         
         // Store user ID and show preferences modal first

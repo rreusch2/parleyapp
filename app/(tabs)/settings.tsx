@@ -68,7 +68,7 @@ interface UserProfile {
 }
 
 export default function SettingsScreen() {
-  const { isPro, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -690,8 +690,8 @@ export default function SettingsScreen() {
           id: 'subscription', 
           title: 'Subscription', 
           type: 'link', 
-          badge: isPro ? 'PRO' : 'FREE',
-          badgeColor: isPro ? '#F59E0B' : '#6B7280',
+          badge: isElite ? 'ELITE' : isPro ? 'PRO' : 'FREE',
+          badgeColor: isElite ? '#FFD700' : isPro ? '#F59E0B' : '#6B7280',
           action: handleManageSubscription
         },
         {
@@ -908,10 +908,12 @@ export default function SettingsScreen() {
               <View style={styles.profileDetails}>
                 <View style={styles.profileNameContainer}>
                   <Text style={styles.profileName}>{loading ? 'Loading...' : getUserDisplayName()}</Text>
-                  {isPro && (
-                    <View style={styles.proBadge}>
-                      <Crown size={12} color="#F59E0B" />
-                      <Text style={styles.proBadgeText}>PRO</Text>
+                  {(isPro || isElite) && (
+                    <View style={[styles.proBadge, isElite && styles.eliteBadge]}>
+                      <Crown size={12} color={isElite ? "#FFD700" : "#F59E0B"} />
+                      <Text style={[styles.proBadgeText, isElite && styles.eliteBadgeText]}>
+                        {isElite ? 'ELITE' : 'PRO'}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -1457,6 +1459,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     lineHeight: 12,
+  },
+  eliteBadge: {
+    backgroundColor: '#FFD700',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  eliteBadgeText: {
+    color: '#1A1611',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   profileStatus: {
     fontSize: 14,

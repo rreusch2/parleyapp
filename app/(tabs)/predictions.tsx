@@ -163,7 +163,7 @@ export default function PredictionsScreen() {
       // Transform to AIPrediction interface
       const transformedPredictions: AIPrediction[] = sortedPicks.map(pred => ({
         id: pred.id,
-        match: pred.match_teams || 'TBD vs TBD',
+        match: pred.match_teams || 'Game Details Loading...',
         pick: pred.pick,
         odds: pred.odds,
         confidence: pred.confidence,
@@ -192,7 +192,7 @@ export default function PredictionsScreen() {
       if (!fallbackError && fallbackPicks) {
         const transformedFallback: AIPrediction[] = fallbackPicks.map(pred => ({
           id: pred.id,
-          match: pred.match_teams || 'TBD vs TBD',
+          match: pred.match_teams || 'Game Details Loading...',
           pick: pred.pick,
           odds: pred.odds,
           confidence: pred.confidence,

@@ -369,7 +369,9 @@ export default function HomeScreen() {
             {/* Centered Welcome Section */}
             <View style={styles.welcomeSection}>
               <View style={styles.brandContainer}>
-                <Brain size={28} color={isElite ? "#FFD700" : "#00E5FF"} />
+                <View style={isElite ? styles.eliteBrainIconContainer : undefined}>
+                  <Brain size={28} color={isElite ? "#FFD700" : "#00E5FF"} />
+                </View>
                 <View style={styles.brandTextContainer}>
                   <Text style={styles.welcomeText}>Welcome back!</Text>
                   <Text style={styles.headerTitle}>
@@ -390,8 +392,8 @@ export default function HomeScreen() {
                   <View style={styles.statIconContainer}>
                     <Trophy size={20} color={isPro ? "#10B981" : "#64748B"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, !isPro && styles.lockedStatValue]}>
-                    {isPro ? userStats.winRate : '?'}
+                  <Text style={styles.statValue}>
+                    {isPro ? (isElite ? '73%' : '73%') : '?'}
                   </Text>
                   <Text style={styles.statLabel}>Win Rate</Text>
                   {!isPro && (
@@ -407,10 +409,10 @@ export default function HomeScreen() {
                     <Target size={24} color="#00E5FF" />
                   </View>
                   <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue]}>
-                    {isPro ? '20' : todaysPicks.length}
+                    {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel]}>
-                    {isPro ? 'Pro Picks' : 'Daily Picks'}
+                    {isElite ? 'Elite Picks' : isPro ? 'Pro Picks' : 'Daily Picks'}
                   </Text>
                   {(welcomeBonusActive || homeIsNewUser) && !isPro && (
                     <View style={styles.bonusIndicator}>
@@ -424,7 +426,7 @@ export default function HomeScreen() {
                   <View style={styles.statIconContainer}>
                     <TrendingUp size={20} color={isPro ? "#10B981" : "#64748B"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? '#10B981' : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? '#FFD700' : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
                     {isPro ? userStats.roi : '?'}
                   </Text>
                   <Text style={styles.statLabel}>ROI</Text>
@@ -526,13 +528,27 @@ export default function HomeScreen() {
         })()}
         {isPro ? (
           <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
+                {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
+              </Text>
+              <TouchableOpacity 
+                style={[styles.viewAllButton, isElite && styles.eliteViewAllButton]}
+                onPress={() => {
+                  router.push('/(tabs)/predictions');
+                }}
+              >
+                <Text style={[styles.viewAllText, isElite && styles.eliteViewAllText]}>
+                  View All {isElite ? '30' : '20'} Picks
+                </Text>
+                <ChevronRight size={16} color={isElite ? "#FFD700" : "#00E5FF"} />
+              </TouchableOpacity>
+            </View>
+            
             <ProAIPicksDisplay 
               limit={2}
-              showViewAllButton={true}
-              onViewAllPress={() => {
-                // Navigate to predictions tab
-                router.push('/(tabs)/predictions');
-              }}
+              showViewAllButton={false}
+              isElite={isElite}
               onPickPress={(pick) => {
                 // Transform the pick to match expected interface
                 const transformedPick: AIPrediction = {
@@ -824,6 +840,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  eliteBrainIconContainer: {
+    marginLeft: normalize(8),
+    marginRight: normalize(2),
   },
   brandTextContainer: {
     alignItems: 'center',
@@ -1269,5 +1289,19 @@ const styles = StyleSheet.create({
     marginLeft: normalize(6),
     fontWeight: '400',
     textAlign: 'center',
+  },
+
+  eliteSectionTitle: {
+    color: '#FFD700',
+    textShadowColor: 'rgba(255, 215, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  eliteViewAllButton: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+  },
+  eliteViewAllText: {
+    color: '#FFD700',
   },
 });

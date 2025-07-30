@@ -56,6 +56,7 @@ interface ProAIPicksDisplayProps {
   limit?: number;
   showViewAllButton?: boolean;
   onViewAllPress?: () => void;
+  isElite?: boolean;
 }
 
 const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
@@ -63,6 +64,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
   onRefresh,
   refreshing = false,
   limit,
+  isElite = false,
   showViewAllButton,
   onViewAllPress
 }) => {
@@ -224,7 +226,10 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
         activeOpacity={0.8}
       >
         <LinearGradient
-          colors={isTopPick ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#0F172A']}
+          colors={isElite 
+            ? (isTopPick ? ['#FFD700', '#FFA000', '#FF8F00'] : ['#2D2416', '#1A1611']) 
+            : (isTopPick ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#0F172A'])
+          }
           style={[styles.pickCardGradient, isTopPick && styles.topPickPadding]}
         >
           {/* Top Pick Badge - Moved to avoid overlap */}

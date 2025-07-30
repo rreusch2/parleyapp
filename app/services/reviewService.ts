@@ -3,13 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 interface ReviewTriggerEvent {
-  eventType: 'successful_subscription' | 'welcome_wheel_win' | 'ai_chat_positive' | 'daily_picks_viewed' | 'winning_streak' | 'app_usage_milestone';
+  eventType: 'successful_subscription' | 'welcome_wheel_win' | 'ai_chat_positive' | 'daily_picks_viewed' | 'winning_streak' | 'app_usage_milestone' | 'referral_success' | 'giveaway_entry' | 'tier_upgrade';
   metadata?: {
     streakCount?: number;
     daysUsed?: number;
     picksViewed?: number;
     wheelPrize?: number;
     chatSatisfaction?: 'positive' | 'very_positive';
+    referralCount?: number;
+    subscriptionTier?: string;
+    upgradeFrom?: string;
+    upgradeTo?: string;
   };
 }
 
@@ -29,6 +33,7 @@ class ReviewService {
   private readonly MIN_DAYS_BETWEEN_REQUESTS = 90; // Apple's recommendation
   private readonly MIN_POSITIVE_INTERACTIONS = 3;
   private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews for testing
+  private readonly MAX_REVIEWS_PER_VERSION = 1; // Limit to 1 review request per app version
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {
@@ -175,6 +180,18 @@ class ReviewService {
       case 'app_usage_milestone':
         // Good moment for consistent users
         return (event.metadata?.daysUsed || 0) >= 7 && state.positiveInteractions >= 5;
+        
+      case 'referral_success':
+        // Excellent moment - user successfully referred someone
+        return (event.metadata?.referralCount || 0) >= 1;
+        
+      case 'giveaway_entry':
+        // Good moment - user just entered giveaway (shows engagement)
+        return state.totalAppOpens >= 3;
+        
+      case 'tier_upgrade':
+        // Perfect moment - user just upgraded subscription tier
+        return event.metadata?.upgradeFrom !== event.metadata?.upgradeTo;
         
       default:
         return false;
