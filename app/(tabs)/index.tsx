@@ -532,17 +532,20 @@ export default function HomeScreen() {
               <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
-              <TouchableOpacity 
-                style={[styles.viewAllButton, isElite && styles.eliteViewAllButton]}
-                onPress={() => {
-                  router.push('/(tabs)/predictions');
-                }}
-              >
-                <Text style={[styles.viewAllText, isElite && styles.eliteViewAllText]}>
-                  View All {isElite ? '30' : '20'} Picks
-                </Text>
-                <ChevronRight size={16} color={isElite ? "#FFD700" : "#00E5FF"} />
-              </TouchableOpacity>
+              {/* Only show header button for Pro users, not Elite */}
+              {!isElite && (
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => {
+                    router.push('/(tabs)/predictions');
+                  }}
+                >
+                  <Text style={styles.viewAllText}>
+                    View All 20 Picks
+                  </Text>
+                  <ChevronRight size={16} color="#00E5FF" />
+                </TouchableOpacity>
+              )}
             </View>
             
             <ProAIPicksDisplay 
@@ -570,6 +573,27 @@ export default function HomeScreen() {
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
+            
+            {/* Elite: Add View All button below preview cards */}
+            {isElite && (
+              <TouchableOpacity 
+                style={styles.eliteViewAllButtonBelow}
+                onPress={() => {
+                  router.push('/(tabs)/predictions');
+                }}
+              >
+                <LinearGradient
+                  colors={['#FFD700', '#FFA500']}
+                  style={styles.eliteViewAllGradient}
+                >
+                  <Trophy size={16} color="#000000" />
+                  <Text style={styles.eliteViewAllButtonText}>
+                    View All 30 Picks
+                  </Text>
+                  <ChevronRight size={16} color="#000000" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.section}>
@@ -842,8 +866,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   eliteBrainIconContainer: {
-    marginLeft: normalize(8),
-    marginRight: normalize(2),
+    marginLeft: normalize(12),
+    marginRight: normalize(8),
+    paddingLeft: normalize(4),
   },
   brandTextContainer: {
     alignItems: 'center',
@@ -1303,5 +1328,29 @@ const styles = StyleSheet.create({
   },
   eliteViewAllText: {
     color: '#FFD700',
+  },
+  eliteViewAllButtonBelow: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  eliteViewAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  eliteViewAllButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    marginHorizontal: 8,
   },
 });

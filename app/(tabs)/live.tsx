@@ -92,7 +92,7 @@ interface EnhancedSportsEvent extends SportsEvent {
 
 export default function GamesScreen() {
   const router = useRouter();
-  const { isPro, proFeatures, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, proFeatures, openSubscriptionModal } = useSubscription();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState<EnhancedSportsEvent[]>([]);
@@ -825,7 +825,13 @@ export default function GamesScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerStats}
         >
-          {isPro && (
+          {isElite && (
+            <View style={[styles.proBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' }]}>
+              <Crown size={16} color="#FFD700" />
+              <Text style={[styles.proBadgeText, { color: '#FFD700' }]}>✨ ELITE MEMBER ✨</Text>
+            </View>
+          )}
+          {isPro && !isElite && (
             <View style={styles.proBadge}>
               <Crown size={16} color="#F59E0B" />
               <Text style={styles.proBadgeText}>PRO MEMBER</Text>

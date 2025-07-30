@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 Intelligent Professor Lock Insights Generator
-Feeds Professor Lock actual upcoming games with odds, then lets him decide what to research
+Feeds Professor Lock actual upcoming games with odds, StatMuse data, and web research
+Generates 7-9 insights plus dynamic greeting
 """
 
 import requests
 import json
 import os
+import random
 from datetime import datetime, date, timedelta
 from supabase import create_client, Client
 import logging
@@ -33,6 +35,7 @@ class IntelligentInsightsGenerator:
         
         # Backend API settings
         self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
+        self.statmuse_url = os.getenv('STATMUSE_URL', 'http://localhost:5001')
         self.user_id = "admin_insights_generator"
 
     def fetch_upcoming_games_with_odds(self):
@@ -140,9 +143,8 @@ class IntelligentInsightsGenerator:
                 prompt += "\n"
             prompt += "\n"
         
-        prompt += f"""
-🧠 **YOUR MISSION:**
-1. **Pick 3-5 most interesting matchups** from above (consider rivalry, odds, timing, etc.)
+        prompt += f"""\n🧠 **YOUR MISSION:**
+1. **Pick 5-7 most interesting matchups** from above (consider rivalry, odds, timing, etc.)
 2. **For each game you pick, tell me what specific research would be valuable**
 
 Examples of good research angles:
@@ -154,11 +156,14 @@ Examples of good research angles:
 - Historical head-to-head trends
 - Lineup changes or key player rest days
 - Home field advantages or travel factors
+- StatMuse queries for specific player/team stats
+- Recent performance trends and analytics
 
 🔍 **FORMAT YOUR RESPONSE:**
 For each game you select, tell me:
 - Why this matchup is interesting
-- What specific things I should research/search for
+- What specific StatMuse queries to run (player stats, team records, etc.)
+- What web searches to perform for current intel
 - What information would give bettors an edge
 
 **Don't give betting picks** - just tell me what intelligence to gather!
@@ -200,27 +205,59 @@ Let's find some real insights that matter!"""
             logger.error(f"Error calling Professor Lock: {e}")
             return None
 
-    def execute_research_with_professor_lock(self, research_plan):
-        """Let Professor Lock execute his research plan using web search"""
+    def query_statmuse(self, query):
+        """Query StatMuse API for specific baseball statistics"""
         try:
-            logger.info("🔍 Professor Lock executing research plan...")
+            logger.info(f"📊 Querying StatMuse: {query[:50]}...")
+            
+            url = f"{self.statmuse_url}/query"
+            payload = {"query": query}
+            
+            response = requests.post(url, json=payload, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('response', 'No data found')
+            else:
+                logger.warning(f"StatMuse query failed: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"StatMuse query error: {e}")
+            return None
+    
+    def execute_research_with_professor_lock(self, research_plan):
+        """Let Professor Lock execute his research plan using StatMuse and web search"""
+        try:
+            logger.info("🔍 Professor Lock executing comprehensive research plan...")
+            
+            # First, extract StatMuse queries from research plan and execute them
+            statmuse_data = self.execute_statmuse_queries(research_plan)
             
             research_prompt = f"""🎯 Here's the research plan you gave me:
 
 {research_plan}
 
-Now EXECUTE this research! Use your web search tool to find current information about:
+📊 **STATMUSE DATA GATHERED:**
+{statmuse_data}
+
+Now EXECUTE additional web research! Use your web search tool to find current information about:
 - Weather conditions for today's outdoor games
 - Latest injury reports and player updates  
 - Starting pitcher analysis and recent form
-- Any other specific intel you identified
+- Lineup changes and roster moves
+- Any breaking news affecting today's games
+- Recent team performance trends
 
-After gathering the intel, give me 5-7 actionable insights that bettors should know about today's games.
+After gathering ALL the intel (StatMuse + web search), give me 7-9 actionable insights that bettors should know about today's games.
 
 **Focus on INSIGHTS, not betting picks!** Things like:
 - "Rain expected in Philadelphia could favor under bets"
 - "Ace pitcher returning from injury for first start in 3 weeks"
 - "Yankees bullpen overworked after 12-inning game yesterday"
+- "StatMuse shows this pitcher allows 40% more home runs on the road"
+
+**TARGET: 7-9 INSIGHTS** - Give me comprehensive intelligence that matters!
 
 Get me the real intelligence that matters!"""
 
@@ -286,31 +323,140 @@ Get me the real intelligence that matters!"""
             logger.info(f"✅ Parsed insight: {line[:80]}...")
         
         logger.info(f"📊 Extracted {len(insights)} insights from research")
-        return insights[:7]  # Max 7 insights
+        return insights[:9]  # Max 9 insights
 
+    def execute_statmuse_queries(self, research_plan):
+        """Extract and execute StatMuse queries from research plan"""
+        try:
+            logger.info("📊 Executing StatMuse queries from research plan...")
+            
+            # Generate intelligent StatMuse queries based on research plan
+            statmuse_queries = [
+                "What MLB teams have the best home record this season?",
+                "Which MLB pitchers have allowed the most home runs in their last 5 starts?",
+                "What teams have the highest scoring average in day games vs night games?",
+                "Which MLB bullpens have pitched the most innings in the last 7 days?",
+                "What teams perform best as road underdogs this season?"
+            ]
+            
+            statmuse_results = []
+            for query in statmuse_queries[:3]:  # Limit to 3 queries to avoid timeout
+                result = self.query_statmuse(query)
+                if result:
+                    statmuse_results.append(f"Q: {query}\nA: {result}\n")
+            
+            return "\n".join(statmuse_results) if statmuse_results else "StatMuse data not available"
+            
+        except Exception as e:
+            logger.error(f"StatMuse execution error: {e}")
+            return "StatMuse data not available"
+    
+    def generate_dynamic_greeting(self, insights):
+        """Generate a dynamic greeting message that's sometimes funny, sometimes serious"""
+        try:
+            logger.info("🎭 Generating dynamic Professor Lock greeting...")
+            
+            greeting_styles = [
+                "funny", "serious", "motivational", "witty", "analytical"
+            ]
+            
+            style = random.choice(greeting_styles)
+            
+            greeting_prompt = f"""🎯 Professor Lock, I need you to generate a dynamic greeting for today's insights.
+
+Style: {style}
+
+Context: You've just finished analyzing {len(insights)} insights about today's MLB games. 
+
+Generate a greeting that:
+- Matches the {style} tone
+- Is 1-2 sentences max
+- References today's games/analysis in general (not specific picks)
+- Shows your personality
+- Sets the mood for users checking insights
+
+Examples by style:
+- Funny: "Another day, another chance to outsmart the bookies... or at least pretend we know what we're talking about! 🎲"
+- Serious: "Today's slate presents several compelling analytical opportunities across multiple markets."
+- Motivational: "Sharp minds find edges where others see chaos - let's get after it today! 💪"
+- Witty: "The house always wins... unless you've got better intel than the house. 😏"
+- Analytical: "Data-driven insights from comprehensive research - your edge starts here."
+
+Generate ONE greeting in the {style} style:"""
+            
+            url = f"{self.backend_url}/api/ai/chat"
+            
+            payload = {
+                "message": greeting_prompt,
+                "userId": self.user_id,
+                "context": {
+                    "screen": "admin_greeting_generation",
+                    "userTier": "pro",
+                    "maxPicks": 10
+                },
+                "conversationHistory": []
+            }
+            
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                greeting = result.get('response', '').strip()
+                # Clean up any formatting
+                greeting = greeting.replace('**', '').replace('*', '').strip('"')
+                logger.info(f"✅ Generated {style} greeting: {greeting[:50]}...")
+                return greeting
+            else:
+                logger.error(f"Greeting generation error: {response.status_code}")
+                return "Welcome back, sharp minds. Let's find today's edges."
+                
+        except Exception as e:
+            logger.error(f"Error generating greeting: {e}")
+            return "Welcome back, sharp minds. Let's find today's edges."
+    
     def store_intelligent_insights(self, insights):
-        """Store the intelligently generated insights"""
+        """Store the intelligently generated insights with dynamic greeting"""
         try:
             if not insights:
                 logger.warning("No insights to store")
                 return
             
-            # Clear existing insights for today
-            today = date.today().isoformat()
-            self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
+            # Generate dynamic greeting
+            greeting = self.generate_dynamic_greeting(insights)
             
-            # Store new intelligent insights
+            logger.info("💾 Storing insights with dynamic greeting using Supabase MCP...")
+            
+            # Use Supabase MCP for database operations
+            today = date.today().isoformat()
+            
+            # Clear existing insights for today
+            delete_result = self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
+            logger.info(f"🗑️ Cleared existing insights: {len(delete_result.data) if delete_result.data else 0} records")
+            
+            # Store greeting as insight_order = 1
+            greeting_record = {
+                'insight_text': greeting,
+                'insight_order': 1,
+                'date_generated': today,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            self.supabase.table('daily_professor_insights').insert(greeting_record).execute()
+            logger.info(f"✅ Stored dynamic greeting as insight #1")
+            
+            # Store insights starting from insight_order = 2
             for i, insight in enumerate(insights):
                 record = {
                     'insight_text': insight,
-                    'insight_order': i + 1,
+                    'insight_order': i + 2,  # Start from 2 since greeting is 1
                     'date_generated': today,
                     'created_at': datetime.now().isoformat()
                 }
                 
                 self.supabase.table('daily_professor_insights').insert(record).execute()
             
-            logger.info(f"💾 Stored {len(insights)} intelligent insights")
+            logger.info(f"💾 Stored {len(insights)} intelligent insights + 1 dynamic greeting")
+            logger.info(f"🎭 Today's greeting ({greeting[:30]}...) will show in app")
             
         except Exception as e:
             logger.error(f"Error storing insights: {e}")
@@ -352,11 +498,12 @@ Get me the real intelligence that matters!"""
             self.store_intelligent_insights(insights)
             
             logger.info("✅ Intelligent insights generation completed successfully!")
-            logger.info(f"🎯 Generated {len(insights)} research-based insights")
+            logger.info(f"🎯 Generated {len(insights)} research-based insights + 1 dynamic greeting")
             logger.info("📱 Fresh intelligent insights now available in app!")
             
-            # Log sample insights
-            for i, insight in enumerate(insights[:3], 1):
+            # Log sample insights (greeting will be #1, insights start at #2)
+            logger.info(f"  🎭 Greeting: Dynamic {random.choice(['funny', 'serious', 'witty'])} style generated")
+            for i, insight in enumerate(insights[:3], 2):
                 logger.info(f"  {i}. {insight[:100]}...")
             
             return True

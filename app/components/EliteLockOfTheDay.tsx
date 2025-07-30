@@ -6,6 +6,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -48,6 +50,7 @@ interface EliteLockOfTheDayProps {
 }
 
 const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPreferences, onPickPress }) => {
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const [lockPick, setLockPick] = useState<LockOfTheDayPick | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,7 +209,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           <View style={styles.pickRow}>
             <View style={styles.pickInfo}>
               <Text style={styles.pickLabel}>PICK</Text>
-              <Text style={styles.pickValue}>{lockPick.pick}</Text>
+              <Text style={styles.pickValue} numberOfLines={2} adjustsFontSizeToFit>{lockPick.pick}</Text>
             </View>
             <View style={styles.oddsInfo}>
               <Text style={styles.pickLabel}>ODDS</Text>
@@ -221,7 +224,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
             <View style={styles.analyticsItem}>
               <Target size={16} color="#FFFFFF" />
               <Text style={styles.analyticsLabel}>Confidence</Text>
-              <Text style={[styles.analyticsValue, { color: getConfidenceColor(lockPick.confidence) }]}>
+              <Text style={[styles.analyticsValue, styles.confidenceLabelText]}>
                 {getConfidenceLabel(lockPick.confidence)}
               </Text>
             </View>
@@ -255,13 +258,121 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
         )}
 
         {/* Action Button */}
-        <TouchableOpacity style={styles.actionButton} onPress={() => {}}>
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={() => setShowAnalysisModal(true)}
+          activeOpacity={0.8}
+        >
           <Trophy size={20} color="#8B5CF6" />
           <Text style={styles.actionButtonText}>View Full Analysis</Text>
           <Zap size={20} color="#8B5CF6" />
         </TouchableOpacity>
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Full Analysis Modal */}
+      <Modal
+        visible={showAnalysisModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAnalysisModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <LinearGradient
+            colors={['#0F172A', '#1E293B', '#334155']}
+            style={styles.modalGradient}
+          >
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderLeft}>
+                <Lock size={24} color="#FFD700" />
+                <Text style={styles.modalTitle}>Elite Lock Analysis</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setShowAnalysisModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {/* Match Info */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>🏟️ Match Details</Text>
+                <Text style={styles.modalMatchText}>{lockPick.match_teams}</Text>
+                <Text style={styles.modalSportText}>{lockPick.sport || 'MLB'}</Text>
+              </View>
+
+              {/* Pick Info */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>🎯 Elite Pick</Text>
+                <View style={styles.modalPickRow}>
+                  <View style={styles.modalPickItem}>
+                    <Text style={styles.modalPickLabel}>SELECTION</Text>
+                    <Text style={styles.modalPickValue}>{lockPick.pick}</Text>
+                  </View>
+                  <View style={styles.modalPickItem}>
+                    <Text style={styles.modalPickLabel}>ODDS</Text>
+                    <Text style={styles.modalPickValue}>{lockPick.odds}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Analytics */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>📊 Elite Analytics</Text>
+                <View style={styles.modalAnalyticsGrid}>
+                  <View style={styles.modalAnalyticsItem}>
+                    <Text style={styles.modalAnalyticsLabel}>Confidence</Text>
+                    <Text style={[styles.modalAnalyticsValue, { color: getConfidenceColor(lockPick.confidence) }]}>
+                      {lockPick.confidence}%
+                    </Text>
+                    <Text style={styles.modalAnalyticsSubtext}>{getConfidenceLabel(lockPick.confidence)}</Text>
+                  </View>
+                  
+                  {lockPick.roi_estimate && (
+                    <View style={styles.modalAnalyticsItem}>
+                      <Text style={styles.modalAnalyticsLabel}>ROI Estimate</Text>
+                      <Text style={styles.modalAnalyticsValue}>{lockPick.roi_estimate}</Text>
+                      <Text style={styles.modalAnalyticsSubtext}>Expected Return</Text>
+                    </View>
+                  )}
+                  
+                  {lockPick.value_percentage && (
+                    <View style={styles.modalAnalyticsItem}>
+                      <Text style={styles.modalAnalyticsLabel}>Value Edge</Text>
+                      <Text style={styles.modalAnalyticsValue}>{lockPick.value_percentage}</Text>
+                      <Text style={styles.modalAnalyticsSubtext}>Market Advantage</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Reasoning */}
+              {lockPick.reasoning && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>🧠 Elite AI Analysis</Text>
+                  <View style={styles.modalReasoningContainer}>
+                    <Text style={styles.modalReasoningText}>{lockPick.reasoning}</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Bet Type */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>📋 Bet Classification</Text>
+                <View style={styles.modalBetTypeContainer}>
+                  <Text style={styles.modalBetTypeText}>{lockPick.bet_type.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              {/* Bottom Spacing */}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </LinearGradient>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -335,8 +446,155 @@ const styles = StyleSheet.create({
   },
   confidenceText: {
     color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  modalSection: {
+    marginBottom: 24,
+  },
+  modalSectionTitle: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalMatchText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  modalText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  modalTitle: {
+    color: '#FFD700',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    color: '#FFD700',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalGradient: {
+    flex: 1,
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalSportText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  modalPickRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalPickItem: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  modalPickLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalPickValue: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  modalAnalyticsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalAnalyticsItem: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  modalAnalyticsLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  modalAnalyticsValue: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  modalAnalyticsSubtext: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 10,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  modalReasoningContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  modalReasoningText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  modalBetTypeContainer: {
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  modalBetTypeText: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   pickDetails: {
     marginBottom: 16,
@@ -344,16 +602,25 @@ const styles = StyleSheet.create({
   matchTeams: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 12,
   },
   pickRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   pickInfo: {
-    alignItems: 'center',
+    flex: 1,
+    marginRight: 16,
+  },
+  confidenceLabelText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   oddsInfo: {
     alignItems: 'center',
