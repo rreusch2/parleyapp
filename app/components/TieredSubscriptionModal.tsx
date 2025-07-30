@@ -64,6 +64,13 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const { subscribeToPro, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
 
+  // Function to calculate original price (double current price for 50% off promo)
+  const getOriginalPrice = (currentPrice: string): string => {
+    const price = parseFloat(currentPrice.replace('$', ''));
+    const originalPrice = price * 2;
+    return `$${originalPrice.toFixed(2)}`;
+  };
+
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
     if (visible) {
@@ -238,13 +245,13 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           <Text style={styles.featureValue}>Unlimited</Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Play of the Day</Text>
+          <Text style={styles.featureLabel}>Daily AI Predictions</Text>
           <Text style={styles.featureValue}>✓ Included</Text>
         </View>
         {selectedTier === 'allstar' && (
           <View style={styles.featureRow}>
-            <Text style={styles.featureLabel}>Advanced Professor Lock</Text>
-            <Text style={styles.featureValuePremium}>✓ Enhanced AI</Text>
+            <Text style={styles.featureLabel}>🔒 Lock of the Day</Text>
+            <Text style={styles.featureValuePremium}>✓ Elite Exclusive</Text>
           </View>
         )}
       </View>
@@ -328,14 +335,17 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                       )}
                     </View>
                     <View style={styles.priceContainer}>
+                      {/* Show original price with strikethrough for 50% off promo */}
+                      <View style={styles.pricingRow}>
+                        <Text style={styles.originalPrice}>{getOriginalPrice(price)}</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {isTrialEligible && (
-                      <Text style={styles.trialDetails}>
-                        3-day FREE trial, then {price}/{period.split(' ')[1]}
-                      </Text>
-                    )}
+                    {/* Remove duplicate trial text to fix overlap - badge is enough */}
                   </View>
                 </View>
               </LinearGradient>
@@ -851,6 +861,29 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  // New styles for strikethrough pricing and 50% off promotion
+  pricingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  originalPrice: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+  },
+  discountBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  discountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

@@ -235,7 +235,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 • Unlimited Chat
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • Play of the Day
+                • Daily AI Predictions
               </Text>
             </View>
             
@@ -281,6 +281,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
                 • Premium Analytics
+              </Text>
+              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
+                • 🔒 Lock of the Day
               </Text>
             </View>
             

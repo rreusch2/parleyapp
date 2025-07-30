@@ -404,16 +404,18 @@ What are your thoughts on this prediction?`;
     }, prediction);
   };
 
-  // 🔥 TEMPORARILY DISABLED: Force all Pro/Elite users to use main layout for proper Elite 30-pick support
-  // The TwoTabPredictionsLayout uses backend API which only returns 20 picks
-  // Elite users need 30 picks from Supabase, so we'll use the main layout below
-  // if (isPro && !isElite) {
-  //   return (
-  //     <View style={styles.container}>
-  //       <TwoTabPredictionsLayout user={{ id: 'current_user', isPro: true }} />
-  //     </View>
-  //   );
-  // }
+  // 🔥 Enhanced TwoTabPredictionsLayout for Pro and Elite users
+  // Pro users: 10 Team + 10 Player Props (20 total) via backend API
+  // Elite users: 15 Team + 15 Player Props (30 total) via Supabase with Elite branding
+  if (isPro || isElite) {
+    return (
+      <View style={styles.container}>
+        <TwoTabPredictionsLayout 
+          user={{ id: userId, isPro: isPro, isElite: isElite }} 
+        />
+      </View>
+    );
+  }
 
   // For Free users, show the existing limited layout with upgrade prompts
   const filteredPredictions = getFilteredPredictions();

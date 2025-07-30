@@ -14,6 +14,7 @@ import { Crown, Sparkles, Target, Brain } from 'lucide-react-native';
 import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
 import { useAIChat } from '../services/aiChatContext';
+import { createClient } from '@supabase/supabase-js';
 
 interface Pick {
   id: string;
@@ -27,6 +28,11 @@ interface Pick {
   sport: string;
 }
 
+// Initialize Supabase client
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 interface TwoTabPredictionsLayoutProps {
   user: any;
 }
@@ -39,23 +45,49 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { openChatWithContext } = useAIChat();
+  
+  // Extract Elite status from user prop
+  const isElite = user?.isElite || false;
+  const isPro = user?.isPro || false;
 
   const fetchTeamPicks = async () => {
     if (teamPicks.length > 0) return; // Already loaded
     
     setIsLoadingTeam(true);
     try {
-      // Use the correct API endpoint for team picks
-      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      const response = await fetch(`${baseUrl}/api/ai/team-picks?test=true`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setTeamPicks(data.picks);
-        console.log(`✅ Loaded ${data.picks.length} team picks`);
+      if (isElite) {
+        // Elite users: Get 15 team picks from Supabase
+        console.log('🏆 Loading Elite team picks (15 picks)');
+        const { data: picks, error } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .eq('user_id', user.id)
+          .not('pick', 'ilike', '%over%')
+          .not('pick', 'ilike', '%under%')
+          .not('pick', 'ilike', '%total%')
+          .order('created_at', { ascending: false })
+          .limit(15);
+        
+        if (error) {
+          console.error('Error fetching Elite team picks:', error);
+          throw error;
+        }
+        
+        setTeamPicks(picks || []);
+        console.log(`✅ Loaded ${picks?.length || 0} Elite team picks`);
       } else {
-        console.error('Failed to load team picks:', data.error);
-        Alert.alert('Error', 'Failed to load team picks');
+        // Pro users: Use backend API (10 picks)
+        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+        const response = await fetch(`${baseUrl}/api/ai/team-picks?test=true`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setTeamPicks(data.picks);
+          console.log(`✅ Loaded ${data.picks.length} Pro team picks`);
+        } else {
+          console.error('Failed to load team picks:', data.error);
+          Alert.alert('Error', 'Failed to load team picks');
+        }
       }
     } catch (error) {
       console.error('Error fetching team picks:', error);
@@ -70,21 +102,41 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     
     setIsLoadingProps(true);
     try {
-      // Use the correct API endpoint for player props picks
-      const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      const response = await fetch(`${baseUrl}/api/ai/player-props-picks?test=true`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setPlayerPropsPicks(data.picks);
-        console.log(`✅ Loaded ${data.picks.length} player props picks`);
+      if (isElite) {
+        // Elite users: Get 15 player props picks from Supabase
+        console.log('🏆 Loading Elite player props picks (15 picks)');
+        const { data: picks, error } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .eq('user_id', user.id)
+          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+          .order('created_at', { ascending: false })
+          .limit(15);
+        
+        if (error) {
+          console.error('Error fetching Elite player props picks:', error);
+          throw error;
+        }
+        
+        setPlayerPropsPicks(picks || []);
+        console.log(`✅ Loaded ${picks?.length || 0} Elite player props picks`);
       } else {
-        console.error('Failed to load player props picks:', data.error);
-        Alert.alert('Error', 'Failed to load player props picks');
+        // Pro users: Use backend API (10 picks)
+        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+        const response = await fetch(`${baseUrl}/api/ai/player-props-picks?test=true`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setPlayerPropsPicks(data.picks);
+          console.log(`✅ Loaded ${data.picks.length} Pro player props picks`);
+        } else {
+          console.error('Failed to load player props picks:', data.error);
+          Alert.alert('Error', 'Failed to load player props picks');
+        }
       }
     } catch (error) {
-      console.error('Error fetching player props:', error);
-      Alert.alert('Error', 'Network error loading player props');
+      console.error('Error fetching player props picks:', error);
+      Alert.alert('Error', 'Network error loading player props picks');
     } finally {
       setIsLoadingProps(false);
     }
@@ -270,7 +322,7 @@ What are your thoughts on this prediction?`;
             <View style={styles.titleContainer}>
               <Crown size={20} color="#00E5FF" />
               <View style={styles.titleTextContainer}>
-                <Text style={styles.headerTitle}>Pro AI Predictions</Text>
+                <Text style={styles.headerTitle}>{isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}</Text>
                 
               </View>
               <Sparkles size={20} color="#00E5FF" />

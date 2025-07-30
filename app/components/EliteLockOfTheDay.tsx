@@ -273,7 +273,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
       <Modal
         visible={showAnalysisModal}
         animationType="slide"
-        presentationStyle="fullScreen"
+        transparent={true}
         onRequestClose={() => setShowAnalysisModal(false)}
       >
         <View style={styles.modalOverlay}>

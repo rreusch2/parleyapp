@@ -25,11 +25,11 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_weekly: 'com.parleyapp.premium_weekly',
     pro_monthly: 'com.parleyapp.premium_monthly', 
     pro_yearly: 'com.parleyapp.premiumyearly',
-    pro_daypass: 'com.parleyapp.premiumdaypass',
-    // Elite Tier
-    elite_weekly: 'com.parleyapp.eliteweekly',
-    elite_monthly: 'com.parleyapp.elitemonthly',
-    elite_yearly: 'com.parleyapp.eliteyearly',
+    pro_daypass: 'com.parleyapp.prodaypass',
+    // Elite Tier (matching App Store Connect)
+    elite_weekly: 'com.parleyapp.allstarweekly',
+    elite_monthly: 'com.parleyapp.allstarmonthly', 
+    elite_yearly: 'com.parleyapp.allstaryearly',
     // Legacy products (maintain backward compatibility)
     weekly: 'com.parleyapp.premium_weekly',
     monthly: 'com.parleyapp.premium_monthly',
@@ -42,10 +42,10 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_monthly: 'com.parleyapp.pro_monthly:monthly-pro2025',
     pro_yearly: 'com.parleyapp.pro_yearly:yearly-pro2025',
     pro_daypass: 'com.parleyapp.pro_daypass',
-    // Elite Tier
-    elite_weekly: 'com.parleyapp.elite_weekly:weekly-elite2025',
-    elite_monthly: 'com.parleyapp.elite_monthly:monthly-elite2025',
-    elite_yearly: 'com.parleyapp.elite_yearly:yearly-elite2025',
+    // Elite Tier (matching App Store Connect base IDs)
+    elite_weekly: 'com.parleyapp.allstarweekly:weekly-elite2025',
+    elite_monthly: 'com.parleyapp.allstarmonthly:monthly-elite2025',
+    elite_yearly: 'com.parleyapp.allstaryearly:yearly-elite2025',
     // Legacy products (maintain backward compatibility)
     weekly: 'com.parleyapp.premium_weekly:weekly-pro2025',
     monthly: 'com.parleyapp.premium_monthly:monthly-pro2025',
@@ -58,10 +58,10 @@ const PRODUCT_IDENTIFIERS = Platform.select({
   pro_monthly: 'com.parleyapp.pro_monthly',
   pro_yearly: 'com.parleyapp.pro_yearly',
   pro_daypass: 'com.parleyapp.pro_daypass',
-  // Elite Tier
-  elite_weekly: 'com.parleyapp.elite_weekly',
-  elite_monthly: 'com.parleyapp.elite_monthly',
-  elite_yearly: 'com.parleyapp.elite_yearly',
+  // Elite Tier (matching App Store Connect)
+  elite_weekly: 'com.parleyapp.allstarweekly',
+  elite_monthly: 'com.parleyapp.allstarmonthly',
+  elite_yearly: 'com.parleyapp.allstaryearly',
   // Legacy products
   weekly: 'com.parleyapp.premium_weekly',
   monthly: 'com.parleyapp.premium_monthly',
