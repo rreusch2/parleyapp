@@ -227,7 +227,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
       >
         <LinearGradient
           colors={isElite 
-            ? (isTopPick ? ['#FFD700', '#FFA000', '#FF8F00'] : ['#2D2416', '#1A1611']) 
+            ? (isTopPick ? ['#1E293B', '#334155', '#475569'] : ['#0F172A', '#1E293B', '#334155']) 
             : (isTopPick ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#0F172A'])
           }
           style={[styles.pickCardGradient, isTopPick && styles.topPickPadding]}

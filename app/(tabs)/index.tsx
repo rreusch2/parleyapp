@@ -369,9 +369,12 @@ export default function HomeScreen() {
             {/* Centered Welcome Section */}
             <View style={styles.welcomeSection}>
               <View style={styles.brandContainer}>
-                <View style={isElite ? styles.eliteBrainIconContainer : undefined}>
-                  <Brain size={28} color={isElite ? "#FFD700" : "#00E5FF"} />
-                </View>
+                {/* Remove brain icon for Elite users */}
+                {!isElite && (
+                  <View>
+                    <Brain size={28} color="#00E5FF" />
+                  </View>
+                )}
                 <View style={styles.brandTextContainer}>
                   <Text style={styles.welcomeText}>Welcome back!</Text>
                   <Text style={styles.headerTitle}>

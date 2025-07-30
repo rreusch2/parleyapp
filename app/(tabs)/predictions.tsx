@@ -404,14 +404,16 @@ What are your thoughts on this prediction?`;
     }, prediction);
   };
 
-  // 🔥 NEW: For Pro users, show the enhanced two-tab layout
-  if (isPro) {
-    return (
-      <View style={styles.container}>
-        <TwoTabPredictionsLayout user={{ id: 'current_user', isPro: true }} />
-      </View>
-    );
-  }
+  // 🔥 TEMPORARILY DISABLED: Force all Pro/Elite users to use main layout for proper Elite 30-pick support
+  // The TwoTabPredictionsLayout uses backend API which only returns 20 picks
+  // Elite users need 30 picks from Supabase, so we'll use the main layout below
+  // if (isPro && !isElite) {
+  //   return (
+  //     <View style={styles.container}>
+  //       <TwoTabPredictionsLayout user={{ id: 'current_user', isPro: true }} />
+  //     </View>
+  //   );
+  // }
 
   // For Free users, show the existing limited layout with upgrade prompts
   const filteredPredictions = getFilteredPredictions();

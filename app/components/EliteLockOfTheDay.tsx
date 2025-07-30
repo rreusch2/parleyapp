@@ -175,21 +175,22 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        onPress={() => onPickPress?.(lockPick)}
-        activeOpacity={0.9}
+      {/* Remove TouchableOpacity to prevent chatbot popup */}
+      <LinearGradient
+        colors={['#8B5CF6', '#EC4899', '#F59E0B']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
       >
-        <LinearGradient
-          colors={['#8B5CF6', '#EC4899', '#F59E0B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.card}
-        >
-        {/* Elite Badge */}
+        {/* Elite Badge with Confidence % moved to the right */}
         <View style={styles.eliteBadge}>
-          <Crown size={16} color="#FFFFFF" />
-          <Text style={styles.eliteBadgeText}>ELITE EXCLUSIVE</Text>
-          <Sparkles size={16} color="#FFFFFF" />
+          <View style={styles.eliteBadgeLeft}>
+            <Crown size={16} color="#FFFFFF" />
+            <Text style={styles.eliteBadgeText}>ELITE EXCLUSIVE</Text>
+          </View>
+          <View style={styles.confidenceBadge}>
+            <Text style={styles.confidenceText}>{lockPick.confidence}%</Text>
+          </View>
         </View>
 
         {/* Header */}
@@ -197,9 +198,6 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           <View style={styles.headerLeft}>
             <Lock size={28} color="#FFFFFF" />
             <Text style={styles.title}>Lock of the Day</Text>
-          </View>
-          <View style={styles.confidenceBadge}>
-            <Text style={styles.confidenceText}>{lockPick.confidence}%</Text>
           </View>
         </View>
 
@@ -267,21 +265,22 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           <Text style={styles.actionButtonText}>View Full Analysis</Text>
           <Zap size={20} color="#8B5CF6" />
         </TouchableOpacity>
-        </LinearGradient>
-      </TouchableOpacity>
+      </LinearGradient>
+    </View>
 
       {/* Full Analysis Modal */}
       <Modal
         visible={showAnalysisModal}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={() => setShowAnalysisModal(false)}
       >
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={['#0F172A', '#1E293B', '#334155']}
-            style={styles.modalGradient}
-          >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <LinearGradient
+              colors={['#0F172A', '#1E293B', '#334155']}
+              style={styles.modalGradient}
+            >
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderLeft}>
@@ -370,7 +369,8 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
               {/* Bottom Spacing */}
               <View style={{ height: 40 }} />
             </ScrollView>
-          </LinearGradient>
+            </LinearGradient>
+          </View>
         </View>
       </Modal>
     </View>
@@ -406,13 +406,16 @@ const styles = StyleSheet.create({
   eliteBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginBottom: 16,
-    alignSelf: 'center',
+  },
+  eliteBadgeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   eliteBadgeText: {
     color: '#FFFFFF',
