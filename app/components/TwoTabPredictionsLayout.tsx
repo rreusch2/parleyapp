@@ -10,23 +10,12 @@ import {
   RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Sparkles, Target, Brain } from 'lucide-react-native';
+import { Crown, Sparkles, Target, Brain, Info } from 'lucide-react-native';
 import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
 import { useAIChat } from '../services/aiChatContext';
 import { createClient } from '@supabase/supabase-js';
-
-interface Pick {
-  id: string;
-  match_teams: string;
-  pick: string;
-  odds: string;
-  confidence: number;
-  value_percentage: number;
-  reasoning: string;
-  bet_type: string;
-  sport: string;
-}
+import SmartPickFilteringService, { Pick, UserProfile, FilterResult } from '../services/smartPickFilteringService';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -39,56 +28,83 @@ interface TwoTabPredictionsLayoutProps {
 
 export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) {
   const [activeTab, setActiveTab] = useState<'team' | 'props'>('team');
-  const [teamPicks, setTeamPicks] = useState<Pick[]>([]);
-  const [playerPropsPicks, setPlayerPropsPicks] = useState<Pick[]>([]);
+  const [allTeamPicks, setAllTeamPicks] = useState<Pick[]>([]);
+  const [allPropPicks, setAllPropPicks] = useState<Pick[]>([]);
+  const [filteredTeamPicks, setFilteredTeamPicks] = useState<Pick[]>([]);
+  const [filteredPropPicks, setFilteredPropPicks] = useState<Pick[]>([]);
   const [isLoadingTeam, setIsLoadingTeam] = useState(true);
   const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [filterResult, setFilterResult] = useState<FilterResult | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
   const { openChatWithContext } = useAIChat();
   
-  // Extract Elite status from user prop
+  // Extract tier information from user prop
   const isElite = user?.isElite || false;
   const isPro = user?.isPro || false;
+  const subscriptionTier = isElite ? 'elite' : isPro ? 'pro' : 'free';
 
-  const fetchTeamPicks = async () => {
-    if (teamPicks.length > 0) return; // Already loaded
+  // Fetch user profile with preferences
+  const fetchUserProfile = async (): Promise<UserProfile | null> => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('subscription_tier, max_daily_picks, sport_preferences, pick_distribution')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        // Return default profile based on subscription status
+        return {
+          subscription_tier: subscriptionTier,
+          max_daily_picks: subscriptionTier === 'elite' ? 30 : subscriptionTier === 'pro' ? 20 : 10,
+          sport_preferences: { mlb: true, wnba: true, ufc: true }
+        };
+      }
+
+      return {
+        subscription_tier: profile.subscription_tier || subscriptionTier,
+        max_daily_picks: profile.max_daily_picks || (subscriptionTier === 'elite' ? 30 : subscriptionTier === 'pro' ? 20 : 10),
+        sport_preferences: profile.sport_preferences || { mlb: true, wnba: true, ufc: true },
+        pick_distribution: profile.pick_distribution
+      };
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return {
+        subscription_tier: subscriptionTier,
+        max_daily_picks: subscriptionTier === 'elite' ? 30 : subscriptionTier === 'pro' ? 20 : 10,
+        sport_preferences: { mlb: true, wnba: true, ufc: true }
+      };
+    }
+  };
+
+  const fetchAllTeamPicks = async () => {
+    if (allTeamPicks.length > 0) return; // Already loaded
     
     setIsLoadingTeam(true);
     try {
-      if (isElite) {
-        // Elite users: Get 15 team picks from Supabase
-        console.log('🏆 Loading Elite team picks (15 picks)');
-        const { data: picks, error } = await supabase
-          .from('ai_predictions')
-          .select('*')
-          .eq('user_id', user.id)
-          .not('pick', 'ilike', '%over%')
-          .not('pick', 'ilike', '%under%')
-          .not('pick', 'ilike', '%total%')
-          .order('created_at', { ascending: false })
-          .limit(15);
-        
-        if (error) {
-          console.error('Error fetching Elite team picks:', error);
-          throw error;
-        }
-        
-        setTeamPicks(picks || []);
-        console.log(`✅ Loaded ${picks?.length || 0} Elite team picks`);
-      } else {
-        // Pro users: Use backend API (10 picks)
-        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-        const response = await fetch(`${baseUrl}/api/ai/team-picks?test=true`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setTeamPicks(data.picks);
-          console.log(`✅ Loaded ${data.picks.length} Pro team picks`);
-        } else {
-          console.error('Failed to load team picks:', data.error);
-          Alert.alert('Error', 'Failed to load team picks');
-        }
+      console.log('🎯 Loading ALL available team picks for smart filtering...');
+      
+      // Fetch ALL team picks from Supabase (not filtered by user)
+      const { data: picks, error } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .not('pick', 'ilike', '%over%')
+        .not('pick', 'ilike', '%under%')
+        .not('pick', 'ilike', '%total%')
+        .order('created_at', { ascending: false })
+        .limit(100); // Get plenty of picks for filtering
+      
+      if (error) {
+        console.error('Error fetching team picks:', error);
+        throw error;
       }
+      
+      setAllTeamPicks(picks || []);
+      console.log(`✅ Loaded ${picks?.length || 0} total team picks for filtering`);
+      
     } catch (error) {
       console.error('Error fetching team picks:', error);
       Alert.alert('Error', 'Network error loading team picks');
@@ -97,75 +113,124 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     }
   };
 
-  const fetchPlayerPropsPicks = async () => {
-    if (playerPropsPicks.length > 0) return; // Already loaded
+  const fetchAllPropPicks = async () => {
+    if (allPropPicks.length > 0) return; // Already loaded
     
     setIsLoadingProps(true);
     try {
-      if (isElite) {
-        // Elite users: Get 15 player props picks from Supabase
-        console.log('🏆 Loading Elite player props picks (15 picks)');
-        const { data: picks, error } = await supabase
-          .from('ai_predictions')
-          .select('*')
-          .eq('user_id', user.id)
-          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
-          .order('created_at', { ascending: false })
-          .limit(15);
-        
-        if (error) {
-          console.error('Error fetching Elite player props picks:', error);
-          throw error;
-        }
-        
-        setPlayerPropsPicks(picks || []);
-        console.log(`✅ Loaded ${picks?.length || 0} Elite player props picks`);
-      } else {
-        // Pro users: Use backend API (10 picks)
-        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-        const response = await fetch(`${baseUrl}/api/ai/player-props-picks?test=true`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setPlayerPropsPicks(data.picks);
-          console.log(`✅ Loaded ${data.picks.length} Pro player props picks`);
-        } else {
-          console.error('Failed to load player props picks:', data.error);
-          Alert.alert('Error', 'Failed to load player props picks');
-        }
+      console.log('🎯 Loading ALL available prop picks for smart filtering...');
+      
+      // Fetch ALL prop picks from Supabase (not filtered by user)
+      const { data: picks, error } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+        .order('created_at', { ascending: false })
+        .limit(100); // Get plenty of picks for filtering
+      
+      if (error) {
+        console.error('Error fetching prop picks:', error);
+        throw error;
       }
+      
+      setAllPropPicks(picks || []);
+      console.log(`✅ Loaded ${picks?.length || 0} total prop picks for filtering`);
+      
     } catch (error) {
-      console.error('Error fetching player props picks:', error);
-      Alert.alert('Error', 'Network error loading player props picks');
+      console.error('Error fetching prop picks:', error);
+      Alert.alert('Error', 'Network error loading prop picks');
     } finally {
       setIsLoadingProps(false);
     }
   };
 
-  // Load team picks by default
-  useEffect(() => {
-    fetchTeamPicks();
-  }, []);
-
-  // Load player props when tab is selected
-  useEffect(() => {
-    if (activeTab === 'props') {
-      fetchPlayerPropsPicks();
+  // Apply smart filtering when data is ready
+  const applySmartFiltering = async () => {
+    console.log('🧠 Applying smart filtering...');
+    
+    if (!userProfile || allTeamPicks.length === 0 || allPropPicks.length === 0) {
+      console.log('⏳ Waiting for data...');
+      return;
     }
-  }, [activeTab]);
+
+    const result = SmartPickFilteringService.filterPicksForUser(
+      allTeamPicks,
+      allPropPicks,
+      userProfile
+    );
+
+    setFilterResult(result);
+    
+    // Separate team and prop picks from filtered results
+    const teamPicks = SmartPickFilteringService.getPicksByType(result.filteredPicks, 'team');
+    const propPicks = SmartPickFilteringService.getPicksByType(result.filteredPicks, 'props');
+    
+    setFilteredTeamPicks(teamPicks);
+    setFilteredPropPicks(propPicks);
+
+    console.log('✅ Smart filtering applied:', {
+      totalPicks: result.filteredPicks.length,
+      teamPicks: teamPicks.length,
+      propPicks: propPicks.length,
+      distribution: result.distribution,
+      fallbackUsed: result.fallbackUsed
+    });
+
+    // Show notification if fallback was used
+    if (result.notificationMessage) {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 5000); // Hide after 5 seconds
+    }
+  };
+
+  // Initialize data loading
+  useEffect(() => {
+    const initializeData = async () => {
+      console.log('🚀 Initializing smart pick filtering system...');
+      
+      // Fetch user profile first
+      const profile = await fetchUserProfile();
+      setUserProfile(profile);
+      
+      // Fetch all picks in parallel
+      await Promise.all([
+        fetchAllTeamPicks(),
+        fetchAllPropPicks()
+      ]);
+    };
+    
+    initializeData();
+  }, [user.id]);
+
+  // Apply filtering when all data is ready
+  useEffect(() => {
+    if (userProfile && allTeamPicks.length > 0 && allPropPicks.length > 0) {
+      applySmartFiltering();
+    }
+  }, [userProfile, allTeamPicks, allPropPicks]);
 
   // Refresh function for pull-to-refresh
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      // Clear existing data and refetch
-      if (activeTab === 'team') {
-        setTeamPicks([]);
-        await fetchTeamPicks();
-      } else {
-        setPlayerPropsPicks([]);
-        await fetchPlayerPropsPicks();
-      }
+      console.log('🔄 Refreshing smart pick filtering system...');
+      
+      // Clear existing data
+      setAllTeamPicks([]);
+      setAllPropPicks([]);
+      setFilteredTeamPicks([]);
+      setFilteredPropPicks([]);
+      setFilterResult(null);
+      
+      // Fetch user profile and all picks again
+      const profile = await fetchUserProfile();
+      setUserProfile(profile);
+      
+      await Promise.all([
+        fetchAllTeamPicks(),
+        fetchAllPropPicks()
+      ]);
+      
     } catch (error) {
       console.error('Error during refresh:', error);
     } finally {
@@ -273,9 +338,9 @@ What are your thoughts on this prediction?`;
           </Text>
           <TouchableOpacity 
             style={styles.retryButton}
-            onPress={type === 'team' ? fetchTeamPicks : fetchPlayerPropsPicks}
+            onPress={onRefresh}
           >
-            <Text style={styles.retryButtonText}>Generate Picks</Text>
+            <Text style={styles.retryButtonText}>Refresh Picks</Text>
           </TouchableOpacity>
         </View>
       );
@@ -353,27 +418,47 @@ What are your thoughts on this prediction?`;
         </View>
       </LinearGradient>
 
+      {/* Smart Filtering Notification */}
+      {showNotification && filterResult?.notificationMessage && (
+        <View style={styles.notificationContainer}>
+          <Info size={16} color="#00E5FF" />
+          <Text style={styles.notificationText}>
+            {filterResult.notificationMessage}
+          </Text>
+        </View>
+      )}
+
+      {/* Filtering Stats */}
+      {filterResult && (
+        <View style={styles.filterStatsContainer}>
+          <Text style={styles.filterStatsText}>
+            Showing {filterResult.totalAllocated} of {userProfile?.max_daily_picks || 0} daily picks
+            {filterResult.fallbackUsed && ' (includes all sports)'}
+          </Text>
+        </View>
+      )}
+
       {/* Tab Buttons */}
       <View style={styles.tabContainer}>
         <TabButton
           tab="team"
           title="Team Picks"
           subtitle="ML • Spreads • Totals"
-          count={teamPicks.length}
+          count={filteredTeamPicks.length}
         />
         <TabButton
           tab="props"
           title="Player Props"
           subtitle="Hits • HRs • RBIs • More"
-          count={playerPropsPicks.length}
+          count={filteredPropPicks.length}
         />
       </View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
         {activeTab === 'team' 
-          ? renderPicks(teamPicks, isLoadingTeam, 'team')
-          : renderPicks(playerPropsPicks, isLoadingProps, 'player props')
+          ? renderPicks(filteredTeamPicks, isLoadingTeam, 'team')
+          : renderPicks(filteredPropPicks, isLoadingProps, 'player props')
         }
       </View>
     </View>
@@ -479,6 +564,34 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: 'rgba(0, 229, 255, 0.3)',
     marginHorizontal: 8,
+  },
+  notificationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    margin: 15,
+    marginBottom: 0,
+  },
+  notificationText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '500',
+  },
+  filterStatsContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  filterStatsText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
   },
   tabContainer: {
     flexDirection: 'row',

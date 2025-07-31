@@ -3,11 +3,12 @@ import json
 import logging
 import asyncio
 import requests
+import argparse
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
@@ -167,35 +168,42 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_upcoming_games(self, hours_ahead: int = 24) -> List[Dict[str, Any]]:
-        """Fetch ONLY games from TODAY (July 31st, 2025)"""
+    def get_games_for_date(self, target_date: datetime.date) -> List[Dict[str, Any]]:
         try:
-            # FIXED: Get only games from today (July 31st, 2025)
-            today_date = '2025-07-31'
-            logger.info(f"🗓️ Fetching ONLY games for TODAY: {today_date}")
+            start_dt = datetime.combine(target_date, datetime.min.time())
+            end_dt = start_dt + timedelta(days=1)
+            start_iso = start_dt.isoformat()
+            end_iso = end_dt.isoformat()
             
-            # Fetch games from MLB and WNBA only - as per requirements
+            logger.info(f"Fetching games for {target_date} ({start_iso} to {end_iso})")
+            
+            # Fetch games from MLB and WNBA only - as per requirements (only these have player props)
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props
+            sports = ["Major League Baseball", "Women's National Basketball Association"]
             
             for sport in sports:
-                # Query for games from today (2025-07-31) only
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} games for today ({today_date}) - {sport}")
+                    logger.info(f"Found {len(response.data)} {sport} games for {target_date}")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total games for today ({today_date}): {len(all_games)}")
-            
+            logger.info(f"Total games for {target_date}: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
+            logger.error(f"Failed to fetch games for {target_date}: {e}")
             return []
+
+    def get_upcoming_games(self, target_date: Optional[datetime.date] = None) -> List[Dict[str, Any]]:
+        """Fetch games for the specified date (defaults to today)"""
+        if target_date is None:
+            target_date = datetime.now().date()
+        
+        return self.get_games_for_date(target_date)
     
     def _safe_int_convert(self, value) -> Optional[int]:
         """Safely convert a value to int, handling strings and None"""
@@ -208,38 +216,9 @@ class DatabaseClient:
             return None
     
     def get_tomorrow_games(self) -> List[Dict[str, Any]]:
-        """Fetch games specifically for today (July 31st, 2025)"""
-        try:
-            # Fixed date: July 31st, 2025 (today)
-            target_date = datetime(2025, 7, 31).date()
-            start_dt = datetime.combine(target_date, datetime.min.time())
-            end_dt = start_dt + timedelta(days=1)
-            start_iso = start_dt.isoformat()
-            end_iso = end_dt.isoformat()
-            
-            logger.info(f"Fetching games for July 31st, 2025: {target_date} ({start_iso} to {end_iso})")
-            
-            # Fetch games from all supported sports - using correct sport names from database
-            all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props
-            
-            for sport in sports:
-                response = self.supabase.table("sports_events").select(
-                    "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
-                
-                if response.data:
-                    logger.info(f"Found {len(response.data)} {sport} games for today")
-                    all_games.extend(response.data)
-            
-            # Sort all games by start time
-            all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total games for today: {len(all_games)}")
-            
-            return all_games
-        except Exception as e:
-            logger.error(f"Failed to fetch today's games: {e}")
-            return []
+        """Fetch games for tomorrow"""
+        tomorrow_date = datetime.now().date() + timedelta(days=1)
+        return self.get_games_for_date(tomorrow_date)
     
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
         if not game_ids:
@@ -356,8 +335,8 @@ class IntelligentPlayerPropsAgent:
         game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
-    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute props across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
+    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 40) -> Dict[str, int]:
+        """Generate abundant player props across all available sports for frontend filtering"""
         sport_counts = {"MLB": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -370,38 +349,36 @@ class IntelligentPlayerPropsAgent:
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
-        distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0     # MLB second
-        }
+        # Generate abundant props per sport (frontend will filter based on user preferences and tier)
+        # Target: 15-20 props per available sport to ensure enough for all tiers
+        distribution = {}
         
-        # Adjust if we don't have enough games in a sport
-        if distribution["WNBA"] > sport_counts["WNBA"]:
-            # If not enough WNBA games, give remaining to MLB
-            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
-            distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
-            
-        if distribution["MLB"] > sport_counts["MLB"]:
-            # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+        for sport, game_count in sport_counts.items():
+            if game_count > 0:
+                # Generate 15-20 props per sport if games are available
+                # Player props can have multiple per game (multiple players, multiple prop types)
+                max_props_for_sport = min(20, game_count * 6)  # Up to 6 props per game
+                distribution[sport] = max_props_for_sport
+            else:
+                distribution[sport] = 0
         
-        logger.info(f"Props distribution: {distribution}")
+        logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent multi-sport player props analysis...")
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 40) -> List[Dict[str, Any]]:
+        if target_date is None:
+            target_date = datetime.now().date()
+            
+        logger.info(f"🚀 Starting intelligent multi-sport player props analysis for {target_date}...")
         
-        # Changed to use get_upcoming_games which now only gets today's games
-        games = self.db.get_upcoming_games()  # Gets only today's games now (July 31st, 2025)
-        logger.info(f"📅 Found {len(games)} games for today (July 31st) across MLB and WNBA")
+        games = self.db.get_upcoming_games(target_date)
+        logger.info(f"📅 Found {len(games)} games for {target_date} across MLB and WNBA")
         
         if not games:
-            logger.warning("No games found for today")
+            logger.warning(f"No games found for {target_date}")
             return []
         
-        # Get sport distribution for props
+        # Get sport distribution for props - now generates more props per sport
         sport_distribution = self._distribute_props_by_sport(games, target_picks)
         
         game_ids = [game["id"] for game in games]
@@ -1461,11 +1438,35 @@ REMEMBER:
             return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
         return f"{player_name} {prop_type} {recommendation} {line}" # Fallback
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI player prop betting picks')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate picks for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate picks for (YYYY-MM-DD)')
+    parser.add_argument('--picks-per-sport', type=int, default=15,
+                      help='Number of picks to generate per sport (default: 15)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 async def main():
+    args = parse_arguments()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
     logger.info("🤖 Starting Intelligent Player Props Agent")
     
+    # Calculate total target picks (15 props per available sport)
+    target_picks = args.picks_per_sport * 2  # MLB + WNBA = 30 total
+    
     agent = IntelligentPlayerPropsAgent()
-    picks = await agent.generate_daily_picks(target_picks=10)
+    picks = await agent.generate_daily_picks(
+        target_picks=target_picks,
+        target_date=args.date,
+        use_tomorrow=args.tomorrow
+    )
     
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")

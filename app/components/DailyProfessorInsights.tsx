@@ -30,9 +30,13 @@ import {
   Search,
   Database,
   Globe,
-  Lock
+  Lock,
+  Info,
+  Star
 } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
+import SmartInsightsFilteringService, { Insight, UserProfile, InsightsFilterResult } from '../services/smartInsightsFilteringService';
+import { createClient } from '@supabase/supabase-js';
 
 interface DailyInsight {
   id: string;
@@ -59,22 +63,150 @@ interface DailyInsight {
 
 interface DailyProfessorInsightsProps {
   sport?: string;
+  user?: any;
 }
 
-const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport = 'MLB' }) => {
-  const [insights, setInsights] = useState<DailyInsight[]>([]);
+// Initialize Supabase client
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport = 'MLB', user }) => {
+  const [allInsights, setAllInsights] = useState<DailyInsight[]>([]);
+  const [filteredInsights, setFilteredInsights] = useState<DailyInsight[]>([]);
   const [dailyMessage, setDailyMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastGenerated, setLastGenerated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { isPro, isLoading: subLoading, openSubscriptionModal } = useSubscription();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [filterResult, setFilterResult] = useState<InsightsFilterResult | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
+  const { isPro, isElite, isLoading: subLoading, openSubscriptionModal, subscriptionTier } = useSubscription();
 
   useEffect(() => {
     if (!subLoading) {
-      fetchInsights();
+      initializeInsights();
     }
-  }, [sport, subLoading]);
+  }, [sport, subLoading, user]);
+
+  // Fetch user profile with preferences
+  const fetchUserProfile = async (): Promise<UserProfile | null> => {
+    if (!user?.id) {
+      // Return default profile based on subscription status
+      return {
+        subscription_tier: subscriptionTier,
+        max_daily_insights: subscriptionTier === 'elite' ? 12 : subscriptionTier === 'pro' ? 8 : 5,
+        sport_preferences: { mlb: true, wnba: true, ufc: true }
+      };
+    }
+
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('subscription_tier, max_daily_insights, sport_preferences')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return {
+          subscription_tier: subscriptionTier,
+          max_daily_insights: subscriptionTier === 'elite' ? 12 : subscriptionTier === 'pro' ? 8 : 5,
+          sport_preferences: { mlb: true, wnba: true, ufc: true }
+        };
+      }
+
+      return {
+        subscription_tier: profile.subscription_tier || subscriptionTier,
+        max_daily_insights: profile.max_daily_insights || (subscriptionTier === 'elite' ? 12 : subscriptionTier === 'pro' ? 8 : 5),
+        sport_preferences: profile.sport_preferences || { mlb: true, wnba: true, ufc: true }
+      };
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return {
+        subscription_tier: subscriptionTier,
+        max_daily_insights: subscriptionTier === 'elite' ? 12 : subscriptionTier === 'pro' ? 8 : 5,
+        sport_preferences: { mlb: true, wnba: true, ufc: true }
+      };
+    }
+  };
+
+  // Apply smart filtering to insights
+  const applySmartFiltering = async () => {
+    console.log('🧠 Applying smart insights filtering...');
+    
+    if (!userProfile || allInsights.length === 0) {
+      console.log('⏳ Waiting for data...');
+      return;
+    }
+
+    // Convert DailyInsight to Insight format
+    const insightsForFiltering: Insight[] = allInsights.map(insight => ({
+      id: insight.id,
+      title: insight.title,
+      content: insight.description || insight.insight_text || '',
+      category: insight.category,
+      confidence: insight.confidence,
+      sport: 'Multi-Sport', // Most insights are cross-sport
+      created_at: insight.created_at
+    }));
+
+    const result = SmartInsightsFilteringService.filterInsightsForUser(
+      insightsForFiltering,
+      userProfile
+    );
+
+    setFilterResult(result);
+    
+    // Convert back to DailyInsight format
+    const filteredDailyInsights: DailyInsight[] = result.filteredInsights.map(insight => {
+      const originalInsight = allInsights.find(orig => orig.id === insight.id);
+      return originalInsight || {
+        id: insight.id || Math.random().toString(),
+        title: insight.title,
+        description: insight.content,
+        category: insight.category as any,
+        confidence: insight.confidence,
+        impact: 'medium' as const,
+        research_sources: [],
+        created_at: insight.created_at
+      };
+    });
+    
+    setFilteredInsights(filteredDailyInsights);
+
+    console.log('✅ Smart insights filtering applied:', {
+      totalInsights: result.filteredInsights.length,
+      distribution: result.distribution,
+      fallbackUsed: result.fallbackUsed
+    });
+
+    // Show notification if fallback was used
+    if (result.notificationMessage) {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 5000);
+    }
+  };
+
+  // Initialize insights data
+  const initializeInsights = async () => {
+    console.log('🚀 Initializing smart insights system...');
+    
+    // Fetch user profile first
+    const profile = await fetchUserProfile();
+    setUserProfile(profile);
+    
+    // Fetch all insights
+    await fetchInsights();
+  };
+
+  // Apply filtering when data is ready
+  useEffect(() => {
+    if (userProfile && allInsights.length > 0) {
+      applySmartFiltering();
+    }
+  }, [userProfile, allInsights]);
 
   const extractDailyMessage = (insights: DailyInsight[]): { message: string | null, remainingInsights: DailyInsight[] } => {
     if (!insights || insights.length === 0) {
@@ -146,12 +278,12 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
         if (data.success && data.insights) {
           const { message, remainingInsights } = extractDailyMessage(data.insights);
           setDailyMessage(message);
-          setInsights(remainingInsights);
+          setAllInsights(remainingInsights); // Store all insights for filtering
           setLastGenerated(new Date(data.generated_at));
         } else {
           // If no insights exist, show empty state
           setDailyMessage(null);
-          setInsights([]);
+          setAllInsights([]);
         }
       } else {
         const errorText = await response.text();
@@ -190,7 +322,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
         if (data.success && data.insights) {
           const { message, remainingInsights } = extractDailyMessage(data.insights);
           setDailyMessage(message);
-          setInsights(remainingInsights);
+          setAllInsights(remainingInsights); // Store all insights for filtering
           setLastGenerated(new Date());
           Alert.alert('Success', 'New Professor Lock insights generated!');
         }
@@ -210,8 +342,22 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchInsights();
-    setRefreshing(false);
+    try {
+      console.log('🔄 Refreshing smart insights system...');
+      
+      // Clear existing data
+      setAllInsights([]);
+      setFilteredInsights([]);
+      setFilterResult(null);
+      
+      // Re-initialize
+      await initializeInsights();
+      
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleUpgrade = () => {
@@ -431,17 +577,63 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
         }
         showsVerticalScrollIndicator={false}
       >
-        {insights.length > 0 || dailyMessage ? (
+        {filteredInsights.length > 0 || dailyMessage ? (
           <>
             {renderDailyMessage()}
             
-            {isPro ? (
-              /* Pro users see all insights */
-              insights.map(renderInsightCard)
-            ) : (
-              /* Free users see 1 random insight + upgrade prompt */
+            {/* Smart Filtering Notification */}
+            {showNotification && filterResult?.notificationMessage && (
+              <View style={styles.notificationContainer}>
+                <Info size={16} color="#00E5FF" />
+                <Text style={styles.notificationText}>
+                  {filterResult.notificationMessage}
+                </Text>
+              </View>
+            )}
+
+            {/* Filtering Stats */}
+            {filterResult && (
+              <View style={styles.filterStatsContainer}>
+                <Text style={styles.filterStatsText}>
+                  Showing {filterResult.totalAllocated} of {userProfile?.max_daily_insights || 0} daily insights
+                  {isElite && ' (Elite)'}
+                  {isPro && !isElite && ' (Pro)'}
+                  {!isPro && !isElite && ' (Free)'}
+                </Text>
+              </View>
+            )}
+            
+            {/* Tier-based insights display */}
+            {isElite ? (
+              /* Elite users see up to 12 insights */
               <>
-                {insights.length > 0 && renderInsightCard(insights[Math.floor(Math.random() * insights.length)])}
+                {filteredInsights.map(renderInsightCard)}
+                {filteredInsights.length < 12 && allInsights.length > filteredInsights.length && (
+                  <View style={styles.eliteInfoContainer}>
+                    <Star size={16} color="#00E5FF" />
+                    <Text style={styles.eliteInfoText}>
+                      Elite tier: Showing {filteredInsights.length} of up to 12 daily insights
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : isPro ? (
+              /* Pro users see up to 8 insights */
+              <>
+                {filteredInsights.map(renderInsightCard)}
+                {filteredInsights.length < 8 && allInsights.length > filteredInsights.length && (
+                  <View style={styles.proInfoContainer}>
+                    <Crown size={16} color="#00E5FF" />
+                    <Text style={styles.proInfoText}>
+                      Pro tier: Showing {filteredInsights.length} of up to 8 daily insights
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              /* Free users see limited insights + upgrade prompt */
+              <>
+                {filteredInsights.slice(0, 1).map(renderInsightCard)}
                 
                 {/* Locked content indicator */}
                 <View style={styles.lockedSection}>
@@ -458,11 +650,11 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
                     </View>
                     
                     <Text style={styles.lockedTitle}>
-                      {insights.length > 1 ? `${insights.length - 1} More Insights` : 'More Insights'} Available
+                      Unlock {isElite ? '11' : '7'} More Daily Insights
                     </Text>
                     
                     <Text style={styles.lockedDescription}>
-                      Unlock the complete daily analysis with advanced insights on weather, injuries, pitching matchups, and betting trends.
+                      Get complete AI analysis with {isElite ? 'Elite (12 insights)' : 'Pro (8 insights)'} including advanced research, trends, and betting intelligence.
                     </Text>
                     
                     <TouchableOpacity style={styles.freeUpgradeButton} onPress={handleUpgrade}>
@@ -471,7 +663,9 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
                         style={styles.freeUpgradeButtonGradient}
                       >
                         <Crown size={16} color="#0F172A" />
-                        <Text style={styles.freeUpgradeButtonText}>Upgrade to Pro</Text>
+                        <Text style={styles.freeUpgradeButtonText}>
+                          {isElite ? 'Upgrade to Elite' : 'Upgrade to Pro'}
+                        </Text>
                         <ChevronRight size={16} color="#0F172A" />
                       </LinearGradient>
                     </TouchableOpacity>
@@ -914,6 +1108,70 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginHorizontal: 8,
+  },
+  notificationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    margin: 15,
+    marginBottom: 0,
+  },
+  notificationText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+    fontWeight: '500',
+  },
+  filterStatsContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  filterStatsText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  eliteInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    margin: 15,
+    marginTop: 10,
+  },
+  eliteInfoText: {
+    color: '#00E5FF',
+    fontSize: 12,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  proInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    margin: 15,
+    marginTop: 10,
+  },
+  proInfoText: {
+    color: '#00E5FF',
+    fontSize: 12,
+    marginLeft: 8,
+    fontWeight: '600',
   },
 });
 

@@ -9,6 +9,7 @@ import requests
 import json
 import os
 import random
+import argparse
 from datetime import datetime, date, timedelta
 from supabase import create_client, Client
 import logging
@@ -512,10 +513,28 @@ Generate ONE greeting in the {style} style:"""
             logger.error(f"❌ Intelligent insights generation failed: {e}")
             return False
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI betting insights')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate insights for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate insights for (YYYY-MM-DD)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 if __name__ == "__main__":
     try:
+        args = parse_arguments()
+        
+        if args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+        
         generator = IntelligentInsightsGenerator()
-        success = generator.run_intelligent_insights_generation()
+        success = generator.run_intelligent_insights_generation(
+            target_date=args.date,
+            use_tomorrow=args.tomorrow
+        )
         if success:
             print("🎯 Intelligent insights generation completed successfully!")
         else:

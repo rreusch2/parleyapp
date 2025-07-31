@@ -3,11 +3,12 @@ import json
 import logging
 import asyncio
 import requests
+import argparse
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
@@ -102,15 +103,32 @@ class DatabaseClient:
             logger.error(f"Error clearing daily insights: {e}")
             return False
 
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from ALL sports"""
+    def get_upcoming_games(self, target_date: str = None, use_tomorrow: bool = False, hours_ahead: int = 48) -> List[Dict[str, Any]]:
+        """Fetch upcoming games from ALL sports with dynamic date support"""
         try:
-            now = datetime.now()
-            end_time = now + timedelta(hours=hours_ahead)
+            if target_date:
+                # Use specific date
+                start_date = f"{target_date} 00:00:00+00"
+                end_date = f"{target_date} 23:59:59+00"
+                logger.info(f"🗓️ Fetching games for specific date: {target_date}")
+            elif use_tomorrow:
+                # Use tomorrow
+                tomorrow = datetime.now() + timedelta(days=1)
+                target_date = tomorrow.strftime('%Y-%m-%d')
+                start_date = f"{target_date} 00:00:00+00"
+                end_date = f"{target_date} 23:59:59+00"
+                logger.info(f"🗓️ Fetching games for tomorrow: {target_date}")
+            else:
+                # Use today + next 48 hours (default)
+                now = datetime.now()
+                end_time = now + timedelta(hours=hours_ahead)
+                start_date = now.isoformat()
+                end_date = end_time.isoformat()
+                logger.info(f"🗓️ Fetching games for next {hours_ahead} hours")
             
             response = self.supabase.table("sports_events").select(
                 "id, sport, home_team, away_team, start_time, metadata"
-            ).gte("start_time", now.isoformat()).lte("start_time", end_time.isoformat()).execute()
+            ).gte("start_time", start_date).lte("start_time", end_date).execute()
             
             games = response.data
             logger.info(f"Found {len(games)} upcoming games across all sports")
@@ -155,15 +173,15 @@ class PersonalizedInsightsAgent:
             base_url="https://api.x.ai/v1"
         )
 
-    async def generate_personalized_insights_by_sport(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Generate 7-8 insights per sport that has active games"""
-        logger.info("🧠 Starting personalized multi-sport insights generation...")
+    async def generate_personalized_insights_by_sport(self, target_date: str = None, use_tomorrow: bool = False) -> Dict[str, List[Dict[str, Any]]]:
+        """Generate 20+ insights per sport for tiered filtering (Elite: 12, Pro: 8)"""
+        logger.info("🧠 Starting enhanced multi-sport insights generation for tiered system...")
         
         # Clear existing insights first
         self.db.clear_daily_insights()
         
-        # Fetch games
-        games = self.db.get_upcoming_games()
+        # Fetch games with date support
+        games = self.db.get_upcoming_games(target_date=target_date, use_tomorrow=use_tomorrow)
         if not games:
             logger.warning("No upcoming games found")
             return {}
@@ -180,13 +198,15 @@ class PersonalizedInsightsAgent:
         all_insights_by_sport = {}
         
         for sport, sport_games in games_by_sport.items():
-            if len(sport_games) < 2:  # Need minimum games for meaningful insights
-                logger.info(f"Skipping {sport} - insufficient games ({len(sport_games)})")
+            if len(sport_games) < 1:  # Need minimum games for meaningful insights
+                logger.info(f"Skipping {sport} - no games available")
                 continue
                 
-            logger.info(f"📊 Generating 12 insights for {sport} ({len(sport_games)} games available)")
+            # Generate 20+ insights per sport to create large pool for filtering
+            target_insights = 20 if len(sport_games) >= 3 else max(12, len(sport_games) * 4)
+            logger.info(f"📊 Generating {target_insights} insights for {sport} ({len(sport_games)} games available)")
             
-            insights = await self._generate_insights_for_sport(sport, sport_games, target_insights=12)
+            insights = await self._generate_insights_for_sport(sport, sport_games, target_insights=target_insights)
             
             if insights:
                 all_insights_by_sport[sport] = insights
@@ -491,20 +511,48 @@ Return a JSON array of insights. Each should provide real betting value."""
             return success
         return False
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI betting insights with tiered filtering support')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate insights for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate insights for (YYYY-MM-DD)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    parser.add_argument('--insights-per-sport', type=int, default=20,
+                      help='Number of insights to generate per sport (default: 20)')
+    return parser.parse_args()
+
 async def main():
-    """Main execution function"""
+    """Main execution function with enhanced tiered support"""
+    args = parse_arguments()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    logger.info("🚀 Starting Enhanced Insights Generator for Tiered Subscription System")
+    logger.info(f"📊 Target: {args.insights_per_sport} insights per sport for Elite/Pro filtering")
+    
     agent = PersonalizedInsightsAgent()
     
-    # Generate insights for all sports
-    insights_by_sport = await agent.generate_personalized_insights_by_sport()
+    # Generate insights for all sports with date support
+    insights_by_sport = await agent.generate_personalized_insights_by_sport(
+        target_date=args.date,
+        use_tomorrow=args.tomorrow
+    )
     
     if insights_by_sport:
         # Store all insights
         await agent.store_all_insights(insights_by_sport)
         
         # Log summary
+        total_insights = 0
         for sport, insights in insights_by_sport.items():
+            total_insights += len(insights)
             logger.info(f"✅ {sport}: {len(insights)} insights generated")
+        
+        logger.info(f"🎯 Total insights generated: {total_insights}")
+        logger.info(f"📱 Frontend will filter to 12 for Elite, 8 for Pro users")
     else:
         logger.warning("No insights generated for any sport")
 

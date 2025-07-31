@@ -3,11 +3,12 @@ import json
 import logging
 import asyncio
 import requests
+import argparse
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
@@ -154,16 +155,14 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
+    def get_games_for_date(self, target_date: datetime.date) -> List[Dict[str, Any]]:
         try:
-            # Fixed date: July 31st, 2025 (today)
-            target_date = datetime(2025, 7, 31).date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for July 31st, 2025: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -175,49 +174,23 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} {sport} games for today")
+                    logger.info(f"Found {len(response.data)} {sport} games for {target_date}")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total games for today: {len(all_games)}")
+            logger.info(f"Total games for {target_date}: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch today's games: {e}")
+            logger.error(f"Failed to fetch games for {target_date}: {e}")
             return []
     
-    def get_upcoming_games(self, hours_ahead: int = 24) -> List[Dict[str, Any]]:
-        """Fetch ONLY games from TODAY (July 31st, 2025)"""
-        try:
-            # Get today's date range in UTC (database stores times in UTC)
-            from datetime import timezone
-            
-            # FIXED: Get ONLY games from today (July 31st, 2025)
-            today_date = '2025-07-31'
-            
-            logger.info(f"🗓️ Fetching ONLY games for TODAY: {today_date}")
-            
-            # Fetch games from all supported sports
-            all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
-            
-            for sport in sports:
-                response = self.supabase.table("sports_events").select(
-                    "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
-                
-                if response.data:
-                    logger.info(f"Found {len(response.data)} {sport} games for today ({today_date})")
-                    all_games.extend(response.data)
-            
-            # Sort all games by start time
-            all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total games for today ({today_date}): {len(all_games)}")
-            
-            return all_games
-        except Exception as e:
-            logger.error(f"Failed to fetch today's games: {e}")
-            return []
+    def get_upcoming_games(self, target_date: Optional[datetime.date] = None) -> List[Dict[str, Any]]:
+        """Fetch games for the specified date (defaults to today)"""
+        if target_date is None:
+            target_date = datetime.now().date()
+        
+        return self.get_games_for_date(target_date)
     
     def get_team_odds_for_games(self, game_ids: List[str]) -> List[TeamBet]:
         if not game_ids:
@@ -426,8 +399,8 @@ class IntelligentTeamsAgent:
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
     
-    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute picks across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
+    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
+        """Generate abundant picks across all available sports for frontend filtering"""
         sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -442,38 +415,36 @@ class IntelligentTeamsAgent:
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
-        distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0,     # MLB second
-            "MMA": 0  # No MMA for now, focus on WNBA + MLB
-        }
+        # Generate abundant picks per sport (frontend will filter based on user preferences and tier)
+        # Target: 15-20 picks per available sport to ensure enough for all tiers
+        distribution = {}
         
-        # Adjust if we don't have enough games in a sport
-        if distribution["WNBA"] > sport_counts["WNBA"]:
-            # If not enough WNBA games, give remaining to MLB
-            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
-            distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
-            
-        if distribution["MLB"] > sport_counts["MLB"]:
-            # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+        for sport, game_count in sport_counts.items():
+            if game_count > 0:
+                # Generate 15-20 picks per sport if games are available
+                # This ensures we have enough for Elite (30), Pro (20), and various sport preferences
+                max_picks_for_sport = min(20, game_count * 4)  # Up to 4 picks per game
+                distribution[sport] = max_picks_for_sport
+            else:
+                distribution[sport] = 0
         
-        logger.info(f"Pick distribution: {distribution}")
+        logger.info(f"Generous pick distribution for frontend filtering: {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent multi-sport team analysis...")
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 50) -> List[Dict[str, Any]]:
+        if target_date is None:
+            target_date = datetime.now().date()
+            
+        logger.info(f"🚀 Starting intelligent multi-sport team analysis for {target_date}...")
         
-        games = self.db.get_upcoming_games()  # Gets today's games only (July 31st, 2025)
-        logger.info(f"📅 Found {len(games)} games for today (July 31st) across all sports")
+        games = self.db.get_upcoming_games(target_date)
+        logger.info(f"📅 Found {len(games)} games for {target_date} across all sports")
         
         if not games:
-            logger.warning("No games found for today")
+            logger.warning(f"No games found for {target_date}")
             return []
         
-        # Get sport distribution for picks
+        # Get sport distribution for picks - now generates more picks per sport
         sport_distribution = self._distribute_picks_by_sport(games, target_picks)
         
         game_ids = [game["id"] for game in games]
@@ -494,7 +465,7 @@ class IntelligentTeamsAgent:
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
         picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks)
-        logger.info(f"🎲 Generated {len(picks)} intelligent picks")
+        logger.info(f"🎲 Generated {len(picks)} intelligent picks for {target_date}")
         
         if picks:
             self.db.store_ai_predictions(picks)
@@ -1501,18 +1472,55 @@ REMEMBER:
             except:
                 return "Unknown Pick Format Error"
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI team betting picks')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate picks for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate picks for (YYYY-MM-DD)')
+    parser.add_argument('--picks', type=int, default=50,
+                      help='Target number of total picks to generate (default: 50)')
+    return parser.parse_args()
+
 async def main():
-    logger.info("🤖 Starting Intelligent Teams Agent")
+    args = parse_arguments()
+    
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+        except ValueError:
+            logger.error("Invalid date format. Use YYYY-MM-DD")
+            return
+    elif args.tomorrow:
+        target_date = datetime.now().date() + timedelta(days=1)
+    else:
+        target_date = datetime.now().date()
+    
+    logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
     
     agent = IntelligentTeamsAgent()
-    picks = await agent.generate_daily_picks(target_picks=10)
+    picks = await agent.generate_daily_picks(target_date=target_date, target_picks=args.picks)
     
     if picks:
-        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
-        for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
+        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks for {target_date}!")
+        
+        # Group picks by sport for summary
+        picks_by_sport = {}
+        for pick in picks:
+            sport = pick.get("sport", "Unknown")
+            if sport not in picks_by_sport:
+                picks_by_sport[sport] = []
+            picks_by_sport[sport].append(pick)
+        
+        for sport, sport_picks in picks_by_sport.items():
+            logger.info(f"📊 {sport}: {len(sport_picks)} picks")
+            for i, pick in enumerate(sport_picks[:3], 1):  # Show first 3 picks per sport
+                logger.info(f"  {i}. {pick['pick']} (Confidence: {pick['confidence']}%)")
+            if len(sport_picks) > 3:
+                logger.info(f"  ... and {len(sport_picks) - 3} more {sport} picks")
     else:
-        logger.warning("❌ No picks generated")
+        logger.warning(f"❌ No picks generated for {target_date}")
 
 if __name__ == "__main__":
     asyncio.run(main())
