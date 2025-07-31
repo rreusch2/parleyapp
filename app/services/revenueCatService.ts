@@ -70,8 +70,8 @@ const PRODUCT_IDENTIFIERS = Platform.select({
 };
 
 // Subscription tiers and plans
-export type SubscriptionTier = 'free' | 'pro' | 'allstar';
-export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'allstar_weekly' | 'allstar_monthly' | 'allstar_yearly';
+export type SubscriptionTier = 'free' | 'pro' | 'elite';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
 
 // Tier configuration
 export const SUBSCRIPTION_TIERS = {

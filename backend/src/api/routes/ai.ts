@@ -723,8 +723,11 @@ router.get('/picks', async (req, res) => {
       isNewUser = createdAt > fiveMinutesAgo;
       
       if (profile.subscription_tier === 'pro') {
-        actualPickLimit = 20; // Pro tier gets all picks
+        actualPickLimit = 20; // Pro tier gets 20 picks
         bonusType = 'pro_unlimited';
+      } else if (profile.subscription_tier === 'elite') {
+        actualPickLimit = 30; // Elite tier gets 30 picks
+        bonusType = 'elite_unlimited';
       } else if (isNewUser || welcomeBonusActive) {
         actualPickLimit = 5; // Welcome bonus
         bonusType = welcomeBonusActive ? 'welcome_bonus' : 'new_user_auto';

@@ -146,10 +146,10 @@ export default function HomeScreen() {
       // Pass user context to get picks with welcome bonus logic
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id;
-      const currentUserTier = isPro ? 'pro' : 'free';
+      const currentUserTier = isElite ? 'elite' : (isPro ? 'pro' : 'free');
       
       // For consistency with Predictions tab, let's also check the metadata here
-      if (!isPro && currentUserId) {
+      if (!isPro && !isElite && currentUserId) {
         // Get API response directly to check metadata
         try {
           const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';

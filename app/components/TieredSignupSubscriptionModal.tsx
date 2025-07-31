@@ -151,8 +151,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     // Set default plan for the selected tier
     if (tier === 'pro') {
       setSelectedPlan('pro_yearly');
-    } else if (tier === 'allstar') {
-      setSelectedPlan('allstar_yearly');
+    } else if (tier === 'elite') {
+      setSelectedPlan('elite_yearly');
     }
   };
 
@@ -161,8 +161,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     // Update tier based on plan selection
     if (plan.startsWith('pro_')) {
       setSelectedTier('pro');
-    } else if (plan.startsWith('allstar_')) {
-      setSelectedTier('allstar');
+    } else if (plan.startsWith('elite_')) {
+      setSelectedTier('elite');
     }
   };
 
@@ -249,11 +249,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
         {/* Elite Tier Card */}
         <TouchableOpacity
-          style={[styles.tierCard, selectedTier === 'allstar' && styles.tierCardSelected]}
-          onPress={() => handleTierSelection('allstar')}
+          style={[styles.tierCard, selectedTier === 'elite' && styles.tierCardSelected]}
+          onPress={() => handleTierSelection('elite')}
         >
           <LinearGradient
-            colors={selectedTier === 'allstar' ? ['#8B5CF6', '#7C3AED'] : ['#1E293B', '#334155']}
+            colors={selectedTier === 'elite' ? ['#8B5CF6', '#7C3AED'] : ['#1E293B', '#334155']}
             style={styles.tierCardGradient}
           >
             <View style={styles.premiumBadge}>
@@ -261,33 +261,33 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               <Text style={styles.premiumText}>PREMIUM</Text>
             </View>
             
-            <Trophy size={24} color={selectedTier === 'allstar' ? '#FFFFFF' : '#94A3B8'} />
-            <Text style={[styles.tierTitle, selectedTier === 'allstar' && styles.tierTitleSelected]}>
+            <Trophy size={24} color={selectedTier === 'elite' ? '#FFFFFF' : '#94A3B8'} />
+            <Text style={[styles.tierTitle, selectedTier === 'elite' && styles.tierTitleSelected]}>
               Elite
             </Text>
-            <Text style={[styles.tierSubtitle, selectedTier === 'allstar' && styles.tierSubtitleSelected]}>
+            <Text style={[styles.tierSubtitle, selectedTier === 'elite' && styles.tierSubtitleSelected]}>
               Ultimate betting experience
             </Text>
             
             <View style={styles.tierFeatures}>
-              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • 30 Daily AI Picks
               </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • 12 Daily Insights
               </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
-                • Advanced AI Chat
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
+                • Advanced Professor Lock
               </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • Premium Analytics
               </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'allstar' && styles.tierFeatureSelected]}>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • 🔒 Lock of the Day
               </Text>
             </View>
             
-            {selectedTier === 'allstar' && (
+            {selectedTier === 'elite' && (
               <View style={styles.selectedIndicator}>
                 <Check size={16} color="#7C3AED" />
               </View>
@@ -301,7 +301,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_yearly', 'pro_monthly', 'pro_weekly', 'pro_daypass']
-      : ['allstar_yearly', 'allstar_monthly', 'allstar_weekly'];
+      : ['elite_yearly', 'elite_monthly', 'elite_weekly'];
 
     return (
       <View style={styles.planOptionsContainer}>
@@ -359,9 +359,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 
                 {isTrialEligible && (
                   <View style={[styles.trialBadge, isSelected && styles.trialBadgeSelected]}>
-                    <Gift size={12} color={isSelected ? '#0F172A' : '#F59E0B'} />
+                    <Gift size={10} color={isSelected ? '#0F172A' : '#F59E0B'} />
                     <Text style={[styles.trialText, isSelected && styles.trialTextSelected]}>
-                      3-DAY FREE TRIAL
+                      3-DAY FREE
                     </Text>
                   </View>
                 )}

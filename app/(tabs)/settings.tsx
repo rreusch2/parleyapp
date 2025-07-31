@@ -51,7 +51,7 @@ interface UserProfile {
   username: string | null;
   email: string | null;
   avatar_url: string | null;
-  subscription_tier: 'free' | 'pro';
+  subscription_tier: 'free' | 'pro' | 'elite';
   created_at: string;
   sport_preferences?: Record<string, boolean>;
   betting_style?: 'conservative' | 'balanced' | 'aggressive';
@@ -899,11 +899,11 @@ export default function SettingsScreen() {
           <View style={styles.profileToggleContent}>
             <View style={styles.profileBasicInfo}>
               <LinearGradient
-                colors={isPro ? ['#F59E0B', '#D97706'] : ['#1E293B', '#374151']}
+                colors={isElite ? ['#8B5CF6', '#7C3AED'] : (isPro ? ['#F59E0B', '#D97706'] : ['#1E293B', '#374151'])}
                 style={styles.profileImagePlaceholder}
               >
-                {isPro && <Crown size={20} color="#FFFFFF" />}
-                {!isPro && <Text style={styles.profileInitials}>{getUserInitials()}</Text>}
+                {(isPro || isElite) && <Crown size={20} color="#FFFFFF" />}
+                {!isPro && !isElite && <Text style={styles.profileInitials}>{getUserInitials()}</Text>}
               </LinearGradient>
               <View style={styles.profileDetails}>
                 <View style={styles.profileNameContainer}>
@@ -921,7 +921,7 @@ export default function SettingsScreen() {
                   {userProfile?.email || 'Loading...'}
                 </Text>
                 <Text style={styles.profileMemberStatus}>
-                  {isPro ? 'Pro Member • Elite Status' : 'Free Member • Starter'}
+                  {isElite ? 'Elite Member • 30 Picks' : (isPro ? 'Pro Member • 20 Picks' : 'Free Member • Starter')}
                 </Text>
               </View>
             </View>
@@ -970,10 +970,10 @@ export default function SettingsScreen() {
                   <Text style={styles.accountInfoLabel}>Subscription</Text>
                   <View style={styles.subscriptionBadge}>
                     <Text style={[styles.subscriptionBadgeText, { 
-                      color: isPro ? '#F59E0B' : '#6B7280',
-                      backgroundColor: isPro ? 'rgba(245, 158, 11, 0.1)' : 'rgba(107, 114, 128, 0.1)'
+                      color: isElite ? '#8B5CF6' : (isPro ? '#F59E0B' : '#6B7280'),
+                      backgroundColor: isElite ? 'rgba(139, 92, 246, 0.1)' : (isPro ? 'rgba(245, 158, 11, 0.1)' : 'rgba(107, 114, 128, 0.1)')
                     }]}>
-                      {isPro ? 'PRO MEMBER' : 'FREE MEMBER'}
+                      {isElite ? 'ELITE MEMBER' : (isPro ? 'PRO MEMBER' : 'FREE MEMBER')}
                     </Text>
                   </View>
                 </View>
@@ -991,9 +991,11 @@ export default function SettingsScreen() {
               
               <View style={styles.featuresContent}>
                 <Text style={styles.featuresDescription}>
-                  {isPro 
-                    ? 'You have access to all premium AI features including unlimited picks, advanced analytics, and live AI chat.'
-                    : 'Upgrade to Pro to unlock unlimited AI picks, advanced analytics, live chat, and more premium features.'
+                  {isElite 
+                    ? 'You have access to all Elite AI features including 30 daily picks, advanced analytics, live AI chat, and exclusive Lock of the Day.'
+                    : (isPro 
+                      ? 'You have access to all Pro AI features including 20 daily picks, advanced analytics, and live AI chat.'
+                      : 'Upgrade to Pro to unlock unlimited AI picks, advanced analytics, live chat, and more premium features.')
                   }
                 </Text>
                 

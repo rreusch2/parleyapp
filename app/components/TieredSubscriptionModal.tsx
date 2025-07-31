@@ -146,8 +146,8 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     // Set default plan for the selected tier
     if (tier === 'pro') {
       setSelectedPlan('pro_weekly');
-    } else if (tier === 'allstar') {
-      setSelectedPlan('allstar_weekly');
+    } else if (tier === 'elite') {
+      setSelectedPlan('elite_weekly');
     }
   };
 
@@ -156,8 +156,8 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     // Update tier based on plan selection
     if (plan.startsWith('pro_')) {
       setSelectedTier('pro');
-    } else if (plan.startsWith('allstar_')) {
-      setSelectedTier('allstar');
+    } else if (plan.startsWith('elite_')) {
+      setSelectedTier('elite');
     }
   };
 
@@ -212,11 +212,11 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={[styles.tierTab, selectedTier === 'allstar' && styles.tierTabSelected]}
-          onPress={() => handleTierSelection('allstar')}
+          style={[styles.tierTab, selectedTier === 'elite' && styles.tierTabSelected]}
+          onPress={() => handleTierSelection('elite')}
         >
-          <Trophy size={20} color={selectedTier === 'allstar' ? '#FFFFFF' : '#94A3B8'} />
-          <Text style={[styles.tierTabText, selectedTier === 'allstar' && styles.tierTabTextSelected]}>
+          <Trophy size={20} color={selectedTier === 'elite' ? '#FFFFFF' : '#94A3B8'} />
+          <Text style={[styles.tierTabText, selectedTier === 'elite' && styles.tierTabTextSelected]}>
             Elite
           </Text>
           <View style={styles.premiumBadge}>
@@ -261,7 +261,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass']
-      : ['allstar_weekly', 'allstar_monthly', 'allstar_yearly'];
+      : ['elite_weekly', 'elite_monthly', 'elite_yearly'];
 
     return (
       <View style={styles.planOptionsContainer}>
@@ -317,9 +317,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 
                 {isTrialEligible && (
                   <View style={[styles.trialBadge, isSelected && styles.trialBadgeSelected]}>
-                    <Gift size={12} color={isSelected ? '#0F172A' : '#F59E0B'} />
+                    <Gift size={10} color={isSelected ? '#0F172A' : '#F59E0B'} />
                     <Text style={[styles.trialText, isSelected && styles.trialTextSelected]}>
-                      3-DAY FREE TRIAL
+                      3-DAY FREE
                     </Text>
                   </View>
                 )}
