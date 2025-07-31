@@ -187,24 +187,15 @@ class DatabaseClient:
             return []
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
+        """Fetch ALL games from TODAY (July 31st, 2025) regardless of start time"""
         try:
             # Get today's date range in UTC (database stores times in UTC)
             from datetime import timezone
             
-            # Get current time in UTC
-            now_utc = datetime.now(timezone.utc)
-            today_utc = now_utc.date()
+            # FIXED: Get ALL games from today (July 31st, 2025) regardless of start time
+            today_date = '2025-07-31'
             
-            # Start of today in UTC
-            start_of_today_utc = datetime.combine(today_utc, datetime.min.time(), timezone.utc)
-            # End of today in UTC (include early tomorrow for games that start after midnight local time)
-            end_of_today_utc = start_of_today_utc + timedelta(hours=30)  # 30 hours to catch late games
-            
-            start_iso = start_of_today_utc.isoformat()
-            end_iso = end_of_today_utc.isoformat()
-            
-            logger.info(f"🗓️ Fetching games for TODAY (UTC): {today_utc} ({start_iso} to {end_iso})")
+            logger.info(f"🗓️ Fetching ALL games for TODAY: {today_date}")
             
             # Fetch games from all supported sports
             all_games = []
@@ -213,7 +204,7 @@ class DatabaseClient:
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", start_iso).lte("start_time", end_iso).eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
                     logger.info(f"Found {len(response.data)} upcoming {sport} games")

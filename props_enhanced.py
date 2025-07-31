@@ -167,19 +167,21 @@ class DatabaseClient:
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
+        """Fetch ALL games from TODAY (July 31st, 2025) regardless of start time"""
         try:
-            now = datetime.now().isoformat()
-            future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
+            # FIXED: Get ALL games from today (July 31st, 2025) regardless of start time
+            today_date = '2025-07-31'
+            logger.info(f"🗓️ Fetching ALL games for TODAY: {today_date}")
             
             # Fetch games from all supported sports
             all_games = []
             sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
             
             for sport in sports:
+                # FIXED: Query for ALL games from today (2025-07-31) regardless of start time
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gt("start_time", now).lt("start_time", future).eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
                     logger.info(f"Found {len(response.data)} upcoming {sport} games with potential props")
