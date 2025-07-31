@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
+import re # Added for JSON fixing
 
 # Load environment variables
 load_dotenv("backend/.env")
@@ -166,30 +167,30 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch ALL games from TODAY (July 31st, 2025) regardless of start time"""
+    def get_upcoming_games(self, hours_ahead: int = 24) -> List[Dict[str, Any]]:
+        """Fetch ONLY games from TODAY (July 31st, 2025)"""
         try:
-            # FIXED: Get ALL games from today (July 31st, 2025) regardless of start time
+            # FIXED: Get only games from today (July 31st, 2025)
             today_date = '2025-07-31'
-            logger.info(f"🗓️ Fetching ALL games for TODAY: {today_date}")
+            logger.info(f"🗓️ Fetching ONLY games for TODAY: {today_date}")
             
-            # Fetch games from all supported sports
+            # Fetch games from MLB and WNBA only - as per requirements
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
+            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props
             
             for sport in sports:
-                # FIXED: Query for ALL games from today (2025-07-31) regardless of start time
+                # Query for games from today (2025-07-31) only
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
                 ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games with potential props")
+                    logger.info(f"Found {len(response.data)} games for today ({today_date}) - {sport}")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total upcoming games for props: {len(all_games)}")
+            logger.info(f"Total games for today ({today_date}): {len(all_games)}")
             
             return all_games
         except Exception as e:
@@ -207,20 +208,20 @@ class DatabaseClient:
             return None
     
     def get_tomorrow_games(self) -> List[Dict[str, Any]]:
-        """Fetch games specifically for June 29th, 2025"""
+        """Fetch games specifically for today (July 31st, 2025)"""
         try:
-            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
-            target_date = datetime(2025, 7, 29).date()
+            # Fixed date: July 31st, 2025 (today)
+            target_date = datetime(2025, 7, 31).date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for July 31st, 2025: {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
+            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -228,16 +229,16 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} tomorrow {sport} games with potential props")
+                    logger.info(f"Found {len(response.data)} {sport} games for today")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total tomorrow games for props: {len(all_games)}")
+            logger.info(f"Total games for today: {len(all_games)}")
             
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch tomorrow games: {e}")
+            logger.error(f"Failed to fetch today's games: {e}")
             return []
     
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
@@ -345,10 +346,11 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
-        return self.db.get_upcoming_games(hours_ahead=48)
+        return self.db.get_upcoming_games(hours_ahead=24)  # Changed to 24 hours (just today)
     
     async def fetch_player_props(self) -> List[PlayerProp]:
-        games = self.db.get_upcoming_games(hours_ahead=48)
+        # Changed to use get_upcoming_games which now only gets today's games
+        games = self.db.get_upcoming_games(hours_ahead=24)  # Only today's games
         if not games:
             return []
         game_ids = [game["id"] for game in games]
@@ -391,11 +393,12 @@ class IntelligentPlayerPropsAgent:
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport player props analysis...")
         
-        games = self.db.get_tomorrow_games()
-        logger.info(f"📅 Found {len(games)} tomorrow games across MLB and WNBA")
+        # Changed to use get_upcoming_games which now only gets today's games
+        games = self.db.get_upcoming_games()  # Gets only today's games now (July 31st, 2025)
+        logger.info(f"📅 Found {len(games)} games for today (July 31st) across MLB and WNBA")
         
         if not games:
-            logger.warning("No upcoming games found")
+            logger.warning("No games found for today")
             return []
         
         # Get sport distribution for props
@@ -1069,6 +1072,7 @@ REMEMBER:
             picks_text = response.choices[0].message.content.strip()
             logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
             
+            # Find and extract the JSON array
             start_idx = picks_text.find("[")
             end_idx = picks_text.rfind("]") + 1
             
@@ -1077,7 +1081,28 @@ REMEMBER:
                 return []
             
             json_str = picks_text[start_idx:end_idx]
-            ai_picks = json.loads(json_str)
+            
+            # Enhanced error handling for JSON parsing
+            try:
+                ai_picks = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {e}")
+                
+                # Attempt to fix common JSON issues
+                fixed_json_str = self._fix_json_string(json_str)
+                logger.info("Attempting to parse with fixed JSON")
+                
+                try:
+                    ai_picks = json.loads(fixed_json_str)
+                    logger.info("Successfully parsed JSON after fixes")
+                except json.JSONDecodeError as e2:
+                    logger.error(f"Still failed to parse JSON after fixes: {e2}")
+                    
+                    # Last resort: manual object extraction
+                    ai_picks = self._manual_json_parser(json_str)
+                    if not ai_picks:
+                        logger.error("Manual parsing failed, no valid picks found")
+                        return []
             
             formatted_picks = []
             for pick in ai_picks:
@@ -1175,7 +1200,7 @@ REMEMBER:
                         }
                     })
                 else:
-                    logger.warning(f"No matching prop found for {pick.get("player_name")} {pick.get("prop_type")}")
+                    logger.warning(f"No matching prop found for {pick.get('player_name')} {pick.get('prop_type')}")
             
             # Select best picks with proper sport distribution: 3 WNBA + 7 MLB
             wnba_picks = [p for p in formatted_picks if p["sport"] == "WNBA"]
@@ -1217,13 +1242,120 @@ REMEMBER:
                 logger.info(f"📝 Generated {len(final_picks)} diverse picks:")
                 for i, pick in enumerate(final_picks, 1):
                     meta = pick["metadata"]
-                    logger.info(f"  {i}. {meta["player_name"]} {meta["prop_type"]} {meta["recommendation"].upper()} {meta["line"]} ({pick["confidence"]}% conf)")
+                    logger.info(f"  {i}. {meta['player_name']} {meta['prop_type']} {meta['recommendation'].upper()} {meta['line']} ({pick['confidence']}% conf)")
             
             return final_picks
             
         except Exception as e:
             logger.error(f"Failed to generate picks: {e}")
             return []
+    
+    def _fix_json_string(self, json_str: str) -> str:
+        """Attempt to fix common JSON format issues"""
+        try:
+            # First, try direct parsing
+            json.loads(json_str)
+            return json_str
+        except json.JSONDecodeError as e:
+            logger.info(f"Fixing JSON error: {str(e)}")
+            
+            # Get error details
+            error_msg = str(e)
+            
+            # Handle specific error: Missing comma
+            if "Expecting ',' delimiter" in error_msg:
+                # Extract line and column information
+                match = re.search(r"line (\d+) column (\d+)", error_msg)
+                if match:
+                    line_num = int(match.group(1))
+                    col_num = int(match.group(2))
+                    
+                    # Split JSON by lines
+                    lines = json_str.split('\n')
+                    
+                    # If the line exists
+                    if 0 <= line_num - 1 < len(lines):
+                        # Insert comma at the right position
+                        problematic_line = lines[line_num - 1]
+                        if col_num <= len(problematic_line):
+                            fixed_line = problematic_line[:col_num] + ',' + problematic_line[col_num:]
+                            lines[line_num - 1] = fixed_line
+                            json_str = '\n'.join(lines)
+                            logger.info(f"Added missing comma at line {line_num}, column {col_num}")
+            
+            # Apply all other fixes
+            
+            # Remove trailing commas before closing braces/brackets
+            json_str = re.sub(r',\s*}', '}', json_str)
+            json_str = re.sub(r',\s*]', ']', json_str)
+            
+            # Add missing commas between objects in arrays
+            json_str = re.sub(r'}\s*{', '}, {', json_str)
+            
+            # Replace Python quotes with JSON quotes
+            json_str = re.sub(r'None', 'null', json_str)
+            json_str = re.sub(r'True', 'true', json_str)
+            json_str = re.sub(r'False', 'false', json_str)
+            
+            # Add missing quotes around keys
+            json_str = re.sub(r'([{,])\s*([a-zA-Z0-9_]+)\s*:', r'\1 "\2":', json_str)
+            
+            # Try to handle missing quotes around strings
+            json_str = re.sub(r':\s*([^"{}\[\],\d][^,}\]]*?)([,}\]])', r': "\1"\2', json_str)
+            
+            # Remove any illegal control characters
+            json_str = re.sub(r'[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]', '', json_str)
+            
+            # Try to balance brackets/braces
+            open_brackets = json_str.count('[')
+            close_brackets = json_str.count(']')
+            open_braces = json_str.count('{')
+            close_braces = json_str.count('}')
+            
+            # Add missing closing brackets/braces
+            json_str = json_str.rstrip()
+            if open_brackets > close_brackets:
+                json_str += ']' * (open_brackets - close_brackets)
+            if open_braces > close_braces:
+                json_str += '}' * (open_braces - close_braces)
+            
+            # Last resort: use regex to extract what looks like a valid JSON array
+            if '[' in json_str and ']' in json_str:
+                match = re.search(r'\[.*?\]', json_str, re.DOTALL)
+                if match:
+                    extracted = match.group(0)
+                    logger.info(f"Extracted JSON array: {extracted[:100]}...")
+                    return extracted
+                
+            return json_str
+    
+    def _manual_json_parser(self, json_str: str) -> List[Dict]:
+        """Manual fallback parser for when automatic JSON fixing fails"""
+        logger.info("Attempting manual JSON array parsing")
+        picks = []
+        
+        # Extract JSON objects within the array
+        object_pattern = re.compile(r'{(.*?)}', re.DOTALL)
+        matches = object_pattern.finditer(json_str)
+        
+        for match in matches:
+            obj_str = '{' + match.group(1) + '}'
+            try:
+                # Try to parse each object individually
+                fixed_obj = self._fix_json_string(obj_str)
+                pick_obj = json.loads(fixed_obj)
+                
+                # Validate required fields
+                required_fields = ["player_name", "prop_type", "recommendation", "line"]
+                if all(field in pick_obj for field in required_fields):
+                    picks.append(pick_obj)
+                    logger.info(f"Successfully parsed pick for {pick_obj.get('player_name')}")
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse individual JSON object")
+                continue
+        
+        logger.info(f"Manually extracted {len(picks)} valid picks")
+        return picks
 
     def _format_statmuse_insights(self, insights_summary: List[Dict]) -> str:
         statmuse_insights = [i for i in insights_summary if i.get("source") == "statmuse"]
@@ -1338,7 +1470,7 @@ async def main():
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
+            logger.info(f"Pick {i}: {pick['pick']} (Confidence: {pick['confidence']}%)")
     else:
         logger.warning("❌ No picks generated")
 

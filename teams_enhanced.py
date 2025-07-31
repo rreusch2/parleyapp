@@ -156,14 +156,14 @@ class DatabaseClient:
     
     def get_tomorrow_games(self) -> List[Dict[str, Any]]:
         try:
-            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
-            target_date = datetime(2025, 7, 29).date()
+            # Fixed date: July 31st, 2025 (today)
+            target_date = datetime(2025, 7, 31).date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for July 31st, 2025: {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -175,27 +175,27 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
+                    logger.info(f"Found {len(response.data)} {sport} games for today")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total tomorrow games across all sports: {len(all_games)}")
+            logger.info(f"Total games for today: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
+            logger.error(f"Failed to fetch today's games: {e}")
             return []
     
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch ALL games from TODAY (July 31st, 2025) regardless of start time"""
+    def get_upcoming_games(self, hours_ahead: int = 24) -> List[Dict[str, Any]]:
+        """Fetch ONLY games from TODAY (July 31st, 2025)"""
         try:
             # Get today's date range in UTC (database stores times in UTC)
             from datetime import timezone
             
-            # FIXED: Get ALL games from today (July 31st, 2025) regardless of start time
+            # FIXED: Get ONLY games from today (July 31st, 2025)
             today_date = '2025-07-31'
             
-            logger.info(f"🗓️ Fetching ALL games for TODAY: {today_date}")
+            logger.info(f"🗓️ Fetching ONLY games for TODAY: {today_date}")
             
             # Fetch games from all supported sports
             all_games = []
@@ -207,16 +207,16 @@ class DatabaseClient:
                 ).gte("start_time", f"{today_date} 00:00:00+00").lt("start_time", "2025-08-01 00:00:00+00").eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
+                    logger.info(f"Found {len(response.data)} {sport} games for today ({today_date})")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total upcoming games across all sports: {len(all_games)}")
+            logger.info(f"Total games for today ({today_date}): {len(all_games)}")
             
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
+            logger.error(f"Failed to fetch today's games: {e}")
             return []
     
     def get_team_odds_for_games(self, game_ids: List[str]) -> List[TeamBet]:
@@ -466,11 +466,11 @@ class IntelligentTeamsAgent:
     async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport team analysis...")
         
-        games = self.db.get_tomorrow_games()  # Gets tomorrow's games only
-        logger.info(f"📅 Found {len(games)} tomorrow games across all sports")
+        games = self.db.get_upcoming_games()  # Gets today's games only (July 31st, 2025)
+        logger.info(f"📅 Found {len(games)} games for today (July 31st) across all sports")
         
         if not games:
-            logger.warning("No upcoming games found")
+            logger.warning("No games found for today")
             return []
         
         # Get sport distribution for picks
@@ -843,7 +843,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             end_idx = followup_text.rfind("}") + 1
             followup_plan = json.loads(followup_text[start_idx:end_idx])
             
-            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get("analysis", "No analysis provided")}")
+            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get('analysis', 'No analysis provided')}")
             
             insights = []
             for query_obj in followup_plan.get("followup_statmuse_queries", [])[:5]:
