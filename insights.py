@@ -415,7 +415,7 @@ Generate ONE greeting in the {style} style:"""
             logger.error(f"Error generating greeting: {e}")
             return "Welcome back, sharp minds. Let's find today's edges."
     
-    def store_intelligent_insights(self, insights):
+    def store_intelligent_insights(self, insights, target_date=None):
         """Store the intelligently generated insights with dynamic greeting"""
         try:
             if not insights:
@@ -428,7 +428,10 @@ Generate ONE greeting in the {style} style:"""
             logger.info("💾 Storing insights with dynamic greeting using Supabase MCP...")
             
             # Use Supabase MCP for database operations
-            today = date.today().isoformat()
+            if target_date:
+                today = target_date.isoformat()
+            else:
+                today = date.today().isoformat()
             
             # Clear existing insights for today
             delete_result = self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
@@ -462,10 +465,21 @@ Generate ONE greeting in the {style} style:"""
         except Exception as e:
             logger.error(f"Error storing insights: {e}")
 
-    def run_intelligent_insights_generation(self):
+    def run_intelligent_insights_generation(self, target_date=None, use_tomorrow=False):
         """Main function to run intelligent insights generation"""
         logger.info("🧠 Starting Intelligent Professor Lock Insights Generation")
         logger.info("🎯 Using real upcoming games with odds + Professor Lock's web research")
+        
+        # Determine target date - default to current day
+        if target_date:
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            logger.info(f"📅 Generating insights for specific date: {target_date}")
+        elif use_tomorrow:
+            target_date_obj = date.today() + timedelta(days=1)
+            logger.info(f"📅 Generating insights for tomorrow: {target_date_obj}")
+        else:
+            target_date_obj = date.today()
+            logger.info(f"📅 Generating insights for current day: {target_date_obj}")
         
         try:
             # Step 1: Get upcoming games with odds
@@ -496,7 +510,7 @@ Generate ONE greeting in the {style} style:"""
                 return False
             
             # Step 5: Store intelligent insights
-            self.store_intelligent_insights(insights)
+            self.store_intelligent_insights(insights, target_date_obj)
             
             logger.info("✅ Intelligent insights generation completed successfully!")
             logger.info(f"🎯 Generated {len(insights)} research-based insights + 1 dynamic greeting")

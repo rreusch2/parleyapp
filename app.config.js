@@ -61,7 +61,19 @@ module.exports = {
       "expo-font",
       "expo-notifications",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1019527860059930",
+          "clientToken": "7747f5a3770c076aa49ba1634a9aef8f",
+          "displayName": "Predictive Play",
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true

@@ -4,6 +4,7 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
+import { AppEventsLogger } from 'react-native-fbsdk-next';
 
 interface SubscriptionContextType {
   isPro: boolean;
