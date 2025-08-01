@@ -408,7 +408,7 @@ Be strategic, be smart, and focus on finding real edges. Quality over quantity -
             return {
                 "priority_players": [p.player_name for p in props[:15]],
                 "statmuse_queries": [
-                    f"{p.player_name} {p.prop_type.replace(\'batter_\', \'\').replace(\'pitcher_\', \'\')} last 10 games"
+                    f"{p.player_name} {p.prop_type.replace('batter_', '').replace('pitcher_', '')} last 10 games"
                     for p in props[:10]
                 ],
                 "research_focus": ["recent_performance", "matchups"],

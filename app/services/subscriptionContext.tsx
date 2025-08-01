@@ -4,7 +4,6 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
-import { AppEventsLogger } from 'react-native-fbsdk-next';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -58,10 +57,25 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     // Listen for auth state changes to update subscription status
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        checkSubscriptionStatus();
-      } else if (event === 'SIGNED_OUT') {
+      try {
+        console.log('🔄 Auth state change:', event);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          checkSubscriptionStatus();
+        } else if (event === 'SIGNED_OUT') {
+          console.log('🚪 User signed out - resetting subscription state');
+          setIsPro(false);
+          setIsElite(false);
+          setSubscriptionTier('free');
+          setIsLoading(false);
+          AsyncStorage.setItem('subscriptionStatus', 'free').catch(console.error);
+        }
+      } catch (error) {
+        console.error('❌ Error in auth state change handler:', error);
+        // Reset to safe state on error
         setIsPro(false);
+        setIsElite(false);
+        setSubscriptionTier('free');
+        setIsLoading(false);
       }
     });
 
@@ -75,7 +89,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       setIsLoading(true);
       
       console.log('🔄 DEBUG: Getting user from Supabase...');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('❌ Error getting user:', userError);
+        setIsPro(false);
+        setIsElite(false);
+        setSubscriptionTier('free');
+        return;
+      }
+      
       if (user) {
         console.log('✅ DEBUG: User found:', user.id);
         
@@ -249,7 +272,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
   
   const proFeatures = {
-    maxPicks: isPro ? 999 : 2,
+    maxPicks: isPro ? 20 : 2,
     hasAIChat: isPro,
     hasAdvancedAnalytics: isPro,
     hasLiveAlerts: isPro,
@@ -264,7 +287,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     hasEarlyAccess: isElite,
     hasEliteInsights: isElite,
     hasPrioritySupport: isElite,
-    maxPicks: isElite ? 999 : (isPro ? 999 : 2),
+    maxPicks: isElite ? 30 : (isPro ? 20 : 2),
   };
   
   return (

@@ -365,6 +365,38 @@ class IntelligentPlayerPropsAgent:
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
     
+    def _format_sport_distribution_requirements(self, sport_distribution: Dict[str, int], target_picks: int) -> str:
+        """Generate dynamic prop distribution requirements based on available sports and games"""
+        if not sport_distribution:
+            return f"- Generate EXACTLY {target_picks} total props across all available sports"
+        
+        # Filter out sports with 0 props
+        active_sports = {sport: props for sport, props in sport_distribution.items() if props > 0}
+        
+        if not active_sports:
+            return f"- Generate EXACTLY {target_picks} total props across all available sports"
+        
+        requirements = []
+        total_expected = sum(active_sports.values())
+        
+        # Generate requirements for each sport  
+        sport_order = ["WNBA", "MLB"]  # Preferred ordering for props
+        for sport in sport_order:
+            if sport in active_sports:
+                props_count = active_sports[sport]
+                requirements.append(f"- Generate EXACTLY {props_count} {sport} player prop picks")
+        
+        # Add any sports not in the preferred order
+        for sport, props_count in active_sports.items():
+            if sport not in sport_order:
+                requirements.append(f"- Generate EXACTLY {props_count} {sport} player prop picks")
+        
+        requirements.append(f"- TOTAL: Generate EXACTLY {total_expected} player props across all sports")
+        requirements.append("- Focus on generating the FULL amount for each sport to maximize frontend filtering options")
+        requirements.append("- DIVERSIFY prop types within each sport (points, rebounds, assists for WNBA; hits, home runs, RBIs for MLB)")
+        
+        return "\n".join(requirements)
+    
     async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 40) -> List[Dict[str, Any]]:
         if target_date is None:
             target_date = datetime.now().date()
@@ -398,7 +430,7 @@ class IntelligentPlayerPropsAgent:
         insights = await self.execute_research_plan(research_plan, available_props)
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
-        picks = await self.generate_picks_with_reasoning(insights, available_props, games, target_picks)
+        picks = await self.generate_picks_with_reasoning(insights, available_props, games, target_picks, sport_distribution)
         logger.info(f"🎲 Generated {len(picks)} intelligent picks")
         
         if picks:
@@ -843,7 +875,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         insights: List[ResearchInsight], 
         props: List[PlayerProp], 
         games: List[Dict],
-        target_picks: int
+        target_picks: int,
+        sport_distribution: Dict[str, int] = None
     ) -> List[Dict[str, Any]]:
         insights_summary = []
         for insight in insights[:40]:
@@ -938,10 +971,7 @@ Available players in this data: {list(set(prop.player_name for prop in filtered_
 TASK: Generate exactly {target_picks + 5} strategic player prop picks that maximize expected value and long-term profit.
 
 🚨 **MANDATORY SPORT DISTRIBUTION:**
-- Generate EXACTLY 5 WNBA player prop picks FIRST (extras will be filtered to 3 best)
-- Generate EXACTLY 10 MLB player prop picks AFTER (extras will be filtered to 7 best)
-- Total must be exactly 15 picks (5 WNBA + 10 MLB) - system will select best 10
-- Generate EXTRA picks to account for filtering of picks with missing odds
+{self._format_sport_distribution_requirements(sport_distribution, target_picks)}
 
 🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
 - You have access to {len(filtered_props)} total player props across all games
@@ -1179,17 +1209,20 @@ REMEMBER:
                 else:
                     logger.warning(f"No matching prop found for {pick.get('player_name')} {pick.get('prop_type')}")
             
-            # Select best picks with proper sport distribution: 3 WNBA + 7 MLB
-            wnba_picks = [p for p in formatted_picks if p["sport"] == "WNBA"]
-            mlb_picks = [p for p in formatted_picks if p["sport"] == "MLB"]
+            # Return all generated picks - let frontend handle filtering based on user preferences and tiers
+            # Sort all picks by confidence for best-first presentation
+            formatted_picks.sort(key=lambda x: x["confidence"], reverse=True)
             
-            # Take best picks from each sport (sorted by confidence)
-            wnba_picks.sort(key=lambda x: x["confidence"], reverse=True)
-            mlb_picks.sort(key=lambda x: x["confidence"], reverse=True)
+            final_picks = formatted_picks  # Return all generated picks for frontend filtering
             
-            final_picks = wnba_picks[:3] + mlb_picks[:7]  # 3 WNBA + 7 MLB = 10 total
+            # Log sport distribution
+            sport_counts = {}
+            for pick in final_picks:
+                sport = pick.get("sport", "Unknown")
+                sport_counts[sport] = sport_counts.get(sport, 0) + 1
             
-            logger.info(f"🎯 Final selection: {len(wnba_picks[:3])} WNBA + {len(mlb_picks[:7])} MLB = {len(final_picks)} total picks")
+            sport_summary = " + ".join([f"{count} {sport}" for sport, count in sport_counts.items()])
+            logger.info(f"🎯 Final selection: {sport_summary} = {len(final_picks)} total picks")
             
             if final_picks:
                 prop_types = {}
@@ -1456,16 +1489,36 @@ async def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    logger.info("🤖 Starting Intelligent Player Props Agent")
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+        except ValueError:
+            logger.error("Invalid date format. Use YYYY-MM-DD")
+            return
+    elif args.tomorrow:
+        target_date = datetime.now().date() + timedelta(days=1)
+    else:
+        target_date = datetime.now().date()
     
-    # Calculate total target picks (15 props per available sport)
-    target_picks = args.picks_per_sport * 2  # MLB + WNBA = 30 total
+    logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
     
     agent = IntelligentPlayerPropsAgent()
+    
+    # Calculate dynamic target picks based on available games and sport distribution
+    # This ensures we generate enough props for frontend filtering
+    games = agent.db.get_upcoming_games(target_date)
+    if games:
+        sport_distribution = agent._distribute_props_by_sport(games, args.picks_per_sport * 2)
+        dynamic_target = sum(sport_distribution.values())
+        logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
+        target_picks = max(args.picks_per_sport * 2, dynamic_target)  # Use the higher of default or calculated
+    else:
+        target_picks = args.picks_per_sport * 2
+    
     picks = await agent.generate_daily_picks(
         target_picks=target_picks,
-        target_date=args.date,
-        use_tomorrow=args.tomorrow
+        target_date=target_date
     )
     
     if picks:

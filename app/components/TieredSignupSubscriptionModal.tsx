@@ -147,22 +147,40 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   const handleTierSelection = (tier: SubscriptionTier) => {
-    setSelectedTier(tier);
-    // Set default plan for the selected tier
-    if (tier === 'pro') {
+    try {
+      console.log('🔄 Selecting signup tier:', tier);
+      setSelectedTier(tier);
+      // Set default plan for the selected tier
+      if (tier === 'pro') {
+        setSelectedPlan('pro_yearly');
+      } else if (tier === 'elite') {
+        setSelectedPlan('elite_yearly');
+      }
+      console.log('✅ Signup tier selection completed');
+    } catch (error) {
+      console.error('❌ Error selecting signup tier:', error);
+      // Fallback to pro tier if error occurs
+      setSelectedTier('pro');
       setSelectedPlan('pro_yearly');
-    } else if (tier === 'elite') {
-      setSelectedPlan('elite_yearly');
     }
   };
 
   const handlePlanSelection = (plan: SubscriptionPlan) => {
-    setSelectedPlan(plan);
-    // Update tier based on plan selection
-    if (plan.startsWith('pro_')) {
+    try {
+      console.log('🔄 Selecting signup plan:', plan);
+      setSelectedPlan(plan);
+      // Update tier based on plan selection
+      if (plan.startsWith('pro_')) {
+        setSelectedTier('pro');
+      } else if (plan.startsWith('elite_')) {
+        setSelectedTier('elite');
+      }
+      console.log('✅ Signup plan selection completed');
+    } catch (error) {
+      console.error('❌ Error selecting signup plan:', error);
+      // Fallback to pro plan if error occurs
+      setSelectedPlan('pro_yearly');
       setSelectedTier('pro');
-    } else if (plan.startsWith('elite_')) {
-      setSelectedTier('elite');
     }
   };
 
@@ -205,7 +223,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
         {/* Pro Tier Card */}
         <TouchableOpacity
           style={[styles.tierCard, selectedTier === 'pro' && styles.tierCardSelected]}
-          onPress={() => handleTierSelection('pro')}
+          onPress={() => {
+            try {
+              handleTierSelection('pro');
+            } catch (error) {
+              console.error('❌ Error in Pro tier signup onPress:', error);
+            }
+          }}
         >
           <LinearGradient
             colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#1E293B', '#334155']}
@@ -250,7 +274,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
         {/* Elite Tier Card */}
         <TouchableOpacity
           style={[styles.tierCard, selectedTier === 'elite' && styles.tierCardSelected]}
-          onPress={() => handleTierSelection('elite')}
+          onPress={() => {
+            try {
+              handleTierSelection('elite');
+            } catch (error) {
+              console.error('❌ Error in Elite tier signup onPress:', error);
+            }
+          }}
         >
           <LinearGradient
             colors={selectedTier === 'elite' ? ['#8B5CF6', '#7C3AED'] : ['#1E293B', '#334155']}

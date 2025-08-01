@@ -259,7 +259,11 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           {/* Action Button */}
           <TouchableOpacity 
             style={styles.actionButton} 
-            onPress={() => setShowAnalysisModal(true)}
+            onPress={() => {
+              console.log('🔍 Opening Elite Analysis Modal for pick:', lockPick?.id);
+              console.log('🔍 Lock pick data:', JSON.stringify(lockPick, null, 2));
+              setShowAnalysisModal(true);
+            }}
             activeOpacity={0.8}
           >
             <Trophy size={20} color="#8B5CF6" />
@@ -297,10 +301,11 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
             </View>
 
             <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {console.log('🔍 Rendering modal content for pick:', lockPick?.id)}
               {/* Match Info */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>🏟️ Match Details</Text>
-                <Text style={styles.modalMatchText}>{lockPick.match_teams}</Text>
+                <Text style={styles.modalMatchText}>{lockPick.match_teams || 'N/A'}</Text>
                 <Text style={styles.modalSportText}>{lockPick.sport || 'MLB'}</Text>
               </View>
 
@@ -310,11 +315,11 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
                 <View style={styles.modalPickRow}>
                   <View style={styles.modalPickItem}>
                     <Text style={styles.modalPickLabel}>SELECTION</Text>
-                    <Text style={styles.modalPickValue}>{lockPick.pick}</Text>
+                    <Text style={styles.modalPickValue}>{lockPick.pick || 'N/A'}</Text>
                   </View>
                   <View style={styles.modalPickItem}>
                     <Text style={styles.modalPickLabel}>ODDS</Text>
-                    <Text style={styles.modalPickValue}>{lockPick.odds}</Text>
+                    <Text style={styles.modalPickValue}>{lockPick.odds || 'N/A'}</Text>
                   </View>
                 </View>
               </View>
@@ -325,10 +330,10 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
                 <View style={styles.modalAnalyticsGrid}>
                   <View style={styles.modalAnalyticsItem}>
                     <Text style={styles.modalAnalyticsLabel}>Confidence</Text>
-                    <Text style={[styles.modalAnalyticsValue, { color: getConfidenceColor(lockPick.confidence) }]}>
-                      {lockPick.confidence}%
+                    <Text style={[styles.modalAnalyticsValue, { color: getConfidenceColor(lockPick.confidence || 0) }]}>
+                      {lockPick.confidence || 0}%
                     </Text>
-                    <Text style={styles.modalAnalyticsSubtext}>{getConfidenceLabel(lockPick.confidence)}</Text>
+                    <Text style={styles.modalAnalyticsSubtext}>{getConfidenceLabel(lockPick.confidence || 0)}</Text>
                   </View>
                   
                   {lockPick.roi_estimate && (
@@ -360,12 +365,14 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
               )}
 
               {/* Bet Type */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>📋 Bet Classification</Text>
-                <View style={styles.modalBetTypeContainer}>
-                  <Text style={styles.modalBetTypeText}>{lockPick.bet_type.toUpperCase()}</Text>
+              {lockPick.bet_type && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalSectionTitle}>📋 Bet Classification</Text>
+                  <View style={styles.modalBetTypeContainer}>
+                    <Text style={styles.modalBetTypeText}>{lockPick.bet_type.toUpperCase()}</Text>
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Bottom Spacing */}
               <View style={{ height: 40 }} />

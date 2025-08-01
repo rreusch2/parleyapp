@@ -97,13 +97,10 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     try {
       console.log('🎯 Loading ALL available team picks for smart filtering...');
       
-      // Fetch ALL team picks from Supabase (not filtered by user)
+      // Fetch ALL picks from Supabase (filtering will be done by SmartPickFilteringService)
       const { data: picks, error } = await supabase
         .from('ai_predictions')
         .select('*')
-        .not('pick', 'ilike', '%over%')
-        .not('pick', 'ilike', '%under%')
-        .not('pick', 'ilike', '%total%')
         .order('created_at', { ascending: false })
         .limit(100); // Get plenty of picks for filtering
       
@@ -130,11 +127,10 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     try {
       console.log('🎯 Loading ALL available prop picks for smart filtering...');
       
-      // Fetch ALL prop picks from Supabase (not filtered by user)
+      // Fetch ALL picks from Supabase (filtering will be done by SmartPickFilteringService)
       const { data: picks, error } = await supabase
         .from('ai_predictions')
         .select('*')
-        .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
         .order('created_at', { ascending: false })
         .limit(100); // Get plenty of picks for filtering
       
@@ -407,7 +403,7 @@ What are your thoughts on this prediction?`;
           {/* Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>20</Text>
+              <Text style={styles.statValue}>{isElite ? '30' : '20'}</Text>
               <Text style={styles.statLabel}>Total Picks</Text>
             </View>
             <View style={styles.statDivider} />

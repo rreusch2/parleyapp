@@ -410,19 +410,41 @@ export class SmartPickFilteringService {
    */
   static getPicksByType(allPicks: Pick[], type: 'team' | 'props'): Pick[] {
     if (type === 'team') {
-      return allPicks.filter(pick => 
-        !pick.pick.toLowerCase().includes('over') &&
-        !pick.pick.toLowerCase().includes('under') &&
-        !pick.pick.toLowerCase().includes('total') &&
-        !pick.bet_type?.toLowerCase().includes('prop')
-      );
+      return allPicks.filter(pick => {
+        // Team picks include: spread, moneyline, and team totals
+        const betType = pick.bet_type?.toLowerCase() || '';
+        return (
+          betType === 'spread' ||
+          betType === 'moneyline' ||
+          betType === 'total' ||
+          betType === 'team_total' ||
+          // Fallback for picks without proper bet_type - exclude player props
+          (!betType && !pick.bet_type?.toLowerCase().includes('prop') && 
+           !pick.pick.toLowerCase().includes('batter') &&
+           !pick.pick.toLowerCase().includes('pitcher') &&
+           !pick.pick.toLowerCase().includes('hits') &&
+           !pick.pick.toLowerCase().includes('rbis') &&
+           !pick.pick.toLowerCase().includes('strikeouts'))
+        );
+      });
     } else {
-      return allPicks.filter(pick => 
-        pick.pick.toLowerCase().includes('over') ||
-        pick.pick.toLowerCase().includes('under') ||
-        pick.pick.toLowerCase().includes('total') ||
-        pick.bet_type?.toLowerCase().includes('prop')
-      );
+      return allPicks.filter(pick => {
+        // Prop picks are individual player performance bets
+        const betType = pick.bet_type?.toLowerCase() || '';
+        return (
+          betType === 'player_prop' ||
+          betType.includes('prop') ||
+          // Fallback for picks without proper bet_type - look for player-specific terms
+          (!betType && (
+            pick.pick.toLowerCase().includes('batter') ||
+            pick.pick.toLowerCase().includes('pitcher') ||
+            pick.pick.toLowerCase().includes('hits') ||
+            pick.pick.toLowerCase().includes('rbis') ||
+            pick.pick.toLowerCase().includes('strikeouts') ||
+            pick.pick.toLowerCase().includes('home runs')
+          ))
+        );
+      });
     }
   }
 

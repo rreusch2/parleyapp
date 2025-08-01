@@ -517,12 +517,27 @@ export default function SettingsScreen() {
               
               console.log('✅ Successfully logged out');
               
-              // Navigate to login screen
-              router.replace('/(auth)/login');
+              // Small delay to allow auth state to update
+              setTimeout(() => {
+                try {
+                  // Navigate to login screen
+                  router.replace('/(auth)/login');
+                } catch (navError) {
+                  console.error('Navigation error during logout:', navError);
+                  // Force navigation even if error occurs
+                  router.push('/(auth)/login');
+                }
+              }, 100);
               
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to log out. Please try again.');
+              // Still try to navigate even if logout failed
+              try {
+                router.replace('/(auth)/login');
+              } catch (navError) {
+                console.error('Navigation error after logout failure:', navError);
+              }
             }
           },
         },

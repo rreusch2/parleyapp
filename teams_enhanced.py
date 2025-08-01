@@ -431,6 +431,37 @@ class IntelligentTeamsAgent:
         logger.info(f"Generous pick distribution for frontend filtering: {distribution}")
         return distribution
     
+    def _format_sport_distribution_requirements(self, sport_distribution: Dict[str, int], target_picks: int) -> str:
+        """Generate dynamic pick distribution requirements based on available sports and games"""
+        if not sport_distribution:
+            return f"- Generate EXACTLY {target_picks} total picks across all available sports"
+        
+        # Filter out sports with 0 picks
+        active_sports = {sport: picks for sport, picks in sport_distribution.items() if picks > 0}
+        
+        if not active_sports:
+            return f"- Generate EXACTLY {target_picks} total picks across all available sports"
+        
+        requirements = []
+        total_expected = sum(active_sports.values())
+        
+        # Generate requirements for each sport
+        sport_order = ["WNBA", "MLB", "MMA"]  # Preferred ordering
+        for sport in sport_order:
+            if sport in active_sports:
+                picks_count = active_sports[sport]
+                requirements.append(f"- Generate EXACTLY {picks_count} {sport} team picks")
+        
+        # Add any sports not in the preferred order
+        for sport, picks_count in active_sports.items():
+            if sport not in sport_order:
+                requirements.append(f"- Generate EXACTLY {picks_count} {sport} team picks")
+        
+        requirements.append(f"- TOTAL: Generate EXACTLY {total_expected} picks across all sports")
+        requirements.append("- Focus on generating the FULL amount for each sport to maximize frontend filtering options")
+        
+        return "\n".join(requirements)
+    
     async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 50) -> List[Dict[str, Any]]:
         if target_date is None:
             target_date = datetime.now().date()
@@ -464,7 +495,7 @@ class IntelligentTeamsAgent:
         insights = await self.execute_research_plan(research_plan, available_bets)
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
-        picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks)
+        picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks, sport_distribution)
         logger.info(f"🎲 Generated {len(picks)} intelligent picks for {target_date}")
         
         if picks:
@@ -915,7 +946,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         insights: List[ResearchInsight], 
         bets: List[TeamBet], 
         games: List[Dict],
-        target_picks: int
+        target_picks: int,
+        sport_distribution: Dict[str, int] = None
     ) -> List[Dict[str, Any]]:
         insights_summary = []
         for insight in insights[:40]:
@@ -1003,10 +1035,7 @@ Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]
 TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
 
 🎯 **PICK DISTRIBUTION REQUIREMENTS:**
-- Generate EXACTLY 3 WNBA team picks FIRST (no more, no less)
-- Generate EXACTLY 7 MLB team picks AFTER (no more, no less) 
-- TOTAL: Generate EXACTLY {target_picks} picks (3 WNBA + 7 MLB = 10 total)
-- DO NOT generate extra picks - we want exactly 3 WNBA and 7 MLB
+{self._format_sport_distribution_requirements(sport_distribution, target_picks)}
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data
@@ -1480,10 +1509,15 @@ def parse_arguments():
                       help='Specific date to generate picks for (YYYY-MM-DD)')
     parser.add_argument('--picks', type=int, default=50,
                       help='Target number of total picks to generate (default: 50)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
     return parser.parse_args()
 
 async def main():
     args = parse_arguments()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
     
     # Determine target date
     if args.date:
@@ -1500,7 +1534,19 @@ async def main():
     logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
     
     agent = IntelligentTeamsAgent()
-    picks = await agent.generate_daily_picks(target_date=target_date, target_picks=args.picks)
+    
+    # Calculate dynamic target picks based on available games and sport distribution
+    # This ensures we generate enough picks for frontend filtering
+    games = agent.db.get_upcoming_games(target_date)
+    if games:
+        sport_distribution = agent._distribute_picks_by_sport(games, args.picks)
+        dynamic_target = sum(sport_distribution.values())
+        logger.info(f"📊 Calculated dynamic target: {dynamic_target} picks across sports")
+        target_picks = max(args.picks, dynamic_target)  # Use the higher of user-specified or calculated
+    else:
+        target_picks = args.picks
+    
+    picks = await agent.generate_daily_picks(target_date=target_date, target_picks=target_picks)
     
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks for {target_date}!")

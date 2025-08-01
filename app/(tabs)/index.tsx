@@ -637,9 +637,11 @@ export default function HomeScreen() {
                         <Text style={styles.upgradeTitle}>
                           {additionalPicksCount} More Premium Picks Available
                         </Text>
-                        <Text style={styles.upgradeSubtitle}>Pro Feature • 20 Total Picks</Text>
+                        <Text style={styles.upgradeSubtitle}>
+                          {isElite ? 'Elite Feature • 30 Total Picks' : 'Pro Feature • 20 Total Picks'}
+                        </Text>
                         <Text style={styles.upgradeDescription}>
-                          Unlock all 20 daily AI-powered predictions with advanced analytics, 
+                          Unlock all {isElite ? '30' : '20'} daily AI-powered predictions with advanced analytics, 
                           Kelly Criterion calculations, and detailed multi-source reasoning.
                         </Text>
                         <TouchableOpacity style={styles.upgradeButton} onPress={openSubscriptionModal}>

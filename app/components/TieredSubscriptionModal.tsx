@@ -142,22 +142,40 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const handleTierSelection = (tier: SubscriptionTier) => {
-    setSelectedTier(tier);
-    // Set default plan for the selected tier
-    if (tier === 'pro') {
+    try {
+      console.log('🔄 Selecting tier:', tier);
+      setSelectedTier(tier);
+      // Set default plan for the selected tier
+      if (tier === 'pro') {
+        setSelectedPlan('pro_weekly');
+      } else if (tier === 'elite') {
+        setSelectedPlan('elite_weekly');
+      }
+      console.log('✅ Tier selection completed');
+    } catch (error) {
+      console.error('❌ Error selecting tier:', error);
+      // Fallback to pro tier if error occurs
+      setSelectedTier('pro');
       setSelectedPlan('pro_weekly');
-    } else if (tier === 'elite') {
-      setSelectedPlan('elite_weekly');
     }
   };
 
   const handlePlanSelection = (plan: SubscriptionPlan) => {
-    setSelectedPlan(plan);
-    // Update tier based on plan selection
-    if (plan.startsWith('pro_')) {
+    try {
+      console.log('🔄 Selecting plan:', plan);
+      setSelectedPlan(plan);
+      // Update tier based on plan selection
+      if (plan.startsWith('pro_')) {
+        setSelectedTier('pro');
+      } else if (plan.startsWith('elite_')) {
+        setSelectedTier('elite');
+      }
+      console.log('✅ Plan selection completed');
+    } catch (error) {
+      console.error('❌ Error selecting plan:', error);
+      // Fallback to pro plan if error occurs
+      setSelectedPlan('pro_weekly');
       setSelectedTier('pro');
-    } else if (plan.startsWith('elite_')) {
-      setSelectedTier('elite');
     }
   };
 
@@ -199,7 +217,13 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       <View style={styles.tierTabsContainer}>
         <TouchableOpacity
           style={[styles.tierTab, selectedTier === 'pro' && styles.tierTabSelected]}
-          onPress={() => handleTierSelection('pro')}
+          onPress={() => {
+            try {
+              handleTierSelection('pro');
+            } catch (error) {
+              console.error('❌ Error in Pro tier onPress:', error);
+            }
+          }}
         >
           <Crown size={20} color={selectedTier === 'pro' ? '#FFFFFF' : '#94A3B8'} />
           <Text style={[styles.tierTabText, selectedTier === 'pro' && styles.tierTabTextSelected]}>
@@ -213,7 +237,13 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         
         <TouchableOpacity
           style={[styles.tierTab, selectedTier === 'elite' && styles.tierTabSelected]}
-          onPress={() => handleTierSelection('elite')}
+          onPress={() => {
+            try {
+              handleTierSelection('elite');
+            } catch (error) {
+              console.error('❌ Error in Elite tier onPress:', error);
+            }
+          }}
         >
           <Trophy size={20} color={selectedTier === 'elite' ? '#FFFFFF' : '#94A3B8'} />
           <Text style={[styles.tierTabText, selectedTier === 'elite' && styles.tierTabTextSelected]}>
