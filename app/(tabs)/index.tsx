@@ -468,31 +468,6 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-          ) : isPro && !isElite ? (
-            <TouchableOpacity 
-              style={styles.eliteUpgradePrompt}
-              onPress={openSubscriptionModal}
-            >
-              <LinearGradient
-                colors={['#FFD700', '#FFA500', '#FF6B35']}
-                style={styles.eliteUpgradeGradient}
-              >
-                <View style={styles.upgradeLeftContent}>
-                  <Crown size={24} color="#FFFFFF" />
-                </View>
-                <View style={styles.upgradeRightContent}>
-                  <Text style={styles.eliteUpgradeMainText}>
-                    Upgrade to Elite
-                  </Text>
-                  <Text style={styles.eliteUpgradeSubText}>
-                    Exclusive Lock of the Day & Premium Features
-                  </Text>
-                </View>
-                <View style={styles.eliteUpgradeSparkle}>
-                  <Text style={styles.eliteSparkleEmoji}>👑</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
           ) : null}
         </LinearGradient>
 
@@ -529,26 +504,12 @@ export default function HomeScreen() {
           console.log('🔴 RENDERING PRO/FREE BRANCH - isPro:', isPro, 'todaysPicks.length:', todaysPicks.length);
           return null;
         })()}
-        {isPro ? (
+                {isPro ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
-              {/* Only show header button for Pro users, not Elite */}
-              {!isElite && (
-                <TouchableOpacity 
-                  style={styles.viewAllButton}
-                  onPress={() => {
-                    router.push('/(tabs)/predictions');
-                  }}
-                >
-                  <Text style={styles.viewAllText}>
-                    View All 20 Picks
-                  </Text>
-                  <ChevronRight size={16} color="#00E5FF" />
-                </TouchableOpacity>
-              )}
             </View>
             
             <ProAIPicksDisplay 
@@ -577,9 +538,30 @@ export default function HomeScreen() {
               refreshing={refreshing}
             />
             
+            {/* Pro: Add View All button below preview cards */}
+            {!isElite && (
+              <TouchableOpacity
+                style={styles.proViewAllButtonBelow}
+                onPress={() => {
+                  router.push('/(tabs)/predictions');
+                }}
+              >
+                <LinearGradient
+                  colors={['#7C3AED', '#1E40AF']}
+                  style={styles.proViewAllGradient}
+                >
+                  <Crown size={16} color="#FFFFFF" />
+                  <Text style={styles.proViewAllButtonText}>
+                    View All 20 Picks
+                  </Text>
+                  <ChevronRight size={16} color="#FFFFFF" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+            
             {/* Elite: Add View All button below preview cards */}
             {isElite && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.eliteViewAllButtonBelow}
                 onPress={() => {
                   router.push('/(tabs)/predictions');
@@ -681,7 +663,7 @@ export default function HomeScreen() {
 
         {/* Daily AI Insights Section - Pro Only */}
         <View style={styles.section}>
-          <DailyProfessorInsights sport="MLB" />
+          <DailyProfessorInsights sport="MLB" user={{ isPro, isElite }} />
         </View>
 
         {/* Live News Feed Section */}
@@ -1352,6 +1334,30 @@ const styles = StyleSheet.create({
   },
   eliteViewAllButtonText: {
     color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    marginHorizontal: 8,
+  },
+  proViewAllButtonBelow: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  proViewAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  proViewAllButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     marginHorizontal: 8,

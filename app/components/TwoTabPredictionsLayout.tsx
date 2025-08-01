@@ -47,6 +47,16 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
 
   // Fetch user profile with preferences
   const fetchUserProfile = async (): Promise<UserProfile | null> => {
+    // Guard clause: if user.id is not available, return default profile
+    if (!user?.id) {
+      console.log('User ID not available, using default profile');
+      return {
+        subscription_tier: subscriptionTier,
+        max_daily_picks: subscriptionTier === 'elite' ? 30 : subscriptionTier === 'pro' ? 20 : 10,
+        sport_preferences: { mlb: true, wnba: true, ufc: true }
+      };
+    }
+
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -403,7 +413,7 @@ What are your thoughts on this prediction?`;
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {activeTab === 'team' ? teamPicks.length : playerPropsPicks.length}
+                {activeTab === 'team' ? filteredTeamPicks.length : filteredPropPicks.length}
               </Text>
               <Text style={styles.statLabel}>
                 {activeTab === 'team' ? 'Team Picks' : 'Player Props'}
@@ -411,7 +421,7 @@ What are your thoughts on this prediction?`;
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>PRO</Text>
+              <Text style={styles.statValue}>{isElite ? 'ELITE' : 'PRO'}</Text>
               <Text style={styles.statLabel}>Tier</Text>
             </View>
           </View>
