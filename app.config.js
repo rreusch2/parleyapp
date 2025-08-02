@@ -22,7 +22,29 @@ module.exports = {
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        // Facebook SDK configuration
+        "FacebookAppID": "$(FACEBOOK_APP_ID)",
+        "FacebookClientToken": "$(FACEBOOK_CLIENT_TOKEN)",
+        "FacebookDisplayName": "Predictive Play",
+        // URL schemes for deep linking and auth
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "facebook",
+            "CFBundleURLSchemes": ["fb$(FACEBOOK_APP_ID)"]
+          },
+          {
+            "CFBundleURLName": "predictiveplay",
+            "CFBundleURLSchemes": ["predictiveplay"]
+          }
+        ],
+        // Required for Facebook SDK
+        "LSApplicationQueriesSchemes": [
+          "fbapi",
+          "fb-messenger-share-api",
+          "fbauth2",
+          "fbshareextension"
+        ]
       },
       usesAppleSignIn: true
 
@@ -61,7 +83,26 @@ module.exports = {
       "expo-font",
       "expo-notifications",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": process.env.FACEBOOK_APP_ID || "YOUR_FACEBOOK_APP_ID",
+          "clientToken": process.env.FACEBOOK_CLIENT_TOKEN || "YOUR_FACEBOOK_CLIENT_TOKEN", 
+          "displayName": "Predictive Play",
+          "scheme": "fb" + (process.env.FACEBOOK_APP_ID || "YOUR_FACEBOOK_APP_ID"),
+          "advertiserIDCollectionEnabled": false,
+          "autoLogAppEventsEnabled": false,
+          "isAutoInitEnabled": true,
+          "iosUserTrackingPermission": "This identifier will be used to deliver personalized ads to you."
+        }
+      ],
+      [
+        "react-native-purchases", 
+        {
+          "apiKey": process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true

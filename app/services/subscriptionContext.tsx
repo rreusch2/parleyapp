@@ -4,7 +4,7 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
-import { AppEventsLogger } from 'react-native-fbsdk-next';
+import FacebookService from './facebookService';
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -54,14 +54,36 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   useEffect(() => {
-    checkSubscriptionStatus();
+    // Delay initialization to prevent startup crashes
+    const initializeAfterDelay = async () => {
+      try {
+        // Wait a bit to ensure app is fully loaded
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await checkSubscriptionStatus();
+      } catch (error) {
+        console.error('❌ Error in delayed initialization:', error);
+        // Set safe defaults
+        setIsPro(false);
+        setIsElite(false);
+        setSubscriptionTier('free');
+        setIsLoading(false);
+      }
+    };
+
+    initializeAfterDelay();
     
     // Listen for auth state changes to update subscription status
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       try {
         console.log('🔄 Auth state change:', event);
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          checkSubscriptionStatus();
+          // Delay subscription check to prevent crashes
+          setTimeout(() => {
+            checkSubscriptionStatus().catch(error => {
+              console.error('❌ Error checking subscription after auth change:', error);
+              setIsLoading(false);
+            });
+          }, 500);
         } else if (event === 'SIGNED_OUT') {
           console.log('🚪 User signed out - resetting subscription state');
           setIsPro(false);
@@ -156,7 +178,11 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
         try {
           console.log('🔄 DEBUG: Checking RevenueCat subscription...');
-          await revenueCatService.initialize();
+          // Wrap RevenueCat initialization in timeout to prevent hanging
+          await Promise.race([
+            revenueCatService.initialize(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 10000))
+          ]);
           const hasActive = await revenueCatService.hasActiveSubscription();
           
           console.log('🔄 DEBUG: RevenueCat active subscription:', hasActive);
@@ -176,7 +202,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           }
         } catch (rcError) {
           console.log('⚠️ RevenueCat check failed, using database status:', rcError);
-          // Continue with database status
+          // Continue with database status - don't let RevenueCat errors break the app
+          if (rcError.message && rcError.message.includes('timeout')) {
+            console.log('🕐 RevenueCat initialization timed out - app will continue with database status');
+          }
         }
       } else {
         console.log('❌ DEBUG: No user found, setting isPro to false');
@@ -214,12 +243,12 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (result.success) {
         console.log('✅ DEBUG: Purchase completed successfully, now verifying status...');
         
-        // Log purchase event to Facebook
+        // Log purchase event to Facebook (safe)
         const purchasedPackage = revenueCatService.getPackageByPlan(planId);
         if (purchasedPackage) {
-          AppEventsLogger.logPurchase(purchasedPackage.product.price, purchasedPackage.product.currencyCode, { 'planId': planId });
+          await FacebookService.logPurchase(purchasedPackage.product.price, purchasedPackage.product.currencyCode, { 'planId': planId });
         } else {
-          AppEventsLogger.logPurchase(1.00, 'USD', { 'planId': planId }); // Fallback
+          await FacebookService.logPurchase(1.00, 'USD', { 'planId': planId }); // Fallback
         }
 
         // CRITICAL FIX: Remove optimistic update.
