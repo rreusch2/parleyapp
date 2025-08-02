@@ -59,7 +59,7 @@ export class SmartPickFilteringService {
   private static readonly TIER_LIMITS = {
     elite: 30,
     pro: 20,
-    free: 10
+    free: 2
   };
 
   // Sport mapping

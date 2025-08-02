@@ -775,27 +775,39 @@ router.get('/picks', async (req, res) => {
     // Apply tier-based limiting
     const limitedPredictions = predictions.slice(0, actualPickLimit);
 
-    // Transform database format to frontend format
-    const formattedPredictions = limitedPredictions.map(prediction => ({
-      id: prediction.id,
-      match: prediction.match_teams,
-      pick: prediction.pick,
-      odds: prediction.odds,
-      confidence: prediction.confidence,
-      sport: prediction.sport,
-      eventTime: new Date(prediction.event_time).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone: 'America/New_York',
-        timeZoneName: 'short'
-      }),
-      reasoning: prediction.reasoning,
-      value: prediction.value_percentage,
-      roi_estimate: prediction.roi_estimate,
-      status: prediction.status,
-      created_at: prediction.created_at,
-      orchestrator_data: prediction.metadata?.orchestrator_data
-    }));
+    // Transform database format to frontend format with null safety
+    const formattedPredictions = limitedPredictions.map(prediction => {
+      // Safely handle event_time to prevent date parsing crashes
+      let eventTime = 'TBD';
+      try {
+        if (prediction.event_time) {
+          eventTime = new Date(prediction.event_time).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'America/New_York',
+            timeZoneName: 'short'
+          });
+        }
+      } catch (e) {
+        logger.warn(`Failed to parse event_time for prediction ${prediction.id}: ${e}`);
+      }
+      
+      return {
+        id: prediction.id || '',
+        match: prediction.match_teams || 'Unknown Match',
+        pick: prediction.pick || 'Pick unavailable',
+        odds: prediction.odds || 'N/A',
+        confidence: prediction.confidence || 0,
+        sport: prediction.sport || 'MLB',
+        eventTime: eventTime,
+        reasoning: prediction.reasoning || '',
+        value: prediction.value_percentage || 0,
+        roi_estimate: prediction.roi_estimate || 0,
+        status: prediction.status || 'pending',
+        created_at: prediction.created_at || new Date().toISOString(),
+        orchestrator_data: prediction.metadata?.orchestrator_data || null
+      };
+    });
 
     return res.json({
       success: true,
@@ -2288,19 +2300,37 @@ router.get('/daily-picks-combined', async (req, res) => {
     const { test, userId, userTier } = req.query;
     logger.info(`🏆 Fetching combined daily picks from database - Test Mode: ${test === 'true'}, User: ${userId}, Tier: ${userTier}`);
     
-    // Determine pick limits based on user tier
-    let teamPicksLimit = 1; // Default for free users
-    let playerPropsLimit = 1;
+    // First check actual user profile for tier and welcome bonus
+    let actualTeamPicksLimit = 1; // Default for free users
+    let actualPlayerPropsLimit = 1;
+    let isWelcomeBonusActive = false;
     
-    if (userTier === 'pro') {
-      teamPicksLimit = 10;
-      playerPropsLimit = 10;
-    } else if (userTier === 'welcome_bonus') {
-      teamPicksLimit = 3;
-      playerPropsLimit = 2;
+    if (userId) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at')
+        .eq('id', userId)
+        .single();
+        
+      if (profile) {
+        const now = new Date();
+        const expiresAt = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+        isWelcomeBonusActive = profile.welcome_bonus_claimed && expiresAt && now < expiresAt;
+        
+        if (profile.subscription_tier === 'pro') {
+          actualTeamPicksLimit = 10;
+          actualPlayerPropsLimit = 10;
+        } else if (profile.subscription_tier === 'elite') {
+          actualTeamPicksLimit = 15;
+          actualPlayerPropsLimit = 15;
+        } else if (isWelcomeBonusActive) {
+          actualTeamPicksLimit = 3;
+          actualPlayerPropsLimit = 2;
+        }
+      }
     }
     
-    logger.info(`📊 Pick limits for tier '${userTier}': ${teamPicksLimit} team + ${playerPropsLimit} props`);
+    logger.info(`📊 Pick limits for user '${userId}': ${actualTeamPicksLimit} team + ${actualPlayerPropsLimit} props (Welcome bonus: ${isWelcomeBonusActive})`);
     
     // Fetch both types of picks from database in parallel
     const [teamPicksResult, playerPropsResult] = await Promise.all([
@@ -2309,13 +2339,13 @@ router.get('/daily-picks-combined', async (req, res) => {
         .select('*')
         .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
-        .limit(teamPicksLimit),
+        .limit(actualTeamPicksLimit),
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .eq('bet_type', 'player_prop')
         .order('created_at', { ascending: false })
-        .limit(playerPropsLimit)
+        .limit(actualPlayerPropsLimit)
     ]);
 
     if (teamPicksResult.error) {
@@ -2328,19 +2358,23 @@ router.get('/daily-picks-combined', async (req, res) => {
       throw playerPropsResult.error;
     }
 
-    // Transform database records to expected format
+    // Transform database records to expected format with null safety
     const formatPicks = (picks: any[]) => picks.map(pick => ({
-      id: pick.id,
+      id: pick.id || '',
       match_teams: pick.match_teams || `${pick.away_team || 'Away'} @ ${pick.home_team || 'Home'}`,
-      pick: pick.pick,
-      odds: pick.odds,
-      confidence: pick.confidence,
+      pick: pick.pick || 'Pick unavailable',
+      odds: pick.odds || 'N/A',
+      confidence: pick.confidence || 0,
       value_percentage: pick.value_percentage || 0,
       reasoning: pick.reasoning || 'AI-generated prediction',
-      bet_type: pick.bet_type,
-      sport: pick.sport,
-      created_at: pick.created_at,
-      status: pick.status
+      bet_type: pick.bet_type || 'unknown',
+      sport: pick.sport || 'MLB',
+      created_at: pick.created_at || new Date().toISOString(),
+      status: pick.status || 'pending',
+      // Additional fields the frontend might expect
+      eventTime: pick.eventTime || pick.event_time || pick.game_time || 'TBD',
+      league: pick.league || pick.sport || 'MLB',
+      roi_estimate: pick.roi_estimate || 0
     }));
 
     const teamPicks = formatPicks(teamPicksResult.data || []);

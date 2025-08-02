@@ -15,6 +15,7 @@ import {
   Keyboard,
   KeyboardAvoidingView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import UserPreferencesModal from '../components/UserPreferencesModal';
 import { 
@@ -506,38 +507,47 @@ export default function SettingsScreen() {
             try {
               console.log('🚪 Logging out user...');
               
+              // Clear any local storage first
+              try {
+                await AsyncStorage.removeItem('subscriptionStatus');
+                await AsyncStorage.removeItem('userProfile');
+              } catch (storageError) {
+                console.error('Error clearing storage:', storageError);
+              }
+              
               // Sign out from Supabase
               const { error } = await supabase.auth.signOut();
               
               if (error) {
                 console.error('Logout error:', error);
-                Alert.alert('Error', 'Failed to log out. Please try again.');
-                return;
+                // Continue with logout even if there's an error
               }
               
-              console.log('✅ Successfully logged out');
+              console.log('✅ Logout completed');
               
-              // Small delay to allow auth state to update
+              // Use a more reliable navigation method
               setTimeout(() => {
+                // Use router.dismissAll() first to clear the navigation stack
                 try {
-                  // Navigate to login screen
-                  router.replace('/(auth)/login');
-                } catch (navError) {
-                  console.error('Navigation error during logout:', navError);
-                  // Force navigation even if error occurs
-                  router.push('/(auth)/login');
+                  router.dismissAll();
+                } catch (e) {
+                  console.log('Could not dismiss all:', e);
                 }
+                
+                // Then navigate to login
+                setTimeout(() => {
+                  router.replace('/(auth)/login');
+                }, 50);
               }, 100);
               
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to log out. Please try again.');
-              // Still try to navigate even if logout failed
-              try {
+              Alert.alert('Error', 'An error occurred during logout, but you will be redirected to login.');
+              
+              // Force navigation even on error
+              setTimeout(() => {
                 router.replace('/(auth)/login');
-              } catch (navError) {
-                console.error('Navigation error after logout failure:', navError);
-              }
+              }, 500);
             }
           },
         },
