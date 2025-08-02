@@ -90,11 +90,16 @@ class PersonalizedPropsAgent:
         sport_prefs = user_preferences.get('sport_preferences', {'mlb': True, 'wnba': False, 'ufc': False})
         pick_dist = user_preferences.get('pick_distribution', {'auto': True})
         
+        # Check for welcome bonus
+        welcome_bonus_active = user_preferences.get('welcome_bonus_active', False)
+        
         # Total prop picks based on tier
         if tier == 'allstar':
             total_props = 15  # 30 total picks, 15 props + 15 teams
         elif tier == 'pro':
             total_props = 10  # 20 total picks, 10 props + 10 teams
+        elif welcome_bonus_active:
+            total_props = 2   # 5 total picks for welcome bonus, 2 props + 3 teams
         else:  # free
             total_props = 1   # 2 total picks, 1 prop + 1 team
         
