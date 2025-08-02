@@ -56,14 +56,13 @@ SET
 WHERE created_at IS NULL OR updated_at IS NULL;
 
 -- 6. Add default values for any missing user preferences
-INSERT INTO user_preferences (user_id, preferences)
+INSERT INTO user_preferences (user_id, risk_tolerance, sports, bet_types, notification_preferences)
 SELECT 
     p.id,
-    jsonb_build_object(
-        'sport_preferences', jsonb_build_object('mlb', true, 'wnba', false, 'ufc', false),
-        'pick_distribution', jsonb_build_object('auto', true),
-        'subscription_tier', p.subscription_tier
-    )
+    'medium',
+    ARRAY['MLB'],
+    ARRAY['moneyline', 'spread', 'total'],
+    '{"types": ["ai_picks"], "frequency": "daily"}'::jsonb
 FROM profiles p
 LEFT JOIN user_preferences up ON p.id = up.user_id
 WHERE up.user_id IS NULL;
