@@ -24,7 +24,7 @@ import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import FacebookService from '../services/facebookService';
+// Facebook SDK removed - no longer using Facebook analytics
 
 export default function SignupScreen() {
   const [username, setUsername] = useState('');
@@ -423,7 +423,7 @@ export default function SignupScreen() {
             .eq('id', data.user.id);
 
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
-          await FacebookService.logEvent('CompleteRegistration');
+          // Facebook analytics removed - no longer tracking registration events
           
           // Store user ID and show preferences modal first
           setCurrentUserId(data.user.id);
@@ -527,7 +527,7 @@ export default function SignupScreen() {
 
       if (data.user) {
         console.log('✅ Signup successful! User ID:', data.user.id);
-        await FacebookService.logEvent('CompleteRegistration');
+        // Facebook analytics removed - no longer tracking registration events
         console.log('🎯 About to show preferences modal...');
         
         // Store user ID and show preferences modal first

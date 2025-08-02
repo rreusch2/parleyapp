@@ -4,7 +4,7 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
-import FacebookService from './facebookService';
+// Facebook SDK removed - no longer using Facebook analytics
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -243,13 +243,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (result.success) {
         console.log('✅ DEBUG: Purchase completed successfully, now verifying status...');
         
-        // Log purchase event to Facebook (safe)
-        const purchasedPackage = revenueCatService.getPackageByPlan(planId);
-        if (purchasedPackage) {
-          await FacebookService.logPurchase(purchasedPackage.product.price, purchasedPackage.product.currencyCode, { 'planId': planId });
-        } else {
-          await FacebookService.logPurchase(1.00, 'USD', { 'planId': planId }); // Fallback
-        }
+        // Facebook analytics removed - no longer tracking purchases with Facebook
 
         // CRITICAL FIX: Remove optimistic update.
         // Instead of setting isPro(true) immediately, we rely on checkSubscriptionStatus
