@@ -196,12 +196,15 @@ class RevenueCatService {
       console.log('📦 Loading RevenueCat offerings...');
       
       const offerings = await Purchases.getOfferings();
+      let allPackages: any[] = [];
       
+      // Check default offering first
       if (offerings.current) {
+        console.log('✅ Found default offering:', offerings.current.identifier);
         this.currentOffering = offerings.current;
         
         // Convert packages to our format
-        this.packages = this.currentOffering.availablePackages.map(pkg => ({
+        const defaultPackages = this.currentOffering.availablePackages.map(pkg => ({
           identifier: pkg.identifier,
           packageType: pkg.packageType,
           product: {
@@ -214,10 +217,42 @@ class RevenueCatService {
           },
         }));
         
-        console.log(`✅ Loaded ${this.packages.length} packages:`, 
+        allPackages = [...allPackages, ...defaultPackages];
+      }
+      
+      // Check for elite offering
+      if (offerings.all && offerings.all['elite']) {
+        console.log('✅ Found elite offering');
+        const eliteOffering = offerings.all['elite'];
+        
+        // If no default offering was found, use elite as current
+        if (!this.currentOffering) {
+          this.currentOffering = eliteOffering;
+        }
+        
+        // Convert elite packages to our format and add them
+        const elitePackages = eliteOffering.availablePackages.map(pkg => ({
+          identifier: pkg.identifier,
+          packageType: pkg.packageType,
+          product: {
+            identifier: pkg.product.identifier,
+            description: pkg.product.description,
+            title: pkg.product.title,
+            price: pkg.product.price,
+            priceString: pkg.product.priceString,
+            currencyCode: pkg.product.currencyCode,
+          },
+        }));
+        
+        allPackages = [...allPackages, ...elitePackages];
+      }
+      
+      if (allPackages.length > 0) {
+        this.packages = allPackages;
+        console.log(`✅ Loaded ${this.packages.length} packages total:`, 
           this.packages.map(p => `${p.identifier} - ${p.product.priceString}`));
       } else {
-        console.warn('⚠️ No current offering found');
+        console.warn('⚠️ No offerings found');
         this.currentOffering = null;
         this.packages = [];
       }
@@ -307,7 +342,8 @@ class RevenueCatService {
    * Find the correct package for a subscription plan
    */
   private findPackageForPlan(planId: SubscriptionPlan): any {
-    if (!this.currentOffering) {
+    if (!this.packages || this.packages.length === 0) {
+      console.log('⚠️ No packages available to search');
       return null;
     }
 
@@ -317,23 +353,57 @@ class RevenueCatService {
       monthly: PACKAGE_TYPE.MONTHLY,
       yearly: PACKAGE_TYPE.ANNUAL,
       lifetime: PACKAGE_TYPE.LIFETIME,
+      pro_weekly: PACKAGE_TYPE.WEEKLY,
+      pro_monthly: PACKAGE_TYPE.MONTHLY,
+      pro_yearly: PACKAGE_TYPE.ANNUAL,
+      pro_daypass: PACKAGE_TYPE.UNKNOWN,
+      elite_weekly: PACKAGE_TYPE.WEEKLY,
+      elite_monthly: PACKAGE_TYPE.MONTHLY,
+      elite_yearly: PACKAGE_TYPE.ANNUAL,
     };
 
-    // Try to find by package type first
+    console.log('🔍 Finding package for plan:', planId);
+    
+    // Try to find by direct product identifier first (most reliable)
+    const productId = PRODUCT_IDENTIFIERS[planId];
+    console.log('🔍 Looking for product ID:', productId);
+    
+    if (productId) {
+      // Search in the combined packages list
+      const foundPackage = this.packages.find(pkg => pkg.product.identifier === productId);
+      if (foundPackage) {
+        console.log('✅ Found package by product ID');
+        return foundPackage;
+      }
+    }
+    
+    // If not found by direct ID, try using package type
     const packageType = packageTypeMap[planId];
-    let targetPackage = this.currentOffering.availablePackages.find(
-      pkg => pkg.packageType === packageType
-    );
-
-    // If not found by type, try to find by product identifier
-    if (!targetPackage) {
-      const productId = PRODUCT_IDENTIFIERS[planId];
-      targetPackage = this.currentOffering.availablePackages.find(
-        pkg => pkg.product.identifier === productId
-      );
+    if (packageType && this.currentOffering) {
+      console.log('🔍 Looking for package type:', packageType);
+      
+      // Check if this is a pro or elite plan
+      const isElitePlan = planId.startsWith('elite_');
+      const isProPlan = planId.startsWith('pro_') || (!planId.startsWith('elite_') && !planId.startsWith('pro_'));
+      
+      // Filter packages based on plan type
+      const targetPackage = this.packages.find(pkg => {
+        if (pkg.packageType !== packageType) return false;
+        
+        const productId = pkg.product.identifier;
+        if (isElitePlan && productId.includes('allstar')) return true;
+        if (isProPlan && !productId.includes('allstar')) return true;
+        return false;
+      });
+      
+      if (targetPackage) {
+        console.log('✅ Found package by type and plan category');
+        return targetPackage;
+      }
     }
 
-    return targetPackage;
+    console.log('❌ No package found for plan:', planId);
+    return null;
   }
 
   /**

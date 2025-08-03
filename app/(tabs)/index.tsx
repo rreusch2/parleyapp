@@ -468,31 +468,6 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-          ) : isPro && !isElite ? (
-            <TouchableOpacity 
-              style={styles.eliteUpgradePrompt}
-              onPress={openSubscriptionModal}
-            >
-              <LinearGradient
-                colors={['#FFD700', '#FFA500', '#FF6B35']}
-                style={styles.eliteUpgradeGradient}
-              >
-                <View style={styles.upgradeLeftContent}>
-                  <Crown size={24} color="#FFFFFF" />
-                </View>
-                <View style={styles.upgradeRightContent}>
-                  <Text style={styles.eliteUpgradeMainText}>
-                    Upgrade to Elite
-                  </Text>
-                  <Text style={styles.eliteUpgradeSubText}>
-                    Exclusive Lock of the Day & Premium Features
-                  </Text>
-                </View>
-                <View style={styles.eliteUpgradeSparkle}>
-                  <Text style={styles.eliteSparkleEmoji}>👑</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
           ) : null}
         </LinearGradient>
 

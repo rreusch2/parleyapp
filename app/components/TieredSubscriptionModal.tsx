@@ -248,7 +248,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           <Text style={styles.featureLabel}>Daily AI Predictions</Text>
           <Text style={styles.featureValue}>✓ Included</Text>
         </View>
-        {selectedTier === 'allstar' && (
+        {selectedTier === 'elite' && (
           <View style={styles.featureRow}>
             <Text style={styles.featureLabel}>🔒 Lock of the Day</Text>
             <Text style={styles.featureValuePremium}>✓ Elite Exclusive</Text>
@@ -267,7 +267,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       <View style={styles.planOptionsContainer}>
         {currentTierPlans.map((plan) => {
           const isSelected = selectedPlan === plan;
-          const pricing = (SUBSCRIPTION_TIERS[selectedTier] as any).pricing;
+          // Make sure we're using correct tier names
+          const tierKey = selectedTier === 'elite' ? 'allstar' : selectedTier;
+          const pricing = (SUBSCRIPTION_TIERS[tierKey] as any).pricing;
           
           let planName = '';
           let price = '';

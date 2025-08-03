@@ -251,6 +251,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     hasPrioritySupport: isPro,
   };
 
+  // Use SUBSCRIPTION_TIERS.allstar for Elite tier features
   const eliteFeatures = {
     hasLockOfTheDay: isElite,
     hasAdvancedAnalytics: isElite,
