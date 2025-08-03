@@ -3,7 +3,7 @@
  */
 
 /**
- * Format event time from database format to display format
+ * Format event time from database format to display format (matches Games tab format)
  * Input: "2025-08-03 19:11:00+00" -> Output: "7:11 PM"
  */
 export function formatEventTime(eventTimeString?: string): string {
@@ -20,7 +20,7 @@ export function formatEventTime(eventTimeString?: string): string {
       return 'TBD';
     }
 
-    // Format to local time (12-hour format)
+    // Format to local time (12-hour format) - same as Games tab
     const timeString = date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -30,6 +30,31 @@ export function formatEventTime(eventTimeString?: string): string {
     return timeString;
   } catch (error) {
     console.error('Error formatting event time:', error);
+    return 'TBD';
+  }
+}
+
+/**
+ * Format game time (same function as used in Games tab)
+ */
+export function formatGameTime(dateString: string): string {
+  if (!dateString || dateString === 'TBD') {
+    return 'TBD';
+  }
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return 'TBD';
+    }
+    
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (error) {
+    console.error('Error formatting game time:', error);
     return 'TBD';
   }
 }

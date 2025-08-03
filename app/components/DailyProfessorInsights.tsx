@@ -68,7 +68,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
   const [refreshing, setRefreshing] = useState(false);
   const [lastGenerated, setLastGenerated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { isPro, isLoading: subLoading, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, isLoading: subLoading, openSubscriptionModal } = useSubscription();
 
   useEffect(() => {
     if (!subLoading) {

@@ -590,7 +590,7 @@ export default function HomeScreen() {
                   id: pick.id,
                   match: pick.match_teams || '',
                   sport: pick.league || '',
-                  eventTime: pick.created_at || new Date().toISOString(),
+                  eventTime: pick.eventTime || pick.event_time || pick.created_at || new Date().toISOString(),
                   pick: pick.pick,
                   odds: pick.odds,
                   confidence: pick.confidence,

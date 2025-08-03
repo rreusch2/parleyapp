@@ -2223,6 +2223,7 @@ router.get('/team-picks', async (req, res) => {
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
+      event_time: pick.event_time,
       created_at: pick.created_at,
       status: pick.status
     }));
@@ -2282,6 +2283,7 @@ router.get('/player-props-picks', async (req, res) => {
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
+      event_time: pick.event_time,
       created_at: pick.created_at,
       status: pick.status
     }));
@@ -2368,6 +2370,7 @@ router.get('/daily-picks-combined', async (req, res) => {
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
+      event_time: pick.event_time,
       created_at: pick.created_at,
       status: pick.status
     }));

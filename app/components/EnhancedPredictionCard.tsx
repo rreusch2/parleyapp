@@ -209,7 +209,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
         factors: {
           predictiveAnalytics: `Win probability: ${prediction.confidence}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
           recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds}`,
-          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${getRiskLevel(prediction.confidence).toLowerCase()} risk. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.`
+          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll. ${prediction.key_factors ? `Key factors: ${(prediction.key_factors as string[]).slice(0,2).join(', ')}.` : ''}`
         },
         toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
       });
@@ -314,7 +314,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 </View>
                 <View style={styles.premiumStat}>
                   <Shield size={14} color="#10B981" />
-                  <Text style={styles.premiumStatText}>Risk: {prediction.risk_level || getRiskLevel(prediction.confidence)}</Text>
+                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate ? `+${prediction.roi_estimate}%` : 'Calculating...'}</Text>
                 </View>
                 <View style={styles.premiumStat}>
                   <Activity size={14} color="#8B5CF6" />
