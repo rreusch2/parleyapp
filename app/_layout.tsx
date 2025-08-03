@@ -9,7 +9,7 @@ import { SubscriptionProvider, useSubscription } from './services/subscriptionCo
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
+
 
 // Get device dimensions to adapt UI for iPad
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,16 +24,7 @@ function AppContent() {
     initializeReview();
   }, [initializeReview]);
 
-  useEffect(() => {
-    (async () => {
-      if (Platform.OS === 'ios') {
-        const { status } = await requestTrackingPermissionsAsync();
-        if (status !== 'granted') {
-          // Handle the case where the user denies permission
-        }
-      }
-    })();
-  }, []);
+
 
   return (
     <View style={styles.container}>

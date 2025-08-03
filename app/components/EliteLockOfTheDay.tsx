@@ -8,6 +8,7 @@ import {
   Dimensions,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -21,6 +22,7 @@ import {
   Sparkles,
   Trophy,
   Lock,
+  X,
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import Colors from '../constants/Colors';
@@ -259,7 +261,11 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
           {/* Action Button */}
           <TouchableOpacity 
             style={styles.actionButton} 
-            onPress={() => setShowAnalysisModal(true)}
+            onPress={() => {
+              console.log('🔍 Elite Lock Analysis button pressed');
+              setShowAnalysisModal(true);
+              console.log('📱 Modal state set to true');
+            }}
             activeOpacity={0.8}
           >
             <Trophy size={20} color="#8B5CF6" />
@@ -273,30 +279,44 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
       <Modal
         visible={showAnalysisModal}
         animationType="slide"
+        presentationStyle="overFullScreen"
         transparent={true}
-        onRequestClose={() => setShowAnalysisModal(false)}
+        onRequestClose={() => {
+          console.log('📱 Modal onRequestClose triggered');
+          setShowAnalysisModal(false);
+        }}
+        statusBarTranslucent={true}
+        onShow={() => console.log('📱 Modal onShow triggered')}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowAnalysisModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContainer} 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
             <LinearGradient
               colors={['#0F172A', '#1E293B', '#334155']}
               style={styles.modalGradient}
             >
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderLeft}>
-                <Lock size={24} color="#FFD700" />
-                <Text style={styles.modalTitle}>Elite Lock Analysis</Text>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderLeft}>
+                  <Lock size={24} color="#FFD700" />
+                  <Text style={styles.modalTitle}>Elite Lock Analysis</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setShowAnalysisModal(false)}
+                  style={styles.closeButton}
+                >
+                  <X size={24} color="#94A3B8" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity 
-                onPress={() => setShowAnalysisModal(false)}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
               {lockPick ? (
                 <>
                   {/* Match Info */}
@@ -383,8 +403,8 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
               )}
             </ScrollView>
             </LinearGradient>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </>
   );
@@ -495,10 +515,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   modalContainer: {
     width: '90%',
-    maxHeight: '80%',
+    maxWidth: 500,
+    maxHeight: '85%',
     borderRadius: 20,
     overflow: 'hidden',
   },
@@ -718,6 +741,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginTop: 8,
+    textAlign: 'center',
+  },
+  modalLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  modalLoadingText: {
+    color: '#94A3B8',
+    fontSize: 16,
     textAlign: 'center',
   },
 });
