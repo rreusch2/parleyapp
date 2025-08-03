@@ -107,14 +107,12 @@ export default function PredictionsScreen() {
       
       console.log('🎯 User preferred sports:', preferredSports);
       
-      // Fetch 15 Team picks with sport preferences
+      // Fetch 15 Team picks with sport preferences - FIXED: Use bet_type instead of pick text
       let teamQuery = supabase
         .from('ai_predictions')
         .select('*')
         .eq('user_id', userId)
-        .not('pick', 'ilike', '%over%')
-        .not('pick', 'ilike', '%under%')
-        .not('pick', 'ilike', '%total%')
+        .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
         .limit(15);
       
@@ -139,12 +137,12 @@ export default function PredictionsScreen() {
         // Don't throw - we'll try to continue with props
       }
       
-      // Fetch 15 Prop picks with sport preferences
+      // Fetch 15 Prop picks with sport preferences - FIXED: Use bet_type instead of pick text
       let propsQuery = supabase
         .from('ai_predictions')
         .select('*')
         .eq('user_id', userId)
-        .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+        .eq('bet_type', 'player_prop')
         .order('created_at', { ascending: false })
         .limit(15);
       

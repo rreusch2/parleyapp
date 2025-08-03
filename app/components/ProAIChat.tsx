@@ -37,7 +37,8 @@ import {
   Trophy,
   DollarSign,
   BarChart,
-  AlertCircle
+  AlertCircle,
+  Crown
 } from 'lucide-react-native';
 import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '../services/subscriptionContext';
@@ -187,7 +188,7 @@ interface ProAIChatProps {
 export default function ProAIChat({ 
   placeholder = "Ask about picks, parlays, odds, insights, or betting strategies..."
 }: ProAIChatProps) {
-  const { isPro, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscriptionTier, openSubscriptionModal } = useSubscription();
   const { 
     showAIChat, 
     setShowAIChat, 
@@ -455,8 +456,9 @@ export default function ProAIChat({
           context: {
             screen: chatContext?.screen || 'chat',
             selectedPick: selectedPick,
-            userTier: isPro ? 'pro' : 'free',
-            maxPicks: isPro ? 10 : 2
+            userTier: isElite ? 'elite' : (isPro ? 'pro' : 'free'),
+            maxPicks: isElite ? 30 : (isPro ? 20 : 2),
+            isEliteMode: isElite
           },
           conversationHistory: messages.map(msg => ({
             role: msg.isUser ? 'user' : 'assistant',
@@ -634,11 +636,27 @@ export default function ProAIChat({
     { icon: <Lightbulb size={16} color="#F59E0B" />, text: "Pro Insights", action: "Show me today's most important betting insights" }
   ];
 
+  // Elite-exclusive quick actions showcasing premium tools
+  const eliteQuickActions = [
+    { icon: <TrendingUp size={16} color="#FFD700" />, text: "Sharp Money", action: "Show me sharp money movement and line analysis" },
+    { icon: <DollarSign size={16} color="#00E5FF" />, text: "Kelly Optimizer", action: "Help me calculate optimal bet sizes for my bankroll" },
+    { icon: <BarChart size={16} color="#10B981" />, text: "Market Intel", action: "Find market inefficiencies and soft lines for me" },
+    { icon: <Crown size={16} color="#FFD700" />, text: "Elite Parlay", action: "Build an advanced parlay with correlation analysis" }
+  ];
+
   const parlayOptions = [
     { icon: <Shield size={16} color="#10B981" />, text: "Safe 2-Leg", action: "Give me your safest 2-leg parlay for today" },
     { icon: <Target size={16} color="#00E5FF" />, text: "Balanced 3-Leg", action: "Build a balanced 3-leg parlay mixing teams and props" },
     { icon: <DollarSign size={16} color="#FBBF24" />, text: "Value 4-Leg", action: "Create a 4-leg parlay with good odds and value" },
     { icon: <BarChart size={16} color="#EF4444" />, text: "Lottery Ticket", action: "Give me a risky 5-leg parlay for a big payout" }
+  ];
+
+  // Elite parlay options with advanced capabilities
+  const eliteParlayOptions = [
+    { icon: <Crown size={16} color="#FFD700" />, text: "Correlation Analysis", action: "Build a parlay with advanced correlation analysis to avoid conflicts" },
+    { icon: <TrendingUp size={16} color="#00E5FF" />, text: "Market Value", action: "Create a parlay targeting market inefficiencies and soft lines" },
+    { icon: <Shield size={16} color="#10B981" />, text: "Kelly Optimized", action: "Build a parlay with optimal Kelly Criterion bet sizing" },
+    { icon: <Search size={16} color="#F59E0B" />, text: "Live Opportunities", action: "Find live betting parlay opportunities with line movement analysis" }
   ];
 
   const pulseOpacity = pulseAnimation.interpolate({
@@ -847,24 +865,46 @@ export default function ProAIChat({
                 <Sparkles size={20} color="#FBBF24" />
               </View>
             </View>
-            <Text style={styles.welcomeTitle}>Professor Lock</Text>
-            <Text style={styles.welcomeSubtitle}>Your AI Betting Expert</Text>
+            <Text style={styles.welcomeTitle}>{isElite ? 'Professor Lock Elite' : 'Professor Lock'}</Text>
+            <Text style={styles.welcomeSubtitle}>{isElite ? '🏆 Elite AI Betting Expert' : 'Your AI Betting Expert'}</Text>
             <Text style={styles.welcomeText}>
-              I analyze picks, build parlays, track odds, and deliver real-time insights. Let's find some value!
+              {isElite 
+                ? 'I provide elite market intelligence, advanced analytics, and professional-grade betting insights with 8 premium tools at your disposal!'
+                : 'I analyze picks, build parlays, track odds, and deliver real-time insights. Let\'s find some value!'
+              }
             </Text>
             <View style={styles.welcomeFeatures}>
-              <View style={styles.welcomeFeature}>
-                <Trophy size={16} color="#FBBF24" />
-                <Text style={styles.welcomeFeatureText}>Daily Picks</Text>
-              </View>
-              <View style={styles.welcomeFeature}>
-                <Zap size={16} color="#00E5FF" />
-                <Text style={styles.welcomeFeatureText}>Smart Parlays</Text>
-              </View>
-              <View style={styles.welcomeFeature}>
-                <Globe size={16} color="#10B981" />
-                <Text style={styles.welcomeFeatureText}>Live Updates</Text>
-              </View>
+              {isElite ? (
+                <>
+                  <View style={styles.welcomeFeature}>
+                    <Crown size={16} color="#FFD700" />
+                    <Text style={styles.welcomeFeatureText}>Elite Tools</Text>
+                  </View>
+                  <View style={styles.welcomeFeature}>
+                    <TrendingUp size={16} color="#00E5FF" />
+                    <Text style={styles.welcomeFeatureText}>Market Intel</Text>
+                  </View>
+                  <View style={styles.welcomeFeature}>
+                    <Shield size={16} color="#10B981" />
+                    <Text style={styles.welcomeFeatureText}>Pro Analysis</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.welcomeFeature}>
+                    <Trophy size={16} color="#FBBF24" />
+                    <Text style={styles.welcomeFeatureText}>Daily Picks</Text>
+                  </View>
+                  <View style={styles.welcomeFeature}>
+                    <Zap size={16} color="#00E5FF" />
+                    <Text style={styles.welcomeFeatureText}>Smart Parlays</Text>
+                  </View>
+                  <View style={styles.welcomeFeature}>
+                    <Globe size={16} color="#10B981" />
+                    <Text style={styles.welcomeFeatureText}>Live Updates</Text>
+                  </View>
+                </>
+              )}
             </View>
           </LinearGradient>
         </Animated.View>
@@ -923,7 +963,7 @@ export default function ProAIChat({
               <Animated.View style={{ opacity: pulseOpacity }}>
                 <Brain size={26} color="#FFFFFF" />
               </Animated.View>
-              <Text style={styles.headerTitle}>Professor Lock</Text>
+              <Text style={styles.headerTitle}>{isElite ? 'Professor Lock Elite' : 'Professor Lock'}</Text>
               <View style={styles.proBadge}>
                 <Sparkles size={12} color="#0F172A" />
                 <Text style={styles.proBadgeText}>AI</Text>
@@ -995,45 +1035,45 @@ export default function ProAIChat({
         {/* Enhanced Quick Actions */}
         {messages.length <= 1 && !keyboardVisible && (
           <View style={styles.quickActionsContainer}>
-            <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+            <Text style={styles.quickActionsTitle}>{isElite ? 'Elite Tools' : 'Quick Actions'}</Text>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false} 
               style={styles.quickActionsScroll}
             >
-              {quickActions.map((action, index) => (
+              {(isElite ? eliteQuickActions : quickActions).map((action, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.quickActionButton}
+                  style={[styles.quickActionButton, isElite && styles.eliteQuickActionButton]}
                   onPress={() => {
                     Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
                     setInputText(action.action);
                   }}
                 >
                   {action.icon}
-                  <Text style={styles.quickActionText}>{action.text}</Text>
+                  <Text style={[styles.quickActionText, isElite && styles.eliteQuickActionText]}>{action.text}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
             
             {/* Parlay Builder Section */}
-            <Text style={styles.quickActionsTitle}>Parlay Builder</Text>
+            <Text style={styles.quickActionsTitle}>{isElite ? 'Elite Parlay Builder' : 'Parlay Builder'}</Text>
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
               style={styles.quickActionsScroll}
             >
-              {parlayOptions.map((option, index) => (
+              {(isElite ? eliteParlayOptions : parlayOptions).map((option, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.quickActionButton, styles.parlayButton]}
+                  style={[styles.quickActionButton, styles.parlayButton, isElite && styles.eliteQuickActionButton]}
                   onPress={() => {
                     Vibration.vibrate(Platform.OS === 'ios' ? 1 : 10);
                     setInputText(option.action);
                   }}
                 >
                   {option.icon}
-                  <Text style={styles.quickActionText}>{option.text}</Text>
+                  <Text style={[styles.quickActionText, isElite && styles.eliteQuickActionText]}>{option.text}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1151,6 +1191,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginLeft: 3,
   },
+
   statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1365,6 +1406,18 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Elite quick action styles
+  eliteQuickActionButton: {
+    borderColor: 'rgba(255, 215, 0, 0.4)',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    shadowColor: '#FFD700',
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  eliteQuickActionText: {
+    color: '#F8FAFC',
+    fontWeight: '700',
   },
   
   // Enhanced input styles

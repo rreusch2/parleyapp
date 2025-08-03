@@ -76,13 +76,11 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports:', preferredSports);
         
-        // Build query for team picks
+        // Build query for team picks - FIXED: Use bet_type instead of pick text
         let query = supabase
           .from('ai_predictions')
           .select('*')
-          .not('pick', 'ilike', '%over%')
-          .not('pick', 'ilike', '%under%')
-          .not('pick', 'ilike', '%total%')
+          .in('bet_type', ['moneyline', 'spread', 'total'])
           .order('created_at', { ascending: false })
           .limit(15);
         
@@ -131,9 +129,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         let query = supabase
           .from('ai_predictions')
           .select('*')
-          .not('pick', 'ilike', '%over%')
-          .not('pick', 'ilike', '%under%')
-          .not('pick', 'ilike', '%total%')
+          .in('bet_type', ['moneyline', 'spread', 'total'])
           .order('created_at', { ascending: false })
           .limit(10);
 
@@ -188,11 +184,11 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports for props:', preferredSports);
         
-        // Build query for player props picks
+        // Build query for player props picks - FIXED: Use bet_type instead of pick text
         let query = supabase
           .from('ai_predictions')
           .select('*')
-          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+          .eq('bet_type', 'player_prop')
           .order('created_at', { ascending: false })
           .limit(15);
         
@@ -241,7 +237,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         let query = supabase
           .from('ai_predictions')
           .select('*')
-          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+          .eq('bet_type', 'player_prop')
           .order('created_at', { ascending: false })
           .limit(10);
 

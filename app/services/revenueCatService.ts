@@ -526,17 +526,35 @@ class RevenueCatService {
         });
       }
 
+      // Determine subscription tier based on product ID - FIXED Elite detection
+      let subscriptionTier = 'free';
+      let maxDailyPicks = 2; // Default for free
+      
+      if (hasActiveSubscription && subscriptionProductId) {
+        // Check if it's an Elite subscription (contains 'allstar')
+        if (subscriptionProductId.includes('allstar')) {
+          subscriptionTier = 'elite';
+          maxDailyPicks = 30;
+        } else {
+          // All other active subscriptions are Pro
+          subscriptionTier = 'pro';
+          maxDailyPicks = 20;
+        }
+      }
+      
       console.log('📊 Subscription status determination:', {
         hasActiveSubscription,
         activeEntitlementName,
         subscriptionPlanType,
         subscriptionProductId,
-        willSetTier: hasActiveSubscription ? 'pro' : 'free'
+        detectedTier: subscriptionTier,
+        maxDailyPicks
       });
       
-      // Prepare update data
+      // Prepare update data with correct tier and max_daily_picks
       const updateData: any = {
-        subscription_tier: hasActiveSubscription ? 'pro' : 'free',
+        subscription_tier: subscriptionTier,
+        max_daily_picks: maxDailyPicks,
         subscription_status: subscriptionStatus,
         subscription_expires_at: subscriptionExpiresAt,
         revenuecat_customer_id: customerInfo.originalAppUserId,
