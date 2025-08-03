@@ -83,6 +83,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const initializeIAP = async () => {
     try {
       await revenueCatService.initialize();
+      await revenueCatService.refreshOfferings();
       const availablePackages = revenueCatService.getAvailablePackages();
       setPackages(availablePackages);
       console.log('📱 RevenueCat initialized, loaded packages:', availablePackages.length);

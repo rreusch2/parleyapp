@@ -730,6 +730,13 @@ class RevenueCatService {
   }
 
   /**
+   * Refresh offerings and packages cache (call this after making changes in RC dashboard)
+   */
+  public async refreshOfferings(): Promise<void> {
+    await this.loadOfferings();
+  }
+
+  /**
    * Get available packages
    */
   getAvailablePackages(): SubscriptionPackage[] {

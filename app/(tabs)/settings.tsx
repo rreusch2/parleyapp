@@ -518,7 +518,7 @@ export default function SettingsScreen() {
               console.log('✅ Successfully logged out');
               
               // Navigate to login screen
-              router.replace('/(auth)/login');
+              await router.replace('/(auth)/login');
               
             } catch (error) {
               console.error('Logout error:', error);
@@ -564,7 +564,7 @@ export default function SettingsScreen() {
               }
               
               // Navigate to login screen
-              router.replace('/(auth)/login');
+              await router.replace('/(auth)/login');
               
               Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
               
