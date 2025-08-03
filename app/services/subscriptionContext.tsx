@@ -4,7 +4,7 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
-import { AppEventsLogger } from 'react-native-fbsdk-next';
+
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -190,13 +190,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (result.success) {
         console.log('✅ DEBUG: Purchase completed successfully, now verifying status...');
         
-        // Log purchase event to Facebook
-        const purchasedPackage = revenueCatService.getPackageByPlan(planId);
-        if (purchasedPackage) {
-          AppEventsLogger.logPurchase(purchasedPackage.product.price, purchasedPackage.product.currencyCode, { 'planId': planId });
-        } else {
-          AppEventsLogger.logPurchase(1.00, 'USD', { 'planId': planId }); // Fallback
-        }
+
 
         // CRITICAL FIX: Remove optimistic update.
         // Instead of setting isPro(true) immediately, we rely on checkSubscriptionStatus
