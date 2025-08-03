@@ -694,10 +694,10 @@ router.get('/picks', async (req, res) => {
 
     logger.info(`📚 Fetching predictions for user ${userId} with tier ${userTier}`);
     
-    // First, check user's welcome bonus status and subscription tier
+    // First, check user's welcome bonus status, subscription tier, and sport preferences
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at, sport_preferences')
       .eq('id', userId)
       .single();
 
@@ -736,12 +736,12 @@ router.get('/picks', async (req, res) => {
       logger.info(`🎯 User status - New: ${isNewUser}, Welcome Bonus: ${welcomeBonusActive}, Tier: ${profile.subscription_tier}, Limit: ${actualPickLimit}`);
     }
     
-    // Get the latest 20 predictions - these are global picks shared by all users
+    // Get a larger pool of predictions to support Elite tier and sport filtering
     const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(100);  // Increased to 100 to support Elite tier (30 picks) + sport filtering
 
     if (error) {
       logger.error(`💥 Supabase error: ${error.message}`);
@@ -770,10 +770,39 @@ router.get('/picks', async (req, res) => {
       });
     }
 
-    logger.info(`📊 Found ${predictions.length} total predictions, limiting to ${actualPickLimit} for user`);
+    logger.info(`📊 Found ${predictions.length} total predictions, applying sport preferences and limiting to ${actualPickLimit} for user`);
 
-    // Apply tier-based limiting
-    const limitedPredictions = predictions.slice(0, actualPickLimit);
+    // Apply sport preference filtering
+    let filteredPredictions = predictions;
+    const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true };
+    
+    if (userSportPrefs && Object.keys(userSportPrefs).length > 0) {
+      const preferredSports = [];
+      if (userSportPrefs.mlb) preferredSports.push('MLB');
+      if (userSportPrefs.wnba) preferredSports.push('WNBA'); 
+      if (userSportPrefs.ufc) preferredSports.push('UFC');
+      
+      logger.info(`🎯 User preferred sports: ${preferredSports.join(', ')}`);
+      
+      if (preferredSports.length > 0) {
+        // Filter by preferred sports first
+        const preferredPicks = predictions.filter(p => preferredSports.includes(p.sport));
+        
+        // If we have enough picks from preferred sports, use those
+        if (preferredPicks.length >= actualPickLimit) {
+          filteredPredictions = preferredPicks;
+          logger.info(`✅ Found ${preferredPicks.length} picks from preferred sports`);
+        } else {
+          // Not enough from preferred sports - use preferred + fallback to others
+          const otherPicks = predictions.filter(p => !preferredSports.includes(p.sport));
+          filteredPredictions = [...preferredPicks, ...otherPicks];
+          logger.info(`⚖️ Using ${preferredPicks.length} preferred + ${Math.min(otherPicks.length, actualPickLimit - preferredPicks.length)} fallback picks`);
+        }
+      }
+    }
+
+    // Apply tier-based limiting after sport filtering
+    const limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
 
     // Transform database format to frontend format
     const formattedPredictions = limitedPredictions.map(prediction => ({

@@ -154,16 +154,16 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
+    def get_today_games(self) -> List[Dict[str, Any]]:
         try:
-            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
-            target_date = datetime(2025, 7, 29).date()
+            # Use current date instead of hardcoded date
+            target_date = datetime.now().date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for today: {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -175,15 +175,15 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
+                    logger.info(f"Found {len(response.data)} today {sport} games")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total tomorrow games across all sports: {len(all_games)}")
+            logger.info(f"Total today games across all sports: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
+            logger.error(f"Failed to fetch today games: {e}")
             return []
     
     def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
@@ -435,9 +435,9 @@ class IntelligentTeamsAgent:
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
     
-    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute picks across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
+    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 30) -> Dict[str, int]:
+        """Distribute team picks across sports for Elite tier support (30 total team picks)"""
+        sport_counts = {"MLB": 0, "WNBA": 0, "UFC": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
@@ -447,36 +447,65 @@ class IntelligentTeamsAgent:
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
-                sport_counts["MMA"] += 1
+                sport_counts["UFC"] += 1
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
-        distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0,     # MLB second
-            "MMA": 0  # No MMA for now, focus on WNBA + MLB
-        }
+        # Enhanced distribution for Elite tier: Generate more picks for larger pool
+        # Based on current data: MLB=17, WNBA=5, UFC=8 games available
+        total_games = sum(sport_counts.values())
+        if total_games == 0:
+            return {"MLB": 0, "WNBA": 0, "UFC": 0}
         
-        # Adjust if we don't have enough games in a sport
-        if distribution["WNBA"] > sport_counts["WNBA"]:
-            # If not enough WNBA games, give remaining to MLB
-            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
-            distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
-            
-        if distribution["MLB"] > sport_counts["MLB"]:
-            # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+        # Smart distribution based on available games and user preference variety
+        if sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0 and sport_counts["UFC"] > 0:
+            # All three sports available - distribute proportionally with good coverage
+            distribution = {
+                "MLB": min(sport_counts["MLB"] * 2, 18),     # ~60% (most common preference)
+                "WNBA": min(sport_counts["WNBA"] * 2, 8),    # ~25% (growing popularity)  
+                "UFC": min(sport_counts["UFC"], 4)           # ~15% (niche but valuable)
+            }
+        elif sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0:
+            # MLB + WNBA available
+            distribution = {
+                "MLB": min(sport_counts["MLB"] * 2, 20),
+                "WNBA": min(sport_counts["WNBA"] * 2, 10),
+                "UFC": 0
+            }
+        elif sport_counts["MLB"] > 0 and sport_counts["UFC"] > 0:
+            # MLB + UFC available
+            distribution = {
+                "MLB": min(sport_counts["MLB"] * 2, 22),
+                "UFC": min(sport_counts["UFC"], 8),
+                "WNBA": 0
+            }
+        elif sport_counts["WNBA"] > 0 and sport_counts["UFC"] > 0:
+            # WNBA + UFC available
+            distribution = {
+                "WNBA": min(sport_counts["WNBA"] * 2, 20),
+                "UFC": min(sport_counts["UFC"], 10),
+                "MLB": 0
+            }
+        elif sport_counts["MLB"] > 0:
+            # Only MLB available
+            distribution = {"MLB": min(sport_counts["MLB"] * 2, target_picks), "WNBA": 0, "UFC": 0}
+        elif sport_counts["WNBA"] > 0:
+            # Only WNBA available
+            distribution = {"MLB": 0, "WNBA": min(sport_counts["WNBA"] * 2, target_picks), "UFC": 0}
+        elif sport_counts["UFC"] > 0:
+            # Only UFC available
+            distribution = {"MLB": 0, "WNBA": 0, "UFC": min(sport_counts["UFC"], target_picks)}
+        else:
+            distribution = {"MLB": 0, "WNBA": 0, "UFC": 0}
         
-        logger.info(f"Pick distribution: {distribution}")
+        logger.info(f"Team picks distribution (for {target_picks} target): {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
+    async def generate_daily_picks(self, target_picks: int = 30) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport team analysis...")
         
-        games = self.db.get_tomorrow_games()  # Gets tomorrow's games only
-        logger.info(f"📅 Found {len(games)} tomorrow games across all sports")
+        games = self.db.get_today_games()  # Gets today's games
+        logger.info(f"📅 Found {len(games)} today games across all sports")
         
         if not games:
             logger.warning("No upcoming games found")
@@ -1511,15 +1540,21 @@ REMEMBER:
                 return "Unknown Pick Format Error"
 
 async def main():
-    logger.info("🤖 Starting Intelligent Teams Agent")
+    logger.info("🤖 Starting Intelligent Teams Agent - Elite Tier Support")
     
     agent = IntelligentTeamsAgent()
-    picks = await agent.generate_daily_picks(target_picks=10)
+    picks = await agent.generate_daily_picks(target_picks=30)  # Generate 30 team picks for Elite tier
     
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
+        # Group by sport for summary
+        mlb_picks = [p for p in picks if p["sport"] == "MLB"]
+        wnba_picks = [p for p in picks if p["sport"] == "WNBA"]
+        ufc_picks = [p for p in picks if p["sport"] == "UFC"]
+        logger.info(f"📊 Distribution: {len(mlb_picks)} MLB + {len(wnba_picks)} WNBA + {len(ufc_picks)} UFC = {len(picks)} total team picks")
+        
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
+            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%, Sport: {pick["sport"]})")
     else:
         logger.warning("❌ No picks generated")
 

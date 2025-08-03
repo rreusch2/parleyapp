@@ -204,17 +204,17 @@ class DatabaseClient:
             logger.warning(f"Could not convert odds value to int: {value}")
             return None
     
-    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
-        """Fetch games specifically for June 29th, 2025"""
+    def get_today_games(self) -> List[Dict[str, Any]]:
+        """Fetch games for today's date"""
         try:
-            # Fixed date: July 29th, 2025 (today - has both MLB and WNBA games)
-            target_date = datetime(2025, 7, 29).date()
+            # Use current date instead of hardcoded date
+            target_date = datetime.now().date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for June 29th, 2025: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for today: {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -226,16 +226,16 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} tomorrow {sport} games with potential props")
+                    logger.info(f"Found {len(response.data)} today {sport} games with potential props")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total tomorrow games for props: {len(all_games)}")
+            logger.info(f"Total today games for props: {len(all_games)}")
             
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch tomorrow games: {e}")
+            logger.error(f"Failed to fetch today games: {e}")
             return []
     
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
@@ -352,8 +352,8 @@ class IntelligentPlayerPropsAgent:
         game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
-    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 10) -> Dict[str, int]:
-        """Distribute props across sports: EXACTLY 3 WNBA + 7 MLB as requested"""
+    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 30) -> Dict[str, int]:
+        """Distribute props across sports: Generate 30 total props picks for Elite tier support"""
         sport_counts = {"MLB": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -366,31 +366,39 @@ class IntelligentPlayerPropsAgent:
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # EXACT distribution as requested: 3 WNBA + 7 MLB = 10 total
-        distribution = {
-            "WNBA": 3 if sport_counts["WNBA"] > 0 else 0,  # WNBA first (saved first to DB)
-            "MLB": 7 if sport_counts["MLB"] > 0 else 0     # MLB second
-        }
+        # Enhanced distribution for Elite tier: Generate more picks for larger pool
+        # Based on typical game availability: MLB has more games/props than WNBA
+        if sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0:
+            # Both sports available - distribute proportionally but ensure good coverage
+            distribution = {
+                "MLB": 20,    # More MLB picks (typically more games/props available)
+                "WNBA": 10    # Solid WNBA representation
+            }
+        elif sport_counts["MLB"] > 0:
+            # Only MLB available
+            distribution = {"MLB": 30, "WNBA": 0}
+        elif sport_counts["WNBA"] > 0:
+            # Only WNBA available
+            distribution = {"MLB": 0, "WNBA": 30}
+        else:
+            # No games available
+            distribution = {"MLB": 0, "WNBA": 0}
         
-        # Adjust if we don't have enough games in a sport
-        if distribution["WNBA"] > sport_counts["WNBA"]:
-            # If not enough WNBA games, give remaining to MLB
-            remaining_wnba = distribution["WNBA"] - sport_counts["WNBA"]
-            distribution["WNBA"] = sport_counts["WNBA"]
-            distribution["MLB"] += remaining_wnba
-            
-        if distribution["MLB"] > sport_counts["MLB"]:
-            # If not enough MLB games, cap at available
-            distribution["MLB"] = sport_counts["MLB"]
+        # Cap at available games (each game typically has 10-20 props)
+        max_mlb_picks = sport_counts["MLB"] * 15  # Conservative estimate
+        max_wnba_picks = sport_counts["WNBA"] * 12  # Conservative estimate
         
-        logger.info(f"Props distribution: {distribution}")
+        distribution["MLB"] = min(distribution["MLB"], max_mlb_picks)
+        distribution["WNBA"] = min(distribution["WNBA"], max_wnba_picks)
+        
+        logger.info(f"Props distribution (for {target_picks} target): {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 10) -> List[Dict[str, Any]]:
+    async def generate_daily_picks(self, target_picks: int = 30) -> List[Dict[str, Any]]:
         logger.info("🚀 Starting intelligent multi-sport player props analysis...")
         
-        games = self.db.get_tomorrow_games()
-        logger.info(f"📅 Found {len(games)} tomorrow games across MLB and WNBA")
+        games = self.db.get_today_games()
+        logger.info(f"📅 Found {len(games)} today games across MLB and WNBA")
         
         if not games:
             logger.warning("No upcoming games found")
@@ -1328,15 +1336,20 @@ REMEMBER:
         return f"{player_name} {prop_type} {recommendation} {line}" # Fallback
 
 async def main():
-    logger.info("🤖 Starting Intelligent Player Props Agent")
+    logger.info("🤖 Starting Intelligent Player Props Agent - Elite Tier Support")
     
     agent = IntelligentPlayerPropsAgent()
-    picks = await agent.generate_daily_picks(target_picks=10)
+    picks = await agent.generate_daily_picks(target_picks=30)  # Generate 30 props for Elite tier
     
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
+        # Group by sport for summary
+        mlb_picks = [p for p in picks if p["sport"] == "MLB"]
+        wnba_picks = [p for p in picks if p["sport"] == "WNBA"]
+        logger.info(f"📊 Distribution: {len(mlb_picks)} MLB + {len(wnba_picks)} WNBA = {len(picks)} total props")
+        
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%)")
+            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%, Sport: {pick["sport"]})")
     else:
         logger.warning("❌ No picks generated")
 
