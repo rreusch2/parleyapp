@@ -56,6 +56,9 @@ export async function savePushTokenToProfile(token: string, userId: string) {
 
     if (error) console.error('Error saving push token', error);
     else console.log('📲 Push token saved to Supabase');
+
+    // Automatic daily reminder at 9 AM local
+    await scheduleDailyReminder(9, 0);
   } catch (err) {
     console.error('Error in savePushTokenToProfile', err);
   }

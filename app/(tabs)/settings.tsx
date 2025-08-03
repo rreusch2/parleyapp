@@ -113,6 +113,27 @@ export default function SettingsScreen() {
   const [maxBetPercentage, setMaxBetPercentage] = useState(5);
   const [pushAlertsEnabled, setPushAlertsEnabled] = useState(true);
 
+  // Load initial push alerts setting
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('notification_settings')
+            .eq('id', user.id)
+            .single();
+          if (!error && data?.notification_settings) {
+            setPushAlertsEnabled(Boolean(data.notification_settings.push_alerts));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load notification settings', err);
+      }
+    })();
+  }, []);
+
   const [availableSports] = useState([
     { id: 1, name: 'Football' },
     { id: 2, name: 'Basketball' },
@@ -682,7 +703,7 @@ export default function SettingsScreen() {
     );
   };
 
-  // Toggle push alerts
+  // Toggle push alerts handler (single definition)
   const handleTogglePushAlerts = async (value: boolean) => {
     setPushAlertsEnabled(value);
     try {
