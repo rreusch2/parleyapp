@@ -90,14 +90,15 @@ export const SUBSCRIPTION_TIERS = {
     advancedProfessorLock: false,
     pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99 }
   },
-  allstar: { 
+  elite: { 
     picks: 30, 
     insights: 12, 
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: true,
     pricing: { weekly: 14.99, monthly: 29.99, yearly: 199.99 }
-  }
+  },
+
 };
 
 export interface PurchaseResult {

@@ -202,7 +202,7 @@ export default function SignupScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleSubscribe = async (planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'allstar_weekly' | 'allstar_monthly' | 'allstar_yearly') => {
+  const handleSubscribe = async (planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass') => {
     try {
       console.log(`🚀 User attempting to subscribe to ${planId} plan`);
       setLoading(true);

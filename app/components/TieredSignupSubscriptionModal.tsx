@@ -309,7 +309,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
         
         {currentTierPlans.map((plan) => {
           const isSelected = selectedPlan === plan;
-          const pricing = (SUBSCRIPTION_TIERS[selectedTier] as any).pricing;
+          const tierKey = selectedTier === 'elite' ? 'elite' : selectedTier;
+          const pricing = (SUBSCRIPTION_TIERS[tierKey] as any).pricing;
           
           let planName = '';
           let price = '';

@@ -268,7 +268,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         {currentTierPlans.map((plan) => {
           const isSelected = selectedPlan === plan;
           // Make sure we're using correct tier names
-          const tierKey = selectedTier === 'elite' ? 'allstar' : selectedTier;
+          const tierKey = selectedTier === 'elite' ? 'elite' : selectedTier;
           const pricing = (SUBSCRIPTION_TIERS[tierKey] as any).pricing;
           
           let planName = '';
