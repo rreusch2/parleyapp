@@ -75,33 +75,29 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports:', preferredSports);
         
-        // Build query for team picks
-        let query = supabase
+        // Get global picks and filter on frontend
+        const { data: allGlobalPicks, error } = await supabase
           .from('ai_predictions')
           .select('*')
-          .eq('user_id', user.id)
-          .not('pick', 'ilike', '%over%')
-          .not('pick', 'ilike', '%under%')
-          .not('pick', 'ilike', '%total%')
           .order('created_at', { ascending: false })
-          .limit(15);
+          .limit(100);
         
-        // If user has sport preferences, apply them as filter
+        let filteredPicks = allGlobalPicks || [];
+        
+        // Filter by user's preferred sports if they have any
         if (preferredSports.length > 0) {
-          // Use dynamic filter building
-          let filterString = '';
-          
-          preferredSports.forEach((sport, index) => {
-            if (index > 0) filterString += ',';
-            filterString += `sport.ilike.%${sport}%`;
+          filteredPicks = filteredPicks.filter(pick => {
+            const pickSport = pick.sport?.toUpperCase() || '';
+            return preferredSports.some(sport => pickSport.includes(sport));
           });
-          
-          if (filterString) {
-            query = query.or(filterString);
-          }
         }
         
-        const { data: picks, error } = await query;
+        // Filter for team picks and limit to 15
+        const picks = filteredPicks
+          .filter(pick => !(pick.pick?.toLowerCase().includes('over') || 
+                           pick.pick?.toLowerCase().includes('under') || 
+                           pick.pick?.toLowerCase().includes('total')))
+          .slice(0, 15);
         
         if (error) {
           console.error('Error fetching Elite team picks:', error);
@@ -159,31 +155,29 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports for props:', preferredSports);
         
-        // Build query for player props picks
-        let query = supabase
+        // Get global picks and filter on frontend
+        const { data: allGlobalPicks, error } = await supabase
           .from('ai_predictions')
           .select('*')
-          .eq('user_id', user.id)
-          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
           .order('created_at', { ascending: false })
-          .limit(15);
+          .limit(100);
         
-        // If user has sport preferences, apply them as filter
+        let filteredPicks = allGlobalPicks || [];
+        
+        // Filter by user's preferred sports if they have any
         if (preferredSports.length > 0) {
-          // Use dynamic filter building
-          let filterString = '';
-          
-          preferredSports.forEach((sport, index) => {
-            if (index > 0) filterString += ',';
-            filterString += `sport.ilike.%${sport}%`;
+          filteredPicks = filteredPicks.filter(pick => {
+            const pickSport = pick.sport?.toUpperCase() || '';
+            return preferredSports.some(sport => pickSport.includes(sport));
           });
-          
-          if (filterString) {
-            query = query.or(filterString);
-          }
         }
         
-        const { data: picks, error } = await query;
+        // Filter for player props picks and limit to 15
+        const picks = filteredPicks
+          .filter(pick => pick.pick?.toLowerCase().includes('over') || 
+                         pick.pick?.toLowerCase().includes('under') || 
+                         pick.pick?.toLowerCase().includes('total'))
+          .slice(0, 15);
         
         if (error) {
           console.error('Error fetching Elite player props picks:', error);
