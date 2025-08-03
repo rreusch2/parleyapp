@@ -197,15 +197,13 @@ class RevenueCatService {
       console.log('📦 Loading RevenueCat offerings...');
       
       const offerings = await Purchases.getOfferings();
-      let allPackages: any[] = [];
       
-      // Check default offering first
       if (offerings.current) {
         console.log('✅ Found default offering:', offerings.current.identifier);
         this.currentOffering = offerings.current;
         
-        // Convert packages to our format
-        const defaultPackages = this.currentOffering.availablePackages.map(pkg => ({
+        // Convert all packages to our format (Pro + Elite are all in default offering now)
+        this.packages = this.currentOffering.availablePackages.map(pkg => ({
           identifier: pkg.identifier,
           packageType: pkg.packageType,
           product: {
@@ -218,42 +216,10 @@ class RevenueCatService {
           },
         }));
         
-        allPackages = [...allPackages, ...defaultPackages];
-      }
-      
-      // Check for elite offering
-      if (offerings.all && offerings.all['elite']) {
-        console.log('✅ Found elite offering');
-        const eliteOffering = offerings.all['elite'];
-        
-        // If no default offering was found, use elite as current
-        if (!this.currentOffering) {
-          this.currentOffering = eliteOffering;
-        }
-        
-        // Convert elite packages to our format and add them
-        const elitePackages = eliteOffering.availablePackages.map(pkg => ({
-          identifier: pkg.identifier,
-          packageType: pkg.packageType,
-          product: {
-            identifier: pkg.product.identifier,
-            description: pkg.product.description,
-            title: pkg.product.title,
-            price: pkg.product.price,
-            priceString: pkg.product.priceString,
-            currencyCode: pkg.product.currencyCode,
-          },
-        }));
-        
-        allPackages = [...allPackages, ...elitePackages];
-      }
-      
-      if (allPackages.length > 0) {
-        this.packages = allPackages;
         console.log(`✅ Loaded ${this.packages.length} packages total:`, 
           this.packages.map(p => `${p.identifier} - ${p.product.priceString}`));
       } else {
-        console.warn('⚠️ No offerings found');
+        console.warn('⚠️ No current offering found');
         this.currentOffering = null;
         this.packages = [];
       }
