@@ -52,6 +52,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
 
   const fetchTeamPicks = async () => {
     if (teamPicks.length > 0) return; // Already loaded
+    if (!user?.id) return;
     
     setIsLoadingTeam(true);
     try {
@@ -75,29 +76,32 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports:', preferredSports);
         
-        // Get global picks and filter on frontend
-        const { data: allGlobalPicks, error } = await supabase
+        // Build query for team picks
+        let query = supabase
           .from('ai_predictions')
           .select('*')
+          .not('pick', 'ilike', '%over%')
+          .not('pick', 'ilike', '%under%')
+          .not('pick', 'ilike', '%total%')
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(15);
         
-        let filteredPicks = allGlobalPicks || [];
-        
-        // Filter by user's preferred sports if they have any
+        // If user has sport preferences, apply them as filter
         if (preferredSports.length > 0) {
-          filteredPicks = filteredPicks.filter(pick => {
-            const pickSport = pick.sport?.toUpperCase() || '';
-            return preferredSports.some(sport => pickSport.includes(sport));
+          // Use dynamic filter building
+          let filterString = '';
+          
+          preferredSports.forEach((sport, index) => {
+            if (index > 0) filterString += ',';
+            filterString += `sport.ilike.%${sport}%`;
           });
+          
+          if (filterString) {
+            query = query.or(filterString);
+          }
         }
         
-        // Filter for team picks and limit to 15
-        const picks = filteredPicks
-          .filter(pick => !(pick.pick?.toLowerCase().includes('over') || 
-                           pick.pick?.toLowerCase().includes('under') || 
-                           pick.pick?.toLowerCase().includes('total')))
-          .slice(0, 15);
+        const { data: picks, error } = await query;
         
         if (error) {
           console.error('Error fetching Elite team picks:', error);
@@ -107,19 +111,45 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         setTeamPicks(picks || []);
         console.log(`✅ Loaded ${picks?.length || 0} Elite team picks`);
       } else {
-        // Pro users: Use backend API (10 picks)
-        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-        const response = await fetch(`${baseUrl}/api/ai/team-picks?test=true`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setTeamPicks(data.picks);
-          console.log(`✅ Loaded ${data.picks.length} Pro team picks`);
-        } else {
-          console.error('Failed to load team picks:', data.error);
-          setTeamPicks([]); // Set to empty array instead of showing an alert
-          console.log('Setting empty team picks due to API error');
+        // Pro users: Get 10 team picks from Supabase with sport preferences
+        console.log('💎 Loading Pro team picks (10 picks)');
+
+        // Get user sport preferences
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences')
+          .eq('id', user.id)
+          .single();
+
+        const preferredSports = profile?.sport_preferences
+          ? Object.entries(profile.sport_preferences)
+              .filter(([sport, enabled]) => enabled)
+              .map(([sport]) => sport.toUpperCase())
+          : [];
+
+        let query = supabase
+          .from('ai_predictions')
+          .select('*')
+          .not('pick', 'ilike', '%over%')
+          .not('pick', 'ilike', '%under%')
+          .not('pick', 'ilike', '%total%')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (preferredSports.length > 0) {
+          const filterString = preferredSports.map(sport => `sport.ilike.%${sport}%`).join(',');
+          query = query.or(filterString);
         }
+
+        const { data: picks, error } = await query;
+
+        if (error) {
+          console.error('Error fetching Pro team picks:', error);
+          throw error;
+        }
+
+        setTeamPicks(picks || []);
+        console.log(`✅ Loaded ${picks?.length || 0} Pro team picks`);
       }
     } catch (error) {
       console.error('Error fetching team picks:', error);
@@ -132,6 +162,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
 
   const fetchPlayerPropsPicks = async () => {
     if (playerPropsPicks.length > 0) return; // Already loaded
+    if (!user?.id) return;
     
     setIsLoadingProps(true);
     try {
@@ -155,29 +186,30 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         
         console.log('🎯 User preferred sports for props:', preferredSports);
         
-        // Get global picks and filter on frontend
-        const { data: allGlobalPicks, error } = await supabase
+        // Build query for player props picks
+        let query = supabase
           .from('ai_predictions')
           .select('*')
+          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(15);
         
-        let filteredPicks = allGlobalPicks || [];
-        
-        // Filter by user's preferred sports if they have any
+        // If user has sport preferences, apply them as filter
         if (preferredSports.length > 0) {
-          filteredPicks = filteredPicks.filter(pick => {
-            const pickSport = pick.sport?.toUpperCase() || '';
-            return preferredSports.some(sport => pickSport.includes(sport));
+          // Use dynamic filter building
+          let filterString = '';
+          
+          preferredSports.forEach((sport, index) => {
+            if (index > 0) filterString += ',';
+            filterString += `sport.ilike.%${sport}%`;
           });
+          
+          if (filterString) {
+            query = query.or(filterString);
+          }
         }
         
-        // Filter for player props picks and limit to 15
-        const picks = filteredPicks
-          .filter(pick => pick.pick?.toLowerCase().includes('over') || 
-                         pick.pick?.toLowerCase().includes('under') || 
-                         pick.pick?.toLowerCase().includes('total'))
-          .slice(0, 15);
+        const { data: picks, error } = await query;
         
         if (error) {
           console.error('Error fetching Elite player props picks:', error);
@@ -187,19 +219,43 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         setPlayerPropsPicks(picks || []);
         console.log(`✅ Loaded ${picks?.length || 0} Elite player props picks`);
       } else {
-        // Pro users: Use backend API (10 picks)
-        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-        const response = await fetch(`${baseUrl}/api/ai/player-props-picks?test=true`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setPlayerPropsPicks(data.picks);
-          console.log(`✅ Loaded ${data.picks.length} Pro player props picks`);
-        } else {
-          console.error('Failed to load player props picks:', data.error);
-          setPlayerPropsPicks([]); // Set to empty array instead of showing an alert
-          console.log('Setting empty player props picks due to API error');
+        // Pro users: Get 10 player prop picks from Supabase with sport preferences
+        console.log('💎 Loading Pro player props picks (10 picks)');
+
+        // Get user sport preferences
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences')
+          .eq('id', user.id)
+          .single();
+
+        const preferredSports = profile?.sport_preferences
+          ? Object.entries(profile.sport_preferences)
+              .filter(([sport, enabled]) => enabled)
+              .map(([sport]) => sport.toUpperCase())
+          : [];
+
+        let query = supabase
+          .from('ai_predictions')
+          .select('*')
+          .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (preferredSports.length > 0) {
+          const filterString = preferredSports.map(sport => `sport.ilike.%${sport}%`).join(',');
+          query = query.or(filterString);
         }
+
+        const { data: picks, error } = await query;
+
+        if (error) {
+          console.error('Error fetching Pro player props picks:', error);
+          throw error;
+        }
+
+        setPlayerPropsPicks(picks || []);
+        console.log(`✅ Loaded ${picks?.length || 0} Pro player props picks`);
       }
     } catch (error) {
       console.error('Error fetching player props picks:', error);
@@ -220,6 +276,20 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
       fetchPlayerPropsPicks();
     }
   }, []);
+
+  // Re-fetch picks once we have a valid user ID (after auth)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Clear any existing picks then reload with proper user context
+    setTeamPicks([]);
+    setPlayerPropsPicks([]);
+
+    fetchTeamPicks();
+    if (isElite) {
+      fetchPlayerPropsPicks();
+    }
+  }, [user?.id]);
 
   // Load player props when tab is selected (for Pro users)
   useEffect(() => {
@@ -436,7 +506,7 @@ What are your thoughts on this prediction?`;
             <View style={styles.statItem}>
               <Text style={[
                 styles.statValue,
-                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
               ]}>
                 {isElite ? '30' : '20'}
               </Text>
@@ -449,7 +519,7 @@ What are your thoughts on this prediction?`;
             <View style={styles.statItem}>
               <Text style={[
                 styles.statValue,
-                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
               ]}>
                 {activeTab === 'team' ? teamPicks.length : playerPropsPicks.length}
               </Text>
@@ -464,7 +534,7 @@ What are your thoughts on this prediction?`;
             <View style={styles.statItem}>
               <Text style={[
                 styles.statValue,
-                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
               ]}>
                 {isElite ? 'ELITE' : 'PRO'}
               </Text>
