@@ -90,7 +90,8 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     return '#8B5CF6';                          // Purple for lower confidence (more appealing than gray)
   };
 
-  const getSportIcon = (sport: string) => {
+  const getSportIcon = (sport?: string) => {
+    if (!sport) return '🏟️';
     switch (sport.toLowerCase()) {
       case 'nba': return '🏀';
       case 'nfl': return '🏈';
@@ -191,7 +192,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
             <View style={styles.matchInfo}>
               <View style={styles.sportBadge}>
                 <Text style={styles.sportIcon}>{getSportIcon(prediction.sport)}</Text>
-                <Text style={styles.sportText}>{prediction.sport}</Text>
+                <Text style={styles.sportText}>{prediction.sport || 'Unknown'}</Text>
               </View>
               {/* Display the matchup – fall back to `match_teams` if `match` is missing (e.g., Pro picks) */}
               <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams}</Text>
