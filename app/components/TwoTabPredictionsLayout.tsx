@@ -56,9 +56,27 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     setIsLoadingTeam(true);
     try {
       if (isElite) {
-        // Elite users: Get 15 team picks from Supabase
+        // Elite users: Get 15 team picks from Supabase with sport preferences
         console.log('🏆 Loading Elite team picks (15 picks)');
-        const { data: picks, error } = await supabase
+        
+        // First get user's sport preferences
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences')
+          .eq('id', user.id)
+          .single();
+        
+        // Get preferred sports
+        const preferredSports = profile?.sport_preferences 
+          ? Object.entries(profile.sport_preferences)
+              .filter(([sport, enabled]) => enabled)
+              .map(([sport]) => sport.toUpperCase())
+          : [];
+        
+        console.log('🎯 User preferred sports:', preferredSports);
+        
+        // Build query for team picks
+        let query = supabase
           .from('ai_predictions')
           .select('*')
           .eq('user_id', user.id)
@@ -67,6 +85,23 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           .not('pick', 'ilike', '%total%')
           .order('created_at', { ascending: false })
           .limit(15);
+        
+        // If user has sport preferences, apply them as filter
+        if (preferredSports.length > 0) {
+          // Use dynamic filter building
+          let filterString = '';
+          
+          preferredSports.forEach((sport, index) => {
+            if (index > 0) filterString += ',';
+            filterString += `sport.ilike.%${sport}%`;
+          });
+          
+          if (filterString) {
+            query = query.or(filterString);
+          }
+        }
+        
+        const { data: picks, error } = await query;
         
         if (error) {
           console.error('Error fetching Elite team picks:', error);
@@ -86,12 +121,14 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           console.log(`✅ Loaded ${data.picks.length} Pro team picks`);
         } else {
           console.error('Failed to load team picks:', data.error);
-          Alert.alert('Error', 'Failed to load team picks');
+          setTeamPicks([]); // Set to empty array instead of showing an alert
+          console.log('Setting empty team picks due to API error');
         }
       }
     } catch (error) {
       console.error('Error fetching team picks:', error);
-      Alert.alert('Error', 'Network error loading team picks');
+      setTeamPicks([]); // Set to empty array instead of showing an alert
+      console.log('Setting empty team picks due to error:', error);
     } finally {
       setIsLoadingTeam(false);
     }
@@ -103,15 +140,50 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     setIsLoadingProps(true);
     try {
       if (isElite) {
-        // Elite users: Get 15 player props picks from Supabase
+        // Elite users: Get 15 player props picks from Supabase with sport preferences
         console.log('🏆 Loading Elite player props picks (15 picks)');
-        const { data: picks, error } = await supabase
+        
+        // First get user's sport preferences
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('sport_preferences')
+          .eq('id', user.id)
+          .single();
+        
+        // Get preferred sports
+        const preferredSports = profile?.sport_preferences 
+          ? Object.entries(profile.sport_preferences)
+              .filter(([sport, enabled]) => enabled)
+              .map(([sport]) => sport.toUpperCase())
+          : [];
+        
+        console.log('🎯 User preferred sports for props:', preferredSports);
+        
+        // Build query for player props picks
+        let query = supabase
           .from('ai_predictions')
           .select('*')
           .eq('user_id', user.id)
           .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
           .order('created_at', { ascending: false })
           .limit(15);
+        
+        // If user has sport preferences, apply them as filter
+        if (preferredSports.length > 0) {
+          // Use dynamic filter building
+          let filterString = '';
+          
+          preferredSports.forEach((sport, index) => {
+            if (index > 0) filterString += ',';
+            filterString += `sport.ilike.%${sport}%`;
+          });
+          
+          if (filterString) {
+            query = query.or(filterString);
+          }
+        }
+        
+        const { data: picks, error } = await query;
         
         if (error) {
           console.error('Error fetching Elite player props picks:', error);
@@ -131,25 +203,33 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           console.log(`✅ Loaded ${data.picks.length} Pro player props picks`);
         } else {
           console.error('Failed to load player props picks:', data.error);
-          Alert.alert('Error', 'Failed to load player props picks');
+          setPlayerPropsPicks([]); // Set to empty array instead of showing an alert
+          console.log('Setting empty player props picks due to API error');
         }
       }
     } catch (error) {
       console.error('Error fetching player props picks:', error);
-      Alert.alert('Error', 'Network error loading player props picks');
+      setPlayerPropsPicks([]); // Set to empty array instead of showing an alert
+      console.log('Setting empty player props picks due to error:', error);
     } finally {
       setIsLoadingProps(false);
     }
   };
 
-  // Load team picks by default
+  // Load both team picks and player props for Elite users
+  // Otherwise load team picks initially and props when tab is selected
   useEffect(() => {
     fetchTeamPicks();
+    
+    // For Elite users, pre-load props too
+    if (isElite) {
+      fetchPlayerPropsPicks();
+    }
   }, []);
 
-  // Load player props when tab is selected
+  // Load player props when tab is selected (for Pro users)
   useEffect(() => {
-    if (activeTab === 'props') {
+    if (!isElite && activeTab === 'props') {
       fetchPlayerPropsPicks();
     }
   }, [activeTab]);
@@ -227,25 +307,44 @@ What are your thoughts on this prediction?`;
     <TouchableOpacity
       style={[
         styles.tabButton,
-        activeTab === tab && styles.activeTabButton
+        activeTab === tab && [
+          styles.activeTabButton,
+          isElite && {
+            backgroundColor: '#FFD700',
+            borderColor: '#FFD700',
+            shadowColor: '#FFD700'
+          }
+        ]
       ]}
       onPress={() => setActiveTab(tab)}
     >
       <Text style={[
         styles.tabTitle,
-        activeTab === tab && styles.activeTabTitle
+        activeTab === tab && [
+          styles.activeTabTitle,
+          isElite && activeTab === tab && { color: '#000000' }
+        ]
       ]}>
         {title}
       </Text>
       <Text style={[
         styles.tabSubtitle,
-        activeTab === tab && styles.activeTabSubtitle
+        activeTab === tab && [
+          styles.activeTabSubtitle,
+          isElite && activeTab === tab && { color: 'rgba(0, 0, 0, 0.8)' }
+        ]
       ]}>
         {subtitle}
       </Text>
       {count > 0 && (
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>{count}</Text>
+        <View style={[
+          styles.countBadge,
+          isElite && { backgroundColor: '#FFD700', shadowColor: '#FFD700' }
+        ]}>
+          <Text style={[
+            styles.countText,
+            isElite && { color: '#000000' }
+          ]}>{count}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -308,7 +407,9 @@ What are your thoughts on this prediction?`;
     <View style={styles.container}>
       {/* Enhanced Premium Header */}
       <LinearGradient
-        colors={['#1E40AF', '#7C3AED', '#0F172A']}
+        colors={isElite 
+          ? ['#FFD700', '#FFA500', '#FF8C00'] 
+          : ['#1E40AF', '#7C3AED', '#0F172A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -320,33 +421,59 @@ What are your thoughts on this prediction?`;
           {/* Centered Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleContainer}>
-              <Crown size={20} color="#00E5FF" />
+              <Crown size={20} color={isElite ? '#FFD700' : '#00E5FF'} />
               <View style={styles.titleTextContainer}>
                 <Text style={styles.headerTitle}>{isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}</Text>
                 
               </View>
-              <Sparkles size={20} color="#00E5FF" />
+              <Sparkles size={20} color={isElite ? '#FFD700' : '#00E5FF'} />
             </View>
           </View>
           
           {/* Stats Row */}
-          <View style={styles.statsRow}>
+          <View style={[
+            styles.statsRow,
+            isElite && {
+              backgroundColor: 'rgba(255, 215, 0, 0.12)',
+              borderColor: 'rgba(255, 215, 0, 0.25)',
+              shadowColor: '#FFD700'
+            }
+          ]}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>20</Text>
+              <Text style={[
+                styles.statValue,
+                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+              ]}>
+                {isElite ? '30' : '20'}
+              </Text>
               <Text style={styles.statLabel}>Total Picks</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[
+              styles.statDivider,
+              isElite && { backgroundColor: 'rgba(255, 215, 0, 0.3)' }
+            ]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>
+              <Text style={[
+                styles.statValue,
+                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+              ]}>
                 {activeTab === 'team' ? teamPicks.length : playerPropsPicks.length}
               </Text>
               <Text style={styles.statLabel}>
                 {activeTab === 'team' ? 'Team Picks' : 'Player Props'}
               </Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[
+              styles.statDivider,
+              isElite && { backgroundColor: 'rgba(255, 215, 0, 0.3)' }
+            ]} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>PRO</Text>
+              <Text style={[
+                styles.statValue,
+                isElite && { color: '#FFD700', textShadowColor: 'rgba(255, 215, 0, 0.4)' }
+              ]}>
+                {isElite ? 'ELITE' : 'PRO'}
+              </Text>
               <Text style={styles.statLabel}>Tier</Text>
             </View>
           </View>
@@ -461,7 +588,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#00E5FF',
+    color: '#00E5FF', // Default color for Pro
     marginBottom: 2,
     textShadowColor: 'rgba(0, 229, 255, 0.4)',
     textShadowOffset: { width: 0, height: 1 },

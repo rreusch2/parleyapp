@@ -107,64 +107,76 @@ export default function PredictionsScreen() {
       
       console.log('🎯 User preferred sports:', preferredSports);
       
-      // Base query for all Elite predictions (don't filter by user_id for global predictions)
+      // Fetch 15 Team picks with sport preferences
       let teamQuery = supabase
         .from('ai_predictions')
         .select('*')
+        .eq('user_id', userId)
         .not('pick', 'ilike', '%over%')
         .not('pick', 'ilike', '%under%')
         .not('pick', 'ilike', '%total%')
-        .order('confidence', { ascending: false })  // Order by confidence for best picks
-        .order('created_at', { ascending: false });
-
-      let propQuery = supabase
+        .order('created_at', { ascending: false })
+        .limit(15);
+      
+      // Apply sport filters for team picks if preferences exist
+      if (preferredSports.length > 0) {
+        let sportFilters = '';
+        preferredSports.forEach((sport, index) => {
+          if (index > 0) sportFilters += ',';
+          sportFilters += `sport.ilike.%${sport}%`;
+        });
+        
+        if (sportFilters) {
+          teamQuery = teamQuery.or(sportFilters);
+        }
+      }
+      
+      const { data: teamPicks, error: teamError } = await teamQuery;
+      
+      if (teamError) {
+        console.error('Error fetching team picks:', teamError);
+        console.log('Will continue to try loading props...');
+        // Don't throw - we'll try to continue with props
+      }
+      
+      // Fetch 15 Prop picks with sport preferences
+      let propsQuery = supabase
         .from('ai_predictions')
         .select('*')
+        .eq('user_id', userId)
         .or('pick.ilike.%over%,pick.ilike.%under%,pick.ilike.%total%')
-        .order('confidence', { ascending: false })  // Order by confidence for best picks
-        .order('created_at', { ascending: false });
-
-      // Apply sport preferences if any are selected
+        .order('created_at', { ascending: false })
+        .limit(15);
+      
+      // Apply sport filters for props picks if preferences exist
       if (preferredSports.length > 0) {
-        const sportCondition = preferredSports.map(sport => `sport.ilike.%${sport}%`).join(',');
-        teamQuery = teamQuery.or(sportCondition);
-        propQuery = propQuery.or(sportCondition);
+        let sportFilters = '';
+        preferredSports.forEach((sport, index) => {
+          if (index > 0) sportFilters += ',';
+          sportFilters += `sport.ilike.%${sport}%`;
+        });
+        
+        if (sportFilters) {
+          propsQuery = propsQuery.or(sportFilters);
+        }
       }
       
-      // Fetch 15 Team picks and 15 Prop picks
-      const [teamResult, propResult] = await Promise.all([
-        teamQuery.limit(15),
-        propQuery.limit(15)
-      ]);
+      const { data: propPicks, error: propError } = await propsQuery;
       
-      if (teamResult.error) {
-        console.error('Error fetching team picks:', teamResult.error);
-        throw teamResult.error;
+      if (propError) {
+        console.error('Error fetching prop picks:', propError);
+        // Don't throw - we'll use whatever data we have
       }
       
-      if (propResult.error) {
-        console.error('Error fetching prop picks:', propResult.error);
-        throw propResult.error;
-      }
+      // Combine team picks and prop picks
+      const allPicks = [
+        ...(teamPicks || []), 
+        ...(propPicks || [])
+      ];
       
-      // Combine team and prop picks
-      const allPicks = [...(teamResult.data || []), ...(propResult.data || [])];
-      
-      // Remove duplicates by id
-      const uniquePicks = allPicks.filter((pick, index, self) => 
-        index === self.findIndex(p => p.id === pick.id)
-      );
-      
-      // Sort by confidence and created_at, then limit to 30
-      const sortedPicks = uniquePicks
-        .sort((a, b) => {
-          // First sort by confidence (higher is better)
-          if (b.confidence !== a.confidence) {
-            return (b.confidence || 0) - (a.confidence || 0);
-          }
-          // Then by creation time (newer is better)
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        })
+      // Sort by created_at and limit to 30
+      const sortedPicks = allPicks
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 30);
       
       // Transform to AIPrediction interface
@@ -184,43 +196,34 @@ export default function PredictionsScreen() {
       }));
       
       console.log(`🏆 Loaded ${transformedPredictions.length} Elite predictions (Target: 30)`);
-      console.log(`📊 Team picks: ${teamResult.data?.length || 0}, Prop picks: ${propResult.data?.length || 0}`);
       setPredictions(transformedPredictions);
       
     } catch (error) {
       console.error('Error loading Elite predictions:', error);
-      // Fallback to best available predictions without user-specific filtering
-      try {
-        const { data: fallbackPicks, error: fallbackError } = await supabase
-          .from('ai_predictions')
-          .select('*')
-          .order('confidence', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(30);
-        
-        if (!fallbackError && fallbackPicks) {
-          const transformedFallback: AIPrediction[] = fallbackPicks.map(pred => ({
-            id: pred.id,
-            match: pred.match_teams || 'Game Details Loading...',
-            pick: pred.pick,
-            odds: pred.odds,
-            confidence: pred.confidence,
-            sport: pred.sport,
-            eventTime: pred.event_time || pred.created_at,
-            reasoning: pred.reasoning || 'AI-generated prediction',
-            value: pred.value_percentage ? parseFloat(pred.value_percentage) : undefined,
-            roi_estimate: pred.roi_estimate ? parseFloat(pred.roi_estimate) : undefined,
-            status: pred.status as 'pending' | 'won' | 'lost',
-            created_at: pred.created_at
-          }));
-          console.log(`🔄 Elite fallback: Loaded ${transformedFallback.length} predictions`);
-          setPredictions(transformedFallback);
-        } else {
-          setPredictions([]);
-        }
-      } catch (fallbackError) {
-        console.error('Elite fallback also failed:', fallbackError);
-        setPredictions([]);
+      // Fallback to regular Pro logic if Elite loading fails
+      const { data: fallbackPicks, error: fallbackError } = await supabase
+        .from('ai_predictions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (!fallbackError && fallbackPicks) {
+        const transformedFallback: AIPrediction[] = fallbackPicks.map(pred => ({
+          id: pred.id,
+          match: pred.match_teams || 'Game Details Loading...',
+          pick: pred.pick,
+          odds: pred.odds,
+          confidence: pred.confidence,
+          sport: pred.sport,
+          eventTime: pred.event_time || pred.created_at,
+          reasoning: pred.reasoning || 'AI-generated prediction',
+          value: pred.value_percentage ? parseFloat(pred.value_percentage) : undefined,
+          roi_estimate: pred.roi_estimate ? parseFloat(pred.roi_estimate) : undefined,
+          status: pred.status as 'pending' | 'won' | 'lost',
+          created_at: pred.created_at
+        }));
+        setPredictions(transformedFallback);
       }
     }
   };
@@ -242,19 +245,18 @@ export default function PredictionsScreen() {
         // Elite users get 30 picks (15 Team, 15 Prop) filtered by preferences
         await loadElitePredictions();
       } else if (isPro) {
-        // Pro users get 20 best global predictions (not user-specific)
-        console.log('💎 Loading Pro predictions (20 best global picks)');
-        
+        // Pro users get 20 picks from ai_predictions table
         const { data: rawPredictions, error } = await supabase
           .from('ai_predictions')
           .select('*')
-          .order('confidence', { ascending: false })  // Order by confidence for best picks
+          .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(20);
 
         if (error) {
           console.error('Error fetching Pro predictions from database:', error);
-          // Don't throw error, instead use fallback 
+          // Don't throw error, instead use fallback like Elite users
+          // Try to load any existing predictions or show empty state gracefully
           setPredictions([]);
         } else {
           // Transform database records to AIPrediction interface
@@ -273,7 +275,7 @@ export default function PredictionsScreen() {
             created_at: pred.created_at
           }));
 
-          console.log(`🎯 Loaded ${transformedPredictions.length} Pro predictions from database`);
+          console.log(`🎯 Loaded ${transformedPredictions.length} predictions for Pro user from database`);
           setPredictions(transformedPredictions);
         }
       } else {
