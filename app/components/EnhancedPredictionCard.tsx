@@ -456,6 +456,12 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                     </View>
                   </View>
 
+                  {/* AI Reasoning Section */}
+                  <View style={styles.analysisSection}>
+                    <Text style={styles.factorTitle}>🧠 AI Reasoning</Text>
+                    <Text style={styles.factorText}>{prediction.reasoning}</Text>
+                  </View>
+
                   {/* Analysis Factors */}
                   <View style={styles.analysisSection}>
                     <Text style={styles.factorTitle}>📊 Predictive Analytics</Text>
