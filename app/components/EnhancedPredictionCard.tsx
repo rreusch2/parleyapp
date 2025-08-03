@@ -84,7 +84,8 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     }
   }, [isPro]);
 
-  const getConfidenceColor = (confidence: number) => {
+  const getConfidenceColor = (confidence?: number) => {
+    if (!confidence || typeof confidence !== 'number') return '#8B5CF6';
     if (confidence >= 85) return '#10B981';     // Green for high confidence
     if (confidence >= 70) return '#00E5FF';     // Cyan for medium confidence  
     return '#8B5CF6';                          // Purple for lower confidence (more appealing than gray)
@@ -101,7 +102,9 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     }
   };
 
-  const formatOdds = (odds: string) => {
+  const formatOdds = (odds?: string) => {
+    if (!odds || typeof odds !== 'string') return 'N/A';
+    
     // Handle cases where odds might already be formatted
     if (odds.startsWith('+') || odds.startsWith('-')) {
       return odds;
@@ -195,10 +198,10 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 <Text style={styles.sportText}>{prediction.sport || 'Unknown'}</Text>
               </View>
               {/* Display the matchup – fall back to `match_teams` if `match` is missing (e.g., Pro picks) */}
-              <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams}</Text>
+              <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams || 'Unknown Match'}</Text>
               <View style={styles.timeContainer}>
                 <Clock size={12} color="#94A3B8" />
-                <Text style={styles.eventTime}>{prediction.eventTime}</Text>
+                <Text style={styles.eventTime}>{prediction.eventTime || 'TBD'}</Text>
               </View>
             </View>
             
@@ -214,7 +217,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 styles.confidenceText, 
                 { color: getConfidenceColor(prediction.confidence) }
               ]}>
-                {prediction.confidence}%
+                {prediction.confidence || 0}%
               </Text>
             </View>
           </View>
@@ -223,7 +226,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
           <View style={styles.predictionContent}>
             <View style={styles.pickSection}>
               <Text style={styles.pickLabel}>AI Prediction</Text>
-              <Text style={styles.pickValue}>{prediction.pick}</Text>
+              <Text style={styles.pickValue}>{prediction.pick || 'Loading...'}</Text>
               <Text style={styles.oddsText}>Odds: {formatOdds(prediction.odds)}</Text>
             </View>
 
@@ -279,9 +282,12 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
               style={styles.reasoningText} 
               numberOfLines={showFullReasoning ? undefined : ((isPro || welcomeBonusActive) ? 4 : 2)}
             >
-              {(isPro || welcomeBonusActive) ? prediction.reasoning : `${prediction.reasoning.substring(0, 100)}...`}
+              {(isPro || welcomeBonusActive) ? 
+                (prediction.reasoning || 'AI analysis pending...') : 
+                `${(prediction.reasoning || 'AI analysis pending...').substring(0, 100)}...`
+              }
             </Text>
-            {(isPro || welcomeBonusActive) && prediction.reasoning.length > 200 && (
+            {(isPro || welcomeBonusActive) && (prediction.reasoning?.length || 0) > 200 && (
               <TouchableOpacity 
                 onPress={() => setShowFullReasoning(!showFullReasoning)}
                 style={styles.showMoreButton}
