@@ -80,12 +80,33 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
-    loadInitialData();
-    startSparkleAnimation();
+    let isMounted = true;
+    const abortController = new AbortController();
+    
+    const loadData = async () => {
+      if (!isMounted) return;
+      
+      try {
+        await loadInitialData(abortController.signal);
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.error('Failed to load dashboard data:', error);
+        }
+      }
+    };
+    
+    loadData();
+    const stopAnimation = startSparkleAnimation();
+    
+    return () => {
+      isMounted = false;
+      abortController.abort();
+      if (stopAnimation) stopAnimation();
+    };
   }, [isPro]); // Added isPro to dependencies
 
   const startSparkleAnimation = () => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(sparkleAnimation, {
           toValue: 1,
@@ -98,25 +119,44 @@ export default function HomeScreen() {
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    
+    animation.start();
+    
+    // Return cleanup function
+    return () => {
+      animation.stop();
+      sparkleAnimation.setValue(0);
+    };
   };
 
-  const loadInitialData = async () => {
+  const loadInitialData = async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    
     setLoading(true);
     try {
       // Check if user is new first
+      if (signal?.aborted) return;
       const newUserStatus = await aiService.isNewUser();
+      if (signal?.aborted) return;
       setIsNewUser(newUserStatus);
       
       // Fetch user preferences for Elite features
+      if (signal?.aborted) return;
       const { data: { user } } = await supabase.auth.getUser();
+      if (signal?.aborted) return;
+      
       if (user) {
         setUserId(user.id);
+        if (signal?.aborted) return;
+        
         const { data: profile } = await supabase
           .from('profiles')
           .select('sport_preferences, betting_style, risk_tolerance')
           .eq('id', user.id)
           .single();
+        
+        if (signal?.aborted) return;
         
         if (profile) {
           setUserPreferences({
@@ -127,21 +167,37 @@ export default function HomeScreen() {
         }
       }
       
-      // Load all data regardless of user status
-      await Promise.all([
-        fetchTodaysPicks(),
-        fetchUserStats()
+      // Load data with cancellation support
+      if (signal?.aborted) return;
+      
+      // Use Promise.allSettled instead of Promise.all to prevent cascading failures
+      const results = await Promise.allSettled([
+        fetchTodaysPicks(signal),
+        fetchUserStats(signal)
       ]);
+      
+      // Log any failures but don't crash
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`Data loading failed for operation ${index}:`, result.reason);
+        }
+      });
+      
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      if (!signal?.aborted) {
+        console.error('Error loading initial data:', error);
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 
 
 
-  const fetchTodaysPicks = async () => {
+  const fetchTodaysPicks = async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
     try {
       // Pass user context to get picks with welcome bonus logic
       const { data: { user } } = await supabase.auth.getUser();
@@ -233,7 +289,8 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchUserStats = async () => {
+  const fetchUserStats = async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
     try {
       const stats = await aiService.getUserStats();
       setUserStats(stats);
@@ -244,8 +301,19 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadInitialData();
-    setRefreshing(false);
+    const abortController = new AbortController();
+    
+    try {
+      await loadInitialData(abortController.signal);
+    } catch (error) {
+      if (!abortController.signal.aborted) {
+        console.error('Refresh failed:', error);
+      }
+    } finally {
+      if (!abortController.signal.aborted) {
+        setRefreshing(false);
+      }
+    }
   };
 
   const handlePickAnalyze = (pick: AIPrediction) => {

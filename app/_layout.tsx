@@ -7,6 +7,7 @@ import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 
@@ -54,9 +55,11 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <SubscriptionProvider>
-      <AppContent />
-    </SubscriptionProvider>
+    <ErrorBoundary>
+      <SubscriptionProvider>
+        <AppContent />
+      </SubscriptionProvider>
+    </ErrorBoundary>
   );
 }
 
