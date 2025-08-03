@@ -28,6 +28,7 @@ import {
   Activity,
   ChevronRight
 } from 'lucide-react-native';
+import { formatEventTime } from '../utils/timeFormat';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -273,7 +274,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                   {pick.eventTime && (
                     <View style={styles.gameTimeContainer}>
                       <Clock size={14} color="#00E5FF" />
-                      <Text style={styles.gameTime}>{pick.eventTime}</Text>
+                      <Text style={styles.gameTime}>{formatEventTime(pick.eventTime)}</Text>
                     </View>
                   )}
                   <Text style={styles.timeAgo}>{formatTimeAgo(pick.created_at)}</Text>

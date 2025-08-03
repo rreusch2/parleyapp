@@ -17,6 +17,12 @@ export interface AIPrediction {
   value?: number;
   value_percentage?: number;
   roi_estimate?: number;
+  kelly_stake?: number;
+  expected_value?: number;
+  risk_level?: string;
+  implied_probability?: number;
+  fair_odds?: string;
+  key_factors?: string[];
   status?: 'pending' | 'won' | 'lost';
   created_at?: string;
 }
@@ -221,10 +227,17 @@ class AIService {
               odds: pick.odds,
               confidence: pick.confidence,
               sport: pick.sport,
-              eventTime: pick.created_at || new Date().toISOString(),
+              eventTime: pick.event_time || pick.created_at || new Date().toISOString(),
               reasoning: pick.reasoning || 'AI-generated prediction',
               value: pick.value_percentage,
+              value_percentage: pick.value_percentage,
               roi_estimate: pick.roi_estimate,
+              kelly_stake: pick.kelly_stake,
+              expected_value: pick.expected_value,
+              risk_level: pick.risk_level,
+              implied_probability: pick.implied_probability,
+              fair_odds: pick.fair_odds,
+              key_factors: pick.key_factors,
               status: pick.status as 'pending' | 'won' | 'lost',
               created_at: pick.created_at
             };

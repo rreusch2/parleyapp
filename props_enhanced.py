@@ -274,15 +274,43 @@ class DatabaseClient:
                 if not reasoning and pred.get("metadata"):
                     reasoning = pred["metadata"].get("reasoning", "")
                 
-                roi_estimate_str = pred["metadata"].get("roi_estimate", "0%") if pred.get("metadata") else "0%"
-                value_percentage_str = pred["metadata"].get("value_percentage", "0%") if pred.get("metadata") else "0%"
+                metadata = pred.get("metadata", {})
+                roi_estimate_str = metadata.get("roi_estimate", "0%")
+                value_percentage_str = metadata.get("value_percentage", "0%")
+                implied_probability_str = metadata.get("implied_probability", "50%")
                 
                 try:
                     roi_estimate = float(roi_estimate_str.replace("%", "")) if roi_estimate_str else 0.0
                     value_percentage = float(value_percentage_str.replace("%", "")) if value_percentage_str else 0.0
+                    implied_probability = float(implied_probability_str.replace("%", "")) if implied_probability_str else 50.0
                 except (ValueError, AttributeError):
                     roi_estimate = 0.0
                     value_percentage = 0.0
+                    implied_probability = 50.0
+                
+                # Calculate Kelly stake for props
+                try:
+                    odds_value = float(str(pred.get("odds", 100)).replace("+", "").replace("-", ""))
+                    confidence = pred.get("confidence", 75)
+                    kelly_stake = max(0, min(10, (confidence/100 - 0.5) * 10))
+                except:
+                    kelly_stake = 2.5
+                
+                # Calculate expected value
+                try:
+                    confidence = pred.get("confidence", 75)
+                    expected_value = (confidence - 50) * 0.2
+                except:
+                    expected_value = 5.0
+                
+                # Determine risk level
+                confidence = pred.get("confidence", 75)
+                if confidence >= 80:
+                    risk_level = "Low"
+                elif confidence >= 65:
+                    risk_level = "Medium"
+                else:
+                    risk_level = "High"
                 
                 prediction_data = {
                     "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",
@@ -300,9 +328,18 @@ class DatabaseClient:
                     "prop_market_type": pred.get("prop_market_type") or pred.get("prop_type", ""),
                     "roi_estimate": roi_estimate,
                     "value_percentage": value_percentage,
+                    "kelly_stake": kelly_stake,
+                    "expected_value": expected_value,
+                    "risk_level": risk_level,
+                    "implied_probability": implied_probability,
+                    "fair_odds": metadata.get("fair_odds", pred.get("odds", 0)),
+                    "key_factors": metadata.get("key_factors", []),
                     "status": "pending",
-                    "metadata": pred.get("metadata", {})
+                    "metadata": metadata
                 }
+                
+                # Remove None values to avoid database errors
+                prediction_data = {k: v for k, v in prediction_data.items() if v is not None}
                 
                 self.supabase.table("ai_predictions").insert(prediction_data).execute()
                 
@@ -1022,7 +1059,7 @@ FORMAT RESPONSE AS JSON ARRAY:
     "line": line_value,
     "odds": american_odds_value,
     "confidence": confidence_percentage,
-    "reasoning": "2-3 sentence sharp analysis. Focus on key edge found.",
+    "reasoning": "4-6 sentence comprehensive analysis. Start with the key edge or advantage identified, explain the supporting data or trends that led to this conclusion, mention any relevant player/team factors, and conclude with why this represents value. Be specific about numbers, trends, or situational factors that support the pick.",
     "key_factors": ["factor_1", "factor_2", "factor_3"],
     "roi_estimate": "percentage like 8.5% or 12.3%",
     "value_percentage": "percentage like 15.2% or 22.8%",

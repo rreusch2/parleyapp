@@ -345,14 +345,42 @@ class DatabaseClient:
                 metadata = pred.get("metadata", {})
                 roi_estimate_str = metadata.get("roi_estimate", "0%")
                 value_percentage_str = metadata.get("value_percentage", "0%")
+                implied_probability_str = metadata.get("implied_probability", "50%")
                 
                 # Convert percentage strings to floats
                 try:
                     roi_estimate = float(str(roi_estimate_str).replace("%", "")) if roi_estimate_str else 0.0
                     value_percentage = float(str(value_percentage_str).replace("%", "")) if value_percentage_str else 0.0
+                    implied_probability = float(str(implied_probability_str).replace("%", "")) if implied_probability_str else 50.0
                 except (ValueError, AttributeError):
                     roi_estimate = 0.0
                     value_percentage = 0.0
+                    implied_probability = 50.0
+                
+                # Calculate Kelly stake (simplified Kelly criterion)
+                try:
+                    odds_value = float(str(pred.get("odds", 100)).replace("+", "").replace("-", ""))
+                    confidence = pred.get("confidence", 75)
+                    # Simple Kelly approximation: (confidence/100 - 0.5) * 10, capped at 10%
+                    kelly_stake = max(0, min(10, (confidence/100 - 0.5) * 10))
+                except:
+                    kelly_stake = 2.5
+                
+                # Calculate expected value based on confidence and odds
+                try:
+                    confidence = pred.get("confidence", 75)
+                    expected_value = (confidence - 50) * 0.2  # Simple EV calculation
+                except:
+                    expected_value = 5.0
+                
+                # Determine risk level based on confidence
+                confidence = pred.get("confidence", 75)
+                if confidence >= 80:
+                    risk_level = "Low"
+                elif confidence >= 65:
+                    risk_level = "Medium"
+                else:
+                    risk_level = "High"
                 
                 # Map to actual ai_predictions table schema
                 prediction_data = {
@@ -366,6 +394,12 @@ class DatabaseClient:
                     "reasoning": reasoning,
                     "value_percentage": value_percentage,
                     "roi_estimate": roi_estimate,
+                    "kelly_stake": kelly_stake,
+                    "expected_value": expected_value,
+                    "risk_level": risk_level,
+                    "implied_probability": implied_probability,
+                    "fair_odds": metadata.get("fair_odds", pred.get("odds", 0)),
+                    "key_factors": metadata.get("key_factors", []),
                     "status": "pending",
                     "game_id": str(pred.get("event_id", "")),
                     "bet_type": pred.get("bet_type", "moneyline"),
@@ -1077,7 +1111,7 @@ FORMAT RESPONSE AS JSON ARRAY:
     "line": line_value,
     "odds": american_odds_value,
     "confidence": confidence_percentage,
-    "reasoning": "2-3 sentence sharp analysis. Focus on key edge found.",
+    "reasoning": "4-6 sentence comprehensive analysis. Start with the key edge or advantage identified, explain the supporting data or trends that led to this conclusion, mention any relevant team/player factors, and conclude with why this represents value. Be specific about numbers, trends, or situational factors that support the pick.",
     "key_factors": ["factor_1", "factor_2", "factor_3"],
     "roi_estimate": "percentage like 8.5% or 12.3%",
     "value_percentage": "percentage like 15.2% or 22.8%",

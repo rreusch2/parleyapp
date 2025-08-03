@@ -435,9 +435,13 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
           <>
             {renderDailyMessage()}
             
-            {isPro ? (
-              /* Pro users see all insights */
-              insights.map(renderInsightCard)
+            {isPro || isElite ? (
+              /* Pro users see up to 8 insights, Elite users see up to 12 insights */
+              (() => {
+                const maxInsights = isElite ? 12 : 8;
+                const filteredInsights = insights.slice(0, maxInsights);
+                return filteredInsights.map(renderInsightCard);
+              })()
             ) : (
               /* Free users see 1 random insight + upgrade prompt */
               <>
