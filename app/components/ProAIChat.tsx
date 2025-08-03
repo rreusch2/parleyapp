@@ -955,6 +955,7 @@ export default function ProAIChat({
               setShowAIChat(false);
             }} 
             style={styles.closeButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <X size={24} color="#FFFFFF" />
           </TouchableOpacity>
@@ -964,10 +965,12 @@ export default function ProAIChat({
                 <Brain size={26} color="#FFFFFF" />
               </Animated.View>
               <Text style={styles.headerTitle}>{isElite ? 'Professor Lock Elite' : 'Professor Lock'}</Text>
-              <View style={styles.proBadge}>
-                <Sparkles size={12} color="#0F172A" />
-                <Text style={styles.proBadgeText}>AI</Text>
-              </View>
+              {!isElite && (
+                <View style={styles.proBadge}>
+                  <Sparkles size={12} color="#0F172A" />
+                  <Text style={styles.proBadgeText}>AI</Text>
+                </View>
+              )}
             </View>
           </View>
           <View style={styles.statusIndicator}>

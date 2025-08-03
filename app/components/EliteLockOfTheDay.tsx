@@ -27,7 +27,7 @@ import {
 import { supabase } from '../services/api/supabaseClient';
 import Colors from '../constants/Colors';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface LockOfTheDayPick {
   id: string;
@@ -279,13 +279,11 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
       <Modal
         visible={showAnalysisModal}
         animationType="slide"
-        presentationStyle="overFullScreen"
         transparent={true}
         onRequestClose={() => {
           console.log('📱 Modal onRequestClose triggered');
           setShowAnalysisModal(false);
         }}
-        statusBarTranslucent={true}
         onShow={() => console.log('📱 Modal onShow triggered')}
       >
         <TouchableOpacity 
@@ -513,16 +511,14 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    width: '100%',
-    height: '100%',
   },
   modalContainer: {
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '85%',
-    borderRadius: 20,
+    width: '100%',
+    height: screenHeight * 0.85,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
   },
   modalHeader: {

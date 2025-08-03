@@ -111,6 +111,8 @@ export default function SettingsScreen() {
   const [riskTolerance, setRiskTolerance] = useState('medium');
   const [bankroll, setBankroll] = useState('');
   const [maxBetPercentage, setMaxBetPercentage] = useState(5);
+  const [pushAlertsEnabled, setPushAlertsEnabled] = useState(true);
+
   const [availableSports] = useState([
     { id: 1, name: 'Football' },
     { id: 2, name: 'Basketball' },
@@ -680,6 +682,23 @@ export default function SettingsScreen() {
     );
   };
 
+  // Toggle push alerts
+  const handleTogglePushAlerts = async (value: boolean) => {
+    setPushAlertsEnabled(value);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ notification_settings: { push_alerts: value } })
+          .eq('id', user.id);
+        if (error) console.error('Error updating notification settings', error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const settingsSections = [
     {
       title: 'Account',
@@ -701,28 +720,6 @@ export default function SettingsScreen() {
           subtitle: 'Sports, betting style & pick distribution',
           action: () => setShowUserPreferencesModal(true)
         },
-        { 
-          id: 'payment', 
-          title: 'Payment History', 
-          type: 'link',
-          locked: !isPro,
-          action: () => {
-            if (!isPro) {
-              Alert.alert(
-                'Pro Feature 🌟',
-                'View your complete payment history with Pro.',
-                [
-                  { text: 'Maybe Later', style: 'cancel' },
-                  { 
-                    text: 'Upgrade to Pro', 
-                    onPress: () => openSubscriptionModal(),
-                    style: 'default'
-                  }
-                ]
-              );
-            }
-          }
-        },
         {
           id: 'restore',
           title: 'Restore Purchases',
@@ -743,18 +740,12 @@ export default function SettingsScreen() {
       icon: Bell,
       iconColor: '#F59E0B',
       items: [
-        { 
-          id: 'notifications_coming_soon', 
-          title: 'Notifications', 
-          type: 'coming-soon',
-          subtitle: 'Coming Soon',
-          action: () => {
-            Alert.alert(
-              'Coming Soon! 🔔',
-              'Notification preferences will be available in a future update. Stay tuned!',
-              [{ text: 'Got it!', style: 'default' }]
-            );
-          }
+        {
+          id: 'push_alerts',
+          title: 'Push Alerts',
+          type: 'toggle',
+          value: pushAlertsEnabled,
+          onToggle: handleTogglePushAlerts,
         },
       ]
     },
@@ -785,13 +776,8 @@ export default function SettingsScreen() {
           type: 'link'
         }] : [])),
         
-        { 
-          id: 'biometricLogin', 
-          title: 'Biometric Login', 
-          type: 'coming-soon',
-          subtitle: 'Coming Soon',
-          action: handleBiometricComingSoon
-        },
+        // Payment History removed per requirements
+        // Biometric Login removed per requirements
       ]
     },
     {
@@ -852,10 +838,10 @@ export default function SettingsScreen() {
         <View style={styles.settingRight}>
           {item.type === 'toggle' && !item.locked && (
             <Switch
-              value={false} // No toggle functionality for this section
-              onValueChange={() => {}}
+              value={item.value}
+              onValueChange={(val) => item.onToggle?.(val)}
               trackColor={{ false: '#374151', true: '#00E5FF' }}
-              thumbColor={false ? '#FFFFFF' : '#9CA3AF'}
+              thumbColor={item.value ? '#FFFFFF' : '#9CA3AF'}
             />
           )}
           {item.type === 'coming-soon' && (

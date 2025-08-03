@@ -9,6 +9,8 @@ import { SubscriptionProvider, useSubscription } from './services/subscriptionCo
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
+import { supabase } from './services/api/supabaseClient';
+import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 
 
 // Get device dimensions to adapt UI for iPad
@@ -22,6 +24,20 @@ function AppContent() {
   // Initialize review service on app startup
   useEffect(() => {
     initializeReview();
+    // Register push notifications
+    (async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            await savePushTokenToProfile(token, user.id);
+          }
+        }
+      } catch (err) {
+        console.error('Error during push notification registration', err);
+      }
+    })();
   }, [initializeReview]);
 
 
