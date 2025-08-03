@@ -123,7 +123,16 @@ export interface SubscriptionPackage {
 class RevenueCatService {
   private isInitialized = false;
   private currentOffering: PurchasesOffering | null = null;
+  /**
+   * Packages transformed for UI display (lightweight)
+   */
   private packages: SubscriptionPackage[] = [];
+  /**
+   * Raw RevenueCat package objects used for purchasing.
+   * We keep these separate so we always pass the correct object shape back to
+   * react-native-purchases when calling `purchasePackage`.
+   */
+  private rcPackages: PurchasesPackage[] = [];
 
   /**
    * Initialize RevenueCat SDK
@@ -202,8 +211,11 @@ class RevenueCatService {
         console.log('✅ Found default offering:', offerings.current.identifier);
         this.currentOffering = offerings.current;
         
-        // Convert all packages to our format (Pro + Elite are all in default offering now)
-        this.packages = this.currentOffering.availablePackages.map(pkg => ({
+        // Save raw RevenueCat package objects for purchasing
+        this.rcPackages = this.currentOffering.availablePackages;
+
+        // Create lightweight copies for UI display purposes only
+        this.packages = this.rcPackages.map(pkg => ({
           identifier: pkg.identifier,
           packageType: pkg.packageType,
           product: {
@@ -215,9 +227,9 @@ class RevenueCatService {
             currencyCode: pkg.product.currencyCode,
           },
         }));
-        
-        console.log(`✅ Loaded ${this.packages.length} packages total:`, 
-          this.packages.map(p => `${p.identifier} - ${p.product.priceString}`));
+
+        console.log(`✅ Loaded ${this.rcPackages.length} raw packages total:`);
+        this.rcPackages.forEach(p => console.log(`   • ${p.identifier} → ${p.product.identifier}`));
       } else {
         console.warn('⚠️ No current offering found');
         this.currentOffering = null;
@@ -309,7 +321,7 @@ class RevenueCatService {
    * Find the correct package for a subscription plan
    */
   private findPackageForPlan(planId: SubscriptionPlan): any {
-    if (!this.packages || this.packages.length === 0) {
+    if (!this.rcPackages || this.rcPackages.length === 0) {
       console.log('⚠️ No packages available to search');
       return null;
     }
@@ -337,7 +349,7 @@ class RevenueCatService {
     
     if (productId) {
       // Search in the combined packages list
-      const foundPackage = this.packages.find(pkg => pkg.product.identifier === productId);
+      const foundPackage = this.rcPackages.find(pkg => pkg.product.identifier === productId);
       if (foundPackage) {
         console.log('✅ Found package by product ID');
         return foundPackage;
@@ -354,7 +366,7 @@ class RevenueCatService {
       const isProPlan = planId.startsWith('pro_') || (!planId.startsWith('elite_') && !planId.startsWith('pro_'));
       
       // Filter packages based on plan type
-      const targetPackage = this.packages.find(pkg => {
+      const targetPackage = this.rcPackages.find(pkg => {
         if (pkg.packageType !== packageType) return false;
         
         const productId = pkg.product.identifier;
