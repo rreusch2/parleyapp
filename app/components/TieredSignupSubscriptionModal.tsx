@@ -56,11 +56,18 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onContinueFree,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_yearly'); // Default to Pro yearly
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime'); // Default to Pro lifetime
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const { subscribeToPro, restorePurchases } = useSubscription();
+
+  // Function to calculate original price (double current price for 50% off promo)
+  const getOriginalPrice = (currentPrice: string): string => {
+    const price = parseFloat(currentPrice.replace('$', ''));
+    const originalPrice = price * 2;
+    return `$${originalPrice.toFixed(2)}`;
+  };
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
@@ -151,7 +158,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_yearly');
+      setSelectedPlan('pro_lifetime');
     } else if (tier === 'elite') {
       setSelectedPlan('elite_yearly');
     }
@@ -301,7 +308,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
-      ? ['pro_yearly', 'pro_monthly', 'pro_weekly', 'pro_daypass']
+      ? ['pro_yearly', 'pro_monthly', 'pro_weekly', 'pro_daypass', 'pro_lifetime']
       : ['elite_yearly', 'elite_monthly', 'elite_weekly'];
 
     return (
@@ -338,6 +345,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             planName = 'Day Pass';
             price = '$4.99';
             period = 'for 24 hours';
+          } else if (plan.includes('lifetime')) {
+            planName = 'Lifetime';
+            price = `$${pricing.lifetime}`;
+            period = 'one time';
+            savings = 'Best Value';
           }
 
           return (
@@ -371,7 +383,12 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
                     <View style={styles.planNameContainer}>
-                      <Text style={styles.planName}>{planName}</Text>
+                      <View style={styles.planNameWithIcon}>
+                        {plan.includes('lifetime') && (
+                          <Infinity size={16} color="#F59E0B" style={{ marginRight: 4 }} />
+                        )}
+                        <Text style={styles.planName}>{planName}</Text>
+                      </View>
                       {isSelected && (
                         <View style={styles.selectedIndicator}>
                           <Check size={16} color="#0F172A" />
@@ -379,6 +396,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                       )}
                     </View>
                     <View style={styles.priceContainer}>
+                      {/* Show original price with strikethrough for 50% off promo */}
+                      <View style={styles.pricingRow}>
+                        <Text style={styles.originalPrice}>{getOriginalPrice(price)}</Text>
+                        <View style={styles.discountBadge}>
+                          <Text style={styles.discountText}>50% OFF</Text>
+                        </View>
+                      </View>
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
@@ -949,6 +973,33 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  // New styles for strikethrough pricing and 50% off promotion
+  pricingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  originalPrice: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+    marginRight: 8,
+  },
+  discountBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  discountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  planNameWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

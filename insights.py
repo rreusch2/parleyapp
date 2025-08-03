@@ -250,7 +250,7 @@ Now EXECUTE additional web research! Use your web search tool to find current in
 - Any breaking news affecting today's games
 - Recent team performance trends
 
-After gathering ALL the intel (StatMuse + web search), give me 7-9 actionable insights that bettors should know about today's games.
+After gathering ALL the intel (StatMuse + web search), give me 12-15 actionable insights that bettors should know about today's games.
 
 **Focus on INSIGHTS, not betting picks!** Things like:
 - "Rain expected in Philadelphia could favor under bets"
@@ -258,7 +258,7 @@ After gathering ALL the intel (StatMuse + web search), give me 7-9 actionable in
 - "Yankees bullpen overworked after 12-inning game yesterday"
 - "StatMuse shows this pitcher allows 40% more home runs on the road"
 
-**TARGET: 7-9 INSIGHTS** - Give me comprehensive intelligence that matters!
+**TARGET: 12-15 INSIGHTS** - Give me comprehensive intelligence that matters!
 
 Get me the real intelligence that matters!"""
 

@@ -180,7 +180,7 @@ const BettingStyleScreen: React.FC<BettingStyleScreenProps> = ({
                       <View style={styles.iconContainer}>
                         <Ionicons 
                           name={style.icon as any} 
-                          size={28} 
+                          size={24} 
                           color={isSelected ? '#fff' : '#00d4ff'} 
                         />
                       </View>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stylesContainer: {
-    gap: isTablet ? 24 : 16,
+    gap: isTablet ? 16 : 12,
     paddingHorizontal: isTablet ? 8 : 4,
     marginBottom: 20,
   },
@@ -296,18 +296,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   styleGradient: {
-    padding: isTablet ? 28 : 20,
+    padding: isTablet ? 20 : 16,
   },
   styleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(0, 212, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -318,24 +318,24 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   styleTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   styleDescription: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 16,
-    lineHeight: 22,
+    marginBottom: 12,
+    lineHeight: 20,
   },
   characteristicsContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   characteristicRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   bullet: {
     width: 4,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   styleFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
   },

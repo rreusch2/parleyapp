@@ -297,78 +297,90 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
             </View>
 
             <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              {/* Match Info */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>🏟️ Match Details</Text>
-                <Text style={styles.modalMatchText}>{lockPick.match_teams}</Text>
-                <Text style={styles.modalSportText}>{lockPick.sport || 'MLB'}</Text>
-              </View>
+              {lockPick ? (
+                <>
+                  {/* Match Info */}
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>🏟️ Match Details</Text>
+                    <Text style={styles.modalMatchText}>{lockPick.match_teams}</Text>
+                    <Text style={styles.modalSportText}>{lockPick.sport || 'MLB'}</Text>
+                  </View>
 
-              {/* Pick Info */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>🎯 Elite Pick</Text>
-                <View style={styles.modalPickRow}>
-                  <View style={styles.modalPickItem}>
-                    <Text style={styles.modalPickLabel}>SELECTION</Text>
-                    <Text style={styles.modalPickValue}>{lockPick.pick}</Text>
-                  </View>
-                  <View style={styles.modalPickItem}>
-                    <Text style={styles.modalPickLabel}>ODDS</Text>
-                    <Text style={styles.modalPickValue}>{lockPick.odds}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Analytics */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>📊 Elite Analytics</Text>
-                <View style={styles.modalAnalyticsGrid}>
-                  <View style={styles.modalAnalyticsItem}>
-                    <Text style={styles.modalAnalyticsLabel}>Confidence</Text>
-                    <Text style={[styles.modalAnalyticsValue, { color: getConfidenceColor(lockPick.confidence) }]}>
-                      {lockPick.confidence}%
-                    </Text>
-                    <Text style={styles.modalAnalyticsSubtext}>{getConfidenceLabel(lockPick.confidence)}</Text>
-                  </View>
-                  
-                  {lockPick.roi_estimate && (
-                    <View style={styles.modalAnalyticsItem}>
-                      <Text style={styles.modalAnalyticsLabel}>ROI Estimate</Text>
-                      <Text style={styles.modalAnalyticsValue}>{lockPick.roi_estimate}</Text>
-                      <Text style={styles.modalAnalyticsSubtext}>Expected Return</Text>
+                  {/* Pick Info */}
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>🎯 Elite Pick</Text>
+                    <View style={styles.modalPickRow}>
+                      <View style={styles.modalPickItem}>
+                        <Text style={styles.modalPickLabel}>SELECTION</Text>
+                        <Text style={styles.modalPickValue}>{lockPick.pick}</Text>
+                      </View>
+                      <View style={styles.modalPickItem}>
+                        <Text style={styles.modalPickLabel}>ODDS</Text>
+                        <Text style={styles.modalPickValue}>{lockPick.odds}</Text>
+                      </View>
                     </View>
-                  )}
-                  
-                  {lockPick.value_percentage && (
-                    <View style={styles.modalAnalyticsItem}>
-                      <Text style={styles.modalAnalyticsLabel}>Value Edge</Text>
-                      <Text style={styles.modalAnalyticsValue}>{lockPick.value_percentage}</Text>
-                      <Text style={styles.modalAnalyticsSubtext}>Market Advantage</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Reasoning */}
-              {lockPick.reasoning && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>🧠 Elite AI Analysis</Text>
-                  <View style={styles.modalReasoningContainer}>
-                    <Text style={styles.modalReasoningText}>{lockPick.reasoning}</Text>
                   </View>
+                </>
+              ) : (
+                <View style={styles.modalLoadingContainer}>
+                  <Text style={styles.modalLoadingText}>Loading Elite Lock analysis...</Text>
                 </View>
               )}
 
-              {/* Bet Type */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>📋 Bet Classification</Text>
-                <View style={styles.modalBetTypeContainer}>
-                  <Text style={styles.modalBetTypeText}>{lockPick.bet_type.toUpperCase()}</Text>
-                </View>
-              </View>
+              {lockPick && (
+                <>
+                  {/* Analytics */}
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>📊 Elite Analytics</Text>
+                    <View style={styles.modalAnalyticsGrid}>
+                      <View style={styles.modalAnalyticsItem}>
+                        <Text style={styles.modalAnalyticsLabel}>Confidence</Text>
+                        <Text style={[styles.modalAnalyticsValue, { color: getConfidenceColor(lockPick.confidence) }]}>
+                          {lockPick.confidence}%
+                        </Text>
+                        <Text style={styles.modalAnalyticsSubtext}>{getConfidenceLabel(lockPick.confidence)}</Text>
+                      </View>
+                      
+                      {lockPick.roi_estimate && (
+                        <View style={styles.modalAnalyticsItem}>
+                          <Text style={styles.modalAnalyticsLabel}>ROI Estimate</Text>
+                          <Text style={styles.modalAnalyticsValue}>{lockPick.roi_estimate}</Text>
+                          <Text style={styles.modalAnalyticsSubtext}>Expected Return</Text>
+                        </View>
+                      )}
+                      
+                      {lockPick.value_percentage && (
+                        <View style={styles.modalAnalyticsItem}>
+                          <Text style={styles.modalAnalyticsLabel}>Value Edge</Text>
+                          <Text style={styles.modalAnalyticsValue}>{lockPick.value_percentage}</Text>
+                          <Text style={styles.modalAnalyticsSubtext}>Market Advantage</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
 
-              {/* Bottom Spacing */}
-              <View style={{ height: 40 }} />
+                  {/* Reasoning */}
+                  {lockPick.reasoning && (
+                    <View style={styles.modalSection}>
+                      <Text style={styles.modalSectionTitle}>🧠 Elite AI Analysis</Text>
+                      <View style={styles.modalReasoningContainer}>
+                        <Text style={styles.modalReasoningText}>{lockPick.reasoning}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Bet Type */}
+                  <View style={styles.modalSection}>
+                    <Text style={styles.modalSectionTitle}>📋 Bet Classification</Text>
+                    <View style={styles.modalBetTypeContainer}>
+                      <Text style={styles.modalBetTypeText}>{lockPick.bet_type.toUpperCase()}</Text>
+                    </View>
+                  </View>
+
+                  {/* Bottom Spacing */}
+                  <View style={{ height: 40 }} />
+                </>
+              )}
             </ScrollView>
             </LinearGradient>
           </View>

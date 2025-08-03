@@ -56,7 +56,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   onSubscribe,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro');
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly');
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime');
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -146,7 +146,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_weekly');
+      setSelectedPlan('pro_lifetime');
     } else if (tier === 'elite') {
       setSelectedPlan('elite_weekly');
     }
@@ -261,7 +261,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
-      ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass']
+      ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
       : ['elite_weekly', 'elite_monthly', 'elite_yearly'];
 
     return (
@@ -297,6 +297,11 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             planName = 'Day Pass';
             price = `$${pricing.daypass}`;
             period = 'one day';
+          } else if (plan.includes('lifetime')) {
+            planName = 'Lifetime';
+            price = `$${pricing.lifetime}`;
+            period = 'one time';
+            savings = 'Best Value';
           }
 
           return (
@@ -330,7 +335,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
                     <View style={styles.planNameContainer}>
-                      <Text style={styles.planName}>{planName}</Text>
+                      <View style={styles.planNameWithIcon}>
+                        {plan.includes('lifetime') && (
+                          <Infinity size={16} color="#F59E0B" style={{ marginRight: 4 }} />
+                        )}
+                        <Text style={styles.planName}>{planName}</Text>
+                      </View>
                       {isSelected && (
                         <View style={styles.selectedIndicator}>
                           <Check size={16} color="#0F172A" />
@@ -887,6 +897,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  planNameWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

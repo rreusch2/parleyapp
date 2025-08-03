@@ -141,10 +141,14 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
               </Text>
               <View style={styles.bulletPoints}>
                 <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Free Tier:</Text> Limited daily picks and basic features</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Weekly Pro:</Text> $12.49/week, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $24.99/month, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $199.99/year, auto-renewable</Text>
-                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Lifetime Pro:</Text> $349.99 one-time payment</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Pro Day Pass:</Text> $4.99 (24-hour access, non-renewable)</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Weekly Pro:</Text> $9.99/week, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Pro:</Text> $19.99/month, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Pro:</Text> $149.99/year, auto-renewable (3-day free trial)</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Lifetime Pro:</Text> $399.99 one-time payment</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Weekly Elite:</Text> $14.99/week, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Monthly Elite:</Text> $29.99/month, auto-renewable</Text>
+                <Text style={styles.bulletPoint}>&bull; <Text style={styles.bold}>Yearly Elite:</Text> $199.99/year, auto-renewable (3-day free trial)</Text>
               </View>
               <Text style={styles.sectionText}>
                 Subscription fees are charged through your app store account. Cancellation policies follow your platform&apos;s standard terms. No refunds for partial periods.

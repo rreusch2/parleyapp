@@ -466,7 +466,7 @@ export default function HomeScreen() {
                   <Text style={styles.statValue}>
                     {isPro ? (isElite ? '73%' : '73%') : '?'}
                   </Text>
-                  <Text style={styles.statLabel}>Win Rate</Text>
+                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Win Rate</Text>
                   {!isPro && (
                     <View style={styles.lockOverlay}>
                       <Lock size={16} color="#64748B" />
@@ -482,7 +482,7 @@ export default function HomeScreen() {
                   <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue]}>
                     {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
-                  <Text style={[styles.statLabel, styles.centerStatLabel]}>
+                  <Text style={[styles.statLabel, styles.centerStatLabel, isElite && styles.eliteCenterStatLabel]}>
                     {isElite ? 'Elite Picks' : isPro ? 'Pro Picks' : 'Daily Picks'}
                   </Text>
                   {(welcomeBonusActive || homeIsNewUser) && !isPro && (
@@ -500,7 +500,7 @@ export default function HomeScreen() {
                   <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? '#FFD700' : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
                     {isPro ? userStats.roi : '?'}
                   </Text>
-                  <Text style={styles.statLabel}>ROI</Text>
+                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
                   {!isPro && (
                     <View style={styles.lockOverlay}>
                       <Lock size={16} color="#64748B" />
@@ -1429,5 +1429,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginHorizontal: 8,
+  },
+  // Elite-specific styles for better text readability against yellow background
+  eliteStatLabel: {
+    color: '#1E293B', // Dark color for readability against yellow background
+    fontWeight: '600',
+  },
+  eliteCenterStatLabel: {
+    color: '#0F172A', // Even darker for better contrast on the center stat
+    fontWeight: '700',
   },
 });

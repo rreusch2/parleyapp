@@ -26,6 +26,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_monthly: 'com.parleyapp.premium_monthly', 
     pro_yearly: 'com.parleyapp.premiumyearly',
     pro_daypass: 'com.parleyapp.prodaypass',
+    pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect)
     elite_weekly: 'com.parleyapp.allstarweekly',
     elite_monthly: 'com.parleyapp.allstarmonthly', 
@@ -42,6 +43,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_monthly: 'com.parleyapp.pro_monthly:monthly-pro2025',
     pro_yearly: 'com.parleyapp.pro_yearly:yearly-pro2025',
     pro_daypass: 'com.parleyapp.pro_daypass',
+    pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect base IDs)
     elite_weekly: 'com.parleyapp.allstarweekly:weekly-elite2025',
     elite_monthly: 'com.parleyapp.allstarmonthly:monthly-elite2025',
@@ -58,6 +60,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
   pro_monthly: 'com.parleyapp.pro_monthly',
   pro_yearly: 'com.parleyapp.pro_yearly',
   pro_daypass: 'com.parleyapp.pro_daypass',
+  pro_lifetime: 'com.parleyapp.premium_lifetime',
   // Elite Tier (matching App Store Connect)
   elite_weekly: 'com.parleyapp.allstarweekly',
   elite_monthly: 'com.parleyapp.allstarmonthly',
@@ -71,7 +74,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
 
 // Subscription tiers and plans
 export type SubscriptionTier = 'free' | 'pro' | 'elite';
-export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'pro_lifetime' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
 
 // Tier configuration
 export const SUBSCRIPTION_TIERS = {
@@ -88,7 +91,7 @@ export const SUBSCRIPTION_TIERS = {
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: false,
-    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99 }
+    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99, lifetime: 199.99 }
   },
   elite: { 
     picks: 30, 
