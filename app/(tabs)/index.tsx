@@ -578,20 +578,6 @@ export default function HomeScreen() {
               <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
-              {/* Only show header button for Pro users, not Elite */}
-              {!isElite && (
-                <TouchableOpacity 
-                  style={styles.viewAllButton}
-                  onPress={() => {
-                    router.push('/(tabs)/predictions');
-                  }}
-                >
-                  <Text style={styles.viewAllText}>
-                    View All 20 Picks
-                  </Text>
-                  <ChevronRight size={16} color="#00E5FF" />
-                </TouchableOpacity>
-              )}
             </View>
             
             <ProAIPicksDisplay 
@@ -619,6 +605,27 @@ export default function HomeScreen() {
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
+            
+            {/* Pro: Add View All button below preview cards */}
+            {!isElite && (
+              <TouchableOpacity 
+                style={styles.proViewAllButtonBelow}
+                onPress={() => {
+                  router.push('/(tabs)/predictions');
+                }}
+              >
+                <LinearGradient
+                  colors={['#00E5FF', '#0EA5E9']}
+                  style={styles.proViewAllGradient}
+                >
+                  <Brain size={16} color="#000000" />
+                  <Text style={styles.proViewAllButtonText}>
+                    View All 20 Picks
+                  </Text>
+                  <ChevronRight size={16} color="#000000" />
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
             
             {/* Elite: Add View All button below preview cards */}
             {isElite && (
@@ -1374,6 +1381,30 @@ const styles = StyleSheet.create({
   },
   eliteViewAllText: {
     color: '#FFD700',
+  },
+  proViewAllButtonBelow: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  proViewAllGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  proViewAllButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+    marginHorizontal: 8,
   },
   eliteViewAllButtonBelow: {
     marginTop: 16,

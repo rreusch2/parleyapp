@@ -3,14 +3,16 @@ import json
 import logging
 import asyncio
 import requests
+import argparse
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
+import re # Added for JSON fixing
 
 # Load environment variables
 load_dotenv("backend/.env")
@@ -166,33 +168,42 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
+    def get_games_for_date(self, target_date: datetime.date) -> List[Dict[str, Any]]:
         try:
-            now = datetime.now().isoformat()
-            future = (datetime.now() + timedelta(hours=hours_ahead)).isoformat()
+            start_dt = datetime.combine(target_date, datetime.min.time())
+            end_dt = start_dt + timedelta(days=1)
+            start_iso = start_dt.isoformat()
+            end_iso = end_dt.isoformat()
             
-            # Fetch games from all supported sports
+            logger.info(f"Fetching games for {target_date} ({start_iso} to {end_iso})")
+            
+            # Fetch games from MLB and WNBA only - as per requirements (only these have player props)
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
+            sports = ["Major League Baseball", "Women's National Basketball Association"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gt("start_time", now).lt("start_time", future).eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games with potential props")
+                    logger.info(f"Found {len(response.data)} {sport} games for {target_date}")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total upcoming games for props: {len(all_games)}")
-            
+            logger.info(f"Total games for {target_date}: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
+            logger.error(f"Failed to fetch games for {target_date}: {e}")
             return []
+
+    def get_upcoming_games(self, target_date: Optional[datetime.date] = None) -> List[Dict[str, Any]]:
+        """Fetch games for the specified date (defaults to today)"""
+        if target_date is None:
+            target_date = datetime.now().date()
+        
+        return self.get_games_for_date(target_date)
     
     def _safe_int_convert(self, value) -> Optional[int]:
         """Safely convert a value to int, handling strings and None"""
@@ -204,39 +215,10 @@ class DatabaseClient:
             logger.warning(f"Could not convert odds value to int: {value}")
             return None
     
-    def get_today_games(self) -> List[Dict[str, Any]]:
-        """Fetch games for today's date"""
-        try:
-            # Use current date instead of hardcoded date
-            target_date = datetime.now().date()
-            start_dt = datetime.combine(target_date, datetime.min.time())
-            end_dt = start_dt + timedelta(days=1)
-            start_iso = start_dt.isoformat()
-            end_iso = end_dt.isoformat()
-            
-            logger.info(f"Fetching games for today: {target_date} ({start_iso} to {end_iso})")
-            
-            # Fetch games from all supported sports - using correct sport names from database
-            all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]  # Only MLB and WNBA have player props, UFC doesn't
-            
-            for sport in sports:
-                response = self.supabase.table("sports_events").select(
-                    "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
-                
-                if response.data:
-                    logger.info(f"Found {len(response.data)} today {sport} games with potential props")
-                    all_games.extend(response.data)
-            
-            # Sort all games by start time
-            all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total today games for props: {len(all_games)}")
-            
-            return all_games
-        except Exception as e:
-            logger.error(f"Failed to fetch today games: {e}")
-            return []
+    def get_tomorrow_games(self) -> List[Dict[str, Any]]:
+        """Fetch games for tomorrow"""
+        tomorrow_date = datetime.now().date() + timedelta(days=1)
+        return self.get_games_for_date(tomorrow_date)
     
     def get_player_props_for_games(self, game_ids: List[str]) -> List[PlayerProp]:
         if not game_ids:
@@ -343,17 +325,18 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
-        return self.db.get_upcoming_games(hours_ahead=48)
+        return self.db.get_upcoming_games(hours_ahead=24)  # Changed to 24 hours (just today)
     
     async def fetch_player_props(self) -> List[PlayerProp]:
-        games = self.db.get_upcoming_games(hours_ahead=48)
+        # Changed to use get_upcoming_games which now only gets today's games
+        games = self.db.get_upcoming_games(hours_ahead=24)  # Only today's games
         if not games:
             return []
         game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
-    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 30) -> Dict[str, int]:
-        """Distribute props across sports: Generate 30 total props picks for Elite tier support"""
+    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 40) -> Dict[str, int]:
+        """Generate abundant player props across all available sports for frontend filtering"""
         sport_counts = {"MLB": 0, "WNBA": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -366,45 +349,68 @@ class IntelligentPlayerPropsAgent:
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # Enhanced distribution for Elite tier: Generate more picks for larger pool
-        # Based on typical game availability: MLB has more games/props than WNBA
-        if sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0:
-            # Both sports available - distribute proportionally but ensure good coverage
-            distribution = {
-                "MLB": 20,    # More MLB picks (typically more games/props available)
-                "WNBA": 10    # Solid WNBA representation
-            }
-        elif sport_counts["MLB"] > 0:
-            # Only MLB available
-            distribution = {"MLB": 30, "WNBA": 0}
-        elif sport_counts["WNBA"] > 0:
-            # Only WNBA available
-            distribution = {"MLB": 0, "WNBA": 30}
-        else:
-            # No games available
-            distribution = {"MLB": 0, "WNBA": 0}
+        # Generate abundant props per sport (frontend will filter based on user preferences and tier)
+        # Target: 15-20 props per available sport to ensure enough for all tiers
+        distribution = {}
         
-        # Cap at available games (each game typically has 10-20 props)
-        max_mlb_picks = sport_counts["MLB"] * 15  # Conservative estimate
-        max_wnba_picks = sport_counts["WNBA"] * 12  # Conservative estimate
+        for sport, game_count in sport_counts.items():
+            if game_count > 0:
+                # Generate 15-20 props per sport if games are available
+                # Player props can have multiple per game (multiple players, multiple prop types)
+                max_props_for_sport = min(20, game_count * 6)  # Up to 6 props per game
+                distribution[sport] = max_props_for_sport
+            else:
+                distribution[sport] = 0
         
-        distribution["MLB"] = min(distribution["MLB"], max_mlb_picks)
-        distribution["WNBA"] = min(distribution["WNBA"], max_wnba_picks)
-        
-        logger.info(f"Props distribution (for {target_picks} target): {distribution}")
+        logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 30) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent multi-sport player props analysis...")
+    def _format_sport_distribution_requirements(self, sport_distribution: Dict[str, int], target_picks: int) -> str:
+        """Generate dynamic prop distribution requirements based on available sports and games"""
+        if not sport_distribution:
+            return f"- Generate EXACTLY {target_picks} total props across all available sports"
         
-        games = self.db.get_today_games()
-        logger.info(f"📅 Found {len(games)} today games across MLB and WNBA")
+        # Filter out sports with 0 props
+        active_sports = {sport: props for sport, props in sport_distribution.items() if props > 0}
+        
+        if not active_sports:
+            return f"- Generate EXACTLY {target_picks} total props across all available sports"
+        
+        requirements = []
+        total_expected = sum(active_sports.values())
+        
+        # Generate requirements for each sport  
+        sport_order = ["WNBA", "MLB"]  # Preferred ordering for props
+        for sport in sport_order:
+            if sport in active_sports:
+                props_count = active_sports[sport]
+                requirements.append(f"- Generate EXACTLY {props_count} {sport} player prop picks")
+        
+        # Add any sports not in the preferred order
+        for sport, props_count in active_sports.items():
+            if sport not in sport_order:
+                requirements.append(f"- Generate EXACTLY {props_count} {sport} player prop picks")
+        
+        requirements.append(f"- TOTAL: Generate EXACTLY {total_expected} player props across all sports")
+        requirements.append("- Focus on generating the FULL amount for each sport to maximize frontend filtering options")
+        requirements.append("- DIVERSIFY prop types within each sport (points, rebounds, assists for WNBA; hits, home runs, RBIs for MLB)")
+        
+        return "\n".join(requirements)
+    
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 40) -> List[Dict[str, Any]]:
+        if target_date is None:
+            target_date = datetime.now().date()
+            
+        logger.info(f"🚀 Starting intelligent multi-sport player props analysis for {target_date}...")
+        
+        games = self.db.get_upcoming_games(target_date)
+        logger.info(f"📅 Found {len(games)} games for {target_date} across MLB and WNBA")
         
         if not games:
-            logger.warning("No upcoming games found")
+            logger.warning(f"No games found for {target_date}")
             return []
         
-        # Get sport distribution for props
+        # Get sport distribution for props - now generates more props per sport
         sport_distribution = self._distribute_props_by_sport(games, target_picks)
         
         game_ids = [game["id"] for game in games]
@@ -424,7 +430,7 @@ class IntelligentPlayerPropsAgent:
         insights = await self.execute_research_plan(research_plan, available_props)
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
-        picks = await self.generate_picks_with_reasoning(insights, available_props, games, target_picks)
+        picks = await self.generate_picks_with_reasoning(insights, available_props, games, target_picks, sport_distribution)
         logger.info(f"🎲 Generated {len(picks)} intelligent picks")
         
         if picks:
@@ -869,7 +875,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         insights: List[ResearchInsight], 
         props: List[PlayerProp], 
         games: List[Dict],
-        target_picks: int
+        target_picks: int,
+        sport_distribution: Dict[str, int] = None
     ) -> List[Dict[str, Any]]:
         insights_summary = []
         for insight in insights[:40]:
@@ -964,10 +971,7 @@ Available players in this data: {list(set(prop.player_name for prop in filtered_
 TASK: Generate exactly {target_picks + 5} strategic player prop picks that maximize expected value and long-term profit.
 
 🚨 **MANDATORY SPORT DISTRIBUTION:**
-- Generate EXACTLY 5 WNBA player prop picks FIRST (extras will be filtered to 3 best)
-- Generate EXACTLY 10 MLB player prop picks AFTER (extras will be filtered to 7 best)
-- Total must be exactly 15 picks (5 WNBA + 10 MLB) - system will select best 10
-- Generate EXTRA picks to account for filtering of picks with missing odds
+{self._format_sport_distribution_requirements(sport_distribution, target_picks)}
 
 🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
 - You have access to {len(filtered_props)} total player props across all games
@@ -1075,6 +1079,7 @@ REMEMBER:
             picks_text = response.choices[0].message.content.strip()
             logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
             
+            # Find and extract the JSON array
             start_idx = picks_text.find("[")
             end_idx = picks_text.rfind("]") + 1
             
@@ -1083,7 +1088,28 @@ REMEMBER:
                 return []
             
             json_str = picks_text[start_idx:end_idx]
-            ai_picks = json.loads(json_str)
+            
+            # Enhanced error handling for JSON parsing
+            try:
+                ai_picks = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing error: {e}")
+                
+                # Attempt to fix common JSON issues
+                fixed_json_str = self._fix_json_string(json_str)
+                logger.info("Attempting to parse with fixed JSON")
+                
+                try:
+                    ai_picks = json.loads(fixed_json_str)
+                    logger.info("Successfully parsed JSON after fixes")
+                except json.JSONDecodeError as e2:
+                    logger.error(f"Still failed to parse JSON after fixes: {e2}")
+                    
+                    # Last resort: manual object extraction
+                    ai_picks = self._manual_json_parser(json_str)
+                    if not ai_picks:
+                        logger.error("Manual parsing failed, no valid picks found")
+                        return []
             
             formatted_picks = []
             for pick in ai_picks:
@@ -1181,19 +1207,22 @@ REMEMBER:
                         }
                     })
                 else:
-                    logger.warning(f"No matching prop found for {pick.get("player_name")} {pick.get("prop_type")}")
+                    logger.warning(f"No matching prop found for {pick.get('player_name')} {pick.get('prop_type')}")
             
-            # Select best picks with proper sport distribution: 3 WNBA + 7 MLB
-            wnba_picks = [p for p in formatted_picks if p["sport"] == "WNBA"]
-            mlb_picks = [p for p in formatted_picks if p["sport"] == "MLB"]
+            # Return all generated picks - let frontend handle filtering based on user preferences and tiers
+            # Sort all picks by confidence for best-first presentation
+            formatted_picks.sort(key=lambda x: x["confidence"], reverse=True)
             
-            # Take best picks from each sport (sorted by confidence)
-            wnba_picks.sort(key=lambda x: x["confidence"], reverse=True)
-            mlb_picks.sort(key=lambda x: x["confidence"], reverse=True)
+            final_picks = formatted_picks  # Return all generated picks for frontend filtering
             
-            final_picks = wnba_picks[:3] + mlb_picks[:7]  # 3 WNBA + 7 MLB = 10 total
+            # Log sport distribution
+            sport_counts = {}
+            for pick in final_picks:
+                sport = pick.get("sport", "Unknown")
+                sport_counts[sport] = sport_counts.get(sport, 0) + 1
             
-            logger.info(f"🎯 Final selection: {len(wnba_picks[:3])} WNBA + {len(mlb_picks[:7])} MLB = {len(final_picks)} total picks")
+            sport_summary = " + ".join([f"{count} {sport}" for sport, count in sport_counts.items()])
+            logger.info(f"🎯 Final selection: {sport_summary} = {len(final_picks)} total picks")
             
             if final_picks:
                 prop_types = {}
@@ -1223,13 +1252,120 @@ REMEMBER:
                 logger.info(f"📝 Generated {len(final_picks)} diverse picks:")
                 for i, pick in enumerate(final_picks, 1):
                     meta = pick["metadata"]
-                    logger.info(f"  {i}. {meta["player_name"]} {meta["prop_type"]} {meta["recommendation"].upper()} {meta["line"]} ({pick["confidence"]}% conf)")
+                    logger.info(f"  {i}. {meta['player_name']} {meta['prop_type']} {meta['recommendation'].upper()} {meta['line']} ({pick['confidence']}% conf)")
             
             return final_picks
             
         except Exception as e:
             logger.error(f"Failed to generate picks: {e}")
             return []
+    
+    def _fix_json_string(self, json_str: str) -> str:
+        """Attempt to fix common JSON format issues"""
+        try:
+            # First, try direct parsing
+            json.loads(json_str)
+            return json_str
+        except json.JSONDecodeError as e:
+            logger.info(f"Fixing JSON error: {str(e)}")
+            
+            # Get error details
+            error_msg = str(e)
+            
+            # Handle specific error: Missing comma
+            if "Expecting ',' delimiter" in error_msg:
+                # Extract line and column information
+                match = re.search(r"line (\d+) column (\d+)", error_msg)
+                if match:
+                    line_num = int(match.group(1))
+                    col_num = int(match.group(2))
+                    
+                    # Split JSON by lines
+                    lines = json_str.split('\n')
+                    
+                    # If the line exists
+                    if 0 <= line_num - 1 < len(lines):
+                        # Insert comma at the right position
+                        problematic_line = lines[line_num - 1]
+                        if col_num <= len(problematic_line):
+                            fixed_line = problematic_line[:col_num] + ',' + problematic_line[col_num:]
+                            lines[line_num - 1] = fixed_line
+                            json_str = '\n'.join(lines)
+                            logger.info(f"Added missing comma at line {line_num}, column {col_num}")
+            
+            # Apply all other fixes
+            
+            # Remove trailing commas before closing braces/brackets
+            json_str = re.sub(r',\s*}', '}', json_str)
+            json_str = re.sub(r',\s*]', ']', json_str)
+            
+            # Add missing commas between objects in arrays
+            json_str = re.sub(r'}\s*{', '}, {', json_str)
+            
+            # Replace Python quotes with JSON quotes
+            json_str = re.sub(r'None', 'null', json_str)
+            json_str = re.sub(r'True', 'true', json_str)
+            json_str = re.sub(r'False', 'false', json_str)
+            
+            # Add missing quotes around keys
+            json_str = re.sub(r'([{,])\s*([a-zA-Z0-9_]+)\s*:', r'\1 "\2":', json_str)
+            
+            # Try to handle missing quotes around strings
+            json_str = re.sub(r':\s*([^"{}\[\],\d][^,}\]]*?)([,}\]])', r': "\1"\2', json_str)
+            
+            # Remove any illegal control characters
+            json_str = re.sub(r'[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]', '', json_str)
+            
+            # Try to balance brackets/braces
+            open_brackets = json_str.count('[')
+            close_brackets = json_str.count(']')
+            open_braces = json_str.count('{')
+            close_braces = json_str.count('}')
+            
+            # Add missing closing brackets/braces
+            json_str = json_str.rstrip()
+            if open_brackets > close_brackets:
+                json_str += ']' * (open_brackets - close_brackets)
+            if open_braces > close_braces:
+                json_str += '}' * (open_braces - close_braces)
+            
+            # Last resort: use regex to extract what looks like a valid JSON array
+            if '[' in json_str and ']' in json_str:
+                match = re.search(r'\[.*?\]', json_str, re.DOTALL)
+                if match:
+                    extracted = match.group(0)
+                    logger.info(f"Extracted JSON array: {extracted[:100]}...")
+                    return extracted
+                
+            return json_str
+    
+    def _manual_json_parser(self, json_str: str) -> List[Dict]:
+        """Manual fallback parser for when automatic JSON fixing fails"""
+        logger.info("Attempting manual JSON array parsing")
+        picks = []
+        
+        # Extract JSON objects within the array
+        object_pattern = re.compile(r'{(.*?)}', re.DOTALL)
+        matches = object_pattern.finditer(json_str)
+        
+        for match in matches:
+            obj_str = '{' + match.group(1) + '}'
+            try:
+                # Try to parse each object individually
+                fixed_obj = self._fix_json_string(obj_str)
+                pick_obj = json.loads(fixed_obj)
+                
+                # Validate required fields
+                required_fields = ["player_name", "prop_type", "recommendation", "line"]
+                if all(field in pick_obj for field in required_fields):
+                    picks.append(pick_obj)
+                    logger.info(f"Successfully parsed pick for {pick_obj.get('player_name')}")
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse individual JSON object")
+                continue
+        
+        logger.info(f"Manually extracted {len(picks)} valid picks")
+        return picks
 
     def _format_statmuse_insights(self, insights_summary: List[Dict]) -> str:
         statmuse_insights = [i for i in insights_summary if i.get("source") == "statmuse"]
@@ -1335,24 +1471,62 @@ REMEMBER:
             return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
         return f"{player_name} {prop_type} {recommendation} {line}" # Fallback
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI player prop betting picks')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate picks for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate picks for (YYYY-MM-DD)')
+    parser.add_argument('--picks-per-sport', type=int, default=15,
+                      help='Number of picks to generate per sport (default: 15)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 async def main():
-    logger.info("🤖 Starting Intelligent Player Props Agent - Elite Tier Support")
+    args = parse_arguments()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+        except ValueError:
+            logger.error("Invalid date format. Use YYYY-MM-DD")
+            return
+    elif args.tomorrow:
+        target_date = datetime.now().date() + timedelta(days=1)
+    else:
+        target_date = datetime.now().date()
+    
+    logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
     
     agent = IntelligentPlayerPropsAgent()
-    picks = await agent.generate_daily_picks(target_picks=30)  # Generate 30 props for Elite tier
+    
+    # Calculate dynamic target picks based on available games and sport distribution
+    # This ensures we generate enough props for frontend filtering
+    games = agent.db.get_upcoming_games(target_date)
+    if games:
+        sport_distribution = agent._distribute_props_by_sport(games, args.picks_per_sport * 2)
+        dynamic_target = sum(sport_distribution.values())
+        logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
+        target_picks = max(args.picks_per_sport * 2, dynamic_target)  # Use the higher of default or calculated
+    else:
+        target_picks = args.picks_per_sport * 2
+    
+    picks = await agent.generate_daily_picks(
+        target_picks=target_picks,
+        target_date=target_date
+    )
     
     if picks:
         logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
-        # Group by sport for summary
-        mlb_picks = [p for p in picks if p["sport"] == "MLB"]
-        wnba_picks = [p for p in picks if p["sport"] == "WNBA"]
-        logger.info(f"📊 Distribution: {len(mlb_picks)} MLB + {len(wnba_picks)} WNBA = {len(picks)} total props")
-        
         for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%, Sport: {pick["sport"]})")
+            logger.info(f"Pick {i}: {pick['pick']} (Confidence: {pick['confidence']}%)")
     else:
         logger.warning("❌ No picks generated")
 
 if __name__ == "__main__":
     asyncio.run(main())
-

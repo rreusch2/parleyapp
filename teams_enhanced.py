@@ -3,11 +3,12 @@ import json
 import logging
 import asyncio
 import requests
+import argparse
 from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import time
@@ -154,16 +155,14 @@ class DatabaseClient:
             
         self.supabase: Client = create_client(supabase_url, supabase_key)
     
-    def get_today_games(self) -> List[Dict[str, Any]]:
+    def get_games_for_date(self, target_date: datetime.date) -> List[Dict[str, Any]]:
         try:
-            # Use current date instead of hardcoded date
-            target_date = datetime.now().date()
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = start_dt + timedelta(days=1)
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
             
-            logger.info(f"Fetching games for today: {target_date} ({start_iso} to {end_iso})")
+            logger.info(f"Fetching games for {target_date} ({start_iso} to {end_iso})")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -175,58 +174,23 @@ class DatabaseClient:
                 ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} today {sport} games")
+                    logger.info(f"Found {len(response.data)} {sport} games for {target_date}")
                     all_games.extend(response.data)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total today games across all sports: {len(all_games)}")
+            logger.info(f"Total games for {target_date}: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch today games: {e}")
+            logger.error(f"Failed to fetch games for {target_date}: {e}")
             return []
     
-    def get_upcoming_games(self, hours_ahead: int = 48) -> List[Dict[str, Any]]:
-        """Fetch upcoming games from multiple sports with priority: MLB > WNBA > UFC"""
-        try:
-            # Get today's date range in UTC (database stores times in UTC)
-            from datetime import timezone
-            
-            # Get current time in UTC
-            now_utc = datetime.now(timezone.utc)
-            today_utc = now_utc.date()
-            
-            # Start of today in UTC
-            start_of_today_utc = datetime.combine(today_utc, datetime.min.time(), timezone.utc)
-            # End of today in UTC (include early tomorrow for games that start after midnight local time)
-            end_of_today_utc = start_of_today_utc + timedelta(hours=30)  # 30 hours to catch late games
-            
-            start_iso = start_of_today_utc.isoformat()
-            end_iso = end_of_today_utc.isoformat()
-            
-            logger.info(f"🗓️ Fetching games for TODAY (UTC): {today_utc} ({start_iso} to {end_iso})")
-            
-            # Fetch games from all supported sports
-            all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
-            
-            for sport in sports:
-                response = self.supabase.table("sports_events").select(
-                    "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", start_iso).lte("start_time", end_iso).eq("sport", sport).order("start_time").execute()
-                
-                if response.data:
-                    logger.info(f"Found {len(response.data)} upcoming {sport} games")
-                    all_games.extend(response.data)
-            
-            # Sort all games by start time
-            all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total upcoming games across all sports: {len(all_games)}")
-            
-            return all_games
-        except Exception as e:
-            logger.error(f"Failed to fetch upcoming games: {e}")
-            return []
+    def get_upcoming_games(self, target_date: Optional[datetime.date] = None) -> List[Dict[str, Any]]:
+        """Fetch games for the specified date (defaults to today)"""
+        if target_date is None:
+            target_date = datetime.now().date()
+        
+        return self.get_games_for_date(target_date)
     
     def get_team_odds_for_games(self, game_ids: List[str]) -> List[TeamBet]:
         if not game_ids:
@@ -435,9 +399,9 @@ class IntelligentTeamsAgent:
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
     
-    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 30) -> Dict[str, int]:
-        """Distribute team picks across sports for Elite tier support (30 total team picks)"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "UFC": 0}
+    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
+        """Generate abundant picks across all available sports for frontend filtering"""
+        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
@@ -447,71 +411,71 @@ class IntelligentTeamsAgent:
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
-                sport_counts["UFC"] += 1
+                sport_counts["MMA"] += 1
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # Enhanced distribution for Elite tier: Generate more picks for larger pool
-        # Based on current data: MLB=17, WNBA=5, UFC=8 games available
-        total_games = sum(sport_counts.values())
-        if total_games == 0:
-            return {"MLB": 0, "WNBA": 0, "UFC": 0}
+        # Generate abundant picks per sport (frontend will filter based on user preferences and tier)
+        # Target: 15-20 picks per available sport to ensure enough for all tiers
+        distribution = {}
         
-        # Smart distribution based on available games and user preference variety
-        if sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0 and sport_counts["UFC"] > 0:
-            # All three sports available - distribute proportionally with good coverage
-            distribution = {
-                "MLB": min(sport_counts["MLB"] * 2, 18),     # ~60% (most common preference)
-                "WNBA": min(sport_counts["WNBA"] * 2, 8),    # ~25% (growing popularity)  
-                "UFC": min(sport_counts["UFC"], 4)           # ~15% (niche but valuable)
-            }
-        elif sport_counts["MLB"] > 0 and sport_counts["WNBA"] > 0:
-            # MLB + WNBA available
-            distribution = {
-                "MLB": min(sport_counts["MLB"] * 2, 20),
-                "WNBA": min(sport_counts["WNBA"] * 2, 10),
-                "UFC": 0
-            }
-        elif sport_counts["MLB"] > 0 and sport_counts["UFC"] > 0:
-            # MLB + UFC available
-            distribution = {
-                "MLB": min(sport_counts["MLB"] * 2, 22),
-                "UFC": min(sport_counts["UFC"], 8),
-                "WNBA": 0
-            }
-        elif sport_counts["WNBA"] > 0 and sport_counts["UFC"] > 0:
-            # WNBA + UFC available
-            distribution = {
-                "WNBA": min(sport_counts["WNBA"] * 2, 20),
-                "UFC": min(sport_counts["UFC"], 10),
-                "MLB": 0
-            }
-        elif sport_counts["MLB"] > 0:
-            # Only MLB available
-            distribution = {"MLB": min(sport_counts["MLB"] * 2, target_picks), "WNBA": 0, "UFC": 0}
-        elif sport_counts["WNBA"] > 0:
-            # Only WNBA available
-            distribution = {"MLB": 0, "WNBA": min(sport_counts["WNBA"] * 2, target_picks), "UFC": 0}
-        elif sport_counts["UFC"] > 0:
-            # Only UFC available
-            distribution = {"MLB": 0, "WNBA": 0, "UFC": min(sport_counts["UFC"], target_picks)}
-        else:
-            distribution = {"MLB": 0, "WNBA": 0, "UFC": 0}
+        for sport, game_count in sport_counts.items():
+            if game_count > 0:
+                # Generate 15-20 picks per sport if games are available
+                # This ensures we have enough for Elite (30), Pro (20), and various sport preferences
+                max_picks_for_sport = min(20, game_count * 4)  # Up to 4 picks per game
+                distribution[sport] = max_picks_for_sport
+            else:
+                distribution[sport] = 0
         
-        logger.info(f"Team picks distribution (for {target_picks} target): {distribution}")
+        logger.info(f"Generous pick distribution for frontend filtering: {distribution}")
         return distribution
     
-    async def generate_daily_picks(self, target_picks: int = 30) -> List[Dict[str, Any]]:
-        logger.info("🚀 Starting intelligent multi-sport team analysis...")
+    def _format_sport_distribution_requirements(self, sport_distribution: Dict[str, int], target_picks: int) -> str:
+        """Generate dynamic pick distribution requirements based on available sports and games"""
+        if not sport_distribution:
+            return f"- Generate EXACTLY {target_picks} total picks across all available sports"
         
-        games = self.db.get_today_games()  # Gets today's games
-        logger.info(f"📅 Found {len(games)} today games across all sports")
+        # Filter out sports with 0 picks
+        active_sports = {sport: picks for sport, picks in sport_distribution.items() if picks > 0}
+        
+        if not active_sports:
+            return f"- Generate EXACTLY {target_picks} total picks across all available sports"
+        
+        requirements = []
+        total_expected = sum(active_sports.values())
+        
+        # Generate requirements for each sport
+        sport_order = ["WNBA", "MLB", "MMA"]  # Preferred ordering
+        for sport in sport_order:
+            if sport in active_sports:
+                picks_count = active_sports[sport]
+                requirements.append(f"- Generate EXACTLY {picks_count} {sport} team picks")
+        
+        # Add any sports not in the preferred order
+        for sport, picks_count in active_sports.items():
+            if sport not in sport_order:
+                requirements.append(f"- Generate EXACTLY {picks_count} {sport} team picks")
+        
+        requirements.append(f"- TOTAL: Generate EXACTLY {total_expected} picks across all sports")
+        requirements.append("- Focus on generating the FULL amount for each sport to maximize frontend filtering options")
+        
+        return "\n".join(requirements)
+    
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 50) -> List[Dict[str, Any]]:
+        if target_date is None:
+            target_date = datetime.now().date()
+            
+        logger.info(f"🚀 Starting intelligent multi-sport team analysis for {target_date}...")
+        
+        games = self.db.get_upcoming_games(target_date)
+        logger.info(f"📅 Found {len(games)} games for {target_date} across all sports")
         
         if not games:
-            logger.warning("No upcoming games found")
+            logger.warning(f"No games found for {target_date}")
             return []
         
-        # Get sport distribution for picks
+        # Get sport distribution for picks - now generates more picks per sport
         sport_distribution = self._distribute_picks_by_sport(games, target_picks)
         
         game_ids = [game["id"] for game in games]
@@ -531,8 +495,8 @@ class IntelligentTeamsAgent:
         insights = await self.execute_research_plan(research_plan, available_bets)
         logger.info(f"🔍 Gathered {len(insights)} research insights across all stages")
         
-        picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks)
-        logger.info(f"🎲 Generated {len(picks)} intelligent picks")
+        picks = await self.generate_picks_with_reasoning(insights, available_bets, games, target_picks, sport_distribution)
+        logger.info(f"🎲 Generated {len(picks)} intelligent picks for {target_date}")
         
         if picks:
             self.db.store_ai_predictions(picks)
@@ -881,7 +845,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             end_idx = followup_text.rfind("}") + 1
             followup_plan = json.loads(followup_text[start_idx:end_idx])
             
-            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get("analysis", "No analysis provided")}")
+            logger.info(f"🧠 Adaptive Analysis: {followup_plan.get('analysis', 'No analysis provided')}")
             
             insights = []
             for query_obj in followup_plan.get("followup_statmuse_queries", [])[:5]:
@@ -982,7 +946,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         insights: List[ResearchInsight], 
         bets: List[TeamBet], 
         games: List[Dict],
-        target_picks: int
+        target_picks: int,
+        sport_distribution: Dict[str, int] = None
     ) -> List[Dict[str, Any]]:
         insights_summary = []
         for insight in insights[:40]:
@@ -1070,10 +1035,7 @@ Available teams in this data: {list(set([b.home_team for b in filtered_bets[:30]
 TASK: Generate exactly {target_picks} strategic team picks that maximize expected value and long-term profit.
 
 🎯 **PICK DISTRIBUTION REQUIREMENTS:**
-- Generate EXACTLY 3 WNBA team picks FIRST (no more, no less)
-- Generate EXACTLY 7 MLB team picks AFTER (no more, no less) 
-- TOTAL: Generate EXACTLY {target_picks} picks (3 WNBA + 7 MLB = 10 total)
-- DO NOT generate extra picks - we want exactly 3 WNBA and 7 MLB
+{self._format_sport_distribution_requirements(sport_distribution, target_picks)}
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the odds in the data
@@ -1539,26 +1501,73 @@ REMEMBER:
             except:
                 return "Unknown Pick Format Error"
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI team betting picks')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate picks for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate picks for (YYYY-MM-DD)')
+    parser.add_argument('--picks', type=int, default=50,
+                      help='Target number of total picks to generate (default: 50)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 async def main():
-    logger.info("🤖 Starting Intelligent Teams Agent - Elite Tier Support")
+    args = parse_arguments()
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
+    # Determine target date
+    if args.date:
+        try:
+            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+        except ValueError:
+            logger.error("Invalid date format. Use YYYY-MM-DD")
+            return
+    elif args.tomorrow:
+        target_date = datetime.now().date() + timedelta(days=1)
+    else:
+        target_date = datetime.now().date()
+    
+    logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
     
     agent = IntelligentTeamsAgent()
-    picks = await agent.generate_daily_picks(target_picks=30)  # Generate 30 team picks for Elite tier
+    
+    # Calculate dynamic target picks based on available games and sport distribution
+    # This ensures we generate enough picks for frontend filtering
+    games = agent.db.get_upcoming_games(target_date)
+    if games:
+        sport_distribution = agent._distribute_picks_by_sport(games, args.picks)
+        dynamic_target = sum(sport_distribution.values())
+        logger.info(f"📊 Calculated dynamic target: {dynamic_target} picks across sports")
+        target_picks = max(args.picks, dynamic_target)  # Use the higher of user-specified or calculated
+    else:
+        target_picks = args.picks
+    
+    picks = await agent.generate_daily_picks(target_date=target_date, target_picks=target_picks)
     
     if picks:
-        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
-        # Group by sport for summary
-        mlb_picks = [p for p in picks if p["sport"] == "MLB"]
-        wnba_picks = [p for p in picks if p["sport"] == "WNBA"]
-        ufc_picks = [p for p in picks if p["sport"] == "UFC"]
-        logger.info(f"📊 Distribution: {len(mlb_picks)} MLB + {len(wnba_picks)} WNBA + {len(ufc_picks)} UFC = {len(picks)} total team picks")
+        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks for {target_date}!")
         
-        for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick["pick"]} (Confidence: {pick["confidence"]}%, Sport: {pick["sport"]})")
+        # Group picks by sport for summary
+        picks_by_sport = {}
+        for pick in picks:
+            sport = pick.get("sport", "Unknown")
+            if sport not in picks_by_sport:
+                picks_by_sport[sport] = []
+            picks_by_sport[sport].append(pick)
+        
+        for sport, sport_picks in picks_by_sport.items():
+            logger.info(f"📊 {sport}: {len(sport_picks)} picks")
+            for i, pick in enumerate(sport_picks[:3], 1):  # Show first 3 picks per sport
+                logger.info(f"  {i}. {pick['pick']} (Confidence: {pick['confidence']}%)")
+            if len(sport_picks) > 3:
+                logger.info(f"  ... and {len(sport_picks) - 3} more {sport} picks")
     else:
-        logger.warning("❌ No picks generated")
+        logger.warning(f"❌ No picks generated for {target_date}")
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 

@@ -104,8 +104,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
             setIsElite(false);
             setSubscriptionTier('free');
             await AsyncStorage.setItem('subscriptionStatus', 'free');
-          } else if (profile.subscription_tier === 'elite') {
-            console.log('👑 User is Elite according to database');
+          } else if (profile.subscription_tier === 'elite' || profile.max_daily_picks === 30) {
+            console.log('👑 User is Elite according to database or max_daily_picks');
             setIsPro(true); // Elite users are also Pro
             setIsElite(true);
             setSubscriptionTier('elite');

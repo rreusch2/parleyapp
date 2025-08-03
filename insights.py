@@ -9,6 +9,7 @@ import requests
 import json
 import os
 import random
+import argparse
 from datetime import datetime, date, timedelta
 from supabase import create_client, Client
 import logging
@@ -414,7 +415,7 @@ Generate ONE greeting in the {style} style:"""
             logger.error(f"Error generating greeting: {e}")
             return "Welcome back, sharp minds. Let's find today's edges."
     
-    def store_intelligent_insights(self, insights):
+    def store_intelligent_insights(self, insights, target_date=None):
         """Store the intelligently generated insights with dynamic greeting"""
         try:
             if not insights:
@@ -427,7 +428,10 @@ Generate ONE greeting in the {style} style:"""
             logger.info("💾 Storing insights with dynamic greeting using Supabase MCP...")
             
             # Use Supabase MCP for database operations
-            today = date.today().isoformat()
+            if target_date:
+                today = target_date.isoformat()
+            else:
+                today = date.today().isoformat()
             
             # Clear existing insights for today
             delete_result = self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
@@ -461,10 +465,21 @@ Generate ONE greeting in the {style} style:"""
         except Exception as e:
             logger.error(f"Error storing insights: {e}")
 
-    def run_intelligent_insights_generation(self):
+    def run_intelligent_insights_generation(self, target_date=None, use_tomorrow=False):
         """Main function to run intelligent insights generation"""
         logger.info("🧠 Starting Intelligent Professor Lock Insights Generation")
         logger.info("🎯 Using real upcoming games with odds + Professor Lock's web research")
+        
+        # Determine target date - default to current day
+        if target_date:
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            logger.info(f"📅 Generating insights for specific date: {target_date}")
+        elif use_tomorrow:
+            target_date_obj = date.today() + timedelta(days=1)
+            logger.info(f"📅 Generating insights for tomorrow: {target_date_obj}")
+        else:
+            target_date_obj = date.today()
+            logger.info(f"📅 Generating insights for current day: {target_date_obj}")
         
         try:
             # Step 1: Get upcoming games with odds
@@ -495,7 +510,7 @@ Generate ONE greeting in the {style} style:"""
                 return False
             
             # Step 5: Store intelligent insights
-            self.store_intelligent_insights(insights)
+            self.store_intelligent_insights(insights, target_date_obj)
             
             logger.info("✅ Intelligent insights generation completed successfully!")
             logger.info(f"🎯 Generated {len(insights)} research-based insights + 1 dynamic greeting")
@@ -512,10 +527,28 @@ Generate ONE greeting in the {style} style:"""
             logger.error(f"❌ Intelligent insights generation failed: {e}")
             return False
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate AI betting insights')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate insights for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate insights for (YYYY-MM-DD)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 if __name__ == "__main__":
     try:
+        args = parse_arguments()
+        
+        if args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+        
         generator = IntelligentInsightsGenerator()
-        success = generator.run_intelligent_insights_generation()
+        success = generator.run_intelligent_insights_generation(
+            target_date=args.date,
+            use_tomorrow=args.tomorrow
+        )
         if success:
             print("🎯 Intelligent insights generation completed successfully!")
         else:
