@@ -298,33 +298,49 @@ Get me the real intelligence that matters!"""
         
         logger.info(f"📋 Parsing insights from research...")
         
-        insights = []
+        insights: list[str] = []
+        seen: set[str] = set()
         lines = insights_text.strip().split('\n')
-        
-        for line in lines:
-            line = line.strip()
+
+        for raw_line in lines:
+            line = raw_line.strip()
             if not line:
                 continue
-                
-            # Remove numbering if present
+
+            # Remove markdown bullets / numbering
             if line and line[0].isdigit() and '.' in line[:3]:
                 line = line.split('.', 1)[1].strip()
-            
-            # Remove markdown formatting
+
             line = line.replace('**', '').replace('*', '').replace('- ', '')
-            
-            # Skip meta commentary, focus on actual insights
-            if len(line) < 15 or 'research' in line.lower() or 'search' in line.lower():
+
+            # Filter out generic greetings / conclusions
+            lower = line.lower()
+            if ('research' in lower and 'insight' not in lower) or 'conclusion' in lower or 'greeting' in lower:
                 continue
-                
-            if len(line) > 300:
-                line = line[:300] + "..."
-                
+
+            # Skip very short lines
+            if len(line) < 25:
+                continue
+
+            # Deduplicate
+            digest = line[:80]
+            if digest in seen:
+                continue
+            seen.add(digest)
+
+            # Clamp very long text
+            if len(line) > 400:
+                line = line[:400] + '…'
+
             insights.append(line)
-            logger.info(f"✅ Parsed insight: {line[:80]}...")
-        
-        logger.info(f"📊 Extracted {len(insights)} insights from research")
-        return insights[:9]  # Max 9 insights
+            logger.info(f"✅ Parsed insight: {line[:80]}…")
+
+            # Hard-stop when we reach 15 insights; we will slice later per tier
+            if len(insights) >= 15:
+                break
+
+        logger.info(f"📊 Extracted {len(insights)} raw insights from research")
+        return insights
 
     def execute_statmuse_queries(self, research_plan):
         """Extract and execute StatMuse queries from research plan"""
@@ -449,7 +465,7 @@ Generate ONE greeting in the {style} style:"""
             logger.info(f"✅ Stored dynamic greeting as insight #1")
             
             # Store insights starting from insight_order = 2
-            for i, insight in enumerate(insights):
+            for i, insight in enumerate(insights[:12]):
                 record = {
                     'insight_text': insight,
                     'insight_order': i + 2,  # Start from 2 since greeting is 1

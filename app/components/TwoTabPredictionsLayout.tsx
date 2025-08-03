@@ -108,7 +108,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           throw error;
         }
         
-        setTeamPicks(picks || []);
+        const uniqueTeamPicks = picks ? Array.from(new Map(picks.map(p => [p.id, p])).values()) : [];
+        setTeamPicks(uniqueTeamPicks);
         console.log(`✅ Loaded ${picks?.length || 0} Elite team picks`);
       } else {
         // Pro users: Get 10 team picks from Supabase with sport preferences
@@ -148,7 +149,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           throw error;
         }
 
-        setTeamPicks(picks || []);
+        const uniqueTeamPicks = picks ? Array.from(new Map(picks.map(p => [p.id, p])).values()) : [];
+        setTeamPicks(uniqueTeamPicks);
         console.log(`✅ Loaded ${picks?.length || 0} Pro team picks`);
       }
     } catch (error) {
@@ -216,7 +218,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           throw error;
         }
         
-        setPlayerPropsPicks(picks || []);
+        const uniquePropPicks = picks ? Array.from(new Map(picks.map(p => [p.id, p])).values()) : [];
+        setPlayerPropsPicks(uniquePropPicks);
         console.log(`✅ Loaded ${picks?.length || 0} Elite player props picks`);
       } else {
         // Pro users: Get 10 player prop picks from Supabase with sport preferences
@@ -254,7 +257,8 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           throw error;
         }
 
-        setPlayerPropsPicks(picks || []);
+        const uniquePropPicks = picks ? Array.from(new Map(picks.map(p => [p.id, p])).values()) : [];
+        setPlayerPropsPicks(uniquePropPicks);
         console.log(`✅ Loaded ${picks?.length || 0} Pro player props picks`);
       }
     } catch (error) {
@@ -510,7 +514,7 @@ What are your thoughts on this prediction?`;
               ]}>
                 {isElite ? '30' : '20'}
               </Text>
-              <Text style={styles.statLabel}>Total Picks</Text>
+              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }]}>Total Picks</Text>
             </View>
             <View style={[
               styles.statDivider,
@@ -523,7 +527,7 @@ What are your thoughts on this prediction?`;
               ]}>
                 {activeTab === 'team' ? teamPicks.length : playerPropsPicks.length}
               </Text>
-              <Text style={styles.statLabel}>
+              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }] }>
                 {activeTab === 'team' ? 'Team Picks' : 'Player Props'}
               </Text>
             </View>
@@ -538,7 +542,7 @@ What are your thoughts on this prediction?`;
               ]}>
                 {isElite ? 'ELITE' : 'PRO'}
               </Text>
-              <Text style={styles.statLabel}>Tier</Text>
+              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }] }>Tier</Text>
             </View>
           </View>
         </View>
