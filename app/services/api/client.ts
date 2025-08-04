@@ -85,4 +85,37 @@ export const userApi = {
   },
 };
 
+export const trendsApi = {
+  getPlayerProps: async (sport: string, tier: string = 'pro', minStreak?: number) => {
+    const params: any = { tier };
+    if (minStreak) params.min_streak = minStreak;
+    const response = await apiClient.get(`/trends/player-props/${sport}`, { params });
+    return response.data;
+  },
+
+  getTeamTrends: async (sport: string, tier: string = 'pro', minStreak?: number) => {
+    const params: any = { tier };
+    if (minStreak) params.min_streak = minStreak;
+    const response = await apiClient.get(`/trends/team/${sport}`, { params });
+    return response.data;
+  },
+
+  getTrendsBySport: async (sport: string, type?: string, tier: string = 'pro') => {
+    const params: any = { tier };
+    if (type) params.type = type;
+    const response = await apiClient.get(`/trends/${sport}`, { params });
+    return response.data;
+  },
+
+  getOpportunities: async (sport: string, tier: string = 'pro') => {
+    const response = await apiClient.get(`/trends/opportunities/${sport}`, { params: { tier } });
+    return response.data;
+  },
+
+  getSummary: async (sport: string, tier: string = 'pro') => {
+    const response = await apiClient.get(`/trends/summary/${sport}`, { params: { tier } });
+    return response.data;
+  },
+};
+
 export default apiClient;

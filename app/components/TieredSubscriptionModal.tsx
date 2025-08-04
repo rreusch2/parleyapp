@@ -98,7 +98,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       setLoading(true);
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
 
-      const success = await subscribe(selectedPlan, selectedTier);
+      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
 
             if (success) {
         console.log('✅ Purchase flow completed successfully in modal.');
