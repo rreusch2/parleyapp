@@ -2220,12 +2220,20 @@ router.get('/team-picks', async (req, res) => {
       odds: pick.odds,
       confidence: pick.confidence,
       value_percentage: pick.value_percentage || 0,
+      roi_estimate: pick.roi_estimate || 0,
+      kelly_stake: pick.kelly_stake || 0,
+      expected_value: pick.expected_value || 0,
+      risk_level: pick.risk_level || 'medium',
+      implied_probability: pick.implied_probability || 50,
+      fair_odds: pick.fair_odds || pick.odds,
+      key_factors: pick.key_factors || [],
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
       event_time: pick.event_time,
       created_at: pick.created_at,
-      status: pick.status
+      status: pick.status,
+      metadata: pick.metadata
     }));
 
     logger.info(`✅ Fetched ${formattedPicks.length} team picks from database`);
@@ -2280,12 +2288,20 @@ router.get('/player-props-picks', async (req, res) => {
       odds: pick.odds,
       confidence: pick.confidence,
       value_percentage: pick.value_percentage || 0,
+      roi_estimate: pick.roi_estimate || 0,
+      kelly_stake: pick.kelly_stake || 0,
+      expected_value: pick.expected_value || 0,
+      risk_level: pick.risk_level || 'medium',
+      implied_probability: pick.implied_probability || 50,
+      fair_odds: pick.fair_odds || pick.odds,
+      key_factors: pick.key_factors || [],
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
       event_time: pick.event_time,
       created_at: pick.created_at,
-      status: pick.status
+      status: pick.status,
+      metadata: pick.metadata
     }));
 
     logger.info(`✅ Fetched ${formattedPicks.length} player props picks from database`);
@@ -2367,12 +2383,20 @@ router.get('/daily-picks-combined', async (req, res) => {
       odds: pick.odds,
       confidence: pick.confidence,
       value_percentage: pick.value_percentage || 0,
+      roi_estimate: pick.roi_estimate || 0,
+      kelly_stake: pick.kelly_stake || 0,
+      expected_value: pick.expected_value || 0,
+      risk_level: pick.risk_level || 'medium',
+      implied_probability: pick.implied_probability || 50,
+      fair_odds: pick.fair_odds || pick.odds,
+      key_factors: pick.key_factors || [],
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
       sport: pick.sport,
       event_time: pick.event_time,
       created_at: pick.created_at,
-      status: pick.status
+      status: pick.status,
+      metadata: pick.metadata
     }));
 
     const teamPicks = formatPicks(teamPicksResult.data || []);

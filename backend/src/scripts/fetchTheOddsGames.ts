@@ -69,18 +69,18 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
   try {
     console.log(`📊 Fetching ${sportInfo.name} games with odds from TheOdds API...`);
     
-    // Calculate date range for today and tomorrow only
-    const today = new Date();
+    // Calculate date range for today and the next day (tomorrow) to ensure we only capture upcoming games we care about
+    const now = new Date();
     const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setDate(now.getDate() + 1);
     
-    // Format dates in the required format YYYY-MM-DDTHH:MM:SSZ
-    const commenceTimeFrom = today.toISOString().split('.')[0] + 'Z';
+    // Format dates in the required format YYYY-MM-DDTHH:MM:SSZ using UTC consistently
+    const commenceTimeFrom = now.toISOString().split('.')[0] + 'Z';
     const commenceTimeTo = tomorrow.toISOString().split('T')[0] + 'T23:59:59Z';
     
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);
     
-    // Get upcoming games with odds (today and tomorrow only)
+    // Get upcoming games with odds (today and tomorrow)
     const response = await axios.get(`${API_BASE_URL}/sports/${sportInfo.key}/odds`, {
       params: {
         apiKey: THEODDS_API_KEY,
@@ -94,7 +94,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
     });
 
     const games = response.data as GameData[];
-    console.log(`✅ Found ${games.length} ${sportInfo.name} games for today/tomorrow`);
+    console.log(`✅ Found ${games.length} ${sportInfo.name} games for today and tomorrow`);
     
     // Process each game
     for (const game of games) {

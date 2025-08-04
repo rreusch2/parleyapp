@@ -598,13 +598,20 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
     
     console.log(`\n📊 Fetching ${sportConfig.sportName} player props...`);
     
-    // Get upcoming games for this sport from the database
+    // Calculate the date window for today (from now) through the end of tomorrow
+    const now = new Date();
+    const tomorrowEnd = new Date(now);
+    tomorrowEnd.setDate(now.getDate() + 1);
+    tomorrowEnd.setUTCHours(23, 59, 59, 999);
+
+    // Get upcoming games for this sport from the database (only today + tomorrow)
     // Use the sport name (not the TheOdds key) to match database records
     const { data: games, error: gamesError } = await supabaseAdmin
       .from('sports_events')
       .select('id, external_event_id, sport, home_team, away_team, start_time')
       .eq('sport', sportConfig.sportName)
-      .gte('start_time', new Date().toISOString())
+      .gte('start_time', now.toISOString())
+      .lt('start_time', tomorrowEnd.toISOString())
       .limit(10); // Limit to avoid rate limits
     
     if (gamesError) {

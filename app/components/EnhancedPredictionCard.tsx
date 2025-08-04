@@ -314,7 +314,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 </View>
                 <View style={styles.premiumStat}>
                   <Shield size={14} color="#10B981" />
-                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate ? `+${prediction.roi_estimate}%` : 'Calculating...'}</Text>
+                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate && prediction.roi_estimate > 0 ? `+${parseFloat(prediction.roi_estimate.toString()).toFixed(1)}%` : 'Calculating...'}</Text>
                 </View>
                 <View style={styles.premiumStat}>
                   <Activity size={14} color="#8B5CF6" />
