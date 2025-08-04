@@ -10,11 +10,12 @@ import {
   Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Star, Zap, TrendingUp } from 'lucide-react-native';
+import { Crown, Star, Zap, TrendingUp, Play, Gift } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
 import TrendCard from '../components/TrendCard';
 import TieredSubscriptionModal from '../components/TieredSubscriptionModal';
 import { supabase } from '../services/api/supabaseClient';
+import { useRewardAds } from '../hooks/useRewardAds';
 
 export default function TrendsScreen() {
   const [activeTab, setActiveTab] = useState<'player' | 'team'>('player');
@@ -25,13 +26,20 @@ export default function TrendsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isPro, isElite, subscriptionTier } = useSubscription();
+  const { 
+    isAdLoading, 
+    canWatchTrendsAdToday, 
+    extraTrendsAvailable, 
+    showTrendsRewardAd, 
+    refreshAdStatus 
+  } = useRewardAds();
 
   const getTrendLimit = () => {
     switch (subscriptionTier) {
       case 'elite': return 15;
       case 'pro': return 10;
-      case 'free': return 2;
-      default: return 2;
+      case 'free': return 2 + extraTrendsAvailable; // Base 2 + extra from ads
+      default: return 2 + extraTrendsAvailable;
     }
   };
 
@@ -102,6 +110,50 @@ export default function TrendsScreen() {
     setRefreshing(false);
   };
 
+  const renderRewardAdButton = () => {
+    if (subscriptionTier !== 'free' || !canWatchTrendsAdToday) return null;
+
+    return (
+      <View style={styles.rewardAdContainer}>
+        <LinearGradient
+          colors={['#FFD700', '#FFA500']}
+          style={styles.rewardAdCard}
+        >
+          <View style={styles.rewardAdContent}>
+            <View style={styles.rewardAdIcon}>
+              <Gift size={24} color="#1F2937" />
+            </View>
+            <Text style={styles.rewardAdTitle}>
+              Watch Ad for Extra Trend! 📈
+            </Text>
+            <Text style={styles.rewardAdSubtitle}>
+              Get 1 additional trend insight
+            </Text>
+            <Text style={styles.rewardAdProgress}>
+              {extraTrendsAvailable}/3 extra trends earned today
+            </Text>
+            <TouchableOpacity 
+              style={styles.rewardAdButton} 
+              onPress={showTrendsRewardAd}
+              disabled={isAdLoading}
+            >
+              <View style={styles.rewardAdButtonContent}>
+                {isAdLoading ? (
+                  <ActivityIndicator size={16} color="#1F2937" />
+                ) : (
+                  <Play size={16} color="#1F2937" />
+                )}
+                <Text style={styles.rewardAdButtonText}>
+                  {isAdLoading ? 'Loading Ad...' : 'Watch Ad'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
+
   const renderUpgradeButton = () => {
     if (subscriptionTier !== 'free') return null;
 
@@ -132,7 +184,10 @@ export default function TrendsScreen() {
       <View style={styles.limitInfoContainer}>
         <View style={styles.limitInfo}>
           <Text style={styles.limitText}>
-            {tierName} Plan: {limit} daily trends
+            {tierName} Plan: {subscriptionTier === 'free' ? '2' : limit} daily trends
+            {subscriptionTier === 'free' && extraTrendsAvailable > 0 && (
+              <Text style={styles.bonusText}> + {extraTrendsAvailable} bonus</Text>
+            )}
           </Text>
           {subscriptionTier === 'free' && (
             <TouchableOpacity 
@@ -208,6 +263,7 @@ export default function TrendsScreen() {
                 {playerTrends.map((trend, index) => (
                   <TrendCard key={trend.id || index} trend={trend} />
                 ))}
+                {renderRewardAdButton()}
                 {renderUpgradeButton()}
               </>
             ) : (
@@ -222,6 +278,7 @@ export default function TrendsScreen() {
                 {teamTrends.map((trend, index) => (
                   <TrendCard key={trend.id || index} trend={trend} />
                 ))}
+                {renderRewardAdButton()}
                 {renderUpgradeButton()}
               </>
             ) : (
@@ -412,6 +469,79 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  bonusText: {
+    color: '#00E5FF',
+    fontWeight: '600',
+  },
+  // Reward Ad Styles
+  rewardAdContainer: {
+    marginHorizontal: 16,
+    marginVertical: 16,
+  },
+  rewardAdCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FFD700',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  rewardAdContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  rewardAdIcon: {
+    marginBottom: 12,
+  },
+  rewardAdTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  rewardAdSubtitle: {
+    fontSize: 14,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  rewardAdProgress: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  rewardAdButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rewardAdButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardAdButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 8,
   },
 });
 

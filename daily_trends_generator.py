@@ -161,34 +161,32 @@ MUST include individual player names for player prop betting insights."""
             return self.fallback_queries(games, player_props)
     
     def fallback_queries(self, games, player_props):
-        """Smart betting-focused queries - much better than basic ones"""
+        """Balanced player and team betting queries"""
         queries = []
         
-        # High-value team betting queries
-        for game in games[:8]:
-            home = game.get('home_team', '')
-            away = game.get('away_team', '')
-            if home and away:
-                queries.extend([
-                    f"{home} record in last 7 games",
-                    f"{away} road record in last 10 games", 
-                    f"{home} runs scored per game last 10 games",
-                    f"{away} bullpen ERA last 15 games",
-                    f"{home} vs {away} head to head record this season",
-                    f"{home} home batting average last 15 games",
-                    f"{away} runs allowed on road last 10 games"
-                ])
-        
-        # High-value player betting queries  
-        for prop in player_props[:12]:
+        # HIGH-VALUE INDIVIDUAL PLAYER queries (prioritize these)
+        for prop in player_props[:20]:
             if prop.get('players') and prop.get('players', {}).get('name'):
                 player = prop['players']['name']
                 queries.extend([
                     f"{player} batting average in last 10 games",
-                    f"{player} RBIs in last 15 games",
-                    f"{player} hits vs right-handed pitching this season", 
-                    f"{player} home runs at home this season",
-                    f"{player} strikeouts in last 20 games"
+                    f"{player} hits in last 15 games",
+                    f"{player} RBIs in last 10 games",
+                    f"{player} home runs in last 20 games",
+                    f"{player} strikeouts in last 10 games",
+                    f"{player} on-base percentage in last 15 games"
+                ])
+        
+        # Team betting queries (fewer than before)
+        for game in games[:6]:
+            home = game.get('home_team', '')
+            away = game.get('away_team', '')
+            if home and away:
+                queries.extend([
+                    f"{home} record in last 10 games",
+                    f"{away} road record in last 10 games", 
+                    f"{home} runs scored per game last 10 games",
+                    f"{away} bullpen ERA last 15 games"
                 ])
         
         # Remove duplicates and return
@@ -199,8 +197,8 @@ MUST include individual player names for player prop betting insights."""
                 seen.add(query)
                 unique_queries.append(query)
         
-        logger.info(f"Generated {len(unique_queries)} smart betting queries")
-        return unique_queries[:45]
+        logger.info(f"Generated {len(unique_queries)} balanced betting queries (prioritizing player props)")
+        return unique_queries[:50]
 
     def call_statmuse_api(self, queries):
         """Call the StatMuse API server with caching"""
@@ -257,40 +255,29 @@ MUST include individual player names for player prop betting insights."""
 STATMUSE RESULTS TO ANALYZE:
 {json.dumps(statmuse_results, indent=2)}
 
-YOUR MISSION:
-1. Analyze ALL the StatMuse results above
-2. Select EXACTLY 15 trends with this MIX:
-   - 8-10 trends about INDIVIDUAL PLAYERS (classify as "player_prop") 
-   - 5-7 trends about TEAMS (classify as "team")
-3. Fix any grammar, spelling, or word spacing issues
-4. Classify each trend correctly based on whether it's about an individual player or a team
-5. Focus ONLY on insights that reveal betting edges
+CRITICAL REQUIREMENT: You MUST generate EXACTLY this mix:
+- EXACTLY 8 trends about INDIVIDUAL PLAYERS (classify as "player_prop") 
+- EXACTLY 7 trends about TEAMS (classify as "team")
 
-MANDATORY: Must include BOTH individual player trends AND team trends in your selection!
+CLASSIFICATION RULES - FOLLOW THESE EXACTLY:
+- "player_prop": When trend is about a SPECIFIC PLAYER's individual performance
+  Examples: "Aaron Judge has 15 hits in his last 10 games", "Mookie Betts is batting .350 in his last 15 games"
+- "team": When trend is about a TEAM's collective performance  
+  Examples: "The Yankees have won 8 of their last 10 games", "The Dodgers have scored 5+ runs in 7 straight games"
 
-AVOID USELESS TRENDS:
-- "Player has 0 steals" (no betting value)
-- "Team is 5-5" or ".500 records" (mediocre)
-- Basic season totals without context
-- Career averages that don't affect current betting
-
-PRIORITIZE HIGH-VALUE TRENDS:
+PRIORITIZE HIGH-VALUE BETTING INSIGHTS:
 - Recent hot/cold streaks (last 7-15 games)
 - Home/away performance splits
 - Head-to-head matchup advantages
-- Recent form changes that create betting opportunities
 - Situational stats that impact prop lines
+- Form changes that create betting opportunities
 
-CLASSIFICATION RULES - BE VERY PRECISE:
-- "player_prop": ONLY when trend mentions a SPECIFIC PLAYER NAME + individual stat
-  Examples: "Juan Soto has 12 hits in his last 10 games", "Shohei Ohtani is batting .345 in his last 15 games"
-- "team": ONLY when trend mentions TEAM NAME + team performance  
-  Examples: "The Red Sox have a 7-3 record", "The Yankees have scored 45 runs in their last 10 games"
+AVOID LOW-VALUE TRENDS:
+- Zero stats ("Player has 0 steals")
+- Mediocre records (".500 teams")
+- Season averages without context
 
-CRITICAL: If trend mentions "[Player Name] has/is/batting" = player_prop
-CRITICAL: If trend mentions "The [Team Name] have/are" = team
-
-Return EXACTLY this JSON format with 15 trends:
+Return EXACTLY this JSON format with 15 trends (8 player_prop + 7 team):
 {{
   "trends": [
     {{
@@ -308,7 +295,7 @@ Return EXACTLY this JSON format with 15 trends:
   ]
 }}
 
-Make ALL trend_text perfectly spelled and grammatically correct. Include EXACTLY 15 trends total."""
+MANDATORY: Must return EXACTLY 8 player_prop trends and EXACTLY 7 team trends for a total of 15."""
 
             response = await self.grok_client.chat.completions.create(
                 model="grok-2-1212",
@@ -340,166 +327,84 @@ Make ALL trend_text perfectly spelled and grammatically correct. Include EXACTLY
             return self.fallback_trend_parsing(responses)
     
     def fallback_trend_parsing(self, responses):
-        """Smart fallback that filters out garbage trends"""
+        """Simplified fallback that trusts data more and filters less"""
         trends = []
         
-        # Collect all responses first
+        # Collect all valid responses with minimal filtering
         all_responses = []
         for response in responses:
             if response.get('success') and response.get('answer'):
                 trend_text = response['answer'].strip()
                 
-                # Skip garbage trends that provide no betting value
-                garbage_patterns = [
-                    '0 steals', '0 stolen bases', 'has 0 ', 
-                    '5-5 in', '4-6 in', '6-4 in', '3-7 in', '7-3 in',
-                    '.500', '50% win', 'average record',
-                    'no data', 'not available', 'does not have',
-                    'career average', 'season total', 'lifetime'
-                ]
-                
-                if any(bad in trend_text.lower() for bad in garbage_patterns):
+                # Only skip truly empty or error responses
+                if (len(trend_text) < 10 or 
+                    'no data' in trend_text.lower() or 
+                    'not available' in trend_text.lower()):
                     continue
                 
-                # Skip mediocre stats that don't help betting
-                if any(mediocre in trend_text.lower() for mediocre in [
-                    'batting .250', 'batting .240', 'batting .230', 
-                    'era of 4.5', 'era of 5.', 'era of 6.',
-                    'record of 50-', 'record of 40-'
-                ]):
-                    continue
-                
-                # Prioritize recent performance and streaks
-                value_indicators = [
-                    'last 7 games', 'last 10 games', 'last 15 games',
-                    'in his last', 'in their last', 'hot streak', 'cold streak',
-                    'vs right-handed', 'vs left-handed', 'at home', 'on the road',
-                    'head to head', 'this season vs', 'against the'
-                ]
-                
-                has_value = any(indicator in trend_text.lower() for indicator in value_indicators)
-                
-                # Calculate betting relevance score
-                betting_score = 0
-                if has_value:
-                    betting_score += 3
-                if 'last' in trend_text.lower():
-                    betting_score += 2
-                if any(x in trend_text.lower() for x in ['home', 'road', 'vs']):
-                    betting_score += 1
-                    
                 all_responses.append({
                     'trend_text': trend_text,
-                    'betting_score': betting_score,
                     'response': response
                 })
         
-        # Sort by betting relevance
-        all_responses.sort(key=lambda x: x['betting_score'], reverse=True)
-        
-        # Select top trends with mix of player/team
+        # Simple classification based on content - less mechanical
         player_trends = []
         team_trends = []
         
         for item in all_responses:
             trend_text = item['trend_text']
             
-            # Classify trend type  
-            is_player = any(word in trend_text.lower() for word in [
-                'batting average', 'hits', 'rbis', 'home runs', 'strikeouts',
-                'stolen bases', 'on-base percentage', 'slugging'
-            ])
+            # Simple classification: if it mentions a person name (no "The" prefix), it's likely a player
+            # If it starts with "The" or mentions team words, it's likely a team
+            is_player_trend = (
+                not trend_text.lower().startswith('the ') and
+                any(indicator in trend_text.lower() for indicator in ['has ', 'is ', 'batting', 'hitting'])
+            )
             
-            if is_player and len(player_trends) < 8:
+            is_team_trend = (
+                trend_text.lower().startswith('the ') or
+                any(team_word in trend_text.lower() for team_word in ['team', 'record', 'have a', 'have won'])
+            )
+            
+            # Prefer player trends to balance the mix
+            if is_player_trend and len(player_trends) < 8:
                 player_trends.append({
                     'trend_text': trend_text,
-                    'trend_type': 'player_prop', 
-                    'confidence_score': min(0.9, 0.5 + (item['betting_score'] * 0.1)),
-                    'betting_value': 'High' if item['betting_score'] >= 4 else 'Medium'
+                    'trend_type': 'player_prop',
+                    'confidence_score': 0.7,
+                    'betting_value': 'Medium'
                 })
-            elif not is_player and len(team_trends) < 7:
+            elif len(team_trends) < 7:
                 team_trends.append({
                     'trend_text': trend_text,
                     'trend_type': 'team',
-                    'confidence_score': min(0.9, 0.5 + (item['betting_score'] * 0.1)), 
-                    'betting_value': 'High' if item['betting_score'] >= 4 else 'Medium'
+                    'confidence_score': 0.7,
+                    'betting_value': 'Medium'
                 })
             
             if len(player_trends) >= 8 and len(team_trends) >= 7:
                 break
         
+        # Fill remaining slots with whatever we have
         final_trends = player_trends + team_trends
+        remaining_needed = 15 - len(final_trends)
         
-        # Ensure we have exactly 15 trends for Elite users
-        while len(final_trends) < 15 and len(all_responses) > len(final_trends):
-            # Add more trends if we don't have 15
+        if remaining_needed > 0:
             for item in all_responses[len(final_trends):]:
-                if len(final_trends) >= 15:
+                if remaining_needed <= 0:
                     break
-                trend_text = item['trend_text']
-                is_player = any(word in trend_text.lower() for word in [
-                    'batting average', 'hits', 'rbis', 'home runs', 'strikeouts'
-                ])
-                
                 final_trends.append({
-                    'trend_text': trend_text,
-                    'trend_type': 'player_prop' if is_player else 'team',
-                    'confidence_score': min(0.9, 0.5 + (item['betting_score'] * 0.1)),
+                    'trend_text': item['trend_text'],
+                    'trend_type': 'team',  # Default to team if unsure
+                    'confidence_score': 0.6,
                     'betting_value': 'Medium'
                 })
-            break
+                remaining_needed -= 1
         
-        logger.info(f"Generated {len(final_trends)} high-value trends for Elite users")
+        logger.info(f"Fallback generated {len(final_trends)} trends ({len(player_trends)} player_prop, {len(team_trends)} team)")
         return final_trends[:15]
 
-    def calculate_confidence_heuristic(self, trend_text, query):
-        """Calculate confidence score based on text content heuristics"""
-        confidence = 0.5  # Base confidence
-        
-        # Higher confidence for specific statistics
-        if any(pattern in trend_text.lower() for pattern in ['.', 'avg', 'era', '%', 'record']):
-            confidence += 0.2
-            
-        # Higher confidence for recent data
-        if any(timeframe in trend_text.lower() for timeframe in ['last', 'this season', 'recent']):
-            confidence += 0.1
-            
-        # Higher confidence for longer, more detailed responses
-        if len(trend_text) > 100:
-            confidence += 0.1
-        elif len(trend_text) < 50:
-            confidence -= 0.1
-            
-        # Ensure confidence is between 0 and 1
-        return max(0.1, min(1.0, confidence))
-    
-    def is_query_not_trend(self, trend_text, query):
-        """Detect if the response is just a query, not an actual trend"""
-        trend_lower = trend_text.lower().strip()
-        query_lower = query.lower().strip()
-        
-        # Check if it's too similar to the original query
-        if trend_lower == query_lower:
-            return True
-            
-        # Check for query-like patterns
-        query_indicators = [
-            'vs', 'versus', 'performance', 'how many', 'what is', 'last 5 games',
-            'last 10 games', 'this season vs', 'compared to'
-        ]
-        
-        if any(indicator in trend_lower for indicator in query_indicators) and len(trend_text.split()) < 10:
-            return True
-            
-        # Check if it's missing typical trend statement structure
-        trend_indicators = [
-            'has', 'have', 'is', 'are', 'was', 'were', 'averages', 'recorded', 'scored'
-        ]
-        
-        if not any(indicator in trend_lower for indicator in trend_indicators):
-            return True
-            
-        return False
+
     
     def fix_grammar_and_spelling(self, text):
         """Fix common grammar and spelling issues in trend text"""
@@ -549,67 +454,7 @@ Make ALL trend_text perfectly spelled and grammatically correct. Include EXACTLY
         
         return fixed_text.strip()
     
-    def classify_trend_type(self, trend_text):
-        """Classify trend type based on content analysis, not query"""
-        text_lower = trend_text.lower()
-        
-        # Player indicators - specific player names and individual stats
-        player_indicators = [
-            'batting average', 'slugging percentage', 'on-base percentage',
-            'home runs', 'rbis', 'hits', 'stolen bases', 'strikeouts',
-            'earned run average', 'wins', 'losses', 'saves', 'innings pitched',
-            'points', 'assists', 'rebounds', 'field goal', 'three-point',
-            'touchdowns', 'rushing yards', 'passing yards', 'receptions',
-            'goals', 'shots', 'saves', 'assists'
-        ]
-        
-        # Team indicators - team-specific metrics
-        team_indicators = [
-            'team record', 'wins and losses', 'home record', 'away record',
-            'runs scored per game', 'runs allowed', 'team era', 'team batting',
-            'bullpen era', 'team average', 'record vs', 'record in',
-            'team has a', 'team is', 'team scored', 'team allowed'
-        ]
-        
-        # Check for individual player names (capitalized words that aren't team names)
-        words = trend_text.split()
-        has_player_name = False
-        
-        # Common team words that shouldn't be considered player names
-        team_words = ['the', 'angeles', 'francisco', 'diego', 'york', 'city', 'bay', 'louis', 'worth']
-        
-        for i, word in enumerate(words):
-            if (word[0].isupper() and len(word) > 2 and 
-                word.lower() not in team_words and 
-                i < len(words) - 1 and
-                any(indicator in text_lower for indicator in ['has', 'is', 'was', 'hit', 'scored', 'pitched'])):
-                has_player_name = True
-                break
-        
-        # Classify based on content
-        player_score = sum(1 for indicator in player_indicators if indicator in text_lower)
-        team_score = sum(1 for indicator in team_indicators if indicator in text_lower)
-        
-        # Add weight for player name detection
-        if has_player_name:
-            player_score += 2
-            
-        # Check for "The [Team Name]" pattern which indicates team trends
-        if text_lower.startswith('the ') and any(word in text_lower for word in ['record', 'have a', 'are ', 'scored']):
-            team_score += 2
-        
-        # Make the decision
-        if player_score > team_score:
-            return 'player_prop'
-        elif team_score > player_score:
-            return 'team'
-        else:
-            # Fallback: if it mentions individual stats, it's probably player
-            individual_stats = ['average', 'percentage', 'has scored', 'has hit', 'has stolen']
-            if any(stat in text_lower for stat in individual_stats) and has_player_name:
-                return 'player_prop'
-            else:
-                return 'team'
+
     
     def store_trends(self, trends):
         """Store the trends into the ai_trends table with global scope"""

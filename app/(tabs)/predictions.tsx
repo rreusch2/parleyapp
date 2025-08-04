@@ -33,7 +33,9 @@ import {
   DollarSign,
   AlertCircle,
   RefreshCw,
-  Settings
+  Settings,
+  Play,
+  Gift
 } from 'lucide-react-native';
 import { aiService, AIPrediction } from '../services/api/aiService';
 import { useSubscription } from '../services/subscriptionContext';
@@ -42,12 +44,20 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
+import { useRewardAds } from '../hooks/useRewardAds';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PredictionsScreen() {
   const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
+  const { 
+    isAdLoading, 
+    canWatchPicksAdToday, 
+    extraPicksAvailable, 
+    showPicksRewardAd, 
+    refreshAdStatus 
+  } = useRewardAds();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
@@ -361,11 +371,13 @@ export default function PredictionsScreen() {
       }
     } else {
       // NEW: For free users, show all picks if they're new users OR have welcome bonus active
-      // Otherwise limit to 2 picks
+      // Otherwise limit to 2 picks + any extra picks from reward ads
       const hasExtendedAccess = isNewUser || welcomeBonusActive;
       
       if (!hasExtendedAccess) {
-        filtered = filtered.slice(0, 2);
+        const basePickLimit = 2;
+        const totalPickLimit = basePickLimit + extraPicksAvailable;
+        filtered = filtered.slice(0, totalPickLimit);
       }
       // If new user or welcome bonus is active, show all picks returned by backend (usually 5)
     }
@@ -691,8 +703,49 @@ What are your thoughts on this prediction?`;
                 />
               ))}
 
+              {/* Reward Ad Card for Free Users */}
+              {!isPro && !isNewUser && !welcomeBonusActive && canWatchPicksAdToday && (
+                <View style={styles.rewardAdCard}>
+                  <LinearGradient
+                    colors={['#FFD700', '#FFA500']}
+                    style={styles.rewardCard}
+                  >
+                    <View style={styles.rewardContent}>
+                      <View style={styles.rewardIcon}>
+                        <Gift size={28} color="#1F2937" />
+                      </View>
+                      <Text style={styles.rewardTitle}>
+                        Watch Ad for Extra Pick! 🎯
+                      </Text>
+                      <Text style={styles.rewardSubtitle}>
+                        Get 1 additional AI prediction
+                      </Text>
+                      <Text style={styles.rewardProgress}>
+                        {extraPicksAvailable}/3 extra picks earned today
+                      </Text>
+                      <TouchableOpacity 
+                        style={styles.rewardButton} 
+                        onPress={showPicksRewardAd}
+                        disabled={isAdLoading}
+                      >
+                        <View style={styles.rewardButtonContent}>
+                          {isAdLoading ? (
+                            <ActivityIndicator size={16} color="#1F2937" />
+                          ) : (
+                            <Play size={16} color="#1F2937" />
+                          )}
+                          <Text style={styles.rewardButtonText}>
+                            {isAdLoading ? 'Loading Ad...' : 'Watch Ad'}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  </LinearGradient>
+                </View>
+              )}
+
               {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}
-              {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > 2 && (
+              {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > (2 + extraPicksAvailable) && (
                 <View style={styles.proUpgradeCard}>
                   <LinearGradient
                     colors={['#1a1a2e', '#16213e']}
@@ -1187,5 +1240,73 @@ const styles = StyleSheet.create({
     color: '#00E5FF',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Reward Ad Styles
+  rewardAdCard: {
+    marginBottom: normalize(16),
+  },
+  rewardCard: {
+    borderRadius: normalize(16),
+    overflow: 'hidden',
+    shadowColor: '#FFD700',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  rewardContent: {
+    padding: normalize(20),
+    alignItems: 'center',
+  },
+  rewardIcon: {
+    marginBottom: normalize(12),
+  },
+  rewardTitle: {
+    fontSize: normalize(18),
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: normalize(4),
+  },
+  rewardSubtitle: {
+    fontSize: normalize(14),
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: normalize(8),
+  },
+  rewardProgress: {
+    fontSize: normalize(12),
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: normalize(16),
+    fontWeight: '500',
+  },
+  rewardButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: normalize(25),
+    paddingHorizontal: normalize(24),
+    paddingVertical: normalize(12),
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rewardButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardButtonText: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: normalize(8),
   },
 });
