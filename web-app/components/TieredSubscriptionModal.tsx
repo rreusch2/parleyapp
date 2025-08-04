@@ -27,7 +27,9 @@ interface TieredSubscriptionModalProps {
 }
 
 type SubscriptionTier = 'pro' | 'elite'
-type SubscriptionPlan = keyof typeof SUBSCRIPTION_PLANS
+// Explicit string union type instead of using keyof to avoid runtime errors
+type SubscriptionPlan = 'PRO_WEEKLY' | 'PRO_MONTHLY' | 'PRO_YEARLY' | 'PRO_LIFETIME' | 'PRO_DAYPASS' | 
+                         'ELITE_WEEKLY' | 'ELITE_MONTHLY' | 'ELITE_YEARLY'
 
 const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   isOpen,
@@ -99,9 +101,13 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   }
 
   const getCurrentTierPlans = (): SubscriptionPlan[] => {
-    return Object.keys(SUBSCRIPTION_PLANS).filter(key => 
-      SUBSCRIPTION_PLANS[key as SubscriptionPlan].tier === selectedTier
-    ) as SubscriptionPlan[]
+    return Object.keys(SUBSCRIPTION_PLANS)
+      .filter(key => {
+        // Make sure we only consider valid keys from SUBSCRIPTION_PLANS
+        const plan = SUBSCRIPTION_PLANS[key as SubscriptionPlan];
+        // Return only plans that match the selected tier
+        return plan && plan.tier === selectedTier;
+      }) as SubscriptionPlan[]
   }
 
   const getOriginalPrice = (price: number): number => {

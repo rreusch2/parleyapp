@@ -163,17 +163,8 @@ router.post('/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid purchase' });
     }
 
-    // Get complete subscription details from product ID
-    const subscriptionDetails = getSubscriptionDetails(productId);
-    const { subscription_tier, subscription_plan_type, max_daily_picks, duration_days } = subscriptionDetails;
-    
-    console.log('🎯 Elite Subscription Processing:', {
-      productId,
-      subscription_tier,
-      subscription_plan_type,
-      max_daily_picks,
-      duration_days
-    });
+    // Map product ID to subscription tier
+    const subscriptionTier = getSubscriptionTier(productId);
     
     // Store purchase in database using admin client
     const { error: purchaseError } = await supabaseAdmin
@@ -197,23 +188,16 @@ router.post('/verify', async (req, res) => {
       return res.status(500).json({ error: 'Failed to store purchase' });
     }
 
-    // Update user's subscription status using admin client with complete subscription details
+    // Update user's subscription status using admin client
     const updateData: any = {
-      subscription_tier: subscription_tier,
-      subscription_plan_type: subscription_plan_type,
+      subscription_tier: subscriptionTier,
       subscription_status: 'active',
-      max_daily_picks: max_daily_picks,
-      subscription_started_at: new Date().toISOString(),
-      subscription_renewed_at: new Date().toISOString(),
-      auto_renew_enabled: subscription_plan_type !== 'lifetime',
       updated_at: new Date().toISOString(),
     };
     
     // Only set expiration for non-lifetime subscriptions
-    if (subscription_plan_type !== 'lifetime') {
+    if (subscriptionTier !== 'pro_lifetime') {
       updateData.subscription_expires_at = expirationDate;
-    } else {
-      updateData.subscription_expires_at = null; // Lifetime never expires
     }
     
     // Store receipt data for future verification
@@ -233,18 +217,11 @@ router.post('/verify', async (req, res) => {
       return res.status(500).json({ error: 'Failed to update subscription' });
     }
 
-    console.log(`✅ Elite subscription purchase verified and stored for user ${userId}:`, {
-      subscription_tier,
-      subscription_plan_type,
-      max_daily_picks,
-      expiresAt: expirationDate
-    });
+    console.log(`✅ Purchase verified and stored for user ${userId}`);
     
     res.json({
       success: true,
-      subscriptionTier: subscription_tier,
-      subscriptionPlanType: subscription_plan_type,
-      maxDailyPicks: max_daily_picks,
+      subscriptionTier,
       expiresAt: expirationDate,
     });
 
@@ -378,139 +355,50 @@ async function verifyGooglePurchase(productId: string, purchaseToken: string): P
   }
 }
 
-// Elite subscription plan configurations
-const ELITE_PLANS = {
-  'elite_weekly': {
-    subscription_tier: 'elite',
-    subscription_plan_type: 'weekly',
-    max_daily_picks: 30,
-    duration_days: 7
-  },
-  'elite_monthly': {
-    subscription_tier: 'elite', 
-    subscription_plan_type: 'monthly',
-    max_daily_picks: 30,
-    duration_days: 30
-  },
-  'elite_yearly': {
-    subscription_tier: 'elite',
-    subscription_plan_type: 'yearly', 
-    max_daily_picks: 30,
-    duration_days: 365
-  }
-};
-
-// Pro subscription plan configurations
-const PRO_PLANS = {
-  'pro_weekly': {
-    subscription_tier: 'pro',
-    subscription_plan_type: 'weekly',
-    max_daily_picks: 20,
-    duration_days: 7
-  },
-  'pro_monthly': {
-    subscription_tier: 'pro',
-    subscription_plan_type: 'monthly',
-    max_daily_picks: 20,
-    duration_days: 30
-  },
-  'pro_yearly': {
-    subscription_tier: 'pro',
-    subscription_plan_type: 'yearly',
-    max_daily_picks: 20,
-    duration_days: 365
-  },
-  'pro_daypass': {
-    subscription_tier: 'pro',
-    subscription_plan_type: 'weekly', // Treat daypass as weekly for plan_type
-    max_daily_picks: 20,
-    duration_days: 1
-  },
-  'pro_lifetime': {
-    subscription_tier: 'pro',
-    subscription_plan_type: 'lifetime',
-    max_daily_picks: 20,
-    duration_days: null // No expiry
-  }
-};
-
-// Enhanced function to get subscription details from product ID
-function getSubscriptionDetails(productId: string): {
-  subscription_tier: string;
-  subscription_plan_type: string;
-  max_daily_picks: number;
-  duration_days: number | null;
-} {
-  console.log('🏷️ Mapping product ID to subscription details:', productId);
+// Map product ID to subscription tier
+function getSubscriptionTier(productId: string): string {
+  console.log('🏷️ Mapping product ID to tier:', productId);
   
-  // Complete product ID mapping with tier and plan type
-  const productMapping: { [key: string]: any } = {
-    // Legacy Pro tier products
-    'com.parleyapp.premium_monthly': PRO_PLANS.pro_monthly,
-    'com.parleyapp.premiumyearly': PRO_PLANS.pro_yearly, 
-    'com.parleyapp.premium_lifetime': PRO_PLANS.pro_lifetime,
-    'premium_monthly': PRO_PLANS.pro_monthly, // Android
-    'premium_yearly': PRO_PLANS.pro_yearly,   // Android
-    'premium_lifetime': PRO_PLANS.pro_lifetime, // Android
+  // Handle exact product IDs
+  const tierMapping: { [key: string]: string } = {
+    // Pro tier products
+    'com.parleyapp.premium_monthly': 'pro',
+    'com.parleyapp.premiumyearly': 'pro', 
+    'com.parleyapp.premium_lifetime': 'pro',
+    'premium_monthly': 'pro', // Android
+    'premium_yearly': 'pro',   // Android
+    'premium_lifetime': 'pro', // Android
+    'com.parleyapp.pro_weekly': 'pro',
+    'com.parleyapp.pro_monthly': 'pro',
+    'com.parleyapp.pro_yearly': 'pro',
+    'com.parleyapp.pro_daypass': 'pro',
+    'pro_weekly': 'pro', // Android
+    'pro_monthly': 'pro', // Android
+    'pro_yearly': 'pro', // Android
+    'pro_daypass': 'pro', // Android
     
-    // Current Pro tier products
-    'com.parleyapp.pro_weekly': PRO_PLANS.pro_weekly,
-    'com.parleyapp.pro_monthly': PRO_PLANS.pro_monthly,
-    'com.parleyapp.pro_yearly': PRO_PLANS.pro_yearly,
-    'com.parleyapp.pro_daypass': PRO_PLANS.pro_daypass,
-    'com.parleyapp.pro_lifetime': PRO_PLANS.pro_lifetime,
-    'pro_weekly': PRO_PLANS.pro_weekly, // Android
-    'pro_monthly': PRO_PLANS.pro_monthly, // Android
-    'pro_yearly': PRO_PLANS.pro_yearly, // Android
-    'pro_daypass': PRO_PLANS.pro_daypass, // Android
-    'pro_lifetime': PRO_PLANS.pro_lifetime, // Android
-    
-    // Elite tier products (using correct "allstar" product IDs)
-    'com.parleyapp.allstarweekly': ELITE_PLANS.elite_weekly,
-    'com.parleyapp.allstarmonthly': ELITE_PLANS.elite_monthly,
-    'com.parleyapp.allstaryearly': ELITE_PLANS.elite_yearly,
-    'com.parleyapp.elite_weekly': ELITE_PLANS.elite_weekly, // Backup mapping
-    'com.parleyapp.elite_monthly': ELITE_PLANS.elite_monthly, // Backup mapping
-    'com.parleyapp.elite_yearly': ELITE_PLANS.elite_yearly, // Backup mapping
-    'elite_weekly': ELITE_PLANS.elite_weekly, // Android
-    'elite_monthly': ELITE_PLANS.elite_monthly, // Android
-    'elite_yearly': ELITE_PLANS.elite_yearly, // Android
-    // Android Elite with full IDs
-    'com.parleyapp.allstarweekly:weekly-elite2025': ELITE_PLANS.elite_weekly,
-    'com.parleyapp.allstarmonthly:monthly-elite2025': ELITE_PLANS.elite_monthly,
-    'com.parleyapp.allstaryearly:yearly-elite2025': ELITE_PLANS.elite_yearly
+    // Elite tier products
+    'com.parleyapp.elite_weekly': 'elite',
+    'com.parleyapp.elite_monthly': 'elite',
+    'com.parleyapp.elite_yearly': 'elite',
+    'elite_weekly': 'elite', // Android
+    'elite_monthly': 'elite', // Android
+    'elite_yearly': 'elite' // Android
   };
   
-  const details = productMapping[productId];
-  if (details) {
-    console.log('✅ Mapped to subscription details:', details);
-    return details;
+  const tier = tierMapping[productId];
+  if (tier) {
+    console.log('✅ Mapped to tier:', tier);
+    return tier;
   }
   
-  // Fallback to pattern matching for unknown products
-  if (productId.includes('elite') || productId.includes('allstar')) {
-    if (productId.includes('weekly')) return ELITE_PLANS.elite_weekly;
-    if (productId.includes('monthly')) return ELITE_PLANS.elite_monthly;
-    if (productId.includes('yearly')) return ELITE_PLANS.elite_yearly;
-  }
-  
-  if (productId.includes('monthly')) return PRO_PLANS.pro_monthly;
-  if (productId.includes('yearly')) return PRO_PLANS.pro_yearly;
-  if (productId.includes('lifetime')) return PRO_PLANS.pro_lifetime;
-  if (productId.includes('weekly')) return PRO_PLANS.pro_weekly;
+  // Fallback to pattern matching
+  if (productId.includes('monthly')) return 'pro_monthly';
+  if (productId.includes('yearly')) return 'pro_yearly';
+  if (productId.includes('lifetime')) return 'pro_lifetime';
   
   console.warn('⚠️ Unknown product ID, defaulting to free:', productId);
-  return {
-    subscription_tier: 'free',
-    subscription_plan_type: 'monthly',
-    max_daily_picks: 10,
-    duration_days: 0
-  };
-}
-
-// Legacy function for backward compatibility
-function getSubscriptionTier(productId: string): string {
-  return getSubscriptionDetails(productId).subscription_tier;
+  return 'free';
 }
 
 // Restore purchases endpoint
@@ -540,28 +428,15 @@ router.post('/restore', async (req, res) => {
 
     const activePurchase = purchases?.[0];
     if (activePurchase) {
-      // Update user's subscription status with complete details
-      const subscriptionDetails = getSubscriptionDetails(activePurchase.product_id);
-      const { subscription_tier, subscription_plan_type, max_daily_picks } = subscriptionDetails;
-      
-      console.log('🔄 Restoring Elite subscription:', {
-        productId: activePurchase.product_id,
-        subscription_tier,
-        subscription_plan_type,
-        max_daily_picks
-      });
+      // Update user's subscription status
+      const subscriptionTier = getSubscriptionTier(activePurchase.product_id);
       
       await supabase
         .from('profiles')
         .update({
-          subscription_tier: subscription_tier,
-          subscription_plan_type: subscription_plan_type,
+          subscription_tier: subscriptionTier,
           subscription_status: 'active',
           subscription_expires_at: activePurchase.expires_at,
-          max_daily_picks: max_daily_picks,
-          subscription_renewed_at: new Date().toISOString(),
-          auto_renew_enabled: subscription_plan_type !== 'lifetime',
-          updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
     }
