@@ -93,3 +93,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# SECURITY: Files with credentials/secrets
+railway-credentials-secure.txt
+*-credentials-*.txt
