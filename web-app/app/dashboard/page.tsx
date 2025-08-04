@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
+import TieredSubscriptionModal from '@/components/TieredSubscriptionModal'
 
 interface AIPrediction {
   id: string
@@ -52,6 +53,7 @@ export default function Dashboard() {
   
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([])
   const [userStats, setUserStats] = useState<UserStats>({
     todayPicks: 0,
@@ -125,8 +127,7 @@ export default function Dashboard() {
   }
 
   const openUpgradeModal = () => {
-    // In production, this would open a subscription modal
-    console.log('Open upgrade modal')
+    setSubscriptionModalOpen(true)
   }
 
   if (!user) {
@@ -639,6 +640,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Subscription Modal */}
+      <TieredSubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
     </div>
   )
 }

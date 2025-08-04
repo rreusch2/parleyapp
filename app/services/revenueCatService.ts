@@ -503,9 +503,20 @@ class RevenueCatService {
         
         subscriptionPlanType = productToPlanMap[subscriptionProductId] || null;
         
-        // Use planId if provided (from purchase flow)
+        // Use planId if provided (from purchase flow) - extract the base plan type
         if (planId && !subscriptionPlanType) {
-          subscriptionPlanType = planId;
+          // Extract the base plan type from planId (e.g., "elite_weekly" -> "weekly")
+          if (planId.includes('weekly')) {
+            subscriptionPlanType = 'weekly';
+          } else if (planId.includes('monthly')) {
+            subscriptionPlanType = 'monthly';
+          } else if (planId.includes('yearly')) {
+            subscriptionPlanType = 'yearly';
+          } else if (planId.includes('lifetime')) {
+            subscriptionPlanType = 'lifetime';
+          } else if (planId.includes('daypass')) {
+            subscriptionPlanType = 'weekly'; // Map daypass to weekly for constraint compliance
+          }
         }
         
         // Set expiration date

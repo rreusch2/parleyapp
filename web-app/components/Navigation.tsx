@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
+import TieredSubscriptionModal from './TieredSubscriptionModal'
 
 export default function Navigation() {
   const { user, signOut } = useAuth()
@@ -22,6 +23,7 @@ export default function Navigation() {
   const router = useRouter()
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
 
   const handleSignOut = async () => {
     try {
@@ -143,7 +145,7 @@ export default function Navigation() {
                 
                 {!isPro && !isElite && (
                   <button 
-                    onClick={() => console.log('Open upgrade modal')}
+                    onClick={() => setSubscriptionModalOpen(true)}
                     className="text-xs text-blue-400 hover:text-blue-300 font-medium"
                   >
                     Upgrade
@@ -210,6 +212,12 @@ export default function Navigation() {
           {!isCollapsed && <span className="font-medium">Sign Out</span>}
         </button>
       </div>
+
+      {/* Subscription Modal */}
+      <TieredSubscriptionModal
+        isOpen={subscriptionModalOpen}
+        onClose={() => setSubscriptionModalOpen(false)}
+      />
     </motion.div>
   )
 }

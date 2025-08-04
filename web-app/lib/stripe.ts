@@ -83,7 +83,12 @@ export const SUBSCRIPTION_PLANS = {
 }
 
 // Helper function to create Stripe checkout session
-export const createCheckoutSession = async (priceId: string, userId: string) => {
+export const createCheckoutSession = async (
+  priceId: string, 
+  userId: string, 
+  successUrl?: string, 
+  cancelUrl?: string
+) => {
   try {
     const response = await fetch('/api/stripe/create-checkout-session', {
       method: 'POST',
@@ -93,8 +98,8 @@ export const createCheckoutSession = async (priceId: string, userId: string) => 
       body: JSON.stringify({
         priceId,
         userId,
-        successUrl: `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${window.location.origin}/pricing`,
+        successUrl: successUrl || `${window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: cancelUrl || `${window.location.origin}/dashboard`,
       }),
     })
 
