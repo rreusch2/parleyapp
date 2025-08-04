@@ -694,10 +694,10 @@ Generate ONE {style} greeting - just the message, nothing else:"""
             logger.info(f"📅 Generating insights for specific date: {target_date}")
         elif use_tomorrow:
             target_date_obj = date.today() + timedelta(days=1)
-            logger.info(f"📅 Generating insights for tomorrow: {target_date_obj}")
+            logger.info(f"📅 Generating insights for TOMORROW: {target_date_obj}")
         else:
             target_date_obj = date.today()
-            logger.info(f"📅 Generating insights for current day: {target_date_obj}")
+            logger.info(f"📅 Generating insights for TODAY: {target_date_obj} (will fetch upcoming games)")
         
         try:
             # Step 1: Get upcoming games with odds

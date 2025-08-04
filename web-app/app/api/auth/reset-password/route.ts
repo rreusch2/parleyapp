@@ -9,7 +9,9 @@ export async function POST(request: Request) {
       return new Response('Email is required', { status: 400 })
     }
 
-    const { data, error } = await supabase.auth.api.resetPasswordForEmail(email)
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
+    })
 
     if (error) {
       return new Response(`Failed to send reset link: ${error.message}`, { status: 500 })
