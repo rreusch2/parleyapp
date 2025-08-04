@@ -32,9 +32,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       
       // Check welcome bonus status
       const now = new Date()
-      const welcomeBonusActive = profile.welcome_bonus_claimed && 
+      const welcomeBonusActive = Boolean(profile.welcome_bonus_claimed && 
         profile.welcome_bonus_expires_at && 
-        new Date(profile.welcome_bonus_expires_at) > now
+        new Date(profile.welcome_bonus_expires_at) > now)
       
       setHasWelcomeBonus(welcomeBonusActive)
     } else {

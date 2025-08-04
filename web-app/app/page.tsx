@@ -110,30 +110,6 @@ export default function LandingPage() {
               </button>
             </motion.div>
 
-            {/* App Preview */}
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.4 }}
-              className="relative max-w-4xl mx-auto"
-            >
-              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl p-8 backdrop-blur-sm border border-white/10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                  <div className="space-y-2">
-                    <div className="text-3xl font-bold text-white">95%</div>
-                    <div className="text-gray-300">Prediction Accuracy</div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-3xl font-bold text-white">$2.5M+</div>
-                    <div className="text-gray-300">User Profits</div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-3xl font-bold text-white">50K+</div>
-                    <div className="text-gray-300">Active Users</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </div>
       </section>

@@ -76,16 +76,16 @@ export default function RootLayout({
                 },
                 success: {
                   duration: 3000,
-                  theme: {
-                    primary: '#10B981',
-                    secondary: '#ffffff',
+                  style: {
+                    background: '#10B981',
+                    color: '#ffffff',
                   },
                 },
                 error: {
                   duration: 5000,
-                  theme: {
-                    primary: '#EF4444',
-                    secondary: '#ffffff',
+                  style: {
+                    background: '#EF4444',
+                    color: '#ffffff',
                   },
                 },
               }}
