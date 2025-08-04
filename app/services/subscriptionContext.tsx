@@ -24,6 +24,7 @@ interface SubscriptionContextType {
     hasLiveAlerts: boolean;
     hasUnlimitedInsights: boolean;
     hasPrioritySupport: boolean;
+    hasPlayOfTheDay: boolean;
   };
   eliteFeatures: {
     hasLockOfTheDay: boolean;
@@ -32,6 +33,7 @@ interface SubscriptionContextType {
     hasEarlyAccess: boolean;
     hasEliteInsights: boolean;
     hasPrioritySupport: boolean;
+    hasAdvancedProfessorLock: boolean;
     maxPicks: number;
   };
 }
@@ -243,15 +245,16 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
   
   const proFeatures = {
-    maxPicks: isPro ? 999 : 2,
+    maxPicks: isPro ? 20 : 2, // Pro: 20, Free: 2
     hasAIChat: isPro,
     hasAdvancedAnalytics: isPro,
     hasLiveAlerts: isPro,
     hasUnlimitedInsights: isPro,
     hasPrioritySupport: isPro,
+    hasPlayOfTheDay: isPro, // Pro+ feature
   };
 
-  // Use SUBSCRIPTION_TIERS.elite for Elite tier features
+  // Elite tier features based on SUBSCRIPTION_TIERS.elite configuration
   const eliteFeatures = {
     hasLockOfTheDay: isElite,
     hasAdvancedAnalytics: isElite,
@@ -259,7 +262,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     hasEarlyAccess: isElite,
     hasEliteInsights: isElite,
     hasPrioritySupport: isElite,
-    maxPicks: isElite ? 999 : (isPro ? 999 : 2),
+    hasAdvancedProfessorLock: isElite, // Elite exclusive feature
+    maxPicks: isElite ? 30 : (isPro ? 20 : 2), // Elite: 30, Pro: 20, Free: 2
   };
   
   return (
