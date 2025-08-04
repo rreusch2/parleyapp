@@ -4,7 +4,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.error('Missing Supabase environment variables', { supabaseUrl: !!supabaseUrl, supabaseAnonKey: !!supabaseAnonKey });
+  // Don't throw error, just log it - we don't want to crash the app
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -14,6 +15,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   }
 })
+
+console.log("Main supabase client initialized with URL:", supabaseUrl);
 
 // Types matching your existing React Native app
 export interface UserProfile {

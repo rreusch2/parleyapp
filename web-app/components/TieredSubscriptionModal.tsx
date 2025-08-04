@@ -10,6 +10,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext'
 interface TieredSubscriptionModalProps {
   isOpen: boolean
   onClose: () => void
+  onContinueFree?: () => void
 }
 
 // Group plans by tier for easier rendering
@@ -24,6 +25,7 @@ const groupedPlans = PLANS.reduce<Record<'pro' | 'elite', Plan[]>>(
 export default function TieredSubscriptionModal({
   isOpen,
   onClose,
+  onContinueFree,
 }: TieredSubscriptionModalProps) {
   const [selectedTier, setSelectedTier] = useState<'pro' | 'elite'>('pro')
   const [selectedPlan, setSelectedPlan] = useState<Plan>(groupedPlans.pro[0])
@@ -270,6 +272,14 @@ export default function TieredSubscriptionModal({
                       </>
                     )}
                   </button>
+                  {onContinueFree && (
+                    <button
+                      onClick={onContinueFree}
+                      className="mt-4 inline-flex items-center justify-center px-6 py-2 text-sm font-semibold rounded-md text-blue-500 bg-white bg-opacity-10 hover:bg-opacity-20 transition"
+                    >
+                      Continue for Free (2 picks daily)
+                    </button>
+                  )}
                   
                   {subscriptionTier !== 'free' && (
                     <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">

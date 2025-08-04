@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
 import TieredSubscriptionModal from '@/components/TieredSubscriptionModal'
+import PreferencesModal from '@/components/PreferencesModal'
 
 interface AIPrediction {
   id: string
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false)
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([])
   const [userStats, setUserStats] = useState<UserStats>({
     todayPicks: 0,
@@ -70,6 +72,13 @@ export default function Dashboard() {
       router.push('/')
     }
   }, [user, router])
+
+  // Trigger onboarding preferences modal if user has no preferences
+  useEffect(() => {
+    if (profile && (!profile.preferred_sports || profile.preferred_sports.length === 0)) {
+      setShowPreferencesModal(true)
+    }
+  }, [profile])
 
   useEffect(() => {
     if (user) {
@@ -642,9 +651,18 @@ export default function Dashboard() {
       </div>
 
       {/* Subscription Modal */}
+      <PreferencesModal
+        isOpen={showPreferencesModal}
+        onClose={() => setShowPreferencesModal(false)}
+        onComplete={() => {
+          setShowPreferencesModal(false)
+          setSubscriptionModalOpen(true)
+        }}
+      />
       <TieredSubscriptionModal
         isOpen={subscriptionModalOpen}
         onClose={() => setSubscriptionModalOpen(false)}
+        onContinueFree={() => {/* TODO: open WelcomeWheel component */}}
       />
     </div>
   )

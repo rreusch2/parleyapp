@@ -15,6 +15,20 @@ CREATE TABLE public.ai_insights (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT ai_insights_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.ai_trends (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  trend_text text NOT NULL,
+  trend_type character varying NOT NULL CHECK (trend_type::text = ANY (ARRAY['player_prop'::character varying::text, 'team'::character varying::text])),
+  sport character varying NOT NULL,
+  confidence_score numeric NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 100),
+  data jsonb,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT ai_trends_pkey PRIMARY KEY (id)
+);
+
 CREATE TABLE public.ai_predictions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,

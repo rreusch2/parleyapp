@@ -1039,7 +1039,7 @@ Available players in this data: {list(set(prop.player_name for prop in filtered_
 **RAW RESEARCH DATA:**
 {research_summary}
 
-TASK: Generate exactly {target_picks + 5} strategic player prop picks that maximize expected value and long-term profit.
+TASK: Generate exactly {target_picks} strategic player prop picks that maximize expected value and long-term profit.
 
 🚨 **MANDATORY SPORT DISTRIBUTION:**
 {self._format_sport_distribution_requirements(sport_distribution, target_picks)}
@@ -1084,7 +1084,14 @@ CONFIDENCE SCALE (BE REALISTIC):
 💰 **REMEMBER**: Professional bettors win by finding small edges consistently, NOT by chasing big payouts!
 - 71%+: Only for obvious mispricing
 
-FORMAT RESPONSE AS JSON ARRAY:
+🚨 CRITICAL RESPONSE FORMAT REQUIREMENTS:
+- MUST respond with ONLY a valid JSON array starting with [ and ending with ]
+- NO explanatory text before or after the JSON
+- NO markdown code blocks or formatting
+- NO comments or additional text
+- Just pure JSON array format
+
+FORMAT RESPONSE AS JSON ARRAY (ONLY JSON, NO OTHER TEXT):
 [
   {{
     "player_name": "Full Player Name",
@@ -1101,6 +1108,8 @@ FORMAT RESPONSE AS JSON ARRAY:
     "fair_odds": "what the odds should be like -140 or +165"
   }}
 ]
+
+IMPORTANT: Your response must start with [ and end with ]. No other text allowed.
 
 🧮 **CALCULATION REQUIREMENTS:**
 
@@ -1150,37 +1159,82 @@ REMEMBER:
             picks_text = response.choices[0].message.content.strip()
             logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
             
+            # DEBUG: Log the full response to understand the format
+            logger.info(f"🔍 FULL Grok response for debugging:\n{picks_text}")
+            
+            # Try to remove markdown code blocks if present
+            if "```json" in picks_text.lower():
+                logger.info("Detected markdown JSON code block, extracting...")
+                start_marker = picks_text.lower().find("```json") + 7
+                end_marker = picks_text.find("```", start_marker)
+                if end_marker != -1:
+                    picks_text = picks_text[start_marker:end_marker].strip()
+                    logger.info(f"Extracted JSON from markdown: {picks_text[:200]}...")
+            elif "```" in picks_text:
+                logger.info("Detected markdown code block, extracting...")
+                start_marker = picks_text.find("```") + 3
+                end_marker = picks_text.find("```", start_marker)
+                if end_marker != -1:
+                    picks_text = picks_text[start_marker:end_marker].strip()
+                    logger.info(f"Extracted content from markdown: {picks_text[:200]}...")
+            
             # Find and extract the JSON array
             start_idx = picks_text.find("[")
             end_idx = picks_text.rfind("]") + 1
             
+            logger.info(f"🔍 JSON search results: start_idx={start_idx}, end_idx={end_idx}")
+            
             if start_idx == -1 or end_idx == 0:
                 logger.error("No JSON array found in Grok response")
-                return []
-            
-            json_str = picks_text[start_idx:end_idx]
-            
-            # Enhanced error handling for JSON parsing
-            try:
-                ai_picks = json.loads(json_str)
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error: {e}")
+                logger.error(f"Response length: {len(picks_text)}")
+                logger.error(f"First 1000 chars: {picks_text[:1000]}")
+                logger.error(f"Last 500 chars: {picks_text[-500:]}")
                 
-                # Attempt to fix common JSON issues
-                fixed_json_str = self._fix_json_string(json_str)
-                logger.info("Attempting to parse with fixed JSON")
-                
-                try:
-                    ai_picks = json.loads(fixed_json_str)
-                    logger.info("Successfully parsed JSON after fixes")
-                except json.JSONDecodeError as e2:
-                    logger.error(f"Still failed to parse JSON after fixes: {e2}")
-                    
-                    # Last resort: manual object extraction
-                    ai_picks = self._manual_json_parser(json_str)
-                    if not ai_picks:
-                        logger.error("Manual parsing failed, no valid picks found")
+                # Try to find if there's JSON object without array brackets
+                if "{" in picks_text and "}" in picks_text:
+                    logger.info("Found JSON object syntax, attempting to wrap in array...")
+                    # Try to extract objects and wrap them in an array
+                    objects = []
+                    # Find all JSON objects
+                    pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+                    matches = re.findall(pattern, picks_text, re.DOTALL)
+                    for match in matches:
+                        try:
+                            obj = json.loads(match)
+                            objects.append(obj)
+                        except:
+                            continue
+                    if objects:
+                        logger.info(f"Extracted {len(objects)} JSON objects, proceeding...")
+                        ai_picks = objects
+                    else:
                         return []
+                else:
+                    return []
+            else:
+                json_str = picks_text[start_idx:end_idx]
+                
+                # Enhanced error handling for JSON parsing
+                try:
+                    ai_picks = json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parsing error: {e}")
+                    
+                    # Attempt to fix common JSON issues
+                    fixed_json_str = self._fix_json_string(json_str)
+                    logger.info("Attempting to parse with fixed JSON")
+                    
+                    try:
+                        ai_picks = json.loads(fixed_json_str)
+                        logger.info("Successfully parsed JSON after fixes")
+                    except json.JSONDecodeError as e2:
+                        logger.error(f"Still failed to parse JSON after fixes: {e2}")
+                        
+                        # Last resort: manual object extraction
+                        ai_picks = self._manual_json_parser(json_str)
+                        if not ai_picks:
+                            logger.error("Manual parsing failed, no valid picks found")
+                            return []
             
             formatted_picks = []
             for pick in ai_picks:
@@ -1548,8 +1602,8 @@ def parse_arguments():
                       help='Generate picks for tomorrow instead of today')
     parser.add_argument('--date', type=str, 
                       help='Specific date to generate picks for (YYYY-MM-DD)')
-    parser.add_argument('--picks-per-sport', type=int, default=15,
-                      help='Number of picks to generate per sport (default: 15)')
+    parser.add_argument('--picks', type=int, default=40,
+                      help='Target number of total props to generate (default: 40)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1580,12 +1634,12 @@ async def main():
     # This ensures we generate enough props for frontend filtering
     games = agent.db.get_upcoming_games(target_date)
     if games:
-        sport_distribution = agent._distribute_props_by_sport(games, args.picks_per_sport * 2)
+        sport_distribution = agent._distribute_props_by_sport(games, args.picks)
         dynamic_target = sum(sport_distribution.values())
         logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
-        target_picks = max(args.picks_per_sport * 2, dynamic_target)  # Use the higher of default or calculated
+        target_picks = max(args.picks, dynamic_target)  # Use the higher of default or calculated
     else:
-        target_picks = args.picks_per_sport * 2
+        target_picks = args.picks
     
     picks = await agent.generate_daily_picks(
         target_picks=target_picks,
@@ -1593,11 +1647,24 @@ async def main():
     )
     
     if picks:
-        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks!")
-        for i, pick in enumerate(picks, 1):
-            logger.info(f"Pick {i}: {pick['pick']} (Confidence: {pick['confidence']}%)")
+        logger.info(f"✅ Successfully generated {len(picks)} intelligent picks for {target_date}!")
+        
+        # Group picks by sport for summary
+        picks_by_sport = {}
+        for pick in picks:
+            sport = pick.get("sport", "Unknown")
+            if sport not in picks_by_sport:
+                picks_by_sport[sport] = []
+            picks_by_sport[sport].append(pick)
+        
+        for sport, sport_picks in picks_by_sport.items():
+            logger.info(f"📊 {sport}: {len(sport_picks)} picks")
+            for i, pick in enumerate(sport_picks[:3], 1):  # Show first 3 picks per sport
+                logger.info(f"  {i}. {pick['pick']} (Confidence: {pick['confidence']}%)")
+            if len(sport_picks) > 3:
+                logger.info(f"  ... and {len(sport_picks) - 3} more {sport} picks")
     else:
-        logger.warning("❌ No picks generated")
+        logger.warning(f"❌ No picks generated for {target_date}")
 
 if __name__ == "__main__":
     asyncio.run(main())

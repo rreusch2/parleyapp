@@ -229,4 +229,45 @@ router.get('/details/:type/:id', async (req, res) => {
   }
 });
 
-export default router; 
+/**
+ * Get trends for a sport with query filters
+ */
+router.get('/:sport', async (req, res) => {
+  try {
+    const { sport } = req.params;
+    const { type, tier = 'free' } = req.query;
+
+    // Check if user has Pro access
+    if (tier !== 'pro') {
+      return res.status(403).json({
+        success: false,
+        error: 'Pro subscription required',
+        upgrade_url: '/upgrade'
+      });
+    }
+
+    logger.info(`📊 Fetching trends for ${sport} with type: ${type}`);
+
+    const trends = await trendAnalysisService.getTrendsBySport(
+      sport.toUpperCase(),
+      type as string
+    );
+
+    res.json({
+      success: true,
+      sport: sport.toUpperCase(),
+      trends,
+      total_trends: trends.length,
+      feature_type: 'trends'
+    });
+
+  } catch (error) {
+    logger.error('Error fetching trends:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch trends'
+    });
+  }
+});
+
+export default router;

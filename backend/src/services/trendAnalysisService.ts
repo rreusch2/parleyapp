@@ -880,6 +880,66 @@ export class TrendAnalysisService {
     date.setDate(date.getDate() - days);
     return date.toISOString().split('T')[0];
   }
+
+  /**
+   * Get trends by sport from ai_trends table
+   */
+  async getTrendsBySport(sport: string, type?: string): Promise<any[]> {
+    try {
+      logger.info(`🔍 Fetching trends for ${sport} with type filter: ${type}`);
+      
+      let query = supabase
+        .from('ai_trends')
+        .select('*')
+        .eq('sport', sport)
+        .eq('is_global', true)
+        .order('created_at', { ascending: false })
+        .limit(15);
+
+      // Apply type filter if provided
+      if (type && (type === 'player_prop' || type === 'team')) {
+        query = query.eq('trend_type', type);
+      }
+
+      const { data: trends, error } = await query;
+
+      if (error) {
+        logger.error('Error fetching trends from ai_trends:', error);
+        throw error;
+      }
+
+      logger.info(`✅ Found ${trends?.length || 0} trends`);
+      return trends || [];
+
+    } catch (error: any) {
+      logger.error('Error in getTrendsBySport:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fallback trends data for when real data is not available
+   */
+  private getFallbackTrendsData(): TrendData[] {
+    return [
+      {
+        id: 'fallback-1',
+        type: 'player_prop',
+        player_name: 'Data Collection In Progress',
+        team: 'MLB',
+        prop_type: 'TRENDS ANALYSIS',
+        current_streak: 0,
+        streak_type: 'over',
+        last_line: 0,
+        avg_line: 0,
+        streak_start_date: new Date().toISOString().split('T')[0],
+        games_in_streak: 0,
+        confidence_score: 0,
+        recent_games: [],
+        trend_strength: 'weak'
+      }
+    ];
+  }
 }
 
 export const trendAnalysisService = new TrendAnalysisService();
