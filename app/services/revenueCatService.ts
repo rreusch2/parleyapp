@@ -497,19 +497,38 @@ class RevenueCatService {
         // Get product identifier from active entitlement
         subscriptionProductId = activeEntitlement.productIdentifier;
         
-        // Map product ID to plan type
+        // Map product ID to plan type - FIXED: Added Elite product mappings
         const productToPlanMap: { [key: string]: string } = {
+          // Pro products
           'com.parleyapp.premium_weekly': 'weekly',
           'com.parleyapp.premium_monthly': 'monthly', 
           'com.parleyapp.premiumyearly': 'yearly',
-          'com.parleyapp.premium_lifetime': 'lifetime'
+          'com.parleyapp.premium_lifetime': 'lifetime',
+          'com.parleyapp.prodaypass': 'daily',
+          // Elite products (allstar series)
+          'com.parleyapp.allstarweekly': 'weekly',
+          'com.parleyapp.allstarmonthly': 'monthly',
+          'com.parleyapp.allstaryearly': 'yearly'
         };
         
         subscriptionPlanType = productToPlanMap[subscriptionProductId] || null;
         
-        // Use planId if provided (from purchase flow)
+        // Use planId if provided (from purchase flow) - normalize it to valid plan type
         if (planId && !subscriptionPlanType) {
-          subscriptionPlanType = planId;
+          // Extract the plan type from tier-specific plan IDs (e.g., 'elite_weekly' -> 'weekly')
+          if (planId.includes('weekly')) {
+            subscriptionPlanType = 'weekly';
+          } else if (planId.includes('monthly')) {
+            subscriptionPlanType = 'monthly';
+          } else if (planId.includes('yearly')) {
+            subscriptionPlanType = 'yearly';
+          } else if (planId.includes('lifetime')) {
+            subscriptionPlanType = 'lifetime';
+          } else if (planId.includes('daypass')) {
+            subscriptionPlanType = 'daily';
+          } else {
+            subscriptionPlanType = planId; // fallback to raw planId if no pattern matches
+          }
         }
         
         // Set expiration date
