@@ -453,8 +453,12 @@ class RevenueCatService {
         latestExpirationDate: customerInfo.latestExpirationDate
       });
 
-      // Check if user has active entitlements - try multiple possible entitlement names
-      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
+      // Enhanced debugging for Elite subscription tracking
+      console.log('🔍 DEBUG Elite: All entitlement names found:', Object.keys(customerInfo.entitlements.all));
+      console.log('🔍 DEBUG Elite: Active entitlement names found:', Object.keys(customerInfo.entitlements.active));
+
+      // Check if user has active entitlements - try multiple possible entitlement names for both Pro and Elite
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro", "elite", "parleyapp_elite", "allstar"];
       let hasActiveSubscription = false;
       let activeEntitlementName = null;
       let activeEntitlement = null;
@@ -530,15 +534,35 @@ class RevenueCatService {
       let subscriptionTier = 'free';
       let maxDailyPicks = 2; // Default for free
       
+      console.log('🔍 DEBUG Elite: Tier detection inputs:', {
+        hasActiveSubscription,
+        subscriptionProductId,
+        activeEntitlementName,
+        planId
+      });
+      
       if (hasActiveSubscription && subscriptionProductId) {
         // Check if it's an Elite subscription (contains 'allstar')
         if (subscriptionProductId.includes('allstar')) {
           subscriptionTier = 'elite';
           maxDailyPicks = 30;
+          console.log('✅ DEBUG Elite: Detected ELITE subscription via product ID:', subscriptionProductId);
         } else {
           // All other active subscriptions are Pro
           subscriptionTier = 'pro';
           maxDailyPicks = 20;
+          console.log('✅ DEBUG Elite: Detected PRO subscription via product ID:', subscriptionProductId);
+        }
+      } else if (hasActiveSubscription) {
+        // Fallback: Check entitlement name for Elite detection
+        if (activeEntitlementName && (activeEntitlementName.includes('elite') || activeEntitlementName.includes('allstar'))) {
+          subscriptionTier = 'elite';
+          maxDailyPicks = 30;
+          console.log('✅ DEBUG Elite: Detected ELITE subscription via entitlement name:', activeEntitlementName);
+        } else {
+          subscriptionTier = 'pro';
+          maxDailyPicks = 20;
+          console.log('✅ DEBUG Elite: Detected PRO subscription via entitlement name:', activeEntitlementName);
         }
       }
       
@@ -645,8 +669,8 @@ class RevenueCatService {
         entitlementDetails: customerInfo.entitlements.active
       });
 
-      // Check if user has active entitlements - try multiple possible entitlement names
-      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
+      // Check if user has active entitlements - try multiple possible entitlement names for both Pro and Elite
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro", "elite", "parleyapp_elite", "allstar"];
       
       for (const entitlementName of possibleEntitlements) {
         const entitlement = customerInfo.entitlements.active[entitlementName];
