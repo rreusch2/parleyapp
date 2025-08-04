@@ -63,7 +63,7 @@ module.exports = {
       "expo-web-browser",
       "expo-apple-authentication",
       [
-        "expo-ads-admob",
+        "react-native-google-mobile-ads",
         {
           androidAppId: "ca-app-pub-9584826565591456~1910888945",
           iosAppId: "ca-app-pub-9584826565591456~1910888945"

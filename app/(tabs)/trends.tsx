@@ -15,7 +15,7 @@ import { useSubscription } from '../services/subscriptionContext';
 import TrendCard from '../components/TrendCard';
 import TieredSubscriptionModal from '../components/TieredSubscriptionModal';
 import { supabase } from '../services/api/supabaseClient';
-import { useRewardAds } from '../hooks/useRewardAds';
+
 
 export default function TrendsScreen() {
   const [activeTab, setActiveTab] = useState<'player' | 'team'>('player');
@@ -26,13 +26,12 @@ export default function TrendsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { isPro, isElite, subscriptionTier } = useSubscription();
-  const { 
-    isAdLoading, 
-    canWatchTrendsAdToday, 
-    extraTrendsAvailable, 
-    showTrendsRewardAd, 
-    refreshAdStatus 
-  } = useRewardAds();
+  // Temporary: Disabled reward ads functionality
+  const isAdLoading = false;
+  const canWatchTrendsAdToday = false;
+  const extraTrendsAvailable = 0;
+  const showTrendsRewardAd = async () => false;
+  const refreshAdStatus = async () => {};
 
   const getTrendLimit = () => {
     switch (subscriptionTier) {

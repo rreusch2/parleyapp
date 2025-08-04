@@ -39,6 +39,7 @@ import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import InjuryReportsSection from '../components/InjuryReportsSection';
 import NewsModal from '../components/NewsModal';
+import RewardAdButton from '../components/RewardAdButton';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 
@@ -724,6 +725,26 @@ export default function HomeScreen() {
                     </LinearGradient>
                   </View>
                 )}
+
+                {/* Alternative: Watch Ad for Temporary Benefits */}
+                {additionalPicksCount > 0 && (
+                  <View style={styles.adRewardSection}>
+                    <Text style={styles.adRewardText}>Or watch a quick ad to unlock 2 bonus picks for 1 hour!</Text>
+                    <RewardAdButton
+                      title="Watch Ad for 2 Bonus Picks"
+                      subtitle="Unlock temporarily (1 hour)"
+                      onRewardEarned={() => {
+                        // You can implement temporary unlock logic here
+                        Alert.alert(
+                          "Bonus Unlocked! 🎉",
+                          "You've unlocked 2 bonus picks for the next hour!",
+                          [{ text: "Awesome!" }]
+                        );
+                      }}
+                      style={styles.rewardAdButton}
+                    />
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -1341,6 +1362,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
     marginHorizontal: normalize(8),
+  },
+
+  // Ad Reward Section Styles
+  adRewardSection: {
+    marginTop: normalize(16),
+    paddingHorizontal: normalize(20),
+    paddingVertical: normalize(16),
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: normalize(12),
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  adRewardText: {
+    fontSize: normalize(14),
+    color: '#10B981',
+    textAlign: 'center',
+    marginBottom: normalize(12),
+    fontWeight: '600',
+  },
+  rewardAdButton: {
+    marginTop: normalize(8),
   },
 
   // AI Disclaimer Styles
