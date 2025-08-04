@@ -12,6 +12,7 @@
     "cron": "node railway-cron.js",
     "daily-automation": "./daily-automation.sh",
     "odds-integration": "ts-node src/scripts/setupOddsIntegration.ts",
+    "odds": "ts-node src/scripts/setupOddsIntegration.ts",
     "orchestrator": "ts-node src/scripts/run-orchestrator.ts"
   },
   "dependencies": {

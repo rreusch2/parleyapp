@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Enhanced AI-Driven Professor Lock Insights Generator
-Combines intelligent research planning with categorized insights
+Enhanced Intelligent Professor Lock Insights Generator
+Fixes greeting issues, adds title generation, and proper category assignment
 """
 
 import requests
 import json
 import os
+import random
+import argparse
 from datetime import datetime, date, timedelta
 from supabase import create_client, Client
 import logging
 from dotenv import load_dotenv
-import time
 
 # Load environment variables
 load_dotenv()
@@ -20,24 +21,37 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class EnhancedIntelligentInsightsGenerator:
+class EnhancedInsightsGenerator:
     def __init__(self):
         # Initialize Supabase client
         self.supabase_url = os.getenv('SUPABASE_URL')
-        self.supabase_key = os.getenv('SUPABASE_SERVICE_KEY')  # Use service key for admin operations
+        self.supabase_key = os.getenv('SUPABASE_ANON_KEY')
         
         if not self.supabase_url or not self.supabase_key:
-            raise ValueError("Please set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables")
+            raise ValueError("Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables")
         
         logger.info(f"Connecting to Supabase...")
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         
         # Backend API settings
         self.backend_url = os.getenv('BACKEND_URL', 'https://zooming-rebirth-production-a305.up.railway.app')
-        self.user_id = "00000000-0000-0000-0000-000000000001"  # Use a UUID format
+        self.statmuse_url = os.getenv('STATMUSE_URL', 'http://localhost:5001')
+        self.user_id = "admin_insights_generator"
+        
+        # Available insight categories with descriptions
+        self.available_categories = {
+            'weather': 'Weather conditions affecting games (rain, wind, temperature)',
+            'injury': 'Player injuries, returns, and lineup impacts',
+            'pitcher': 'Starting pitcher analysis, matchups, and performance',
+            'bullpen': 'Relief pitcher situations, workload, and effectiveness', 
+            'trends': 'Team and player performance trends and patterns',
+            'matchup': 'Head-to-head analysis and game-specific factors',
+            'research': 'General research insights and analytics',
+            'intro': 'Introductory messages and greetings'
+        }
 
     def fetch_upcoming_games_with_odds(self):
-        """Fetch upcoming games with odds from database"""
+        """Fetch the actual upcoming games with odds from Games tab data source"""
         try:
             logger.info("📊 Fetching upcoming games with odds...")
             
@@ -50,7 +64,7 @@ class EnhancedIntelligentInsightsGenerator:
                 'start_time', (datetime.now() + timedelta(days=2)).isoformat()
             ).eq(
                 'status', 'scheduled'
-            ).order('start_time').limit(12).execute()
+            ).order('start_time').limit(15).execute()
             
             if not result.data:
                 logger.warning("No upcoming games found")
@@ -58,7 +72,7 @@ class EnhancedIntelligentInsightsGenerator:
             
             games_with_odds = []
             for game in result.data:
-                # Check if game has odds data
+                # Check if game has odds data from TheOdds API
                 if (game.get('metadata') and 
                     game['metadata'].get('full_data') and 
                     game['metadata']['full_data'].get('bookmakers')):
@@ -70,6 +84,7 @@ class EnhancedIntelligentInsightsGenerator:
                     if bookmakers and len(bookmakers) > 0:
                         primary_book = bookmakers[0]
                         if primary_book.get('markets'):
+                            # Get moneyline, spread, total
                             for market in primary_book['markets']:
                                 if market['key'] == 'h2h':
                                     sample_odds['moneyline'] = {
@@ -104,81 +119,87 @@ class EnhancedIntelligentInsightsGenerator:
             logger.error(f"Error fetching upcoming games: {e}")
             return []
 
-    def format_games_data(self, games):
-        """Format games data for AI prompt"""
-        formatted = "📊 **TODAY'S MLB GAMES WITH LIVE ODDS:**\n\n"
+    def create_professor_lock_research_prompt(self, games):
+        """Create a prompt for Professor Lock to decide what to research"""
         
-        for i, game in enumerate(games[:10], 1):
+        prompt = f"""🎯 Professor Lock, I've got {len(games)} upcoming MLB games with live betting odds. I want you to pick 3-5 of the most interesting matchups and decide what specific insights would be valuable to research about them.
+
+📊 **UPCOMING GAMES WITH ODDS:**
+
+"""
+        
+        for i, game in enumerate(games[:10], 1):  # Show first 10 games
             start_time = datetime.fromisoformat(game['start_time'].replace('Z', '+00:00'))
             game_time = start_time.strftime('%I:%M %p ET')
             
-            formatted += f"{i}. **{game['away_team']} @ {game['home_team']}** - {game_time}\n"
-            formatted += f"   📚 {game['bookmaker_count']} sportsbooks tracking\n"
+            prompt += f"{i}. **{game['away_team']} @ {game['home_team']}** - {game_time}\n"
+            prompt += f"   📚 {game['bookmaker_count']} sportsbooks tracking this game\n"
             
             if game['sample_odds']:
+                odds_line = "   💰 "
                 if game['sample_odds'].get('moneyline'):
                     ml = game['sample_odds']['moneyline']
                     if ml['away'] and ml['home']:
-                        formatted += f"   💰 ML: {game['away_team']} {ml['away']:+d} / {game['home_team']} {ml['home']:+d}"
+                        prompt += f"   💰 ML: {game['away_team']} {ml['away']:+d} / {game['home_team']} {ml['home']:+d}"
                 
                 if game['sample_odds'].get('spread'):
                     spread = game['sample_odds']['spread']
                     if spread['home']:
-                        formatted += f" | Spread: {spread['home']}"
+                        prompt += f" | Spread: {spread['home']}"
                 
                 if game['sample_odds'].get('total'):
                     total = game['sample_odds']['total']
                     if total['over']:
-                        formatted += f" | Total: {total['over']}"
+                        prompt += f" | Total: {total['over']}"
                 
-                formatted += "\n"
-            formatted += "\n"
+                prompt += "\n"
+            prompt += "\n"
         
-        return formatted
+        prompt += f"""\n🧠 **YOUR MISSION:**
+1. **Pick 7-10 most interesting matchups** from above (consider rivalry, odds, timing, etc.)
+2. **For each game you pick, tell me what specific research would be valuable**
 
-    def create_research_plan(self, games):
-        """Step 1: Ask Professor Lock to create a research plan"""
+**IMPORTANT:** We need enough material to generate 15+ insights for Elite user tier, so analyze more games!
+
+Examples of good research angles:
+- Weather conditions for outdoor games (rain/wind impacts)
+- Key player injury updates or returns
+- Starting pitcher analysis (recent form, career vs opponent)
+- Bullpen situations (overworked relievers, fresh arms)
+- Team momentum (recent win/loss streaks)
+- Historical head-to-head trends
+- Lineup changes or key player rest days
+- Home field advantages or travel factors
+- StatMuse queries for specific player/team stats
+- Recent performance trends and analytics
+
+🔍 **FORMAT YOUR RESPONSE:**
+For each game you select, tell me:
+- Why this matchup is interesting
+- What specific StatMuse queries to run (player stats, team records, etc.)
+- What web searches to perform for current intel
+- What information would give bettors an edge
+
+**Don't give betting picks** - just tell me what intelligence to gather!
+
+Let's find some real insights that matter!"""
+
+        return prompt
+
+    def send_to_professor_lock(self, prompt):
+        """Send prompt to Professor Lock for research guidance"""
         try:
-            logger.info("🧠 Professor Lock creating research plan...")
+            logger.info("🤖 Asking Professor Lock what to research...")
             
-            games_data = self.format_games_data(games)
-            
-            research_prompt = f"""🎯 Professor Lock, I've got {len(games)} upcoming MLB games with live betting odds. I want you to pick the 5 most interesting matchups and create a strategic research plan.
-
-{games_data}
-
-🧠 **YOUR MISSION:**
-1. **Select 5 most compelling games** (consider rivalry, odds, timing, value opportunities)
-2. **For each game, identify what specific intel we need to gather**
-
-**Research Categories to Consider:**
-- **Weather**: Rain, wind, temperature effects on outdoor games
-- **Injuries**: Key player updates, returns, lineup changes
-- **Pitching**: Starter analysis, recent form, career vs opponent matchups
-- **Bullpen**: Overworked relievers, fresh arms, closer situations
-- **Trends**: Team momentum, streaks, recent performance patterns
-- **Matchups**: Team vs team advantages, historical head-to-head
-- **Situational**: Travel fatigue, rest days, motivation factors
-
-🔍 **FORMAT YOUR RESEARCH PLAN:**
-For each of your 5 selected games, tell me:
-- Why this matchup is strategically interesting  
-- What specific StatMuse queries to run
-- What intelligence would give sharp bettors an edge
-
-**Focus on RESEARCH PLANNING, not betting picks!** Tell me what data to gather that could uncover value in the betting markets.
-
-Create your research roadmap!"""
-
             url = f"{self.backend_url}/api/ai/chat"
             
             payload = {
-                "message": research_prompt,
+                "message": prompt,
                 "userId": self.user_id,
                 "context": {
-                    "screen": "research_planning",
+                    "screen": "admin_research_planning",
                     "userTier": "pro",
-                    "hasStatMuseAccess": True
+                    "maxPicks": 10
                 },
                 "conversationHistory": []
             }
@@ -188,350 +209,495 @@ Create your research roadmap!"""
             if response.status_code == 200:
                 result = response.json()
                 research_plan = result.get('response', '')
-                logger.info("✅ Research plan received from Professor Lock")
+                logger.info("✅ Got research plan from Professor Lock")
                 return research_plan
             else:
-                logger.error(f"Research planning API error: {response.status_code} - {response.text}")
+                logger.error(f"Professor Lock API error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logger.error(f"Error creating research plan: {e}")
+            logger.error(f"Error calling Professor Lock: {e}")
             return None
 
-    def extract_statmuse_queries(self, research_plan):
-        """Extract StatMuse queries from the research plan"""
-        queries = []
-        lines = research_plan.split('\n')
-        
-        for line in lines:
-            line = line.strip().lower()
-            if any(phrase in line for phrase in ['statmuse', 'query', 'search for', 'look up', 'check']):
-                # Extract potential query
-                if 'statmuse' in line:
-                    # Try to extract the actual query part
-                    parts = line.split('statmuse')
-                    if len(parts) > 1:
-                        query_part = parts[1].strip(': ').strip('"').strip("'")
-                        if len(query_part) > 10:
-                            queries.append(query_part)
-        
-        # If no specific queries found, generate some based on common patterns
-        if not queries:
-            logger.info("🔍 No specific StatMuse queries found, generating based on research plan...")
-            
-            # Extract team names from research plan
-            team_names = []
-            for line in research_plan.split('\n'):
-                for word in line.split():
-                    if word.endswith('s') and len(word) > 4 and word[0].isupper():
-                        team_names.append(word)
-            
-            # Generate queries based on found teams
-            unique_teams = list(set(team_names[:6]))  # Limit to 6 teams
-            for team in unique_teams:
-                queries.append(f"{team} last 10 games")
-                queries.append(f"{team} home record 2025")
-        
-        # Limit to reasonable number
-        return queries[:6]
-
-    def execute_statmuse_research(self, research_plan):
-        """Step 2: Execute StatMuse research based on the plan"""
+    def query_statmuse(self, query):
+        """Query StatMuse API for specific baseball statistics"""
         try:
-            logger.info("🔍 Executing StatMuse research based on plan...")
+            logger.info(f"📊 Querying StatMuse: {query[:50]}...")
             
-            # Extract StatMuse queries from the research plan
-            queries = self.extract_statmuse_queries(research_plan)
+            url = f"{self.statmuse_url}/query"
+            payload = {"query": query}
             
-            if not queries:
-                logger.warning("No StatMuse queries extracted from research plan")
-                return research_plan  # Return original plan
+            response = requests.post(url, json=payload, timeout=30)
             
-            statmuse_data = []
-            
-            for query in queries:
-                logger.info(f"🔍 StatMuse Query: {query}")
-                try:
-                    # Query local StatMuse API server
-                    statmuse_url = "http://localhost:5001/query"
-                    json_data = {"query": query}
-                    
-                    # Use POST with JSON body as the API expects
-                    response = requests.post(statmuse_url, json=json_data, timeout=10)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        result_text = data.get('visual', {}).get('summaryText', 'No summary available')
-                        if result_text and len(result_text) > 20:
-                            statmuse_data.append(f"• {query}: {result_text}")
-                            logger.info(f"✅ StatMuse Result: {result_text[:100]}...")
-                        else:
-                            logger.warning(f"⚠️ No useful data from StatMuse for: {query}")
-                    else:
-                        logger.warning(f"⚠️ StatMuse API error {response.status_code} for query: {query}")
-                        
-                except Exception as e:
-                    logger.warning(f"⚠️ StatMuse query failed for '{query}': {e}")
-                
-                time.sleep(2)  # Rate limiting
-            
-            if statmuse_data:
-                enhanced_plan = f"{research_plan}\n\n🔍 **STATMUSE RESEARCH RESULTS:**\n" + "\n".join(statmuse_data)
-                logger.info(f"✅ Enhanced research plan with {len(statmuse_data)} StatMuse results")
-                return enhanced_plan
+            if response.status_code == 200:
+                result = response.json()
+                return result.get('response', 'No data found')
             else:
-                logger.warning("No StatMuse data retrieved, using original research plan")
-                return research_plan
+                logger.warning(f"StatMuse query failed: {response.status_code}")
+                return None
                 
         except Exception as e:
-            logger.error(f"Error executing StatMuse research: {e}")
-            return research_plan
-
-    def generate_categorized_insights(self, enhanced_research):
-        """Step 3: Generate categorized insights based on research"""
+            logger.error(f"StatMuse query error: {e}")
+            return None
+    
+    def execute_research_with_professor_lock(self, research_plan):
+        """Let Professor Lock execute his research plan using StatMuse and web search"""
         try:
-            logger.info("🧠 Generating categorized insights from research...")
+            logger.info("🔍 Professor Lock executing comprehensive research plan...")
             
-            insights_prompt = f"""🎯 Professor Lock, you've completed your research. Now generate 8-10 categorized insights based on your findings.
+            # First, extract StatMuse queries from research plan and execute them
+            statmuse_data = self.execute_statmuse_queries(research_plan)
+            
+            research_prompt = f"""🎯 Here's the research plan you gave me:
 
-📋 **YOUR RESEARCH:**
-{enhanced_research}
+{research_plan}
 
-🎯 **GENERATE INSIGHTS WITH CATEGORIES:**
-Create 8-10 insights using this EXACT format for each:
+📊 **STATMUSE DATA GATHERED:**
+{statmuse_data}
 
-**INSIGHT CATEGORIES (DIVERSIFY YOUR INSIGHTS):**
-You must assign ONE category to each insight and include AT LEAST 6 different categories:
-- trends: Team performance trends, records, streaks, head-to-head history
-- pitcher: Starting pitcher analysis, ERA, matchups, recent performance  
-- bullpen: Relief pitching, closer analysis, late-game situations
-- injury: Player injuries, disabled list, lineup changes
-- weather: Weather conditions, wind, temperature effects on games
-- matchup: Team vs team analysis, style matchups, advantages
-- research: General research findings, statistical analysis
+Now EXECUTE additional web research! Use your web search tool to find current information about:
+- Weather conditions for today's outdoor games
+- Latest injury reports and player updates  
+- Starting pitcher analysis and recent form
+- Lineup changes and roster moves
+- Any breaking news affecting today's games
+- Recent team performance trends
 
-**FORMAT FOR EACH INSIGHT:**
-[CATEGORY: trends] Your insight text here about team trends...
-[CATEGORY: pitcher] Your insight text here about pitching...
-[CATEGORY: bullpen] Your insight text here about bullpen...
+After gathering ALL the intel (StatMuse + web search), give me AT LEAST 15 actionable insights that bettors should know about today's games.
 
-**REQUIREMENTS:**
-- Include insights from at least 6 different categories
-- No more than 2 insights per category
-- Use "StatMuse confirms..." when referencing StatMuse data
-- Use "Analysis shows..." for general findings
-- Present DATA and TRENDS, let users draw conclusions
-- NO betting recommendations or picks
-- NO promotional language ("easy money", "lock", etc.)
-- END after providing your 8-10 insights - no additional commentary
+**IMPORTANT FORMAT REQUIREMENTS:**
+- Each insight must be a standalone analysis
+- NO greetings or welcome messages
+- NO concluding statements
+- Focus on INSIGHTS, not betting picks
+- Keep each insight focused and specific
+- I need at least 15 insights total to serve Elite users (12) and Pro users (8)
 
-**IMPORTANT RESTRICTIONS:**
-- DO NOT include any conclusion statements or calls to action
-- DO NOT ask what the user wants to do next
-- DO NOT mention building parlays, hunting edges, or asking for user input
-- ONLY provide the analytical insights in the specified format
+**Examples of good insights:**
+- "Rain expected in Philadelphia could favor under bets due to reduced offensive production"
+- "Yankees ace returning from injury makes first start in 3 weeks against weak Boston lineup"
+- "Tigers bullpen overworked after 12-inning game yesterday, creating late-inning vulnerability"
+- "StatMuse shows this pitcher allows 40% more home runs on the road than at home"
 
-Generate your 8-10 categorized insights now:"""
+**TARGET: AT LEAST 15 PURE INSIGHTS** - Elite users need 12, so generate extras for quality selection!"""
 
             url = f"{self.backend_url}/api/ai/chat"
             
             payload = {
-                "message": insights_prompt,
+                "message": research_prompt,
                 "userId": self.user_id,
                 "context": {
-                    "screen": "insights_generation",
+                    "screen": "admin_research_execution",
                     "userTier": "pro",
-                    "hasStatMuseAccess": True
+                    "maxPicks": 10
                 },
                 "conversationHistory": []
             }
             
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=120)
             
             if response.status_code == 200:
                 result = response.json()
-                insights_text = result.get('response', '')
-                logger.info("✅ Categorized insights generated successfully")
-                return insights_text
+                insights = result.get('response', '')
+                logger.info("✅ Professor Lock completed research and generated insights")
+                return insights
             else:
-                logger.error(f"Insights generation API error: {response.status_code} - {response.text}")
+                logger.error(f"Research execution error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            logger.error(f"Error generating insights: {e}")
+            logger.error(f"Error executing research: {e}")
             return None
 
-    def parse_categorized_insights(self, insights_text):
-        """Parse categorized insights from AI response"""
+    def enhance_insights_with_titles_and_categories(self, raw_insights):
+        """Have Professor Lock enhance each insight with proper title and category"""
+        try:
+            logger.info("🎨 Enhancing insights with titles and categories...")
+            
+            category_list = '\n'.join([f"- {cat}: {desc}" for cat, desc in self.available_categories.items() if cat != 'intro'])
+            
+            enhancement_prompt = f"""🎯 Professor Lock, I have {len(raw_insights)} insights that need proper titles and categories for the app.
+
+**IMPORTANT:** Elite users get 12 insights, Pro users get 8. I need ALL {len(raw_insights)} enhanced properly.
+
+**AVAILABLE CATEGORIES:**
+{category_list}
+
+**RAW INSIGHTS TO ENHANCE:**
+{chr(10).join([f"{i+1}. {insight}" for i, insight in enumerate(raw_insights)])}
+
+**YOUR TASK:**
+For each insight, provide:
+1. A catchy, specific TITLE (3-8 words max)
+2. The most appropriate CATEGORY from the list above
+3. Keep the original insight text as DESCRIPTION
+
+**STRICT FORMAT - RESPOND EXACTLY LIKE THIS:**
+```
+INSIGHT 1:
+TITLE: [Your catchy title]
+CATEGORY: [exact category name]
+DESCRIPTION: [original insight text]
+
+INSIGHT 2:
+TITLE: [Your catchy title]  
+CATEGORY: [exact category name]
+DESCRIPTION: [original insight text]
+```
+
+**GUIDELINES:**
+- Titles should be engaging and specific (e.g., "Cubs Bullpen Overworked", "Rain Threatens Philly", "Ace's Injury Return")
+- Categories must match exactly from the list
+- Distribute categories evenly - don't make everything "research"
+- Consider the content when categorizing (weather mentions = weather, pitcher info = pitcher, etc.)
+
+Make these insights shine with proper presentation!"""
+
+            url = f"{self.backend_url}/api/ai/chat"
+            
+            payload = {
+                "message": enhancement_prompt,
+                "userId": self.user_id,
+                "context": {
+                    "screen": "admin_insight_enhancement",
+                    "userTier": "pro",
+                    "maxPicks": 10
+                },
+                "conversationHistory": []
+            }
+            
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=90)
+            
+            if response.status_code == 200:
+                result = response.json()
+                enhanced_response = result.get('response', '')
+                logger.info("✅ Got enhanced insights with titles and categories")
+                return self.parse_enhanced_insights(enhanced_response)
+            else:
+                logger.error(f"Enhancement error: {response.status_code} - {response.text}")
+                return self.fallback_enhancement(raw_insights)
+                
+        except Exception as e:
+            logger.error(f"Error enhancing insights: {e}")
+            return self.fallback_enhancement(raw_insights)
+
+    def parse_enhanced_insights(self, enhanced_response):
+        """Parse the enhanced insights response"""
+        try:
+            insights = []
+            current_insight = {}
+            
+            lines = enhanced_response.split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                if line.startswith('INSIGHT '):
+                    if current_insight:
+                        insights.append(current_insight)
+                    current_insight = {}
+                elif line.startswith('TITLE:'):
+                    current_insight['title'] = line.replace('TITLE:', '').strip()
+                elif line.startswith('CATEGORY:'):
+                    category = line.replace('CATEGORY:', '').strip().lower()
+                    if category in self.available_categories:
+                        current_insight['category'] = category
+                    else:
+                        current_insight['category'] = 'research'  # fallback
+                elif line.startswith('DESCRIPTION:'):
+                    current_insight['description'] = line.replace('DESCRIPTION:', '').strip()
+            
+            # Don't forget the last insight
+            if current_insight:
+                insights.append(current_insight)
+            
+            # Validate insights
+            validated_insights = []
+            for insight in insights:
+                if insight.get('title') and insight.get('description') and insight.get('category'):
+                    validated_insights.append(insight)
+                    logger.info(f"✅ Enhanced: [{insight['category']}] {insight['title']}")
+            
+            logger.info(f"📊 Successfully enhanced {len(validated_insights)} insights")
+            return validated_insights
+            
+        except Exception as e:
+            logger.error(f"Error parsing enhanced insights: {e}")
+            return []
+
+    def fallback_enhancement(self, raw_insights):
+        """Fallback method to enhance insights if parsing fails"""
+        logger.info("⚠️ Using fallback enhancement method...")
+        
+        enhanced_insights = []
+        categories = list(self.available_categories.keys())
+        categories.remove('intro')  # Don't use intro for regular insights
+        
+        for i, insight in enumerate(raw_insights):
+            # Generate a basic title from the first few words
+            words = insight.split()[:6]
+            title = ' '.join(words)
+            if not title.endswith(('.', '!', '?')):
+                title += '...'
+            
+            # Assign category based on keywords
+            category = 'research'  # default
+            insight_lower = insight.lower()
+            
+            if any(word in insight_lower for word in ['rain', 'weather', 'wind', 'temperature']):
+                category = 'weather'
+            elif any(word in insight_lower for word in ['injury', 'injured', 'return', 'out']):
+                category = 'injury'
+            elif any(word in insight_lower for word in ['pitcher', 'starter', 'ace', 'mound']):
+                category = 'pitcher'
+            elif any(word in insight_lower for word in ['bullpen', 'relief', 'closer']):
+                category = 'bullpen'
+            elif any(word in insight_lower for word in ['trend', 'streak', 'momentum']):
+                category = 'trends'
+            elif any(word in insight_lower for word in ['matchup', 'vs', 'against', 'head-to-head']):
+                category = 'matchup'
+            
+            enhanced_insights.append({
+                'title': title,
+                'category': category,
+                'description': insight
+            })
+            
+        logger.info(f"📊 Fallback enhanced {len(enhanced_insights)} insights")
+        return enhanced_insights
+
+    def parse_insights_from_research(self, insights_text):
+        """Parse insights from Professor Lock's research"""
         if not insights_text:
+            logger.error("No research insights received")
             return []
         
-        logger.info("📋 Parsing categorized insights...")
+        logger.info(f"📋 Parsing insights from research...")
         
-        insights = []
+        insights: list[str] = []
+        seen: set[str] = set()
         lines = insights_text.strip().split('\n')
-        
-        for line in lines:
-            line = line.strip()
+
+        for raw_line in lines:
+            line = raw_line.strip()
             if not line:
                 continue
+
+            # Remove markdown bullets / numbering
+            if line and line[0].isdigit() and '.' in line[:3]:
+                line = line.split('.', 1)[1].strip()
+
+            line = line.replace('**', '').replace('*', '').replace('- ', '')
+
+            # Filter out generic greetings / conclusions / meta commentary
+            lower = line.lower()
+            skip_phrases = [
+                'here are', 'research', 'insight', 'conclusion', 'greeting', 
+                'welcome', 'hello', 'good morning', 'let me', 'i will',
+                'based on', 'in summary', 'to summarize', 'overall'
+            ]
             
-            # Look for category format: [CATEGORY: trends] Insight text...
-            if line.lower().startswith('[category:'):
-                try:
-                    # Extract category and insight text
-                    category_end = line.index(']')
-                    category_part = line[10:category_end].strip()  # Remove '[CATEGORY:'
-                    insight_text = line[category_end + 1:].strip()
-                    
-                    # Remove the category prefix from the insight text for clean storage
-                    if insight_text.startswith('[CATEGORY:'):
-                        bracket_end = insight_text.find(']')
-                        if bracket_end != -1:
-                            insight_text = insight_text[bracket_end + 1:].strip()
-                    
-                    # Validate category
-                    valid_categories = ['trends', 'pitcher', 'bullpen', 'injury', 'weather', 'matchup', 'research']
-                    if category_part in valid_categories and len(insight_text) > 30:
-                        insights.append({
-                            'category': category_part,
-                            'text': insight_text
-                        })
-                        logger.info(f"✅ Parsed {category_part} insight: {insight_text[:80]}...")
-                        continue
-                except (ValueError, IndexError):
-                    pass
-            
-            # Fallback for non-categorized insights (apply strict filtering)
-            elif (len(line) > 30 and  # Meaningful length
-                not line.lower().startswith(('here are', 'here\'s', 'let me', 'i\'ll', 'i need to', 'there it is')) and
-                not any(meta in line.lower() for meta in ['research', 'analysis', 'insights', 'generate', 'enhance']) and
-                # Filter specific betting language
-                not any(pick_word in line.lower() for pick_word in ['take the', 'back the', 'pound the', 'hammer', 'fade', 'smash', 'solid play', 'easy money', 'strong pick', 'could be the move']) and
-                # Filter conclusion statements and calls to action
-                not any(conclusion in line.lower() for conclusion in [
-                    'which game you', 'let\'s roll', 'cash roll', 'should i whip', 'you vibin', 
-                    'there\'s the updated', 'hit me with', 'wanna ride', 'ready to parlay', 'thoughts?',
-                    'let\'s grind', 'money man', 'build a parlay', 'dig deeper', 'hunt more edges',
-                    'what\'s your next move', 'want me to', 'ready to hunt', 'let\'s build',
-                    'shall we', 'what do you think', 'sound good', 'thoughts on'
-                ]) and
-                # Filter promotional language
-                not any(promo in line.lower() for promo in ['bankroll builder', 'watch the cash', 'safe bet to pad'])):
-                
-                # Remove numbering if present
-                if line and line[0].isdigit() and '.' in line[:3]:
-                    line = line.split('.', 1)[1].strip()
-                
-                # Remove markdown formatting
-                line = line.replace('**', '').replace('*', '').replace('- ', '')
-                
-                # Default to trends category for uncategorized insights
-                insights.append({
-                    'category': 'trends',
-                    'text': line
-                })
-                logger.info(f"✅ Parsed uncategorized insight (defaulting to trends): {line[:80]}...")
-        
-        logger.info(f"📊 Extracted {len(insights)} categorized insights from AI response")
+            if any(phrase in lower for phrase in skip_phrases) and len(line) < 60:
+                continue
+
+            # Skip very short lines
+            if len(line) < 25:
+                continue
+
+            # Deduplicate
+            digest = line[:80]
+            if digest in seen:
+                continue
+            seen.add(digest)
+
+            # Clamp very long text
+            if len(line) > 400:
+                line = line[:400] + '…'
+
+            insights.append(line)
+            logger.info(f"✅ Parsed insight: {line[:80]}…")
+
+            # Hard-stop when we reach 15 insights (need at least 12 for Elite users)
+            if len(insights) >= 15:
+                break
+
+        logger.info(f"📊 Extracted {len(insights)} raw insights from research")
         return insights
 
-    def generate_title_for_insight(self, category, text, teams=None):
-        """Generate appropriate title for insight based on category"""
-        if category == 'trends':
-            if teams and len(teams) > 0:
-                return f"Team Trend - {teams[0]}"
-            return "Performance Trend"
-        elif category == 'pitcher':
-            return f"Pitching Analysis" + (f" - {teams[0]}" if teams else "")
-        elif category == 'bullpen':
-            return f"Bullpen Report" + (f" - {teams[0]}" if teams else "")
-        elif category == 'injury':
-            return f"Injury Update" + (f" - {teams[0]}" if teams else "")
-        elif category == 'weather':
-            return "Weather Impact"
-        elif category == 'matchup':
-            return f"Matchup Analysis" + (f" - {teams[0]}" if teams else "")
-        elif category == 'research':
-            return f"Research Insight" + (f" - {teams[0]}" if teams else "")
-        else:
-            return "Analysis"
-
-    def store_enhanced_insights(self, insights):
-        """Store insights in ai_insights table with proper categorization"""
+    def execute_statmuse_queries(self, research_plan):
+        """Extract and execute StatMuse queries from research plan"""
         try:
-            if not insights:
-                logger.warning("No insights to store")
+            logger.info("📊 Executing StatMuse queries from research plan...")
+            
+            # Generate intelligent StatMuse queries based on research plan
+            statmuse_queries = [
+                "What MLB teams have the best home record this season?",
+                "Which MLB pitchers have allowed the most home runs in their last 5 starts?",
+                "What teams have the highest scoring average in day games vs night games?",
+                "Which MLB bullpens have pitched the most innings in the last 7 days?",
+                "What teams perform best as road underdogs this season?"
+            ]
+            
+            statmuse_results = []
+            for query in statmuse_queries[:3]:  # Limit to 3 queries to avoid timeout
+                result = self.query_statmuse(query)
+                if result:
+                    statmuse_results.append(f"Q: {query}\nA: {result}\n")
+            
+            return "\n".join(statmuse_results) if statmuse_results else "StatMuse data not available"
+            
+        except Exception as e:
+            logger.error(f"StatMuse execution error: {e}")
+            return "StatMuse data not available"
+    
+    def generate_dynamic_greeting(self):
+        """Generate a dynamic greeting message that's sometimes funny, sometimes serious"""
+        try:
+            logger.info("🎭 Generating dynamic Professor Lock greeting...")
+            
+            greeting_styles = [
+                "funny", "serious", "motivational", "witty", "analytical"
+            ]
+            
+            style = random.choice(greeting_styles)
+            
+            greeting_prompt = f"""🎯 Professor Lock, I need you to generate ONE dynamic greeting for today's insights.
+
+Style: {style}
+
+Generate a greeting that:
+- Matches the {style} tone  
+- Is 1-2 sentences max
+- References today's games/analysis in general (not specific picks)
+- Shows your personality
+- Sets the mood for users checking insights
+- NO welcome words, just the core message
+
+Examples by style:
+- Funny: "Another day, another chance to outsmart the bookies... or at least pretend we know what we're talking about! 🎲"
+- Serious: "Today's slate presents several compelling analytical opportunities across multiple markets."
+- Motivational: "Sharp minds find edges where others see chaos - let's get after it today! 💪"
+- Witty: "The house always wins... unless you've got better intel than the house. 😏"
+- Analytical: "Data-driven insights from comprehensive research - your edge starts here."
+
+Generate ONE {style} greeting - just the message, nothing else:"""
+            
+            url = f"{self.backend_url}/api/ai/chat"
+            
+            payload = {
+                "message": greeting_prompt,
+                "userId": self.user_id,
+                "context": {
+                    "screen": "admin_greeting_generation",
+                    "userTier": "pro",
+                    "maxPicks": 10
+                },
+                "conversationHistory": []
+            }
+            
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                greeting = result.get('response', '').strip()
+                # Clean up any formatting
+                greeting = greeting.replace('**', '').replace('*', '').strip('"').strip("'")
+                logger.info(f"✅ Generated {style} greeting: {greeting[:50]}...")
+                return greeting
+            else:
+                logger.error(f"Greeting generation error: {response.status_code}")
+                return "Sharp minds find edges where others see chaos. Let's analyze today's opportunities."
+                
+        except Exception as e:
+            logger.error(f"Error generating greeting: {e}")
+            return "Sharp minds find edges where others see chaos. Let's analyze today's opportunities."
+    
+    def store_enhanced_insights(self, enhanced_insights, target_date=None):
+        """Store the enhanced insights with titles and categories + dynamic greeting"""
+        try:
+            if not enhanced_insights:
+                logger.warning("No enhanced insights to store")
                 return
             
+            # Generate dynamic greeting
+            greeting = self.generate_dynamic_greeting()
+            
+            logger.info("💾 Storing enhanced insights with dynamic greeting...")
+            
+            # Use target date or current date
+            if target_date:
+                today = target_date.isoformat()
+            else:
+                today = date.today().isoformat()
+            
             # Clear existing insights for today
-            today = date.today().isoformat()
-            self.supabase.table('ai_insights').delete().gte('created_at', today).execute()
+            delete_result = self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
+            logger.info(f"🗑️ Cleared existing insights: {len(delete_result.data) if delete_result.data else 0} records")
             
-            logger.info("💾 Storing enhanced categorized insights...")
-            
-            # Generate and store intro message
-            intro_text = "Fresh analysis completed with comprehensive research covering multiple games and key factors."
-            intro_record = {
-                'user_id': self.user_id,
-                'title': 'Daily Research Update',
-                'description': intro_text,
-                'type': 'trend',
-                'impact': 'medium',
-                'data': {
-                    'category': 'intro',
-                    'insight_text': intro_text,
-                    'insight_order': 0,
-                    'confidence': 85,
-                    'research_sources': ['StatMuse', 'AI Analysis'],
-                },
-                'is_global': True,
+            # Store greeting as insight_order = 1 with proper structure
+            greeting_record = {
+                'insight_text': greeting,
+                'title': 'Professor Lock',  # Title for the greeting section
+                'description': greeting,   # Use greeting as description too
+                'category': 'intro',
+                'confidence': 100,
+                'impact': 'high',
+                'insight_order': 1,
+                'date_generated': today,
                 'created_at': datetime.now().isoformat()
             }
             
-            self.supabase.table('ai_insights').insert(intro_record).execute()
-            logger.info("💾 Stored intro message")
+            self.supabase.table('daily_professor_insights').insert(greeting_record).execute()
+            logger.info(f"✅ Stored dynamic greeting as insight #1")
             
-            # Store categorized insights
-            for i, insight in enumerate(insights):
-                # Extract teams from insight text for better titles
-                teams = []
-                for word in insight['text'].split():
-                    if len(word) > 4 and word[0].isupper() and word.endswith('s'):
-                        teams.append(word)
-                
-                title = self.generate_title_for_insight(insight['category'], insight['text'], teams[:1])
-                
+            # Store enhanced insights starting from insight_order = 2 (store up to 15 for Elite users)
+            for i, insight in enumerate(enhanced_insights[:15]):
                 record = {
-                    'user_id': self.user_id,
-                    'title': title,
-                    'description': insight['text'],
-                    'type': 'trend',
-                    'impact': 'high' if insight['category'] in ['injury', 'weather'] else 'medium',
-                    'data': {
-                        'category': insight['category'],
-                        'insight_text': insight['text'],
-                        'insight_order': i + 1,
-                        'confidence': 85,
-                        'research_sources': ['StatMuse', 'AI Analysis'] if 'statmuse' in insight['text'].lower() else ['AI Analysis'],
-                        'teams': teams[:2],
-                    },
-                    'is_global': True,
+                    'insight_text': insight['description'],
+                    'title': insight['title'],
+                    'description': insight['description'],
+                    'category': insight['category'],
+                    'confidence': 75,  # Default confidence
+                    'impact': 'medium',  # Default impact
+                    'insight_order': i + 2,  # Start from 2 since greeting is 1
+                    'date_generated': today,
                     'created_at': datetime.now().isoformat()
                 }
                 
-                self.supabase.table('ai_insights').insert(record).execute()
-                logger.info(f"💾 Stored {insight['category']} insight: {insight['text'][:80]}...")
+                self.supabase.table('daily_professor_insights').insert(record).execute()
+                logger.info(f"✅ Stored [{insight['category']}] {insight['title']}")
             
-            logger.info(f"💾 Stored {len(insights) + 1} total insights with enhanced categorization")
+            logger.info(f"💾 Stored {len(enhanced_insights)} enhanced insights + 1 dynamic greeting")
+            logger.info(f"🎭 Today's greeting will show separately above insight cards")
+            
+            # Log category distribution
+            category_counts = {}
+            for insight in enhanced_insights:
+                cat = insight['category']
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+            
+            logger.info(f"📊 Category distribution: {category_counts}")
             
         except Exception as e:
-            logger.error(f"Error storing insights: {e}")
+            logger.error(f"Error storing enhanced insights: {e}")
 
-    def run_enhanced_insights_generation(self):
-        """Main function to run enhanced 3-step insights generation"""
-        logger.info("🚀 Starting Enhanced AI-Driven Intelligent Insights Generation")
-        logger.info("🧠 Using 3-step approach: Research Planning → StatMuse Research → Categorized Insights")
+    def run_enhanced_insights_generation(self, target_date=None, use_tomorrow=False):
+        """Main function to run enhanced insights generation"""
+        logger.info("🧠 Starting Enhanced Professor Lock Insights Generation")
+        logger.info("🎯 With proper titles, categories, and greeting handling")
+        
+        # Determine target date - default to current day
+        if target_date:
+            target_date_obj = datetime.strptime(target_date, '%Y-%m-%d').date()
+            logger.info(f"📅 Generating insights for specific date: {target_date}")
+        elif use_tomorrow:
+            target_date_obj = date.today() + timedelta(days=1)
+            logger.info(f"📅 Generating insights for tomorrow: {target_date_obj}")
+        else:
+            target_date_obj = date.today()
+            logger.info(f"📅 Generating insights for current day: {target_date_obj}")
         
         try:
             # Step 1: Get upcoming games with odds
@@ -540,35 +706,53 @@ Generate your 8-10 categorized insights now:"""
                 logger.error("No upcoming games with odds found")
                 return False
             
-            # Step 2: Create research plan
-            research_plan = self.create_research_plan(games)
+            # Step 2: Ask Professor Lock what to research
+            research_prompt = self.create_professor_lock_research_prompt(games)
+            research_plan = self.send_to_professor_lock(research_prompt)
             if not research_plan:
-                logger.error("Failed to create research plan")
+                logger.error("Failed to get research plan from Professor Lock")
                 return False
             
-            logger.info("📋 Research plan created successfully")
+            logger.info("📋 Professor Lock research plan received")
             
-            # Step 3: Execute StatMuse research
-            enhanced_research = self.execute_statmuse_research(research_plan)
-            
-            # Step 4: Generate categorized insights
-            insights_text = self.generate_categorized_insights(enhanced_research)
-            if not insights_text:
-                logger.error("Failed to generate insights")
+            # Step 3: Let Professor Lock execute research with web search
+            research_results = self.execute_research_with_professor_lock(research_plan)
+            if not research_results:
+                logger.error("Failed to execute research")
                 return False
             
-            # Step 5: Parse categorized insights
-            insights = self.parse_categorized_insights(insights_text)
-            if not insights:
-                logger.error("Failed to parse insights")
+            # Step 4: Parse raw insights from research
+            raw_insights = self.parse_insights_from_research(research_results)
+            if not raw_insights:
+                logger.error("Failed to parse insights from research")
                 return False
             
-            # Step 6: Store enhanced insights
-            self.store_enhanced_insights(insights)
+            # Step 5: Enhance insights with titles and categories
+            enhanced_insights = self.enhance_insights_with_titles_and_categories(raw_insights)
+            if not enhanced_insights:
+                logger.error("Failed to enhance insights")
+                return False
+            
+            # Step 6: Store enhanced insights with proper greeting
+            self.store_enhanced_insights(enhanced_insights, target_date_obj)
             
             logger.info("✅ Enhanced insights generation completed successfully!")
-            logger.info(f"🎯 Generated {len(insights)} research-based categorized insights")
-            logger.info("📱 Fresh enhanced insights now available!")
+            logger.info(f"🎯 Generated {len(enhanced_insights)} categorized insights + 1 dynamic greeting")
+            
+            # Verify we have enough insights for all user tiers
+            if len(enhanced_insights) >= 12:
+                logger.info("✅ Elite users (12 insights) and Pro users (8 insights) fully supported")
+            elif len(enhanced_insights) >= 8:
+                logger.warning("⚠️ Only Pro users (8 insights) supported - Elite users won't get full experience")
+            else:
+                logger.error("❌ Insufficient insights generated for proper user experience")
+            
+            logger.info("📱 Fresh enhanced insights now available in app!")
+            
+            # Log sample insights
+            logger.info(f"  🎭 Greeting: Dynamic greeting stored as intro category")
+            for insight in enhanced_insights[:3]:
+                logger.info(f"  [{insight['category']}] {insight['title']}: {insight['description'][:60]}...")
             
             return True
             
@@ -576,10 +760,28 @@ Generate your 8-10 categorized insights now:"""
             logger.error(f"❌ Enhanced insights generation failed: {e}")
             return False
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Generate enhanced AI betting insights')
+    parser.add_argument('--tomorrow', action='store_true', 
+                      help='Generate insights for tomorrow instead of today')
+    parser.add_argument('--date', type=str, 
+                      help='Specific date to generate insights for (YYYY-MM-DD)')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                      help='Enable verbose logging')
+    return parser.parse_args()
+
 if __name__ == "__main__":
     try:
-        generator = EnhancedIntelligentInsightsGenerator()
-        success = generator.run_enhanced_insights_generation()
+        args = parse_arguments()
+        
+        if args.verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
+        
+        generator = EnhancedInsightsGenerator()
+        success = generator.run_enhanced_insights_generation(
+            target_date=args.date,
+            use_tomorrow=args.tomorrow
+        )
         if success:
             print("🎯 Enhanced insights generation completed successfully!")
         else:

@@ -157,12 +157,33 @@ class DatabaseClient:
     
     def get_games_for_date(self, target_date: datetime.date) -> List[Dict[str, Any]]:
         try:
-            start_dt = datetime.combine(target_date, datetime.min.time())
-            end_dt = start_dt + timedelta(days=1)
-            start_iso = start_dt.isoformat()
-            end_iso = end_dt.isoformat()
+            # IMPORTANT: Use the same approach as setupOddsIntegration.ts
+            # For current day: use current time to end of day
+            # For tomorrow: use start of tomorrow to end of tomorrow
             
-            logger.info(f"Fetching games for {target_date} ({start_iso} to {end_iso})")
+            now = datetime.now()
+            current_date = now.date()
+            
+            if target_date == current_date:
+                # Today - start from now
+                start_time = now
+                # End of day in EST, converted to UTC (EST games can run until ~3 AM UTC next day)
+                end_time_local = datetime.combine(current_date, datetime.min.time().replace(hour=23, minute=59, second=59))
+                end_time = end_time_local + timedelta(hours=8)  # EST to UTC conversion (worst case)
+            else:
+                # Tomorrow or specified date - use full day with timezone padding
+                # Start of day in EST converted to UTC (EST midnight = 5 AM UTC typically)
+                start_time_local = datetime.combine(target_date, datetime.min.time())
+                start_time = start_time_local - timedelta(hours=8)  # Pad for timezone differences
+                
+                # End of day in EST converted to UTC (EST 11:59 PM can be up to 8 AM UTC next day)
+                end_time_local = datetime.combine(target_date, datetime.min.time().replace(hour=23, minute=59, second=59))
+                end_time = end_time_local + timedelta(hours=8)  # Pad for timezone differences
+            
+            start_iso = start_time.isoformat()
+            end_iso = end_time.isoformat()
+            
+            logger.info(f"Fetching games from UTC range ({start_iso}) to ({end_iso}) and filtering for local date {target_date}")
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
@@ -171,18 +192,31 @@ class DatabaseClient:
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
                     "id, home_team, away_team, start_time, sport, metadata"
-                ).gte("start_time", start_iso).lt("start_time", end_iso).eq("sport", sport).order("start_time").execute()
+                ).gte("start_time", start_iso).lte("start_time", end_iso).eq("sport", sport).order("start_time").execute()
                 
                 if response.data:
-                    logger.info(f"Found {len(response.data)} {sport} games for {target_date}")
-                    all_games.extend(response.data)
+                    # Filter games to only include those that happen on the target local date
+                    filtered_games = []
+                    for game in response.data:
+                        # Parse the UTC timestamp and convert to EST to check local date
+                        game_utc = datetime.fromisoformat(game['start_time'].replace('Z', '+00:00'))
+                        # Convert to EST (UTC-5, but we'll use a simple approximation)
+                        game_est = game_utc - timedelta(hours=5)  # EST offset
+                        game_local_date = game_est.date()
+                        
+                        # Only include if it falls on our target date in local time
+                        if game_local_date == target_date:
+                            filtered_games.append(game)
+                    
+                    logger.info(f"Found {len(filtered_games)} {sport} games for local date {target_date}")
+                    all_games.extend(filtered_games)
             
             # Sort all games by start time
             all_games.sort(key=lambda x: x['start_time'])
-            logger.info(f"Total games for {target_date}: {len(all_games)}")
+            logger.info(f"Total games found for time window: {len(all_games)}")
             return all_games
         except Exception as e:
-            logger.error(f"Failed to fetch games for {target_date}: {e}")
+            logger.error(f"Failed to fetch games for time window: {e}")
             return []
     
     def get_upcoming_games(self, target_date: Optional[datetime.date] = None) -> List[Dict[str, Any]]:

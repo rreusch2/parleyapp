@@ -69,7 +69,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
   try {
     console.log(`📊 Fetching ${sportInfo.name} games with odds from TheOdds API...`);
     
-    // Calculate date range for today and the next day (tomorrow) to ensure we only capture upcoming games we care about
+    // Calculate date range for today and tomorrow only
     const now = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(now.getDate() + 1);
@@ -80,7 +80,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
     
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);
     
-    // Get upcoming games with odds (today and tomorrow)
+    // Get upcoming games with odds (today and tomorrow only)
     const response = await axios.get(`${API_BASE_URL}/sports/${sportInfo.key}/odds`, {
       params: {
         apiKey: THEODDS_API_KEY,

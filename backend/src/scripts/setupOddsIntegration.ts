@@ -598,21 +598,27 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
     
     console.log(`\n📊 Fetching ${sportConfig.sportName} player props...`);
     
-    // Calculate the date window for today (from now) through the end of tomorrow
-    const now = new Date();
-    const tomorrowEnd = new Date(now);
-    tomorrowEnd.setDate(now.getDate() + 1);
-    tomorrowEnd.setUTCHours(23, 59, 59, 999);
-
-    // Get upcoming games for this sport from the database (only today + tomorrow)
+    // Get upcoming games for this sport from the database for current day and tomorrow
     // Use the sport name (not the TheOdds key) to match database records
+    
+    // Calculate today and tomorrow dates for filtering
+    const now = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    
+    // Set tomorrow to end of day
+    const tomorrowEnd = new Date(tomorrow);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    
+    console.log(`Looking for games from ${now.toISOString()} to ${tomorrowEnd.toISOString()}`);
+    
     const { data: games, error: gamesError } = await supabaseAdmin
       .from('sports_events')
       .select('id, external_event_id, sport, home_team, away_team, start_time')
       .eq('sport', sportConfig.sportName)
       .gte('start_time', now.toISOString())
-      .lt('start_time', tomorrowEnd.toISOString())
-      .limit(10); // Limit to avoid rate limits
+      .lte('start_time', tomorrowEnd.toISOString())
+      .order('start_time', { ascending: true });
     
     if (gamesError) {
       console.error(`❌ Error fetching ${sportConfig.sportName} games:`, gamesError.message);
@@ -651,12 +657,23 @@ async function checkCurrentGames(): Promise<void> {
   console.log('\n🎮 Checking current games in database...');
   
   try {
+    // Calculate today and tomorrow dates for filtering
+    const now = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    
+    // Set tomorrow to end of day
+    const tomorrowEnd = new Date(tomorrow);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+    
+    console.log(`Checking games from ${now.toISOString()} to ${tomorrowEnd.toISOString()}`);
+    
     const { data: gamesData, error: gamesError } = await supabaseAdmin
       .from('sports_events')
       .select('sport, home_team, away_team, start_time, status')
-      .gte('start_time', new Date().toISOString())
-      .order('start_time', { ascending: true })
-      .limit(5);
+      .gte('start_time', now.toISOString())
+      .lte('start_time', tomorrowEnd.toISOString())
+      .order('start_time', { ascending: true });
     
     if (gamesError) {
       console.error('❌ Error checking games:', gamesError.message);
