@@ -44,20 +44,19 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
-import { useRewardAds } from '../hooks/useRewardAds';
+
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PredictionsScreen() {
   const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
-  const { 
-    isAdLoading, 
-    canWatchPicksAdToday, 
-    extraPicksAvailable, 
-    showPicksRewardAd, 
-    refreshAdStatus 
-  } = useRewardAds();
+  // Temporary: Disabled reward ads functionality
+  const isAdLoading = false;
+  const canWatchPicksAdToday = false;
+  const extraPicksAvailable = 0;
+  const showPicksRewardAd = async () => false;
+  const refreshAdStatus = async () => {};
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
