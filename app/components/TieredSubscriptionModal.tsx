@@ -61,7 +61,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   
-  const { subscribeToPro, checkSubscriptionStatus, restorePurchases } = useSubscription();
+  const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
 
   // Function to calculate original price (double current price for 50% off promo)
@@ -98,14 +98,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       setLoading(true);
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
 
-      const success = await subscribeToPro(selectedPlan);
+      const success = await subscribe(selectedPlan, selectedTier);
 
       if (success) {
         console.log('✅ Purchase flow completed successfully in modal.');
         
         trackPositiveInteraction({ eventType: 'successful_subscription' });
         
-        const tierName = selectedTier === 'pro' ? 'Pro' : 'Elite';
+                const tierName = selectedTier === 'elite' ? 'Elite' : 'Pro';
         Alert.alert(
           `🎉 Welcome to ${tierName}!`,
           `You've successfully subscribed to the ${tierName} plan. Welcome to the premium experience!`,

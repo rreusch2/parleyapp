@@ -13,7 +13,7 @@ interface SubscriptionContextType {
   isLoading: boolean;
   showSubscriptionModal: boolean;
   checkSubscriptionStatus: () => Promise<void>;
-  subscribeToPro: (planId: SubscriptionPlan) => Promise<boolean>;
+  subscribe: (planId: SubscriptionPlan, tier: 'pro' | 'elite') => Promise<boolean>;
   openSubscriptionModal: () => void;
   closeSubscriptionModal: () => void;
   restorePurchases: () => Promise<void>;
@@ -129,31 +129,45 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           await AsyncStorage.setItem('subscriptionStatus', 'free');
         }
         
-        // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
-        try {
-          console.log('🔄 DEBUG: Checking RevenueCat subscription...');
-          await revenueCatService.initialize();
-          const hasActive = await revenueCatService.hasActiveSubscription();
-          
-          console.log('🔄 DEBUG: RevenueCat active subscription:', hasActive);
-          
-          // Only sync with RevenueCat if user doesn't have active welcome bonus
-          const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
-          const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
-          
-          if (!hasActiveWelcomeBonus && hasActive && profile?.subscription_tier !== 'pro') {
-            console.log('🔄 Syncing Pro status from RevenueCat to database');
-            await supabase
-              .from('profiles')
-              .update({ subscription_tier: 'pro' })
-              .eq('id', user.id);
-            setIsPro(true);
-            await AsyncStorage.setItem('subscriptionStatus', 'pro');
+                  // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
+          try {
+            console.log('🔄 DEBUG: Checking RevenueCat subscription...');
+            await revenueCatService.initialize();
+            const customerInfo = await revenueCatService.getCustomerInfo();
+            const hasActiveSubscription = customerInfo.entitlements.active.pro || customerInfo.entitlements.active.elite;
+            
+            console.log('🔄 DEBUG: RevenueCat active subscription:', hasActiveSubscription);
+
+            if (hasActiveSubscription) {
+              const isElite = customerInfo.entitlements.active.elite;
+              const tier = isElite ? 'elite' : 'pro';
+              
+              // Only sync with RevenueCat if user doesn't have active welcome bonus
+              const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+              const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+              
+              if (!hasActiveWelcomeBonus && profile?.subscription_tier !== tier) {
+                console.log(`🔄 Syncing ${tier} status from RevenueCat to database`);
+                await supabase
+                  .from('profiles')
+                  .update({ subscription_tier: tier })
+                  .eq('id', user.id);
+
+                if (tier === 'elite') {
+                  setIsElite(true);
+                  setIsPro(true); // Elite includes Pro
+                } else {
+                  setIsPro(true);
+                  setIsElite(false);
+                }
+                
+                await AsyncStorage.setItem('subscriptionStatus', tier);
+              }
+            }
+          } catch (rcError) {
+            console.log('⚠️ RevenueCat check failed, using database status:', rcError);
+            // Continue with database status
           }
-        } catch (rcError) {
-          console.log('⚠️ RevenueCat check failed, using database status:', rcError);
-          // Continue with database status
-        }
       } else {
         console.log('❌ DEBUG: No user found, setting isPro to false');
         setIsPro(false);
@@ -169,8 +183,8 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
   
-  const subscribeToPro = async (planId: SubscriptionPlan): Promise<boolean> => {
-    console.log('🔥 DEBUG: subscribeToPro called with planId:', planId);
+    const subscribe = async (planId: SubscriptionPlan, tier: 'pro' | 'elite'): Promise<boolean> => {
+    console.log(`🔥 DEBUG: subscribe called with planId: ${planId} and tier: ${tier}`);
     
     try {
       console.log('🔥 DEBUG: Getting user from Supabase...');
@@ -269,9 +283,9 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         isElite,
         subscriptionTier,
         isLoading,
-        showSubscriptionModal,
+                showSubscriptionModal,
         checkSubscriptionStatus,
-        subscribeToPro,
+        subscribe,
         openSubscriptionModal,
         closeSubscriptionModal,
         restorePurchases,

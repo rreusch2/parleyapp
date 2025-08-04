@@ -453,12 +453,8 @@ class RevenueCatService {
         latestExpirationDate: customerInfo.latestExpirationDate
       });
 
-      // Enhanced debugging for Elite subscription tracking
-      console.log('🔍 DEBUG Elite: All entitlement names found:', Object.keys(customerInfo.entitlements.all));
-      console.log('🔍 DEBUG Elite: Active entitlement names found:', Object.keys(customerInfo.entitlements.active));
-
-      // Check if user has active entitlements - try multiple possible entitlement names for both Pro and Elite
-      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro", "elite", "parleyapp_elite", "allstar"];
+      // Check if user has active entitlements - try multiple possible entitlement names
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
       let hasActiveSubscription = false;
       let activeEntitlementName = null;
       let activeEntitlement = null;
@@ -497,38 +493,19 @@ class RevenueCatService {
         // Get product identifier from active entitlement
         subscriptionProductId = activeEntitlement.productIdentifier;
         
-        // Map product ID to plan type - FIXED: Added Elite product mappings
+        // Map product ID to plan type
         const productToPlanMap: { [key: string]: string } = {
-          // Pro products
           'com.parleyapp.premium_weekly': 'weekly',
           'com.parleyapp.premium_monthly': 'monthly', 
           'com.parleyapp.premiumyearly': 'yearly',
-          'com.parleyapp.premium_lifetime': 'lifetime',
-          'com.parleyapp.prodaypass': 'daily',
-          // Elite products (allstar series)
-          'com.parleyapp.allstarweekly': 'weekly',
-          'com.parleyapp.allstarmonthly': 'monthly',
-          'com.parleyapp.allstaryearly': 'yearly'
+          'com.parleyapp.premium_lifetime': 'lifetime'
         };
         
         subscriptionPlanType = productToPlanMap[subscriptionProductId] || null;
         
-        // Use planId if provided (from purchase flow) - normalize it to valid plan type
+        // Use planId if provided (from purchase flow)
         if (planId && !subscriptionPlanType) {
-          // Extract the plan type from tier-specific plan IDs (e.g., 'elite_weekly' -> 'weekly')
-          if (planId.includes('weekly')) {
-            subscriptionPlanType = 'weekly';
-          } else if (planId.includes('monthly')) {
-            subscriptionPlanType = 'monthly';
-          } else if (planId.includes('yearly')) {
-            subscriptionPlanType = 'yearly';
-          } else if (planId.includes('lifetime')) {
-            subscriptionPlanType = 'lifetime';
-          } else if (planId.includes('daypass')) {
-            subscriptionPlanType = 'daily';
-          } else {
-            subscriptionPlanType = planId; // fallback to raw planId if no pattern matches
-          }
+          subscriptionPlanType = planId;
         }
         
         // Set expiration date
@@ -553,35 +530,15 @@ class RevenueCatService {
       let subscriptionTier = 'free';
       let maxDailyPicks = 2; // Default for free
       
-      console.log('🔍 DEBUG Elite: Tier detection inputs:', {
-        hasActiveSubscription,
-        subscriptionProductId,
-        activeEntitlementName,
-        planId
-      });
-      
       if (hasActiveSubscription && subscriptionProductId) {
         // Check if it's an Elite subscription (contains 'allstar')
         if (subscriptionProductId.includes('allstar')) {
           subscriptionTier = 'elite';
           maxDailyPicks = 30;
-          console.log('✅ DEBUG Elite: Detected ELITE subscription via product ID:', subscriptionProductId);
         } else {
           // All other active subscriptions are Pro
           subscriptionTier = 'pro';
           maxDailyPicks = 20;
-          console.log('✅ DEBUG Elite: Detected PRO subscription via product ID:', subscriptionProductId);
-        }
-      } else if (hasActiveSubscription) {
-        // Fallback: Check entitlement name for Elite detection
-        if (activeEntitlementName && (activeEntitlementName.includes('elite') || activeEntitlementName.includes('allstar'))) {
-          subscriptionTier = 'elite';
-          maxDailyPicks = 30;
-          console.log('✅ DEBUG Elite: Detected ELITE subscription via entitlement name:', activeEntitlementName);
-        } else {
-          subscriptionTier = 'pro';
-          maxDailyPicks = 20;
-          console.log('✅ DEBUG Elite: Detected PRO subscription via entitlement name:', activeEntitlementName);
         }
       }
       
@@ -688,8 +645,8 @@ class RevenueCatService {
         entitlementDetails: customerInfo.entitlements.active
       });
 
-      // Check if user has active entitlements - try multiple possible entitlement names for both Pro and Elite
-      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro", "elite", "parleyapp_elite", "allstar"];
+      // Check if user has active entitlements - try multiple possible entitlement names
+      const possibleEntitlements = ["predictiveplaypro", "pro", "premium", "parleyapp_pro"];
       
       for (const entitlementName of possibleEntitlements) {
         const entitlement = customerInfo.entitlements.active[entitlementName];
