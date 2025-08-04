@@ -1,69 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
-import { headers } from 'next/headers'
 
-// Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2023-10-16',
 })
 
-// Create Supabase client with service role key for admin operations
-const supabaseAdmin = createClient(
+const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the raw body as text for signature verification
     const body = await request.text()
-    const headersList = headers()
-    const sig = headersList.get('stripe-signature')
-
-    if (!sig) {
-      console.error('No Stripe signature found')
-      return NextResponse.json(
-        { error: 'No signature found' },
-        { status: 400 }
-      )
-    }
+    const signature = request.headers.get('stripe-signature')!
 
     let event: Stripe.Event
 
     try {
-      // Verify the webhook signature
-      event = stripe.webhooks.constructEvent(body, sig, endpointSecret)
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err)
-      return NextResponse.json(
-        { error: `Webhook signature verification failed: ${err}` },
-        { status: 400 }
-      )
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
     console.log('Received Stripe webhook event:', event.type)
 
-    // Handle the event
     switch (event.type) {
-      case 'payment_intent.succeeded':
-        await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent)
-        break
-      
-      case 'payment_intent.payment_failed':
-        await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent)
-        break
-      
-      case 'payment_intent.canceled':
-        await handlePaymentIntentCanceled(event.data.object as Stripe.PaymentIntent)
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
         break
       
       case 'customer.subscription.created':
@@ -91,178 +59,173 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true })
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('Webhook error:', error)
     return NextResponse.json(
-      { error: 'Webhook handler failed' },
+      { error: 'Webhook processing failed' },
       { status: 500 }
     )
   }
 }
 
-async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  console.log('Payment succeeded:', paymentIntent.id)
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  const userId = session.metadata?.userId
   
-  try {
-    // Update payment status in database
-    const { error: paymentError } = await supabaseAdmin
-      .from('payments')
-      .update({
-        status: 'succeeded',
-        metadata: {
-          ...paymentIntent.metadata,
-          stripe_payment_method: paymentIntent.payment_method,
-          payment_succeeded_at: new Date().toISOString()
-        }
-      })
-      .eq('stripe_payment_intent_id', paymentIntent.id)
-
-    if (paymentError) {
-      console.error('Error updating payment status:', paymentError)
-      return
-    }
-
-    // Get user_id from payment intent metadata
-    const userId = paymentIntent.metadata.user_id
-    const subscriptionType = paymentIntent.metadata.subscription_type
-
-    if (userId && subscriptionType) {
-      // Update user's subscription in profiles table
-      const subscriptionData = getSubscriptionData(subscriptionType)
-      
-      const { error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .update({
-          subscription_tier: subscriptionData.tier,
-          subscription_status: 'active',
-          subscription_plan_type: subscriptionData.planType,
-          subscription_started_at: new Date().toISOString(),
-          subscription_expires_at: subscriptionData.expiresAt,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-
-      if (profileError) {
-        console.error('Error updating user profile:', profileError)
-      } else {
-        console.log(`Updated subscription for user ${userId} to ${subscriptionType}`)
-      }
-    }
-
-  } catch (error) {
-    console.error('Error handling payment success:', error)
+  if (!userId) {
+    console.error('No userId found in checkout session metadata')
+    return
   }
-}
 
-async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
-  console.log('Payment failed:', paymentIntent.id)
-  
-  try {
-    const { error } = await supabaseAdmin
-      .from('payments')
-      .update({
-        status: 'failed',
-        metadata: {
-          ...paymentIntent.metadata,
-          failure_reason: paymentIntent.last_payment_error?.message || 'Unknown error',
-          payment_failed_at: new Date().toISOString()
-        }
-      })
-      .eq('stripe_payment_intent_id', paymentIntent.id)
-
-    if (error) {
-      console.error('Error updating failed payment status:', error)
-    }
-  } catch (error) {
-    console.error('Error handling payment failure:', error)
-  }
-}
-
-async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {
-  console.log('Payment canceled:', paymentIntent.id)
-  
-  try {
-    const { error } = await supabaseAdmin
-      .from('payments')
-      .update({
-        status: 'canceled',
-        metadata: {
-          ...paymentIntent.metadata,
-          payment_canceled_at: new Date().toISOString()
-        }
-      })
-      .eq('stripe_payment_intent_id', paymentIntent.id)
-
-    if (error) {
-      console.error('Error updating canceled payment status:', error)
-    }
-  } catch (error) {
-    console.error('Error handling payment cancellation:', error)
+  // Handle both subscription and one-time payments
+  if (session.mode === 'subscription' && session.subscription) {
+    const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+    await updateUserSubscription(userId, subscription, 'active')
+  } else if (session.mode === 'payment') {
+    // Handle one-time purchases (Day Pass, Lifetime)
+    await handleOneTimePurchase(userId, session)
   }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
-  console.log('Subscription created:', subscription.id)
-  // Handle subscription creation logic here
+  const userId = subscription.metadata?.userId
+  
+  if (!userId) {
+    console.error('No userId found in subscription metadata')
+    return
+  }
+
+  await updateUserSubscription(userId, subscription, subscription.status as any)
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  console.log('Subscription updated:', subscription.id)
-  // Handle subscription update logic here
+  const userId = subscription.metadata?.userId
+  
+  if (!userId) {
+    console.error('No userId found in subscription metadata')
+    return
+  }
+
+  await updateUserSubscription(userId, subscription, subscription.status as any)
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  console.log('Subscription deleted:', subscription.id)
-  // Handle subscription deletion logic here
+  const userId = subscription.metadata?.userId
+  
+  if (!userId) {
+    console.error('No userId found in subscription metadata')
+    return
+  }
+
+  // Update user to free tier
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      subscription_status: 'canceled',
+      subscription_tier: 'free',
+      subscription_id: null,
+      subscription_current_period_end: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error updating user subscription on deletion:', error)
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
-  console.log('Invoice payment succeeded:', invoice.id)
-  // Handle successful invoice payment here
+  const subscription = invoice.subscription
+  
+  if (subscription) {
+    const sub = await stripe.subscriptions.retrieve(subscription as string)
+    const userId = sub.metadata?.userId
+    
+    if (userId) {
+      await updateUserSubscription(userId, sub, 'active')
+    }
+  }
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  console.log('Invoice payment failed:', invoice.id)
-  // Handle failed invoice payment here
+  const subscription = invoice.subscription
+  
+  if (subscription) {
+    const sub = await stripe.subscriptions.retrieve(subscription as string)
+    const userId = sub.metadata?.userId
+    
+    if (userId) {
+      await updateUserSubscription(userId, sub, 'past_due')
+    }
+  }
 }
 
-function getSubscriptionData(subscriptionType: string) {
-  const now = new Date()
-  let expiresAt: Date
-  let tier: string
-  let planType: string
-
-  switch (subscriptionType) {
-    case 'pro_monthly':
-      tier = 'pro'
-      planType = 'monthly'
-      expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days
-      break
-    case 'pro_yearly':
-      tier = 'pro'
-      planType = 'yearly'
-      expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000) // 365 days
-      break
-    case 'elite_monthly':
-      tier = 'elite'
-      planType = 'monthly'
-      expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days
-      break
-    case 'elite_yearly':
-      tier = 'elite'
-      planType = 'yearly'
-      expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000) // 365 days
-      break
-    default:
-      tier = 'free'
-      planType = 'monthly'
-      expiresAt = now
+async function updateUserSubscription(
+  userId: string, 
+  subscription: Stripe.Subscription, 
+  status: 'active' | 'past_due' | 'canceled' | 'incomplete'
+) {
+  const priceId = subscription.items.data[0]?.price.id
+  
+  // Determine tier based on price ID
+  let tier = 'free'
+  if (priceId?.includes('pro')) {
+    tier = 'pro'
+  } else if (priceId?.includes('elite')) {
+    tier = 'elite'
   }
 
-  return {
-    tier,
-    planType,
-    expiresAt: expiresAt.toISOString()
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      subscription_status: status,
+      subscription_tier: tier,
+      subscription_id: subscription.id,
+      subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      stripe_customer_id: subscription.customer as string,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error updating user subscription:', error)
+  } else {
+    console.log(`Updated user ${userId} subscription to ${tier} (${status})`)
+  }
+}
+
+async function handleOneTimePurchase(userId: string, session: Stripe.Checkout.Session) {
+  // Handle Day Pass or Lifetime purchases
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
+  const priceId = lineItems.data[0]?.price?.id
+  
+  let tier = 'free'
+  let expiresAt = null
+  
+  if (priceId?.includes('daypass')) {
+    tier = 'pro'
+    // Day pass expires after 24 hours
+    expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  } else if (priceId?.includes('lifetime')) {
+    tier = 'pro'
+    // Lifetime access - no expiration
+    expiresAt = null
+  }
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({
+      subscription_status: 'active',
+      subscription_tier: tier,
+      subscription_id: session.id, // Use session ID for one-time purchases
+      subscription_current_period_end: expiresAt,
+      stripe_customer_id: session.customer as string,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error updating user one-time purchase:', error)
+  } else {
+    console.log(`Updated user ${userId} with one-time purchase: ${tier}`)
   }
 }

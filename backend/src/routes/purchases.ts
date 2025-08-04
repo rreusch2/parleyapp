@@ -465,13 +465,20 @@ function getSubscriptionDetails(productId: string): {
     'pro_daypass': PRO_PLANS.pro_daypass, // Android
     'pro_lifetime': PRO_PLANS.pro_lifetime, // Android
     
-    // Elite tier products
-    'com.parleyapp.elite_weekly': ELITE_PLANS.elite_weekly,
-    'com.parleyapp.elite_monthly': ELITE_PLANS.elite_monthly,
-    'com.parleyapp.elite_yearly': ELITE_PLANS.elite_yearly,
+    // Elite tier products (using correct "allstar" product IDs)
+    'com.parleyapp.allstarweekly': ELITE_PLANS.elite_weekly,
+    'com.parleyapp.allstarmonthly': ELITE_PLANS.elite_monthly,
+    'com.parleyapp.allstaryearly': ELITE_PLANS.elite_yearly,
+    'com.parleyapp.elite_weekly': ELITE_PLANS.elite_weekly, // Backup mapping
+    'com.parleyapp.elite_monthly': ELITE_PLANS.elite_monthly, // Backup mapping
+    'com.parleyapp.elite_yearly': ELITE_PLANS.elite_yearly, // Backup mapping
     'elite_weekly': ELITE_PLANS.elite_weekly, // Android
     'elite_monthly': ELITE_PLANS.elite_monthly, // Android
-    'elite_yearly': ELITE_PLANS.elite_yearly // Android
+    'elite_yearly': ELITE_PLANS.elite_yearly, // Android
+    // Android Elite with full IDs
+    'com.parleyapp.allstarweekly:weekly-elite2025': ELITE_PLANS.elite_weekly,
+    'com.parleyapp.allstarmonthly:monthly-elite2025': ELITE_PLANS.elite_monthly,
+    'com.parleyapp.allstaryearly:yearly-elite2025': ELITE_PLANS.elite_yearly
   };
   
   const details = productMapping[productId];
@@ -481,7 +488,7 @@ function getSubscriptionDetails(productId: string): {
   }
   
   // Fallback to pattern matching for unknown products
-  if (productId.includes('elite')) {
+  if (productId.includes('elite') || productId.includes('allstar')) {
     if (productId.includes('weekly')) return ELITE_PLANS.elite_weekly;
     if (productId.includes('monthly')) return ELITE_PLANS.elite_monthly;
     if (productId.includes('yearly')) return ELITE_PLANS.elite_yearly;
