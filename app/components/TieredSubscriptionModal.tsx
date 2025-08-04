@@ -100,25 +100,16 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
       const success = await subscribe(selectedPlan, selectedTier);
 
-      if (success) {
+            if (success) {
         console.log('✅ Purchase flow completed successfully in modal.');
         
         trackPositiveInteraction({ eventType: 'successful_subscription' });
         
-                const tierName = selectedTier === 'elite' ? 'Elite' : 'Pro';
-        Alert.alert(
-          `🎉 Welcome to ${tierName}!`,
-          `You've successfully subscribed to the ${tierName} plan. Welcome to the premium experience!`,
-          [{
-            text: 'Great!',
-            onPress: () => {
-              onClose();
-              if (onSubscribe) {
-                onSubscribe(selectedPlan, selectedTier);
-              }
-            }
-          }]
-        );
+        // Close modal immediately and let the dashboard update
+        onClose();
+        if (onSubscribe) {
+          onSubscribe(selectedPlan, selectedTier);
+        }
       } else {
         console.log('ℹ️ Purchase was cancelled or failed, handled in subscriptionContext.');
       }

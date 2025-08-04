@@ -102,21 +102,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       if (result.success) {
         console.log('✅ Purchase completed successfully!');
         
-        const tierName = selectedTier === 'pro' ? 'Pro' : 'Elite';
+        // Close modal immediately and let the dashboard update
         if (onSubscribe) {
           await onSubscribe(selectedPlan, selectedTier);
-        } else {
-          Alert.alert(
-            `🎉 Welcome to ${tierName}!`,
-            `You've successfully subscribed to the ${tierName} plan. Welcome to the premium experience!`,
-            [{ 
-              text: 'Let\'s Go!', 
-              onPress: () => {
-                onClose();
-              }
-            }]
-          );
         }
+        onClose();
       } else {
         if (result.error === 'cancelled') {
           console.log('ℹ️ User cancelled purchase');

@@ -16,14 +16,13 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "28",
+      buildNumber: "29",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
-        "ITSAppUsesNonExemptEncryption": false,
-        NSUserTrackingUsageDescription: "This identifier will be used to deliver personalized ads and improve your experience."
+        "ITSAppUsesNonExemptEncryption": false
       },
       usesAppleSignIn: true
 
