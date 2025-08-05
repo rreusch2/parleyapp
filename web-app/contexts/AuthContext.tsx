@@ -1,7 +1,8 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, UserProfile } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
+import { UserProfile } from '@/lib/supabase' // Keep type import
 import { toast } from 'react-hot-toast'
 
 interface AuthContextType {
@@ -26,7 +27,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [justSignedUp, setJustSignedUp] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
@@ -58,20 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Initialize auth state - wait for client-side hydration
+  // Initialize auth state
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    // Only initialize auth after client-side hydration
-    if (!mounted) return
-
-    console.log('🚀 Initializing auth after client hydration')
-    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📋 Initial session check:', { hasSession: !!session, hasUser: !!session?.user })
       setSession(session)
       setUser(session?.user ?? null)
       
@@ -107,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [mounted])
+  }, [])
 
   const signUp = async (email: string, password: string, username: string) => {
     try {

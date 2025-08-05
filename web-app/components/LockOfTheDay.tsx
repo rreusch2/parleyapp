@@ -13,7 +13,7 @@ import {
   ChevronRight,
   X
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 
 interface LockPrediction {
   id: string

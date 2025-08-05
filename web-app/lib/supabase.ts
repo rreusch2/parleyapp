@@ -10,12 +10,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Use localStorage for web, but check if window is available (SSR safe)
+    // Use localStorage for web instead of AsyncStorage
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true, // Enable for web
-  },
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
 })
 
 console.log("Main supabase client initialized with URL:", supabaseUrl);

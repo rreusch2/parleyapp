@@ -17,7 +17,7 @@ import {
   Calendar
 } from 'lucide-react'
 import { useSubscription } from '@/contexts/SubscriptionContext'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 import TrendChart from './TrendChart'
 
 interface Trend {

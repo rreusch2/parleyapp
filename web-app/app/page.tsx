@@ -36,15 +36,6 @@ export default function LandingPage() {
     }
   }, [user, router, mounted])
 
-  // Show loading spinner while checking auth state
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-
   const openAuthModal = (mode: 'login' | 'signup') => {
     setAuthMode(mode)
     setAuthModalOpen(true)

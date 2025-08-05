@@ -9,7 +9,7 @@ import {
   Crown,
   Trophy
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 
 interface WelcomeBonusBannerProps {
   userId: string

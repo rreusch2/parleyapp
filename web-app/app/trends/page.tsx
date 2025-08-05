@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react'
 import TrendChart from '@/components/TrendChart'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 import { getTierCapabilities } from '@/lib/subscriptionUtils'
 
 interface Trend {

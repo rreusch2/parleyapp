@@ -23,7 +23,7 @@ import {
   Lock
 } from 'lucide-react'
 import { useSubscription } from '@/contexts/SubscriptionContext'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 
 interface DailyInsight {
   id: string

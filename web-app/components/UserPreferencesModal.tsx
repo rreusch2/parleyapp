@@ -11,7 +11,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/shared/services/supabaseClient'
 
 export interface UserPreferences {
   sportPreferences: {
