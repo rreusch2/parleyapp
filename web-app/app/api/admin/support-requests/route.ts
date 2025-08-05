@@ -1,60 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+
+async function authenticate(request: NextRequest) {
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('Unauthorized');
+    }
+
+    const token = authHeader.split(' ')[1];
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        throw new Error('Unauthorized');
+    }
+
+    const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    
+    const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('admin_role')
+        .eq('id', user.id)
+        .single()
+    
+    if (profileError || !profile?.admin_role) {
+        throw new Error('Forbidden');
+    }
+
+    return { user, supabaseAdmin };
+}
+
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user from session
-    const cookieStore = cookies()
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
+    const { supabaseAdmin } = await authenticate(request);
 
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Create service role client inside function to avoid initialization issues
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-
-    // Check if user is admin using service role (bypass RLS)
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('admin_role')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError || !profile?.admin_role) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-
-    // Get query parameters
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '10')
     const statusFilter = searchParams.get('statusFilter') || 'all'
     const categoryFilter = searchParams.get('categoryFilter') || 'all'
 
-    // Build query using service role (bypasses RLS)
     let query = supabaseAdmin
       .from('support_requests')
       .select('*', { count: 'exact' })
@@ -84,8 +77,14 @@ export async function GET(request: NextRequest) {
       count: count || 0
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching support requests:', error)
+    if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     return NextResponse.json(
       { error: 'Failed to fetch support requests' },
       { status: 500 }
@@ -95,48 +94,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Get user from session
-    const cookieStore = cookies()
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
-    )
-
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Create service role client inside function to avoid initialization issues
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-
-    // Check if user is admin using service role (bypass RLS)
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('admin_role')
-      .eq('id', user.id)
-      .single()
-    
-    if (profileError || !profile?.admin_role) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
+    const { supabaseAdmin } = await authenticate(request);
 
     const body = await request.json()
     const { id, status } = body
@@ -145,7 +103,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Update using service role (bypasses RLS)
     const { data, error } = await supabaseAdmin
       .from('support_requests')
       .update({ 
@@ -161,8 +118,14 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ data })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating support request:', error)
+     if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
     return NextResponse.json(
       { error: 'Failed to update support request' },
       { status: 500 }

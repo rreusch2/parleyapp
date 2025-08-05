@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user from session
-    const cookieStore = cookies()
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const token = authHeader.split(' ')[1];
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-        },
-      }
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
     )
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -24,19 +21,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Create service role client inside function to avoid initialization issues
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-
-    // Check if user is admin using service role (bypass RLS)
+    
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('admin_role')
@@ -47,13 +36,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    // Get query parameters
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '10')
     const typeFilter = searchParams.get('typeFilter') || 'all'
 
-    // Build query using service role (bypasses RLS)
     let query = supabaseAdmin
       .from('feedback')
       .select('*', { count: 'exact' })

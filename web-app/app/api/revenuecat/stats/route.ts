@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server'
 
 const REVENUECAT_API_KEY = process.env.REVENUECAT_API_KEY;
 
-async function fetchAllSubscribers(appId: string) {
+async function fetchAllSubscribers(listId: string) {
     let allSubscribers: any[] = [];
-    let nextUrl: string | null = `/v1/projects/${appId}/subscribers`;
+    let nextUrl: string | null = `/v1/customer_lists/${listId}/subscribers`;
 
     while (nextUrl) {
         const response = await fetch(`https://api.revenuecat.com${nextUrl}`, {
@@ -37,8 +37,8 @@ export async function GET() {
   }
 
   try {
-    const projectId = '2c858a8a' // Predictive Play
-    const subscribers = await fetchAllSubscribers(projectId);
+    const listId = 'list46dbbf106e' // Predictive Play "Active subscription" list ID
+    const subscribers = await fetchAllSubscribers(listId);
 
     let totalRevenue = 0;
     let activeSubscriptions = 0;

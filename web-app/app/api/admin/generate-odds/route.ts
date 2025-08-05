@@ -30,12 +30,17 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
     
-    const backendResponse = await fetch(`${backendUrl}/api/admin/generate-odds`, {
+    // This is a placeholder for the actual command execution logic.
+    // In a real application, you would have a more secure way to run this command.
+    const command = 'npm run odds'
+    
+    const backendResponse = await fetch(`${backendUrl}/api/admin/execute-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
+      body: JSON.stringify({ command })
     })
     
     const backendData = await backendResponse.json()
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
       .from('admin_logs')
       .insert({
         user_id: user.id,
-        command: 'generate-odds',
+        command: command,
         executed_at: new Date().toISOString(),
         success: true,
       })
@@ -70,3 +75,4 @@ export async function POST(req: NextRequest) {
     }, { status: 500 })
   }
 }
+
