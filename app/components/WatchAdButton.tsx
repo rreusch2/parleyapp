@@ -16,6 +16,7 @@ import {
   getDailyAdTracker,
   type RewardType 
 } from '../services/rewardAdService';
+import { isAdMobAvailable } from '../services/admobUtils';
 
 interface WatchAdButtonProps {
   rewardType: RewardType;
@@ -99,8 +100,8 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
     }
   };
 
-  // Don't show button if user has reached daily limit
-  if (!canWatch) {
+  // Don't show button if user has reached daily limit or AdMob not available
+  if (!canWatch || !isAdMobAvailable) {
     return null;
   }
 

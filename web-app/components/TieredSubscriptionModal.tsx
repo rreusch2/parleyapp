@@ -95,16 +95,39 @@ export default function TieredSubscriptionModal({
                 {/* Header */}
                 <div className="text-center mb-8">
                   <div className="flex justify-center mb-4">
-                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl animate-pulse">
                       <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
                   </div>
-                  <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">
-                    🚀 Unlock Premium Features
+                  <h3 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+                    🚀 Join 50,000+ Winners
                   </h3>
-                  <p className="text-slate-400 text-lg">Choose your plan and start winning with AI-powered predictions</p>
+                  <p className="text-slate-300 text-xl mb-4">Get AI-powered predictions that beat the sportsbooks</p>
+                  
+                  {/* Social Proof */}
+                  <div className="flex items-center justify-center space-x-8 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400">73%</div>
+                      <div className="text-xs text-slate-400">Win Rate</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-400">$2.1M</div>
+                      <div className="text-xs text-slate-400">Won This Month</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-400">50K+</div>
+                      <div className="text-xs text-slate-400">Active Users</div>
+                    </div>
+                  </div>
+                  
+                  {/* Urgency */}
+                  <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                    <p className="text-red-200 text-sm font-semibold">
+                      ⏰ Limited Time: 50% OFF First Month - Expires in 23:59:45
+                    </p>
+                  </div>
                 </div>
 
                 {/* Tier Switcher */}

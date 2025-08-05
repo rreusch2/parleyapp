@@ -1,0 +1,113 @@
+import { Platform } from 'react-native';
+
+// Safe AdMob imports for production builds
+let AdMobModule: any = null;
+let isAdMobAvailable = false;
+
+// TEMPORARILY DISABLE ALL ADS TO PREVENT CRASHES
+console.log('🚫 AdMob TEMPORARILY DISABLED to prevent crashes');
+isAdMobAvailable = false;
+AdMobModule = null;
+
+// Only attempt to load AdMob on native platforms (COMMENTED OUT FOR NOW)
+// if (Platform.OS !== 'web') {
+//   try {
+//     AdMobModule = require('react-native-google-mobile-ads');
+//     // Verify the module has the required exports
+//     if (AdMobModule && AdMobModule.RewardedAd && AdMobModule.default) {
+//       isAdMobAvailable = true;
+//       console.log('✅ AdMob module loaded successfully');
+//     } else {
+//       console.log('⚠️ AdMob module incomplete, disabling ads');
+//       isAdMobAvailable = false;
+//     }
+//   } catch (error) {
+//     console.log('⚠️ AdMob not available, disabling ads:', error?.message || error);
+//     isAdMobAvailable = false;
+//     AdMobModule = null;
+//   }
+// } else {
+//   console.log('🌐 Web platform detected, ads disabled');
+// }
+
+// Export AdMob components safely with fallbacks
+export const RewardedAd = isAdMobAvailable && AdMobModule ? AdMobModule.RewardedAd : null;
+export const RewardedAdEventType = isAdMobAvailable && AdMobModule ? AdMobModule.RewardedAdEventType : {
+  LOADED: 'loaded',
+  EARNED_REWARD: 'earned_reward',
+  ERROR: 'error',
+  OPENED: 'opened',
+  CLOSED: 'closed',
+};
+export const TestIds = isAdMobAvailable && AdMobModule ? AdMobModule.TestIds : {
+  REWARDED: 'ca-app-pub-3940256099942544/5224354917',
+};
+export const mobileAds = isAdMobAvailable && AdMobModule ? AdMobModule.default : null;
+
+// Global SDK initialization state
+let isSDKInitialized = false;
+let initializationPromise: Promise<void> | null = null;
+
+// Single SDK initialization function
+export async function initializeAdMobSDK(): Promise<boolean> {
+  if (Platform.OS === 'web' || !isAdMobAvailable || !mobileAds) {
+    return false;
+  }
+
+  if (isSDKInitialized) {
+    return true;
+  }
+
+  if (initializationPromise) {
+    try {
+      await initializationPromise;
+      return isSDKInitialized;
+    } catch {
+      return false;
+    }
+  }
+
+  initializationPromise = (async () => {
+    try {
+      console.log('🚀 Initializing Google Mobile Ads SDK...');
+      if (!mobileAds) {
+        throw new Error('Mobile Ads module not available');
+      }
+      await mobileAds().initialize();
+      isSDKInitialized = true;
+      console.log('✅ Google Mobile Ads SDK initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing Google Mobile Ads SDK:', error?.message || error);
+      isSDKInitialized = false;
+      // Don't throw in production to prevent app crashes
+      if (__DEV__) {
+        throw error;
+      }
+    }
+  })();
+
+  try {
+    await initializationPromise;
+    return isSDKInitialized;
+  } catch {
+    return false;
+  }
+}
+
+// Check if AdMob is available and initialized
+export function isAdMobReady(): boolean {
+  return isAdMobAvailable && isSDKInitialized;
+}
+
+// Get appropriate ad unit ID
+export function getRewardAdUnitId(): string {
+  const useTestAds = __DEV__;
+  
+  if (useTestAds) {
+    return TestIds.REWARDED;
+  } else {
+    return 'ca-app-pub-9584826565591456/9182858395';
+  }
+}
+
+export { isAdMobAvailable };

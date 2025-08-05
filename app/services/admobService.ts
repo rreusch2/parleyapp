@@ -1,50 +1,19 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-
-// Conditional import for native platforms only
-let RewardedAd: any = null;
-let RewardedAdEventType: any = null;
-let TestIds: any = null;
-let mobileAds: any = null;
-
-if (Platform.OS !== 'web') {
-  try {
-    const GoogleMobileAds = require('react-native-google-mobile-ads');
-    RewardedAd = GoogleMobileAds.RewardedAd;
-    RewardedAdEventType = GoogleMobileAds.RewardedAdEventType;
-    TestIds = GoogleMobileAds.TestIds;
-    mobileAds = GoogleMobileAds.default; // Default export
-  } catch (error) {
-    console.log('AdMob not available on this platform');
-  }
-} else {
-  // Mock objects for web platform
-  TestIds = {
-    REWARDED: 'ca-app-pub-3940256099942544/5224354917',
-  };
-  RewardedAdEventType = {
-    LOADED: 'loaded',
-    EARNED_REWARD: 'rewarded',
-  };
-}
+import {
+  RewardedAd,
+  RewardedAdEventType,
+  TestIds,
+  initializeAdMobSDK,
+  isAdMobReady,
+  getRewardAdUnitId,
+  isAdMobAvailable
+} from './admobUtils';
 
 // AdMob Configuration
 const ADMOB_CONFIG = {
   // Use test ads in development, real ads in production
   USE_TEST_ADS: __DEV__,
-  
-  // Your real ad unit IDs (from app.config.js extra section)
-  REAL_REWARD_AD_UNIT_ID: Constants.expoConfig?.extra?.admobRewardAdUnitId || 'ca-app-pub-9584826565591456/9182858395',
-  
-  // Test ad unit IDs (provided by Google)
-  TEST_REWARD_AD_UNIT_ID: TestIds?.REWARDED || 'ca-app-pub-3940256099942544/5224354917',
-};
-
-// Get the appropriate ad unit ID based on configuration
-const getRewardAdUnitId = (): string => {
-  return ADMOB_CONFIG.USE_TEST_ADS 
-    ? ADMOB_CONFIG.TEST_REWARD_AD_UNIT_ID 
-    : ADMOB_CONFIG.REAL_REWARD_AD_UNIT_ID;
 };
 
 // Reward Ad Class
@@ -53,35 +22,21 @@ class AdMobService {
   private isAdLoaded = false;
   private isAdLoading = false;
   private rewardCallbacks: (() => void)[] = [];
-  private isInitialized = false;
 
   constructor() {
-    this.initializeSDK();
+    // SDK initialization is handled by admobUtils
+    this.initializeRewardedAd();
   }
 
-  private async initializeSDK() {
+  private async initializeRewardedAd() {
     // Skip initialization on web platform
-    if (Platform.OS === 'web' || !mobileAds) {
-      console.log('🌐 AdMob not available on web platform');
+    if (Platform.OS === 'web' || !isAdMobAvailable || !RewardedAd) {
       return;
     }
 
-    try {
-      console.log('🚀 Initializing Google Mobile Ads SDK...');
-      await mobileAds().initialize();
-      this.isInitialized = true;
-      console.log('✅ Google Mobile Ads SDK initialized');
-      
-      // Now initialize the rewarded ad
-      this.initializeRewardedAd();
-    } catch (error) {
-      console.error('❌ Error initializing Google Mobile Ads SDK:', error);
-    }
-  }
-
-  private initializeRewardedAd() {
-    // Skip initialization on web platform or if SDK not initialized
-    if (Platform.OS === 'web' || !RewardedAd || !this.isInitialized) {
+    // Ensure SDK is initialized first
+    const initialized = await initializeAdMobSDK();
+    if (!initialized) {
       return;
     }
 
@@ -146,8 +101,8 @@ class AdMobService {
   }
 
   public loadRewardedAd() {
-    // Skip on web platform or if not initialized
-    if (Platform.OS === 'web' || !this.rewardedAd || !this.isInitialized) {
+    // Skip on web platform or if not available
+    if (Platform.OS === 'web' || !this.rewardedAd || !isAdMobAvailable) {
       return;
     }
 
@@ -202,8 +157,8 @@ class AdMobService {
   }
 
   public isRewardedAdReady(): boolean {
-    // Always return false on web platform
-    if (Platform.OS === 'web') {
+    // Always return false on web platform or if not available
+    if (Platform.OS === 'web' || !isAdMobAvailable) {
       return false;
     }
     return this.isAdLoaded && this.rewardedAd !== null;

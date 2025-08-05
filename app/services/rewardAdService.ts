@@ -1,23 +1,14 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Conditional import for native platforms only
-let RewardedAd: any = null;
-let RewardedAdEventType: any = null;
-let TestIds: any = null;
-let mobileAds: any = null;
-
-if (Platform.OS !== 'web') {
-  try {
-    const GoogleMobileAds = require('react-native-google-mobile-ads');
-    RewardedAd = GoogleMobileAds.RewardedAd;
-    RewardedAdEventType = GoogleMobileAds.RewardedAdEventType;
-    TestIds = GoogleMobileAds.TestIds;
-    mobileAds = GoogleMobileAds.default;
-  } catch (error) {
-    console.log('AdMob not available on this platform');
-  }
-}
+import {
+  RewardedAd,
+  RewardedAdEventType,
+  TestIds,
+  initializeAdMobSDK,
+  isAdMobReady,
+  getRewardAdUnitId,
+  isAdMobAvailable
+} from './admobUtils';
 
 export type RewardType = 'extra_pick' | 'extra_trend';
 
@@ -32,24 +23,9 @@ class RewardAdService {
   private readonly MAX_PICKS_PER_DAY = 3;
   private readonly MAX_TRENDS_PER_DAY = 3;
   private rewardedAd: any = null;
-  private isInitialized = false;
 
   constructor() {
-    this.initializeSDK();
-  }
-
-  private async initializeSDK() {
-    if (Platform.OS === 'web' || !mobileAds) {
-      return;
-    }
-
-    try {
-      await mobileAds().initialize();
-      this.isInitialized = true;
-      console.log('✅ Mobile Ads SDK initialized');
-    } catch (error) {
-      console.error('❌ Error initializing SDK:', error);
-    }
+    // SDK initialization is handled by admobUtils
   }
 
   private getTodayDateString(): string {
@@ -91,7 +67,7 @@ class RewardAdService {
   }
 
   public async canWatchAd(rewardType: RewardType): Promise<boolean> {
-    if (Platform.OS === 'web') return false;
+    if (Platform.OS === 'web' || !isAdMobAvailable) return false;
 
     const tracker = await this.getDailyTracker();
     
@@ -119,7 +95,14 @@ class RewardAdService {
   }
 
   public async showRewardedAd(rewardType: RewardType): Promise<boolean> {
-    if (Platform.OS === 'web' || !this.isInitialized || !RewardedAd) {
+    if (Platform.OS === 'web' || !isAdMobAvailable || !RewardedAd) {
+      return false;
+    }
+
+    // Ensure SDK is initialized
+    const initialized = await initializeAdMobSDK();
+    if (!initialized) {
+      console.log('❌ AdMob SDK not initialized');
       return false;
     }
 
@@ -131,7 +114,7 @@ class RewardAdService {
 
     try {
       // Create new ad instance
-      const adUnitId = __DEV__ ? TestIds.REWARDED : 'ca-app-pub-9584826565591456/9182858395';
+      const adUnitId = getRewardAdUnitId();
       this.rewardedAd = RewardedAd.createForAdRequest(adUnitId);
 
       // Load the ad

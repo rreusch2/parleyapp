@@ -4,22 +4,45 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
 import TieredSubscriptionModal from '@/components/TieredSubscriptionModal'
+import AIChatModal from '@/components/AIChatModal'
+import EliteLockOfTheDay from '@/components/EliteLockOfTheDay'
+import DailyProfessorInsights from '@/components/DailyProfessorInsights'
+import PredictionsPreview from '@/components/PredictionsPreview'
+import TrendsPreview from '@/components/TrendsPreview'
+import LatestNewsFeed from '@/components/LatestNewsFeed'
+import { usePredictions } from '@/shared/hooks/usePredictions'
+import { useAIChat } from '@/shared/hooks/useAIChat'
+import { AIPrediction } from '@/shared/services/aiService'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Brain, 
   TrendingUp, 
-  Trophy, 
-  Star,
-  Bell,
-  Settings,
-  LogOut,
-  Crown
+  Target,
+  Activity,
+  Sparkles
 } from 'lucide-react'
 
 export default function Dashboard() {
   const { user, signOut } = useAuth()
   const { subscriptionTier } = useSubscription()
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+
+  // 🔥 MOBILE APP FUNCTIONALITY
+  const {
+    isLoading,
+    isLoadingTeam,
+    totalPredictions,
+    highConfidencePicks,
+    averageConfidence,
+    teamPicks
+  } = usePredictions()
+
+  const {
+    showAIChat,
+    setShowAIChat
+  } = useAIChat()
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -27,6 +50,11 @@ export default function Dashboard() {
       router.push('/')
     }
   }, [user, router])
+
+  // Fix hydration
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   if (!user) {
     return (
@@ -36,65 +64,10 @@ export default function Dashboard() {
     )
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/')
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
-      {/* Header */}
-      <header className="bg-black/20 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-white">
-                Predictive Play
-              </span>
-            </div>
-
-            {/* User Menu */}
-            <div className="flex items-center space-x-4">
-              {/* Subscription Badge */}
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                subscriptionTier === 'elite' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                  : subscriptionTier === 'pro'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-600 text-white'
-              }`}>
-                {subscriptionTier === 'elite' && <Crown className="w-4 h-4 inline mr-1" />}
-                {subscriptionTier.charAt(0).toUpperCase() + subscriptionTier.slice(1)}
-              </div>
-
-              {/* Notifications */}
-              <button className="text-gray-300 hover:text-white transition-colors">
-                <Bell className="w-6 h-6" />
-              </button>
-
-              {/* Settings */}
-              <button className="text-gray-300 hover:text-white transition-colors">
-                <Settings className="w-6 h-6" />
-              </button>
-
-              {/* Sign Out */}
-              <button 
-                onClick={handleSignOut}
-                className="text-gray-300 hover:text-red-400 transition-colors"
-              >
-                <LogOut className="w-6 h-6" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <>
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
@@ -105,43 +78,103 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+        {/* 🔥 REAL AI STATS FROM MOBILE APP */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-blue-500/50 transition-all duration-300"
+          >
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <Target className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h3 className="text-white font-semibold">Today's Picks</h3>
-                <p className="text-gray-300">Coming soon...</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-600 h-6 w-8 rounded"></div>
+                  ) : (
+                    totalPredictions
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">AI Generated</p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-green-500/50 transition-all duration-300"
+          >
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Win Rate</h3>
-                <p className="text-gray-300">Coming soon...</p>
+                <h3 className="text-white font-semibold">Avg Confidence</h3>
+                <p className="text-2xl font-bold text-green-400">
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-600 h-6 w-12 rounded"></div>
+                  ) : (
+                    `${averageConfidence.toFixed(1)}%`
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">AI Analysis</p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-purple-500/50 transition-all duration-300"
+          >
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-                <Star className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">AI Score</h3>
-                <p className="text-gray-300">Coming soon...</p>
+                <h3 className="text-white font-semibold">High Confidence</h3>
+                <p className="text-2xl font-bold text-purple-400">
+                  {isLoading ? (
+                    <div className="animate-pulse bg-gray-600 h-6 w-8 rounded"></div>
+                  ) : (
+                    highConfidencePicks.length
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">80%+ Picks</p>
               </div>
             </div>
-          </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-yellow-500/50 transition-all duration-300"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center">
+                <Activity className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">Team Picks</h3>
+                <p className="text-2xl font-bold text-yellow-400">
+                  {isLoadingTeam ? (
+                    <div className="animate-pulse bg-gray-600 h-6 w-8 rounded"></div>
+                  ) : (
+                    teamPicks.length
+                  )}
+                </p>
+                <p className="text-xs text-gray-400">ML • Spreads • Totals</p>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
         {/* Subscription Prompt for Free Users */}
@@ -166,23 +199,59 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Placeholder Content */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-8 border border-white/10 text-center">
-          <Brain className="w-16 h-16 text-blue-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Dashboard Under Construction
-          </h2>
-          <p className="text-gray-300 mb-6">
-            This is your clean, fresh dashboard foundation. Ready to build something amazing!
-          </p>
-          <div className="text-sm text-gray-400">
-            <p>✅ Landing page working</p>
-            <p>✅ Authentication working</p>
-            <p>✅ Subscription system ready</p>
-            <p>🔄 Now ready to integrate with your backend and AI predictions!</p>
-          </div>
-        </div>
-      </main>
+        {/* 🔒 ELITE LOCK OF THE DAY */}
+        {subscriptionTier === 'elite' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mb-8"
+          >
+            <EliteLockOfTheDay onPickPress={() => setShowAIChat(true)} />
+          </motion.div>
+        )}
+
+        {/* ⚡ AI PREDICTIONS PREVIEW */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mb-8"
+        >
+          <PredictionsPreview limit={2} />
+        </motion.div>
+
+        {/* 📚 DAILY PROFESSOR INSIGHTS */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="mb-8"
+        >
+          <DailyProfessorInsights />
+        </motion.div>
+
+        {/* 📈 TRENDING NOW */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
+          className="mb-8"
+        >
+          <TrendsPreview />
+        </motion.div>
+
+        {/* 📰 LATEST NEWS */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.6, delay: 0.8 }}
+          className="mb-8"
+        >
+          <LatestNewsFeed limit={4} />
+        </motion.div>
+
+      </div>
 
       {/* Subscription Modal */}
       <TieredSubscriptionModal
@@ -190,6 +259,12 @@ export default function Dashboard() {
         onClose={() => setSubscriptionModalOpen(false)}
         onContinueFree={() => setSubscriptionModalOpen(false)}
       />
-    </div>
+
+      {/* 🔥 AI Chat Modal (Professor Lock) */}
+      <AIChatModal 
+        isOpen={showAIChat}
+        onClose={() => setShowAIChat(false)}
+      />
+    </>
   )
 }

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext'
+import LayoutWrapper from '@/components/LayoutWrapper'
 import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -64,7 +65,9 @@ export default function RootLayout({
         <AuthProvider>
           <SubscriptionProvider>
             <div className="min-h-full">
-              {children}
+              <LayoutWrapper>
+                {children}
+              </LayoutWrapper>
             </div>
             <Toaster
               position="top-right"

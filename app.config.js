@@ -65,8 +65,8 @@ module.exports = {
       [
         "react-native-google-mobile-ads",
         {
-          android_app_id: "ca-app-pub-9584826565591456~1910888945",
-          ios_app_id: "ca-app-pub-9584826565591456~1910888945"
+          "androidAppId": "ca-app-pub-9584826565591456~1910888945",
+          "iosAppId": "ca-app-pub-9584826565591456~1910888945"
         }
       ]
     ],
@@ -79,8 +79,7 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
       revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
-      admobAppId: "ca-app-pub-9584826565591456~1910888945",
-      admobRewardAdUnitId: "ca-app-pub-9584826565591456/9182858395",
+
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"
       }
