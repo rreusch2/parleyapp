@@ -21,8 +21,14 @@ import Image from 'next/image'
 export default function LandingPage() {
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
+  const [mounted, setMounted] = useState(false)
   const { user } = useAuth()
   const router = useRouter()
+
+  // Fix hydration and animation issues
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Redirect if user is already logged in
   useEffect(() => {
@@ -75,7 +81,7 @@ export default function LandingPage() {
           <div className="text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
               transition={{ duration: 0.8 }}
             >
               <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
@@ -91,7 +97,7 @@ export default function LandingPage() {
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
             >
@@ -131,8 +137,8 @@ export default function LandingPage() {
               <motion.div
                 key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
+                animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: 0.6, delay: mounted ? index * 0.1 : 0 }}
                 className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-blue-500/50 transition-all duration-300"
               >
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mb-4">
@@ -167,8 +173,8 @@ export default function LandingPage() {
               <motion.div
                 key={plan.name}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
+                animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: 0.6, delay: mounted ? index * 0.1 : 0 }}
                 className={`relative bg-white/5 backdrop-blur-sm rounded-xl p-6 border ${
                   plan.popular 
                     ? 'border-blue-500 ring-2 ring-blue-500/20' 
@@ -228,7 +234,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">

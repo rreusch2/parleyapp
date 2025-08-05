@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  StyleSheet, 
   Alert,
-  Platform,
+  ActivityIndicator 
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Gift, Trophy, Target, Sparkles, CheckCircle } from 'lucide-react-native';
-import { normalize, isTablet } from '../services/device';
-import { rewardedAdService, RewardType } from '../services/rewardedAdService';
-import { useSubscription } from '../services/subscriptionContext';
+import { Play, Gift } from 'lucide-react-native';
+import { 
+  rewardAdService, 
+  canWatchPicksAd, 
+  canWatchTrendsAd, 
+  getDailyAdTracker,
+  type RewardType 
+} from '../services/rewardAdService';
 
 interface WatchAdButtonProps {
   rewardType: RewardType;
@@ -20,292 +23,189 @@ interface WatchAdButtonProps {
   style?: any;
 }
 
-export default function WatchAdButton({ 
+const WatchAdButton: React.FC<WatchAdButtonProps> = ({ 
   rewardType, 
-  onRewardEarned, 
+  onRewardEarned,
   style 
-}: WatchAdButtonProps) {
-  const [loading, setLoading] = useState(false);
-  const [remainingRewards, setRemainingRewards] = useState(0);
-  const [earnedToday, setEarnedToday] = useState(0);
-  const { isPro, isElite } = useSubscription();
+}) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [canWatch, setCanWatch] = useState(false);
+  const [rewardsEarned, setRewardsEarned] = useState(0);
+  const maxRewards = 3;
 
-  // Don't show for Pro/Elite users or on web
-  if (isPro || isElite || Platform.OS === 'web') {
-    return null;
-  }
-
-  const updateRewardStats = async () => {
+  // Check if user can watch ads and get current count
+  const checkAdStatus = async () => {
     try {
-      const remaining = await rewardedAdService.getRemainingRewards(rewardType);
-      const earned = await rewardedAdService.getEarnedRewardsToday(rewardType);
-      setRemainingRewards(remaining);
-      setEarnedToday(earned);
+      const canWatchAd = rewardType === 'extra_pick' 
+        ? await canWatchPicksAd() 
+        : await canWatchTrendsAd();
+      
+      const tracker = await getDailyAdTracker();
+      const earned = rewardType === 'extra_pick' 
+        ? tracker.extraPicksEarned 
+        : tracker.extraTrendsEarned;
+
+      setCanWatch(canWatchAd);
+      setRewardsEarned(earned);
     } catch (error) {
-      console.error('Error updating reward stats:', error);
+      console.error('Error checking ad status:', error);
     }
   };
 
   useEffect(() => {
-    updateRewardStats();
+    checkAdStatus();
   }, [rewardType]);
 
-  const getRewardText = () => {
-    switch (rewardType) {
-      case 'extra_pick':
-        return {
-          title: 'Watch Ad for Extra Pick',
-          subtitle: 'Get 1 additional AI prediction',
-          icon: <Target size={normalize(18)} color="#0F172A" />,
-          rewardName: 'Pick',
-        };
-      case 'extra_trend':
-        return {
-          title: 'Watch Ad for Extra Trend',
-          subtitle: 'Get 1 additional trend analysis',
-          icon: <Trophy size={normalize(18)} color="#0F172A" />,
-          rewardName: 'Trend',
-        };
-      default:
-        return {
-          title: 'Watch Ad for Reward',
-          subtitle: 'Get additional content',
-          icon: <Gift size={normalize(18)} color="#0F172A" />,
-          rewardName: 'Reward',
-        };
-    }
-  };
-
   const handleWatchAd = async () => {
-    if (loading) return;
+    if (isLoading || !canWatch) return;
 
-    // Check if user can earn more rewards
-    if (remainingRewards <= 0) {
-      Alert.alert(
-        'Daily Limit Reached',
-        `You've earned all 3 extra ${getRewardText().rewardName.toLowerCase()}s for today! Come back tomorrow for more.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    // Check if ad is ready
-    if (!rewardedAdService.isAdReady()) {
-      Alert.alert(
-        'Ad Not Ready',
-        'The ad is still loading. Please try again in a moment.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    setLoading(true);
-
+    setIsLoading(true);
+    
     try {
-      const adType = rewardedAdService.getAdType();
-      console.log(`🎬 Showing ${adType} rewarded ad for ${rewardType}`);
-
-      const success = await rewardedAdService.showRewardedAd(rewardType);
+      const success = await rewardAdService.showRewardedAd(rewardType);
       
       if (success) {
-        // Update local state immediately
-        setRemainingRewards(prev => Math.max(0, prev - 1));
-        setEarnedToday(prev => prev + 1);
-        
-        // Call the callback to refresh parent component
-        if (onRewardEarned) {
-          onRewardEarned();
-        }
-
-        // Show success message
         Alert.alert(
-          '🎉 Reward Earned!',
-          `You've earned an extra ${getRewardText().rewardName.toLowerCase()}! Check it out below.`,
-          [{ text: 'Awesome!' }]
+          "Reward Earned! 🎉",
+          rewardType === 'extra_pick' 
+            ? "You've unlocked 1 extra pick!" 
+            : "You've unlocked 1 extra trend!",
+          [
+            {
+              text: "Awesome!",
+              onPress: () => {
+                onRewardEarned?.();
+                checkAdStatus(); // Refresh status
+              }
+            }
+          ]
         );
       } else {
         Alert.alert(
-          'Ad Error',
-          'Unable to show the ad right now. Please try again later.',
-          [{ text: 'OK' }]
+          "Ad Not Available",
+          "The ad couldn't load right now. Please try again later.",
+          [{ text: "OK" }]
         );
       }
     } catch (error) {
-      console.error('Error showing rewarded ad:', error);
+      console.error('Error showing ad:', error);
       Alert.alert(
-        'Error',
-        'Something went wrong. Please try again.',
-        [{ text: 'OK' }]
+        "Error",
+        "Something went wrong. Please try again later.",
+        [{ text: "OK" }]
       );
     } finally {
-      setLoading(false);
-      // Refresh stats from service
-      setTimeout(updateRewardStats, 1000);
+      setIsLoading(false);
     }
   };
 
-  const rewardText = getRewardText();
-
-  // Don't show button if no rewards remaining
-  if (remainingRewards <= 0) {
-    return (
-      <View style={[styles.container, styles.completedContainer, style]}>
-        <LinearGradient
-          colors={['#22C55E', '#16A34A']}
-          style={styles.completedGradient}
-        >
-          <CheckCircle size={normalize(20)} color="#FFFFFF" />
-          <View style={styles.completedTextContainer}>
-            <Text style={styles.completedTitle}>All Rewards Earned!</Text>
-            <Text style={styles.completedSubtitle}>
-              {earnedToday}/3 extra {getRewardText().rewardName.toLowerCase()}s earned today
-            </Text>
-          </View>
-          <Sparkles size={normalize(16)} color="#FFFFFF" />
-        </LinearGradient>
-      </View>
-    );
+  // Don't show button if user has reached daily limit
+  if (!canWatch) {
+    return null;
   }
 
-  return (
-    <TouchableOpacity 
-      style={[styles.container, style]} 
-      onPress={handleWatchAd}
-      disabled={loading}
-      activeOpacity={0.8}
-    >
-      <LinearGradient
-        colors={loading ? ['#6B7280', '#4B5563'] : ['#F59E0B', '#D97706']}
-        style={styles.gradient}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Play size={normalize(18)} color="#0F172A" />
-        )}
-        
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>
-            {loading ? 'Loading Ad...' : rewardText.title}
-          </Text>
-          <Text style={styles.subtitle}>
-            {loading ? 'Please wait' : rewardText.subtitle}
-          </Text>
-        </View>
+  const rewardText = rewardType === 'extra_pick' ? 'Pick' : 'Trend';
+  const remainingRewards = maxRewards - rewardsEarned;
 
-        <View style={styles.rewardBadge}>
-          <Text style={styles.rewardBadgeText}>{remainingRewards}</Text>
-        </View>
-      </LinearGradient>
-      
-      {/* Progress indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressTrack}>
-          <View 
-            style={[
-              styles.progressFill, 
-              { width: `${(earnedToday / 3) * 100}%` }
-            ]} 
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {earnedToday}/3 earned today
-        </Text>
-      </View>
-    </TouchableOpacity>
+  return (
+    <View style={[styles.container, style]}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleWatchAd}
+        disabled={isLoading}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#FFD700', '#FFA500']}
+          style={styles.gradient}
+        >
+          <View style={styles.content}>
+            <View style={styles.icon}>
+              <Gift size={24} color="#1F2937" />
+            </View>
+            
+            <View style={styles.textContainer}>
+              <Text style={styles.title}>
+                Watch Ad for Extra {rewardText}! 🎯
+              </Text>
+              
+              <Text style={styles.subtitle}>
+                Get 1 bonus {rewardText.toLowerCase()} by watching a short ad
+              </Text>
+              
+              <Text style={styles.progress}>
+                {remainingRewards} more available today
+              </Text>
+            </View>
+
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#1F2937" />
+            ) : (
+              <View style={styles.playButton}>
+                <Play size={16} color="#1F2937" fill="#1F2937" />
+              </View>
+            )}
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: normalize(16),
-    marginVertical: normalize(8),
-    borderRadius: normalize(16),
+    marginVertical: 8,
+  },
+  button: {
+    borderRadius: 16,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowColor: '#FFD700',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   gradient: {
+    padding: 16,
+  },
+  content: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: normalize(20),
-    paddingVertical: normalize(16),
+  },
+  icon: {
+    marginRight: 12,
   },
   textContainer: {
     flex: 1,
-    marginLeft: normalize(12),
   },
   title: {
-    fontSize: normalize(16),
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: normalize(2),
+    color: '#1F2937',
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: normalize(13),
+    fontSize: 12,
     color: '#374151',
-    fontWeight: '500',
+    marginBottom: 4,
   },
-  rewardBadge: {
-    backgroundColor: 'rgba(15, 23, 42, 0.1)',
-    borderRadius: normalize(12),
-    paddingHorizontal: normalize(8),
-    paddingVertical: normalize(4),
-    marginLeft: normalize(8),
-  },
-  rewardBadgeText: {
-    fontSize: normalize(12),
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: normalize(20),
-    paddingBottom: normalize(12),
-  },
-  progressTrack: {
-    flex: 1,
-    height: normalize(4),
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: normalize(2),
-    marginRight: normalize(8),
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#22C55E',
-    borderRadius: normalize(2),
-  },
-  progressText: {
-    fontSize: normalize(11),
+  progress: {
+    fontSize: 11,
     color: '#6B7280',
     fontWeight: '500',
   },
-  completedContainer: {
-    opacity: 0.8,
-  },
-  completedGradient: {
-    flexDirection: 'row',
+  playButton: {
+    backgroundColor: 'rgba(31, 41, 55, 0.1)',
+    borderRadius: 20,
+    width: 32,
+    height: 32,
     alignItems: 'center',
-    paddingHorizontal: normalize(20),
-    paddingVertical: normalize(16),
-  },
-  completedTextContainer: {
-    flex: 1,
-    marginLeft: normalize(12),
-  },
-  completedTitle: {
-    fontSize: normalize(16),
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: normalize(2),
-  },
-  completedSubtitle: {
-    fontSize: normalize(13),
-    color: '#D1FAE5',
-    fontWeight: '500',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
 });
+
+export default WatchAdButton;

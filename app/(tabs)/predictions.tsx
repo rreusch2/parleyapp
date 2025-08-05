@@ -33,9 +33,7 @@ import {
   DollarSign,
   AlertCircle,
   RefreshCw,
-  Settings,
-  Play,
-  Gift
+  Settings
 } from 'lucide-react-native';
 import { aiService, AIPrediction } from '../services/api/aiService';
 import { useSubscription } from '../services/subscriptionContext';
@@ -718,7 +716,7 @@ What are your thoughts on this prediction?`;
               ))}
 
               {/* Watch Ad for Extra Pick - Free Users Only */}
-              {!isPro && !isElite && !isNewUser && !welcomeBonusActive && (
+              {!isPro && !isElite && (
                 <WatchAdButton 
                   rewardType="extra_pick"
                   onRewardEarned={handleExtraPickEarned}
@@ -1221,73 +1219,5 @@ const styles = StyleSheet.create({
     color: '#00E5FF',
     fontWeight: '600',
     textAlign: 'center',
-  },
-  // Reward Ad Styles
-  rewardAdCard: {
-    marginBottom: normalize(16),
-  },
-  rewardCard: {
-    borderRadius: normalize(16),
-    overflow: 'hidden',
-    shadowColor: '#FFD700',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  rewardContent: {
-    padding: normalize(20),
-    alignItems: 'center',
-  },
-  rewardIcon: {
-    marginBottom: normalize(12),
-  },
-  rewardTitle: {
-    fontSize: normalize(18),
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-    marginBottom: normalize(4),
-  },
-  rewardSubtitle: {
-    fontSize: normalize(14),
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: normalize(8),
-  },
-  rewardProgress: {
-    fontSize: normalize(12),
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: normalize(16),
-    fontWeight: '500',
-  },
-  rewardButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: normalize(25),
-    paddingHorizontal: normalize(24),
-    paddingVertical: normalize(12),
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  rewardButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rewardButtonText: {
-    fontSize: normalize(16),
-    fontWeight: '600',
-    color: '#1F2937',
-    marginLeft: normalize(8),
   },
 });

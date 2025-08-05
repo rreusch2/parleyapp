@@ -10,7 +10,7 @@ import {
   Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Star, Zap, TrendingUp, Play, Gift } from 'lucide-react-native';
+import { Crown, Star, Zap, TrendingUp } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
 import TrendCard from '../components/TrendCard';
 import TieredSubscriptionModal from '../components/TieredSubscriptionModal';
@@ -486,75 +486,6 @@ const styles = StyleSheet.create({
   bonusText: {
     color: '#00E5FF',
     fontWeight: '600',
-  },
-  // Reward Ad Styles
-  rewardAdContainer: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-  },
-  rewardAdCard: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#FFD700',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  rewardAdContent: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  rewardAdIcon: {
-    marginBottom: 12,
-  },
-  rewardAdTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  rewardAdSubtitle: {
-    fontSize: 14,
-    color: '#374151',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  rewardAdProgress: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 16,
-    fontWeight: '500',
-  },
-  rewardAdButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  rewardAdButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rewardAdButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginLeft: 8,
   },
 });
 

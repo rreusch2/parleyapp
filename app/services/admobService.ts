@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 let RewardedAd: any = null;
 let RewardedAdEventType: any = null;
 let TestIds: any = null;
+let mobileAds: any = null;
 
 if (Platform.OS !== 'web') {
   try {
@@ -12,6 +13,7 @@ if (Platform.OS !== 'web') {
     RewardedAd = GoogleMobileAds.RewardedAd;
     RewardedAdEventType = GoogleMobileAds.RewardedAdEventType;
     TestIds = GoogleMobileAds.TestIds;
+    mobileAds = GoogleMobileAds.default; // Default export
   } catch (error) {
     console.log('AdMob not available on this platform');
   }
@@ -28,15 +30,14 @@ if (Platform.OS !== 'web') {
 
 // AdMob Configuration
 const ADMOB_CONFIG = {
-  // Use test ads by default (perfect for TestFlight and development)
-  // Change USE_TEST_ADS to false when you want to use real ads
-  USE_TEST_ADS: true,
+  // Use test ads in development, real ads in production
+  USE_TEST_ADS: __DEV__,
   
   // Your real ad unit IDs (from app.config.js extra section)
   REAL_REWARD_AD_UNIT_ID: Constants.expoConfig?.extra?.admobRewardAdUnitId || 'ca-app-pub-9584826565591456/9182858395',
   
   // Test ad unit IDs (provided by Google)
-  TEST_REWARD_AD_UNIT_ID: TestIds.REWARDED,
+  TEST_REWARD_AD_UNIT_ID: TestIds?.REWARDED || 'ca-app-pub-3940256099942544/5224354917',
 };
 
 // Get the appropriate ad unit ID based on configuration
@@ -48,19 +49,39 @@ const getRewardAdUnitId = (): string => {
 
 // Reward Ad Class
 class AdMobService {
-  private rewardedAd: RewardedAd | null = null;
+  private rewardedAd: any = null;
   private isAdLoaded = false;
   private isAdLoading = false;
   private rewardCallbacks: (() => void)[] = [];
+  private isInitialized = false;
 
   constructor() {
-    this.initializeRewardedAd();
+    this.initializeSDK();
+  }
+
+  private async initializeSDK() {
+    // Skip initialization on web platform
+    if (Platform.OS === 'web' || !mobileAds) {
+      console.log('🌐 AdMob not available on web platform');
+      return;
+    }
+
+    try {
+      console.log('🚀 Initializing Google Mobile Ads SDK...');
+      await mobileAds().initialize();
+      this.isInitialized = true;
+      console.log('✅ Google Mobile Ads SDK initialized');
+      
+      // Now initialize the rewarded ad
+      this.initializeRewardedAd();
+    } catch (error) {
+      console.error('❌ Error initializing Google Mobile Ads SDK:', error);
+    }
   }
 
   private initializeRewardedAd() {
-    // Skip initialization on web platform
-    if (Platform.OS === 'web' || !RewardedAd) {
-      console.log('🌐 AdMob not available on web platform');
+    // Skip initialization on web platform or if SDK not initialized
+    if (Platform.OS === 'web' || !RewardedAd || !this.isInitialized) {
       return;
     }
 
@@ -69,7 +90,7 @@ class AdMobService {
       console.log(`🎬 Initializing AdMob with ${ADMOB_CONFIG.USE_TEST_ADS ? 'TEST' : 'PRODUCTION'} ads`);
       console.log(`Ad Unit ID: ${adUnitId}`);
       
-      this.rewardedAd = RewardedAd.createForAdUnitId(adUnitId, {
+      this.rewardedAd = RewardedAd.createForAdRequest(adUnitId, {
         requestNonPersonalizedAdsOnly: true,
       });
 
@@ -80,7 +101,7 @@ class AdMobService {
         this.isAdLoading = false;
       });
 
-      this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
+      this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward: any) => {
         console.log('🎉 User earned reward:', reward);
         this.isAdLoaded = false;
         
@@ -97,11 +118,11 @@ class AdMobService {
         this.rewardCallbacks = [];
         
         // Preload next ad
-        this.loadRewardedAd();
+        setTimeout(() => this.loadRewardedAd(), 1000);
       });
 
-      this.rewardedAd.addAdEventListener(RewardedAdEventType.FAILED_TO_LOAD, (error) => {
-        console.error('❌ Failed to load reward ad:', error);
+      this.rewardedAd.addAdEventListener(RewardedAdEventType.ERROR, (error: any) => {
+        console.error('❌ Reward ad error:', error);
         this.isAdLoading = false;
         this.isAdLoaded = false;
       });
@@ -114,19 +135,19 @@ class AdMobService {
         console.log('🔒 Reward ad closed');
         this.isAdLoaded = false;
         // Preload next ad
-        this.loadRewardedAd();
+        setTimeout(() => this.loadRewardedAd(), 1000);
       });
 
       // Load the first ad
-      this.loadRewardedAd();
+      setTimeout(() => this.loadRewardedAd(), 1000);
     } catch (error) {
       console.error('❌ Error initializing AdMob:', error);
     }
   }
 
   public loadRewardedAd() {
-    // Skip on web platform
-    if (Platform.OS === 'web' || !this.rewardedAd) {
+    // Skip on web platform or if not initialized
+    if (Platform.OS === 'web' || !this.rewardedAd || !this.isInitialized) {
       return;
     }
 
@@ -136,7 +157,13 @@ class AdMobService {
 
     console.log('🔄 Loading reward ad...');
     this.isAdLoading = true;
-    this.rewardedAd.load();
+    
+    try {
+      this.rewardedAd.load();
+    } catch (error) {
+      console.error('❌ Error loading reward ad:', error);
+      this.isAdLoading = false;
+    }
   }
 
   public async showRewardedAd(onRewardEarned?: () => void): Promise<boolean> {

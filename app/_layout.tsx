@@ -12,6 +12,16 @@ import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 
+// Initialize AdMob SDK
+let mobileAds: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    mobileAds = require('react-native-google-mobile-ads').default;
+  } catch (error) {
+    console.log('AdMob not available on this platform');
+  }
+}
+
 
 // Get device dimensions to adapt UI for iPad
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,6 +34,20 @@ function AppContent() {
   // Initialize review service on app startup
   useEffect(() => {
     initializeReview();
+    
+    // Initialize Mobile Ads SDK
+    (async () => {
+      if (mobileAds && Platform.OS !== 'web') {
+        try {
+          console.log('🚀 Initializing Google Mobile Ads SDK...');
+          await mobileAds().initialize();
+          console.log('✅ Google Mobile Ads SDK initialized');
+        } catch (error) {
+          console.error('❌ Error initializing Mobile Ads SDK:', error);
+        }
+      }
+    })();
+    
     // Register push notifications
     (async () => {
       try {
