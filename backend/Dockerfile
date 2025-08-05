@@ -20,6 +20,9 @@ RUN if [ -f requirements.txt ]; then pip3 install -r requirements.txt --break-sy
 # Copy application code
 COPY . .
 
+# Build the application if needed
+RUN if [ -f "tsconfig.json" ]; then npm run build; fi
+
 # Expose the port
 ENV PORT=3000
 EXPOSE 3000
