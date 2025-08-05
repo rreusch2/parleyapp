@@ -14,7 +14,10 @@ import { Crown, Star, Zap, TrendingUp, Play, Gift } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
 import TrendCard from '../components/TrendCard';
 import TieredSubscriptionModal from '../components/TieredSubscriptionModal';
+import TrendModal from '../components/TrendModal';
 import { supabase } from '../services/api/supabaseClient';
+import { rewardedAdService } from '../services/rewardedAdService';
+import WatchAdButton from '../components/WatchAdButton';
 
 
 export default function TrendsScreen() {
@@ -25,13 +28,12 @@ export default function TrendsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedTrend, setSelectedTrend] = useState<any>(null);
+  const [showTrendModal, setShowTrendModal] = useState(false);
   const { isPro, isElite, subscriptionTier } = useSubscription();
-  // Temporary: Disabled reward ads functionality
-  const isAdLoading = false;
-  const canWatchTrendsAdToday = false;
-  const extraTrendsAvailable = 0;
-  const showTrendsRewardAd = async () => false;
-  const refreshAdStatus = async () => {};
+  // Reward ads functionality for extra trends
+  const [extraTrendsAvailable, setExtraTrendsAvailable] = useState(0);
+  const [isAdLoading, setIsAdLoading] = useState(false);
 
   const getTrendLimit = () => {
     switch (subscriptionTier) {
@@ -48,9 +50,18 @@ export default function TrendsScreen() {
       id: aiTrend.id,
       type: aiTrend.trend_type,
       team: aiTrend.sport,
+      title: aiTrend.title,
+      description: aiTrend.description,
       trend_text: aiTrend.trend_text,
-      title: aiTrend.trend_text,
-      description: aiTrend.trend_text,
+      headline: aiTrend.headline,
+      chart_data: aiTrend.chart_data,
+      trend_category: aiTrend.trend_category,
+      key_stats: aiTrend.key_stats,
+      visual_data: aiTrend.visual_data,
+      insight: aiTrend.insight,
+      supporting_data: aiTrend.supporting_data,
+      full_player_name: aiTrend.full_player_name,
+      metadata: aiTrend.metadata,
     };
   };
 
@@ -101,7 +112,23 @@ export default function TrendsScreen() {
 
   useEffect(() => {
     fetchTrends();
+    loadExtraTrendsCount();
   }, [subscriptionTier, activeTab, activeSport]);
+
+  const loadExtraTrendsCount = async () => {
+    try {
+      const earned = await rewardedAdService.getEarnedRewardsToday('extra_trend');
+      setExtraTrendsAvailable(earned);
+    } catch (error) {
+      console.error('Error loading extra trends count:', error);
+    }
+  };
+
+  const handleExtraTrendEarned = () => {
+    // Refresh the extra trends count and trends
+    loadExtraTrendsCount();
+    fetchTrends();
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -109,47 +136,19 @@ export default function TrendsScreen() {
     setRefreshing(false);
   };
 
+  const handleViewFullTrend = (trend: any) => {
+    setSelectedTrend(trend);
+    setShowTrendModal(true);
+  };
+
   const renderRewardAdButton = () => {
-    if (subscriptionTier !== 'free' || !canWatchTrendsAdToday) return null;
+    if (subscriptionTier !== 'free') return null;
 
     return (
-      <View style={styles.rewardAdContainer}>
-        <LinearGradient
-          colors={['#FFD700', '#FFA500']}
-          style={styles.rewardAdCard}
-        >
-          <View style={styles.rewardAdContent}>
-            <View style={styles.rewardAdIcon}>
-              <Gift size={24} color="#1F2937" />
-            </View>
-            <Text style={styles.rewardAdTitle}>
-              Watch Ad for Extra Trend! 📈
-            </Text>
-            <Text style={styles.rewardAdSubtitle}>
-              Get 1 additional trend insight
-            </Text>
-            <Text style={styles.rewardAdProgress}>
-              {extraTrendsAvailable}/3 extra trends earned today
-            </Text>
-            <TouchableOpacity 
-              style={styles.rewardAdButton} 
-              onPress={showTrendsRewardAd}
-              disabled={isAdLoading}
-            >
-              <View style={styles.rewardAdButtonContent}>
-                {isAdLoading ? (
-                  <ActivityIndicator size={16} color="#1F2937" />
-                ) : (
-                  <Play size={16} color="#1F2937" />
-                )}
-                <Text style={styles.rewardAdButtonText}>
-                  {isAdLoading ? 'Loading Ad...' : 'Watch Ad'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </View>
+      <WatchAdButton 
+        rewardType="extra_trend"
+        onRewardEarned={handleExtraTrendEarned}
+      />
     );
   };
 
@@ -260,7 +259,11 @@ export default function TrendsScreen() {
             playerTrends.length > 0 ? (
               <>
                 {playerTrends.map((trend, index) => (
-                  <TrendCard key={trend.id || index} trend={trend} />
+                  <TrendCard 
+                    key={trend.id || index} 
+                    trend={trend} 
+                    onViewFullTrend={() => handleViewFullTrend(trend)}
+                  />
                 ))}
                 {renderRewardAdButton()}
                 {renderUpgradeButton()}
@@ -275,7 +278,11 @@ export default function TrendsScreen() {
             teamTrends.length > 0 ? (
               <>
                 {teamTrends.map((trend, index) => (
-                  <TrendCard key={trend.id || index} trend={trend} />
+                  <TrendCard 
+                    key={trend.id || index} 
+                    trend={trend} 
+                    onViewFullTrend={() => handleViewFullTrend(trend)}
+                  />
                 ))}
                 {renderRewardAdButton()}
                 {renderUpgradeButton()}
@@ -301,6 +308,13 @@ export default function TrendsScreen() {
             fetchTrends();
           }, 1000);
         }}
+      />
+
+      {/* Trend Detail Modal */}
+      <TrendModal
+        visible={showTrendModal}
+        trend={selectedTrend}
+        onClose={() => setShowTrendModal(false)}
       />
     </View>
   );

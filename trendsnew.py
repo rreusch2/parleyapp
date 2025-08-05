@@ -365,49 +365,49 @@ Return JSON format:
 """
 
         try:
+            # Add randomization to avoid deterministic behavior
+            import random
+            temp = random.uniform(0.4, 0.8)  # More variation in AI responses
+            
             response = await self.grok_client.chat.completions.create(
                 model="grok-2-1212",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.3
+                temperature=temp,
+                max_tokens=3000  # Ensure enough tokens for full response
             )
             
             content = response.choices[0].message.content.strip()
+            logger.info(f"AI response received ({len(content)} chars), attempting to parse...")
             
-            # Try to extract JSON from the response
-            if content.startswith('```json'):
-                content = content[7:-3].strip()
-            elif content.startswith('```'):
-                content = content[3:-3].strip()
+            # More robust JSON extraction
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
             
-            result = json.loads(content)
-            logger.info(f"AI selected {len(result.get('selected_players', []))} players and {len(result.get('statmuse_queries', []))} StatMuse queries")
-            return result
+            if json_start != -1 and json_end > json_start:
+                json_content = content[json_start:json_end]
+                result = json.loads(json_content)
+                
+                # Validate the result has required fields
+                if (result.get('selected_players') and 
+                    result.get('statmuse_queries') and 
+                    len(result['selected_players']) >= 5):
+                    
+                    logger.info(f"✅ AI successfully selected {len(result['selected_players'])} players and {len(result['statmuse_queries'])} queries")
+                    return result
+                else:
+                    logger.warning("AI response missing required fields or insufficient players, using fallback")
+                    raise ValueError("Invalid AI response structure")
+            else:
+                logger.warning("Could not extract JSON from AI response, using fallback")
+                raise ValueError("No JSON found in response")
             
         except Exception as e:
-            logger.error(f"Error in AI selection: {e}")
-            # Enhanced fallback selection with popular star players
-            fallback_players = [
-                {"name": "Aaron Judge", "team": "NYY", "reason": "Star slugger, popular props", "focus_props": ["Home Runs", "RBIs", "Total Bases"]},
-                {"name": "Freddie Freeman", "team": "LAD", "reason": "Consistent performer", "focus_props": ["RBIs", "Hits", "Total Bases"]},
-                {"name": "Mookie Betts", "team": "LAD", "reason": "Star player, versatile props", "focus_props": ["Hits", "Runs", "Total Bases"]},
-                {"name": "Ronald Acuna Jr.", "team": "ATL", "reason": "Dynamic player", "focus_props": ["Hits", "Runs", "Stolen Bases"]},
-                {"name": "Jose Altuve", "team": "HOU", "reason": "Consistent hitter", "focus_props": ["Hits", "Runs"]},
-                {"name": "Juan Soto", "team": "NYY", "reason": "Elite hitter", "focus_props": ["Hits", "RBIs", "Home Runs"]},
-                {"name": "Shohei Ohtani", "team": "LAD", "reason": "Unique two-way star", "focus_props": ["Home Runs", "RBIs", "Total Bases"]},
-                {"name": "Vladimir Guerrero Jr.", "team": "TOR", "reason": "Power hitter", "focus_props": ["Home Runs", "RBIs", "Total Bases"]},
-            ]
+            logger.error(f"💥 AI SELECTION COMPLETELY FAILED: {e}")
+            logger.error("🚫 NO FALLBACK - SYSTEM REQUIRES AI TO WORK!")
             
-            fallback_queries = [
-                {"query": "Which MLB teams have the most consistent offensive production?", "purpose": "Team offensive trends"},
-                {"query": "How do MLB teams perform in high-pressure situations?", "purpose": "Clutch performance analysis"},
-                {"query": "What are the most reliable betting trends in MLB?", "purpose": "Historical betting patterns"},
-                {"query": "Which players are most consistent in their statistical categories?", "purpose": "Player consistency analysis"},
-            ]
-            
-            return {
-                "selected_players": fallback_players,
-                "statmuse_queries": fallback_queries
-            }
+            # NO FALLBACK! If AI fails, the whole system fails.
+            # This forces us to fix AI issues rather than relying on hardcoded shit.
+            raise Exception(f"AI player selection failed and no fallback available: {e}")
 
     def get_baseball_reference_id(self, player_name: str) -> str:
         """Generate Baseball Reference player ID using the correct format with known mappings"""
@@ -492,7 +492,7 @@ Return JSON format:
             return None
 
     async def scrape_baseball_reference_player(self, player_info: Dict) -> Dict:
-        """Scrape Baseball Reference using Apify API with fallback strategies"""
+        """Scrape Baseball Reference using Apify API with multiple scraper fallbacks"""
         player_name = player_info['name']
         player_id = self.get_baseball_reference_id(player_name)
         
@@ -519,43 +519,101 @@ Return JSON format:
                 f"https://www.baseball-reference.com/players/{player_id[0]}/{base_id}03.shtml",
             ])
         
+        # Try different scrapers in order of preference
+        scrapers_to_try = [
+            ("cheerio", "apify~cheerio-scraper"),
+            ("puppeteer", "apify~web-scraper"),
+            ("content", "apify~website-content-crawler")
+        ]
+        
         last_error = None
         for attempt, url in enumerate(urls_to_try):
-            try:
-                logger.info(f"Scraping {player_name} via Apify (attempt {attempt+1}/{len(urls_to_try)}): {url}")
-                result = await self._try_apify_scrape(url, player_name, player_info)
-                
-                if result.get('success'):
-                    return result
-                else:
-                    last_error = result.get('error', 'Unknown error')
-                    # If we get a 404-like error, try next URL
-                    if '404' in str(last_error).lower() or 'not found' in str(last_error).lower():
-                        continue
-                    else:
-                        # For other errors (network, parsing, etc.), return immediately
+            for scraper_name, scraper_id in scrapers_to_try:
+                try:
+                    logger.info(f"Scraping {player_name} via {scraper_name} (attempt {attempt+1}/{len(urls_to_try)}): {url}")
+                    result = await self._try_apify_scrape_with_method(url, player_name, player_info, scraper_id, scraper_name)
+                    
+                    if result.get('success'):
+                        logger.info(f"✅ Successfully scraped {player_name} using {scraper_name}")
                         return result
+                    else:
+                        last_error = result.get('error', 'Unknown error')
+                        logger.warning(f"❌ {scraper_name} failed for {player_name}: {last_error}")
                         
-            except Exception as e:
-                last_error = str(e)
-                logger.warning(f"Attempt {attempt+1} failed for {player_name}: {e}")
-                continue
+                        # If we get a 404-like error, try next URL (but continue with other scrapers first)
+                        if '404' in str(last_error).lower() or 'not found' in str(last_error).lower():
+                            break  # Try next URL
+                            
+                except Exception as e:
+                    last_error = str(e)
+                    logger.warning(f"❌ {scraper_name} exception for {player_name}: {e}")
+                    continue
         
         # If all attempts failed
         logger.error(f"All scraping attempts failed for {player_name}. Last error: {last_error}")
-        return {'success': False, 'player': player_name, 'error': f'All URLs failed: {last_error}'}
+        return {'success': False, 'player': player_name, 'error': f'All URLs and scrapers failed: {last_error}'}
 
-    async def _try_apify_scrape(self, url: str, player_name: str, player_info: Dict) -> Dict:
-        """Try scraping a single URL via Apify"""
+    async def _try_apify_scrape_with_method(self, url: str, player_name: str, player_info: Dict, scraper_id: str, scraper_name: str) -> Dict:
+        """Try scraping a single URL via Apify with specific scraper method"""
         try:
-            # Apify API call
-            apify_url = "https://api.apify.com/v2/acts/apify~website-content-crawler/runs"
+            apify_url = f"https://api.apify.com/v2/acts/{scraper_id}/runs"
             
-            payload = {
-                "startUrls": [{"url": url}],
-                "maxRequestsPerCrawl": 1,
-                "maxRequestRetries": 3
-            }
+            # Configure payload based on scraper type
+            if scraper_name == "cheerio":
+                payload = {
+                    "startUrls": [{"url": url}],
+                    "maxRequestRetries": 3,
+                    "maxConcurrency": 1,
+                    "pageFunction": """
+                        async function pageFunction(context) {
+                            const { request, log, $ } = context;
+                            
+                            // Get all text content from the page
+                            const text = $('body').text();
+                            
+                            return {
+                                url: request.url,
+                                text: text,
+                                html: $('body').html()
+                            };
+                        }
+                    """,
+                    "additionalMimeTypes": ["text/html"],
+                    "ignoreSslErrors": True,
+                    "requestTimeoutSecs": 60
+                }
+            elif scraper_name == "puppeteer":
+                payload = {
+                    "startUrls": [{"url": url}],
+                    "maxRequestRetries": 3,
+                    "maxConcurrency": 1,
+                    "pageFunction": """
+                        async function pageFunction(context) {
+                            const { page, request, log } = context;
+                            
+                            // Wait for content to load
+                            await page.waitForSelector('body', { timeout: 10000 });
+                            
+                            // Get all text content from the page
+                            const text = await page.evaluate(() => document.body.innerText);
+                            
+                            return {
+                                url: request.url,
+                                text: text
+                            };
+                        }
+                    """,
+                    "requestTimeoutSecs": 90,
+                    "maxRequestRetries": 2
+                }
+            else:  # content crawler
+                payload = {
+                    "startUrls": [{"url": url}],
+                    "maxRequestsPerCrawl": 1,
+                    "maxRequestRetries": 3,
+                    "htmlTransformer": "readableText",
+                    "readableTextCharThreshold": 100
+                }
             
             headers = {
                 "Content-Type": "application/json",
@@ -570,10 +628,10 @@ Return JSON format:
                 run_data = response.json()
                 run_id = run_data["data"]["id"]
                 
-                logger.info(f"Started Apify crawl {run_id} for {player_name}")
+                logger.info(f"Started {scraper_name} crawl {run_id} for {player_name}")
                 
-                # Poll for completion
-                status_url = f"https://api.apify.com/v2/acts/apify~website-content-crawler/runs/{run_id}"
+                # Poll for completion - use the correct status URL based on scraper
+                status_url = f"https://api.apify.com/v2/acts/{scraper_id}/runs/{run_id}"
                 
                 for attempt in range(30):  # Wait up to 5 minutes
                     await asyncio.sleep(10)
@@ -585,14 +643,14 @@ Return JSON format:
                     if status == "SUCCEEDED":
                         break
                     elif status in ["FAILED", "ABORTED", "TIMED-OUT"]:
-                        logger.error(f"Apify crawl failed for {player_name}: {status}")
-                        return {'success': False, 'player': player_name, 'error': f'Apify crawl {status}'}
+                        logger.error(f"{scraper_name} crawl failed for {player_name}: {status}")
+                        return {'success': False, 'player': player_name, 'error': f'{scraper_name} crawl {status}'}
                         
-                    logger.info(f"Waiting for {player_name} crawl to complete... ({status}) - attempt {attempt+1}/30")
+                    logger.info(f"Waiting for {player_name} {scraper_name} crawl to complete... ({status}) - attempt {attempt+1}/30")
                 
                 if status != "SUCCEEDED":
-                    logger.error(f"Apify crawl timed out for {player_name}")
-                    return {'success': False, 'player': player_name, 'error': 'Apify crawl timeout'}
+                    logger.error(f"{scraper_name} crawl timed out for {player_name}")
+                    return {'success': False, 'player': player_name, 'error': f'{scraper_name} crawl timeout'}
                 
                 # Get the results
                 dataset_id = run_data['data']['defaultDatasetId']
@@ -601,55 +659,128 @@ Return JSON format:
                 results_data = results_response.json()
                 
                 if not results_data:
-                    logger.warning(f"No results from Apify for {player_name}")
-                    return {'success': False, 'player': player_name, 'error': 'No Apify results'}
+                    logger.warning(f"No results from {scraper_name} for {player_name}")
+                    return {'success': False, 'player': player_name, 'error': f'No {scraper_name} results'}
                 
                 # Parse the scraped content
                 scraped_text = results_data[0].get("text", "")
                 
+                # Log more info about what we got
+                logger.info(f"Got {len(scraped_text)} characters from {scraper_name} for {player_name}")
+                
                 # Check for 404 or other error pages
                 if ("page not found" in scraped_text.lower() or "404 error" in scraped_text.lower() or
                     "we apologize, but we could not find the page" in scraped_text.lower()):
-                    logger.warning(f"404 error detected for {player_name} at {url}")
+                    logger.warning(f"404 error detected for {player_name} at {url} using {scraper_name}")
                     return {'success': False, 'player': player_name, 'error': '404 page not found'}
                 
-                # Check if we got a player info page instead of game logs
-                if (any(phrase in scraped_text for phrase in ["How old is", "was born", "Stats, Height, Weight"]) and
-                    "Last 5 Games" not in scraped_text):
-                    logger.warning(f"Got player info page instead of game logs for {player_name} at {url}")
-                    return {'success': False, 'player': player_name, 'error': 'player info page instead of game logs'}
+                # Check if we got the full detailed page (look for key indicators)
+                has_game_logs = any(indicator in scraped_text for indicator in [
+                    "Last 5 Games", "Date Tm Opp Result", "Standard Batting", "Game Logs"
+                ])
                 
-                games = self.parse_baseball_reference_text(scraped_text, player_name)
+                if not has_game_logs and any(phrase in scraped_text for phrase in ["How old is", "was born", "Stats, Height, Weight"]):
+                    logger.warning(f"Got basic player info page instead of detailed stats for {player_name} using {scraper_name}")
+                    return {'success': False, 'player': player_name, 'error': 'basic info page instead of game logs'}
                 
-                if not games:
-                    logger.error(f"No games parsed for {player_name} - PARSING FAILED")
-                    return {'success': False, 'player': player_name, 'error': 'No games parsed'}
-                    
-                # Calculate prop performance statistics
-                prop_stats = self.calculate_prop_performance(games, player_info.get('focus_props', []))
+                # NEW APPROACH: Skip complex parsing, let AI analyze raw scraped content directly
+                logger.info(f"🤖 Sending {len(scraped_text)} characters to AI for direct analysis...")
+                
+                ai_analysis = await self.analyze_scraped_content_with_ai(scraped_text, player_name, player_info)
+                
+                if not ai_analysis:
+                    logger.error(f"AI analysis failed for {player_name} using {scraper_name}")
+                    return {'success': False, 'player': player_name, 'error': 'AI analysis failed'}
                 
                 # Extract player_id from URL for result
-                player_id = url.split('/')[-1].replace('.shtml', '')
+                player_id_from_url = url.split('/')[-1].replace('.shtml', '')
                 
                 result = {
                     'success': True,
                     'player': player_name,
                     'team': player_info.get('team', ''),
-                    'player_id': player_id,
-                    'games_scraped': len(games),
-                    'recent_games': games[:10],  # Store recent 10 games
-                    'prop_performance': prop_stats,
+                    'player_id': player_id_from_url,
+                    'ai_analysis': ai_analysis,
                     'scrape_timestamp': datetime.now().isoformat(),
-                    'source': 'apify',
-                    'url_used': url
+                    'source': f'apify-{scraper_name}',
+                    'url_used': url,
+                    'text_length': len(scraped_text)
                 }
                 
-                logger.info(f"✅ Successfully scraped {len(games)} games for {player_name} via Apify")
+                logger.info(f"✅ Successfully analyzed {player_name} via {scraper_name} using AI")
                 return result
                 
         except Exception as e:
-            logger.error(f"Error scraping {player_name} with Apify: {e}")
+            logger.error(f"Error scraping {player_name} with {scraper_name}: {e}")
             return {'success': False, 'player': player_name, 'error': str(e)}
+
+    async def analyze_scraped_content_with_ai(self, scraped_text: str, player_name: str, player_info: Dict) -> Dict:
+        """Let AI analyze raw scraped content directly to extract trends and insights"""
+        try:
+            # Create a focused analysis prompt for the AI
+            analysis_prompt = f"""
+You are analyzing scraped Baseball Reference data for {player_name}. 
+
+SCRAPED CONTENT:
+{scraped_text[:8000]}  # Truncate to avoid token limits
+
+TASK: Analyze this player's recent performance and extract key insights for sports betting trends.
+
+Please provide a JSON response with:
+1. recent_games: List of recent games with basic stats (date, opponent, hits, home runs, RBIs, at-bats)  
+2. performance_trends: Key performance patterns (hot/cold streaks, matchup preferences)
+3. prop_insights: Insights relevant to betting props (hits, HRs, RBIs, total bases)
+4. situational_analysis: How player performs in different situations
+5. betting_recommendations: Specific prop bet recommendations with confidence levels
+
+Focus on actionable betting insights. Be concise but thorough.
+"""
+
+            logger.info(f"🤖 Sending AI analysis request for {player_name}...")
+            
+            response = await self.grok_client.chat.completions.create(
+                model="grok-2-1212",
+                messages=[
+                    {"role": "system", "content": "You are an expert sports analyst specializing in baseball player performance analysis for betting insights. Provide detailed, actionable analysis in JSON format."},
+                    {"role": "user", "content": analysis_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            
+            ai_response = response.choices[0].message.content.strip()
+            logger.info(f"🤖 AI analysis completed for {player_name}")
+            
+            # Try to extract JSON from the response
+            try:
+                import json
+                # Look for JSON content in the response
+                json_start = ai_response.find('{')
+                json_end = ai_response.rfind('}') + 1
+                
+                if json_start != -1 and json_end > json_start:
+                    json_content = ai_response[json_start:json_end]
+                    parsed_analysis = json.loads(json_content)
+                    return parsed_analysis
+                else:
+                    # Fallback: Return the raw analysis if JSON parsing fails
+                    return {
+                        'raw_analysis': ai_response,
+                        'player': player_name,
+                        'analysis_type': 'text_analysis'
+                    }
+                    
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse JSON from AI response for {player_name}, using raw text")
+                return {
+                    'raw_analysis': ai_response,
+                    'player': player_name,
+                    'analysis_type': 'text_analysis'
+                }
+                
+        except Exception as e:
+            logger.error(f"Error in AI analysis for {player_name}: {e}")
+            return None
 
     def parse_baseball_reference_text(self, scraped_text: str, player_name: str) -> List[Dict]:
         """Parse Baseball Reference scraped text to extract game data"""
@@ -673,78 +804,90 @@ Return JSON format:
                 # Split into lines for easier parsing
                 lines = scraped_text.split('\n')
                 
-                # Look for game data lines with the pattern: Date Tm Opp Result Pos AB R H 2B 3B HR RBI ...
-                # Example: "2025-08-03PHI DET W, 2-0 SS 4 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0 1"
+                # Look for game data with more flexible date patterns: Aug 3, Jul 30, etc.
                 for line in lines:
-                    # Skip header lines
-                    if any(header in line for header in ["Date Tm Opp", "Last 5 Games", "POWERED BY", "Share & Export"]):
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    # Skip obvious header/navigation lines
+                    if any(header in line for header in ["Date Tm Opp", "Last 5 Games", "POWERED BY", "Share & Export", 
+                                                        "Sports Reference", "Baseball", "Players", "Teams", "Welcome"]):
                         continue
                     
-                    # Look for lines that start with a date pattern and have stats
-                    if re.match(r'2025-\d{2}-\d{2}', line.strip()):
-                        logger.debug(f"Processing game line: {line[:100]}...")
+                    # Look for lines that start with YYYY-MM-DD date format (Baseball Reference format)
+                    date_pattern = r'^(20\d{2}-\d{2}-\d{2})'
+                    date_match = re.match(date_pattern, line)
+                    
+                    if date_match:
+                        logger.info(f"Processing game line: {line[:100]}...")
                         
-                        # Split the line by tabs or multiple spaces
-                        parts = re.split(r'\s{2,}|\t', line.strip())
-                        
-                        # Alternative: Extract all numbers from the line
-                        numbers = re.findall(r'\b\d+\b', line)
-                        
-                        if len(numbers) >= 7:  # Need at least AB, R, H, 2B, 3B, HR, RBI
-                            try:
-                                # The first few numbers after the date are usually: AB, R, H, 2B, 3B, HR, RBI
-                                # Look for the position where AB should be (usually 3-6)
-                                stat_indices = []
-                                for i, num_str in enumerate(numbers):
-                                    num = int(num_str)
-                                    # AB is usually 3-6, look for reasonable AB values
-                                    if 1 <= num <= 6 and i >= 3:  # Skip date components
-                                        stat_indices.append(i)
+                        try:
+                            # Parse the specific Baseball Reference format:
+                            # 2025-08-03NYMSFGL, 4-12 1B40000000100010004-0.0480.39-0.04%0.60-1.15850
+                            
+                            # Extract date
+                            game_date = date_match.group(1)
+                            
+                            # Find position (1B, OF, etc.) to locate stats start
+                            pos_match = re.search(r'(1B|2B|3B|SS|C|OF|DH|LF|CF|RF|P)', line)
+                            if pos_match:
+                                # Stats start right after the position
+                                pos_end = pos_match.end()
+                                stats_part = line[pos_end:]
                                 
-                                # Try the most likely starting position
-                                for start_idx in stat_indices:
-                                    if start_idx + 6 < len(numbers):
-                                        try:
-                                            at_bats = int(numbers[start_idx])
-                                            runs = int(numbers[start_idx + 1])
-                                            hits = int(numbers[start_idx + 2])
-                                            doubles = int(numbers[start_idx + 3])
-                                            triples = int(numbers[start_idx + 4])
-                                            home_runs = int(numbers[start_idx + 5])
-                                            rbis = int(numbers[start_idx + 6])
+                                # Look for the concatenated stats sequence (like "40000000100010004")
+                                stat_sequence_match = re.search(r'^(\d{10,})', stats_part)
+                                if stat_sequence_match:
+                                    stat_sequence = stat_sequence_match.group(1)
+                                    
+                                    # Extract individual digits as stats: AB, R, H, 2B, 3B, HR, RBI, BB, SO, etc.
+                                    if len(stat_sequence) >= 9:  # Need at least 9 stats
+                                        digits = [int(d) for d in stat_sequence]
+                                        
+                                        at_bats = digits[0]
+                                        runs = digits[1] 
+                                        hits = digits[2]
+                                        doubles = digits[3]
+                                        triples = digits[4]
+                                        home_runs = digits[5]
+                                        rbis = digits[6]
+                                        walks = digits[7]
+                                        strikeouts = digits[8]
+                                        
+                                        # Basic sanity checks
+                                        if (1 <= at_bats <= 6 and 
+                                            0 <= hits <= at_bats and 
+                                            0 <= home_runs <= 4 and
+                                            0 <= rbis <= 9):
                                             
-                                            # Sanity check: hits shouldn't exceed at_bats
-                                            if hits <= at_bats and at_bats <= 6:
-                                                # Extract date if possible
-                                                date_match = re.search(r'2025-\d{2}-\d{2}', line)
-                                                game_date = date_match.group() if date_match else '2025-08-01'
-                                                
-                                                game_data = {
-                                                    'date': game_date,
-                                                    'at_bats': at_bats,
-                                                    'runs': runs,
-                                                    'hits': hits,
-                                                    'doubles': doubles,
-                                                    'triples': triples,
-                                                    'home_runs': home_runs,
-                                                    'rbis': rbis,
-                                                    'walks': 0,  # Could extract if more numbers available
-                                                    'strikeouts': 0,  # Could extract if more numbers available
-                                                }
-                                                
-                                                # Calculate total bases
-                                                game_data['total_bases'] = (hits + doubles + (2 * triples) + (3 * home_runs))
-                                                
-                                                games.append(game_data)
-                                                logger.debug(f"Parsed game: {game_date} - {hits}H, {rbis}RBI, {home_runs}HR")
-                                                break  # Found valid stats for this line
-                                                
-                                        except (ValueError, IndexError):
-                                            continue  # Try next starting position
+                                            game_data = {
+                                                'date': game_date,
+                                                'at_bats': at_bats,
+                                                'runs': runs,
+                                                'hits': hits,
+                                                'doubles': doubles,
+                                                'triples': triples,
+                                                'home_runs': home_runs,
+                                                'rbis': rbis,
+                                                'walks': walks,
+                                                'strikeouts': strikeouts,
+                                                'avg': round(hits / at_bats, 3) if at_bats > 0 else 0.0
+                                            }
                                             
-                            except Exception as e:
-                                logger.debug(f"Error parsing numbers from line: {e}")
-                                continue
+                                            games.append(game_data)
+                                            logger.info(f"✅ Parsed game: {game_date} - {hits}H/{at_bats}AB, {home_runs}HR, {rbis}RBI")
+                                            
+                                            if len(games) >= 5:  # Limit to 5 games
+                                                break
+                        
+                        except Exception as e:
+                            logger.warning(f"Error parsing game line: {e}")
+                            continue
+                    
+                    # Limit to 5 most recent games
+                    if len(games) >= 5:
+                        break
                 
                 logger.info(f"Successfully parsed {len(games)} games for {player_name}")
                 
@@ -836,7 +979,7 @@ Return JSON format:
         return results
 
     async def ai_generate_final_trends(self, scraped_data: List[Dict], statmuse_data: List[Dict]) -> Dict:
-        """Step 5: AI synthesizes all data to generate final 9 player prop + 6 team trends"""
+        """Step 5: AI synthesizes all data to generate final 9 player prop + 6 team trends with enhanced fields"""
         
         prompt = f"""
 You are an expert sports betting analyst. Based on the scraped Baseball Reference data and StatMuse insights, generate exactly 9 player prop trends and 6 team trends for MLB betting.
@@ -853,29 +996,82 @@ Generate trends that are:
 3. Focused on upcoming games
 4. Clear and specific
 
+For each trend, also provide:
+- A SHORT catchy headline (5-8 words max) for the trend card display
+- Chart data extracted from Baseball Reference scraped data (recent games performance, key stats over time)
+- Trend category (streak, matchup, form, performance, injury_impact, weather, etc.)
+- Key statistics from the scraped data that support the trend
+- Visual data elements for charts (game dates, stat values, trends over time)
+
 Return JSON format:
 {{
   "player_prop_trends": [
     {{
       "title": "Freddie Freeman RBI Hot Streak",
+      "headline": "Freeman RBI Surge",
       "description": "Freeman has recorded RBIs in 8 of his last 10 games (80% success rate) with upcoming favorable matchups.",
       "insight": "Consider Over 0.5 RBIs props for Freeman",
       "supporting_data": "8/10 games over 0.5 RBIs, facing weak bullpens next 2 games",
       "confidence": 85,
       "player_name": "Freddie Freeman",
       "prop_type": "RBIs",
-      "trend_type": "player_prop"
+      "trend_type": "player_prop",
+      "trend_category": "streak",
+      "key_stats": {{
+        "recent_rbi_rate": "80%",
+        "last_10_rbis": 12,
+        "season_avg": 0.7,
+        "vs_upcoming_pitchers": "1.2 RBI avg"
+      }},
+      "chart_data": {{
+        "recent_games": [
+          {{"date": "2025-01-19", "rbis": 1, "result": "success"}},
+          {{"date": "2025-01-18", "rbis": 2, "result": "success"}},
+          {{"date": "2025-01-17", "rbis": 0, "result": "fail"}}
+        ],
+        "trend_direction": "up",
+        "success_rate": 80
+      }},
+      "visual_data": {{
+        "chart_type": "line",
+        "x_axis": "Last 10 Games",
+        "y_axis": "RBIs per Game",
+        "trend_color": "#22c55e"
+      }}
     }}
   ],
   "team_trends": [
     {{
       "title": "Dodgers Home Run Surge",
+      "headline": "LAD Power Explosion",
       "description": "LAD averaging 2.1 HRs per game over last 10, well above season average",
       "insight": "Team totals and run lines trending over at home",
       "supporting_data": "21 HRs in last 10 games, 12-game home HR streak",
       "confidence": 78,
       "team": "LAD",
-      "trend_type": "team"
+      "trend_type": "team",
+      "trend_category": "form",
+      "key_stats": {{
+        "recent_hr_avg": 2.1,
+        "season_hr_avg": 1.4,
+        "last_10_total_hrs": 21,
+        "home_hr_streak": 12
+      }},
+      "chart_data": {{
+        "recent_games": [
+          {{"date": "2025-01-19", "home_runs": 3}},
+          {{"date": "2025-01-18", "home_runs": 1}},
+          {{"date": "2025-01-17", "home_runs": 2}}
+        ],
+        "trend_direction": "up",
+        "performance_increase": "50%"
+      }},
+      "visual_data": {{
+        "chart_type": "bar",
+        "x_axis": "Last 10 Games",
+        "y_axis": "Home Runs",
+        "trend_color": "#3b82f6"
+      }}
     }}
   ]
 }}
@@ -953,6 +1149,11 @@ Return JSON format:
                     'supporting_data': trend.get('supporting_data', ''),
                     'confidence_score': trend.get('confidence', 50),
                     'trend_text': trend.get('description', ''),  # Use description as trend_text
+                    'headline': trend.get('headline', ''),  # New: Short catchy headline
+                    'chart_data': trend.get('chart_data', {}),  # New: Chart visualization data
+                    'trend_category': trend.get('trend_category', 'general'),  # New: Trend category
+                    'key_stats': trend.get('key_stats', {}),  # New: Key statistics
+                    'visual_data': trend.get('visual_data', {}),  # New: Visual elements for display
                     'sport': 'MLB',
                     'is_global': True,
                     'player_id': player_id,
@@ -979,6 +1180,11 @@ Return JSON format:
                     'supporting_data': trend.get('supporting_data', ''),
                     'confidence_score': trend.get('confidence', 50),
                     'trend_text': trend.get('description', ''),  # Use description as trend_text
+                    'headline': trend.get('headline', ''),  # New: Short catchy headline
+                    'chart_data': trend.get('chart_data', {}),  # New: Chart visualization data
+                    'trend_category': trend.get('trend_category', 'general'),  # New: Trend category
+                    'key_stats': trend.get('key_stats', {}),  # New: Key statistics
+                    'visual_data': trend.get('visual_data', {}),  # New: Visual elements for display
                     'sport': 'MLB',
                     'is_global': True,
                     'data_sources': ['statmuse', 'ai_analysis'],
@@ -1023,13 +1229,13 @@ Return JSON format:
             successful_scrapes = []
             
             if selection_data.get('selected_players'):
-                for player_info in selection_data['selected_players'][:5]:  # Limit to 5 players for testing
+                for player_info in selection_data['selected_players'][:12]:  # Analyze 12 players for comprehensive trends
                     scrape_result = await self.scrape_baseball_reference_player(player_info)
                     if scrape_result.get('success'):
                         successful_scrapes.append(scrape_result)
-                        logger.info(f"✅ Successfully scraped {scrape_result['player']} - {scrape_result['games_scraped']} games")
+                        logger.info(f"✅ Successfully analyzed {scrape_result['player']} with AI")
                     else:
-                        logger.warning(f"❌ Failed to scrape {scrape_result['player']}: {scrape_result.get('error')}")
+                        logger.warning(f"❌ Failed to analyze {scrape_result['player']}: {scrape_result.get('error')}")
             
             logger.info(f"Successfully scraped {len(successful_scrapes)} of {len(selection_data.get('selected_players', []))} players via Apify")
             

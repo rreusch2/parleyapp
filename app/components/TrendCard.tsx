@@ -22,6 +22,13 @@ interface TrendData {
   title?: string;
   description?: string;
   trend_text?: string;
+  headline?: string;
+  chart_data?: any;
+  trend_category?: string;
+  key_stats?: any;
+  visual_data?: any;
+  insight?: string;
+  supporting_data?: string;
 }
 
 interface RecentGame {
@@ -36,9 +43,10 @@ interface RecentGame {
 interface TrendCardProps {
   trend: TrendData;
   onPress?: () => void;
+  onViewFullTrend?: () => void;
 }
 
-export default function TrendCard({ trend, onPress }: TrendCardProps) {
+export default function TrendCard({ trend, onPress, onViewFullTrend }: TrendCardProps) {
   const getSportIcon = (sport?: string) => {
     if (!sport) return '🏟️';
     switch (sport.toLowerCase()) {
@@ -83,12 +91,34 @@ export default function TrendCard({ trend, onPress }: TrendCardProps) {
           </View>
         </View>
 
-        {/* Main trend text */}
+        {/* Headline Section */}
+        <View style={styles.headlineSection}>
+          <Text style={styles.headline}>
+            {trend.headline || trend.title || "Trend Analysis"}
+          </Text>
+          {trend.trend_category && (
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryText}>{trend.trend_category.toUpperCase()}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Brief trend text */}
         <View style={styles.trendTextSection}>
-          <Text style={styles.trendText}>
-            {trend.trend_text || trend.description || trend.title || "No trend data available"}
+          <Text style={styles.trendText} numberOfLines={3}>
+            {trend.trend_text || trend.description || "No trend data available"}
           </Text>
         </View>
+
+        {/* View Full Trend Button */}
+        <TouchableOpacity 
+          style={styles.viewFullButton}
+          onPress={onViewFullTrend}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.viewFullButtonText}>View Full Trend</Text>
+          <TrendingUp size={normalize(16)} color="#00E5FF" />
+        </TouchableOpacity>
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -144,16 +174,61 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  headlineSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: normalize(12),
+  },
+  headline: {
+    fontSize: normalize(20),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    flex: 1,
+    lineHeight: normalize(24),
+  },
+  categoryBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: normalize(8),
+    paddingVertical: normalize(4),
+    borderRadius: normalize(12),
+    marginLeft: normalize(8),
+  },
+  categoryText: {
+    fontSize: normalize(10),
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
   trendTextSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: normalize(12),
-    padding: normalize(16),
+    padding: normalize(14),
+    marginBottom: normalize(12),
   },
   trendText: {
-    fontSize: isTablet ? normalize(16) : normalize(18),
-    fontWeight: '600',
-    color: '#FFFFFF',
-    lineHeight: isTablet ? normalize(24) : normalize(26),
+    fontSize: normalize(14),
+    fontWeight: '500',
+    color: '#E0F2FE',
+    lineHeight: normalize(20),
     textAlign: 'left',
+  },
+  viewFullButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: normalize(10),
+    paddingVertical: normalize(10),
+    paddingHorizontal: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+  },
+  viewFullButtonText: {
+    fontSize: normalize(13),
+    fontWeight: '600',
+    color: '#00E5FF',
+    marginRight: normalize(6),
+    letterSpacing: 0.3,
   },
 });

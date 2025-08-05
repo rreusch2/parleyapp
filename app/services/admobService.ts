@@ -1,5 +1,30 @@
-import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+
+// Conditional import for native platforms only
+let RewardedAd: any = null;
+let RewardedAdEventType: any = null;
+let TestIds: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const GoogleMobileAds = require('react-native-google-mobile-ads');
+    RewardedAd = GoogleMobileAds.RewardedAd;
+    RewardedAdEventType = GoogleMobileAds.RewardedAdEventType;
+    TestIds = GoogleMobileAds.TestIds;
+  } catch (error) {
+    console.log('AdMob not available on this platform');
+  }
+} else {
+  // Mock objects for web platform
+  TestIds = {
+    REWARDED: 'ca-app-pub-3940256099942544/5224354917',
+  };
+  RewardedAdEventType = {
+    LOADED: 'loaded',
+    EARNED_REWARD: 'rewarded',
+  };
+}
 
 // AdMob Configuration
 const ADMOB_CONFIG = {
@@ -26,12 +51,19 @@ class AdMobService {
   private rewardedAd: RewardedAd | null = null;
   private isAdLoaded = false;
   private isAdLoading = false;
+  private rewardCallbacks: (() => void)[] = [];
 
   constructor() {
     this.initializeRewardedAd();
   }
 
   private initializeRewardedAd() {
+    // Skip initialization on web platform
+    if (Platform.OS === 'web' || !RewardedAd) {
+      console.log('🌐 AdMob not available on web platform');
+      return;
+    }
+
     try {
       const adUnitId = getRewardAdUnitId();
       console.log(`🎬 Initializing AdMob with ${ADMOB_CONFIG.USE_TEST_ADS ? 'TEST' : 'PRODUCTION'} ads`);
@@ -51,6 +83,19 @@ class AdMobService {
       this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, (reward) => {
         console.log('🎉 User earned reward:', reward);
         this.isAdLoaded = false;
+        
+        // Call all registered reward callbacks
+        this.rewardCallbacks.forEach(callback => {
+          try {
+            callback();
+          } catch (error) {
+            console.error('Error in reward callback:', error);
+          }
+        });
+        
+        // Clear callbacks after use
+        this.rewardCallbacks = [];
+        
         // Preload next ad
         this.loadRewardedAd();
       });
@@ -80,7 +125,12 @@ class AdMobService {
   }
 
   public loadRewardedAd() {
-    if (this.isAdLoading || this.isAdLoaded || !this.rewardedAd) {
+    // Skip on web platform
+    if (Platform.OS === 'web' || !this.rewardedAd) {
+      return;
+    }
+
+    if (this.isAdLoading || this.isAdLoaded) {
       return;
     }
 
@@ -89,7 +139,13 @@ class AdMobService {
     this.rewardedAd.load();
   }
 
-  public async showRewardedAd(): Promise<boolean> {
+  public async showRewardedAd(onRewardEarned?: () => void): Promise<boolean> {
+    // Skip on web platform
+    if (Platform.OS === 'web') {
+      console.log('🌐 Ads not available on web platform');
+      return false;
+    }
+
     try {
       if (!this.rewardedAd || !this.isAdLoaded) {
         console.log('⚠️ Reward ad not ready, attempting to load...');
@@ -97,16 +153,32 @@ class AdMobService {
         return false;
       }
 
+      // Register the reward callback if provided
+      if (onRewardEarned) {
+        this.rewardCallbacks.push(onRewardEarned);
+      }
+
       console.log('🎬 Showing reward ad...');
       await this.rewardedAd.show();
       return true;
     } catch (error) {
       console.error('❌ Error showing reward ad:', error);
+      // Remove the callback if ad failed to show
+      if (onRewardEarned) {
+        const index = this.rewardCallbacks.indexOf(onRewardEarned);
+        if (index > -1) {
+          this.rewardCallbacks.splice(index, 1);
+        }
+      }
       return false;
     }
   }
 
   public isRewardedAdReady(): boolean {
+    // Always return false on web platform
+    if (Platform.OS === 'web') {
+      return false;
+    }
     return this.isAdLoaded && this.rewardedAd !== null;
   }
 

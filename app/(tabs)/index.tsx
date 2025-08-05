@@ -37,8 +37,8 @@ import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
-import InjuryReportsSection from '../components/InjuryReportsSection';
 import NewsModal from '../components/NewsModal';
+import HomeTrendsPreview from '../components/HomeTrendsPreview';
 import RewardAdButton from '../components/RewardAdButton';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
@@ -820,12 +820,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Injury Reports Section - Pro Only */}
-        <View style={styles.section}>
-          <InjuryReportsSection isPro={isPro} />
-        </View>
 
 
+
+
+        {/* Trends Preview Section */}
+        <HomeTrendsPreview 
+          onViewAllTrends={() => router.push('/(tabs)/trends')}
+        />
 
         {/* AI Disclaimer */}
         <View style={styles.disclaimerContainer}>

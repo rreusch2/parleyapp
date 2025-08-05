@@ -44,6 +44,8 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
+import { rewardedAdService } from '../services/rewardedAdService';
+import WatchAdButton from '../components/WatchAdButton';
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -51,12 +53,9 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function PredictionsScreen() {
   const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
-  // Temporary: Disabled reward ads functionality
-  const isAdLoading = false;
-  const canWatchPicksAdToday = false;
-  const extraPicksAvailable = 0;
-  const showPicksRewardAd = async () => false;
-  const refreshAdStatus = async () => {};
+  // Reward ads functionality for extra picks
+  const [extraPicksAvailable, setExtraPicksAvailable] = useState(0);
+  const [isAdLoading, setIsAdLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
@@ -80,7 +79,23 @@ export default function PredictionsScreen() {
   useEffect(() => {
     loadUserPreferences();
     loadPredictions();
+    loadExtraPicksCount();
   }, [isPro, isElite]); // Added isElite to dependencies to re-render when subscription changes
+
+  const loadExtraPicksCount = async () => {
+    try {
+      const earned = await rewardedAdService.getEarnedRewardsToday('extra_pick');
+      setExtraPicksAvailable(earned);
+    } catch (error) {
+      console.error('Error loading extra picks count:', error);
+    }
+  };
+
+  const handleExtraPickEarned = () => {
+    // Refresh the extra picks count and predictions
+    loadExtraPicksCount();
+    loadPredictions();
+  };
 
   const loadUserPreferences = async () => {
     try {
@@ -702,45 +717,12 @@ What are your thoughts on this prediction?`;
                 />
               ))}
 
-              {/* Reward Ad Card for Free Users */}
-              {!isPro && !isNewUser && !welcomeBonusActive && canWatchPicksAdToday && (
-                <View style={styles.rewardAdCard}>
-                  <LinearGradient
-                    colors={['#FFD700', '#FFA500']}
-                    style={styles.rewardCard}
-                  >
-                    <View style={styles.rewardContent}>
-                      <View style={styles.rewardIcon}>
-                        <Gift size={28} color="#1F2937" />
-                      </View>
-                      <Text style={styles.rewardTitle}>
-                        Watch Ad for Extra Pick! 🎯
-                      </Text>
-                      <Text style={styles.rewardSubtitle}>
-                        Get 1 additional AI prediction
-                      </Text>
-                      <Text style={styles.rewardProgress}>
-                        {extraPicksAvailable}/3 extra picks earned today
-                      </Text>
-                      <TouchableOpacity 
-                        style={styles.rewardButton} 
-                        onPress={showPicksRewardAd}
-                        disabled={isAdLoading}
-                      >
-                        <View style={styles.rewardButtonContent}>
-                          {isAdLoading ? (
-                            <ActivityIndicator size={16} color="#1F2937" />
-                          ) : (
-                            <Play size={16} color="#1F2937" />
-                          )}
-                          <Text style={styles.rewardButtonText}>
-                            {isAdLoading ? 'Loading Ad...' : 'Watch Ad'}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    </View>
-                  </LinearGradient>
-                </View>
+              {/* Watch Ad for Extra Pick - Free Users Only */}
+              {!isPro && !isElite && !isNewUser && !welcomeBonusActive && (
+                <WatchAdButton 
+                  rewardType="extra_pick"
+                  onRewardEarned={handleExtraPickEarned}
+                />
               )}
 
               {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}

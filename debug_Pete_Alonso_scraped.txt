@@ -1,0 +1,2676 @@
+
+
+  
+  
+
+	 Sports Reference ®
+	Baseball
+	Football (college)
+	Basketball (college)
+	Hockey
+	Soccer
+	Blog
+    Stathead ®
+	
+	Immaculate Grid ®
+	
+
+	Questions or Comments?
+	Welcome  · Your Account
+Logout
+Ad-Free Login
+Create Account
+
+
+
+
+
+
+MENU
+
+	Players
+Teams
+Seasons
+Leaders
+Scores
+Playoffs	
+Stathead
+Newsletter
+Full Site Menu Below
+	
+	You are here: BR Home Page  > Major League Players  > A Listing  > Pete Alonso Statistics and History
+	Welcome  · Your Account
+Logout
+Ad-Free Login
+Create Account
+	
+
+
+function sr_menus_setupMainNav_button_inline () {
+    if (sr_detect_operaMini || !("classList" in document.createElement("_"))) {
+	return false;
+    }
+    var nav_trigger = document.getElementById('nav_trigger');
+    if(!nav_trigger || nav_trigger.triggered) {
+	return false;
+    }
+    nav_trigger.triggered = true;
+    var nav = document.getElementById('nav');
+    var nav_trigger_a = nav_trigger.querySelector('a');
+    if (nav_trigger_a) {
+	nav_trigger_a.setAttribute('href','javascript:void(0)');
+	nav_trigger.onclick = function (event) {
+	    nav.classList.toggle('open');
+	    var is_open = nav.classList.contains('open');
+	    if (is_open) {
+		nav_trigger.classList.add('open');
+	    }
+	    else {
+		nav_trigger.classList.remove('open');
+	    }
+	    event.preventDefault();
+	    try { sr_record_analytics_event('MainNavButtonClick_inline',sr_record_directory(),sr_record_page());}
+	    catch(err) {}
+	};
+    }
+    return true;
+}
+sr_menus_setupMainNav_button_inline();
+
+
+
+  
+
+
+    
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  .site_announcement {
+    background-color: #fffea6;
+    text-align: center;
+    padding: .4em 0;
+    width: 100%;
+  }
+  .site_announcement div {
+    margin: 0 .3em;
+  }
+  .site_announcement span {
+    white-space: nowrap;
+  }
+  @media only screen and (max-width: 1000px) {
+    .site_annoucement_extra {
+      display: none;
+    }
+  }
+  
+  
+
+
+	
+	
+
+
+
+	
+		Pete Alonso
+			
+	
+
+    Position:
+    First Baseman
+  
+
+
+
+	Bats: Right
+         • 
+	Throws: Right
+    
+
+
+
+6-3, 245lb (190cm, 111kg) 
+
+  
+    Team:
+    New York Mets (majors)
+  
+
+
+
+  Born:
+    
+    December 7, 1994
+    
+
+    
+  
+    
+      in Tampa, FL
+    
+  
+  us
+
+
+
+
+
+
+
+  Draft: Drafted by  the New York Mets in the 2nd round  of the 2016 MLB June Amateur Draft  from University of Florida (Gainesville, FL).
+
+
+
+  
+    High School:        H. B. Plant HS (Tampa, FL)
+  
+  
+  
+    School:        University of Florida (Gainesville, FL)
+  
+
+
+
+  
+  
+  
+    
+   Debut:
+    
+    March 28, 2019
+    
+    (Age 24-111d,
+    21,820th in major league history)
+       vs. WSN 4 AB, 1 H, 0 HR, 0 RBI, 0 SB
+    
+  
+
+
+    
+
+
+
+  
+    Rookie Status:
+      
+        Exceeded rookie limits during 2019 season
+        
+      
+
+  
+
+
+
+  
+  
+    2025 Contract Status:
+    Signed thru 2025, 1 yr/$30M (25) & 26 player option
+    
+  
+
+  
+  
+  
+  
+  
+  Service Time (01/2025): 6.000
+
+  
+  
+  
+
+  
+   •     
+  Free Agent: 2026
+  
+
+  
+  
+  
+
+
+
+  
+    Agents: Boras Corporation      • Previously: Apex Baseball  
+    
+
+
+
+
+  
+  
+  
+
+  
+
+  Full Name: Peter Morgan Alonso 
+
+
+
+
+
+  
+  
+
+
+
+  Nicknames:
+  Polar Bear
+
+
+
+
+
+
+
+
+  View Player Info 
+  from the B-R Bullpen
+
+
+
+
+
+
+More bio, uniform, draft, salary info
+
+// see sr.menus.js:sr_menus_checkInfoCookie to explain
+function sr_menus_checkInfoCookie_inline(browserType) {
+    var el_info = document.getElementById('info');
+    var el_button = document.getElementById('meta_more_button');
+    var bling_len = 1;    
+    if (!el_button || !el_info || !el_info.classList) { console.log('no meta_button'); return; }
+    var el = el_button;
+    var siblingsHidden = 0;
+    while (el = el.previousSibling) { if ((el.nodeType === 1) && (el.offsetWidth <= 0 || el.offsetHeight <= 0)) { siblingsHidden++; } }
+    var button_cookie = false;
+    if (browserType === 'desktop') {  button_cookie = vjs_readCookie('meta_more_button');   }
+    // We allow up to four of bling lines or additional player bio data entries in mobile.
+    if (el_info && el_button && (button_cookie || (siblingsHidden + bling_len <= 4))) {el_button.parentNode.removeChild(el_button);	el_info.classList.add('open');  }
+    else { el_button.classList.add('show');  }
+}
+if (Modernizr.desktop || Modernizr.laptop) { sr_menus_checkInfoCookie_inline('desktop'); } else { sr_menus_checkInfoCookie_inline('mobile'); }
+var sr_menus_checkInfoCookie_run_inline = true;
+
+
+
+
+
+
+
+			
+	
+
+
+Rookie of the Year5x All-Star2x HR Derby Champ
+
+
+		
+	
+	
+                  20 
+
+	
+
+		
+			
+
+
+
+	
+
+
+Become a Stathead & surf this site ad-free.
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-300x250-ATF');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-300x250-ATF", slotId: "div-gpt-ad-300x250-ATF" });
+    }
+  
+
+
+
+
+
+
+
+	
+		
+			
+
+SUMMARY
+2025
+Career
+
+
+
+WAR2.5
+22.4
+
+
+AB416
+3555
+
+
+H108
+889
+
+
+HR24
+250
+
+
+BA.260
+.250
+
+
+R57
+550
+
+
+RBI86
+672
+
+
+SB1
+18
+
+
+OBP.351
+.341
+
+
+SLG.502
+.513
+
+
+OPS.854
+.854
+
+
+OPS+143
+135
+
+
+
+
+
+		
+		
+
+
+	
+
+
+
+
+
+
+
+
+
+	
+
+7/28 The Mets are clear buyers this summer with a 1.5 game lead over the Phillies for control of the NL East, but that doesn’t mean it’s impossible that they would deal from their big league roster.
+See More at MLBTradeRumors
+
+
+
+
+
+	
+		Pete Alonso Overview		
+		More Alonso Pages
+			
+
+					
+						College, Amateur, Minor & Fall Lg Stats
+						
+					
+
+
+Batting Splits
+					
+						Career
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+					
+
+Batting Game Logs
+					
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+						Postseason
+					
+
+Fielding Game Logs
+					
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+						Postseason
+					
+
+Batting Finders & Advanced Stats
+					
+						Advanced Stats
+						Home Run Log
+						Game Finder
+						Streak Finder
+						Event Finder
+						vs. Pitcher
+						Pivotal Play Finder
+						Span Finder
+						Split Finder
+						Postseason Event Finder
+					
+
+Fielding Finders & Advanced Stats
+					
+						Advanced Stats
+					
+
+More Pete Alonso Pages at Baseball Reference
+					
+						Pete Alonso page at the Bullpen Wiki
+					
+
+					
+		College, Amateur, Minor & Fall Lg Stats		
+		Splits
+			
+Batting
+					
+						Career
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+					
+
+					
+		Game Logs
+			
+Batting
+					
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+						Postseason
+					
+
+Fielding
+					
+						2019
+						2020
+						2021
+						2022
+						2023
+						2024
+						2025
+						Postseason
+					
+
+					
+		Finders & Advanced Stats
+			
+Batting
+					
+						Advanced Stats
+						Home Run Log
+						Game Finder
+						Streak Finder
+						Event Finder
+						vs. Pitcher
+						Pivotal Play Finder
+						Span Finder
+						Split Finder
+						Postseason Event Finder
+					
+
+Fielding
+					
+						Advanced Stats
+					
+
+					
+		More
+			
+More Pete Alonso Pages at Baseball Reference
+					
+						Pete Alonso page at the Bullpen Wiki
+					
+
+					
+		2025 Mets
+			
+2025 Mets
+(63-49, 2nd place in NL East)
+
+					
+						40-man Roster
+						Schedule
+					
+
+Roster
+					
+						Francisco Alvarez
+						Brett Baty
+						Edwin Díaz
+						Reed Garrett
+						Ryan Helsley
+						Clay Holmes
+						Francisco Lindor
+						Sean Manaea
+						Starling Marte
+						Ronny Mauricio
+						Jeff McNeil
+						Frankie Montas
+						Cedric Mullins
+						Brandon Nimmo
+						David Peterson
+						Brooks Raley
+						Tyler Rogers
+						Kodai Senga
+						Gregory Soto
+						Juan Soto
+						Ryne Stanek
+						Tyrone Taylor
+						Luis Torrens
+						Mark Vientos
+						Austin Warren
+					
+					Show entire roster
+
+					
+	
+	    
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+        
+        
+        
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+                
+                
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        
+    
+    
+    
+    
+    
+    
+    
+        
+            On this page:
+            Last 5 Games Standard Batting Value Batting Advanced Batting Postseason Batting Appearances Standard Fielding Leaderboards, Awards, & Honors Hall of Fame Statistics Similarity Scores Transactions Salaries Frequently Asked Questions Other Resources & Links Full Site Menu
+        
+    
+
+
+   
+
+
+
+          
+      
+      
+      
+      
+
+
+
+
+
+    #srcom   .adblock.primis,
+    #content .adblock.primis {  width: 728px; max-width:100%; aspect-ratio: 1.677419;  margin: auto; }
+
+
+
+
+
+
+
+
+
+
+      
+         
+            
+
+
+
+  Last 5 Games
+      
+      
+      
+    
+    
+    		
+
+
+    
+    
+    Last 5 Games Table
+    
+
+   
+         
+      
+         Date
+         Tm
+         
+         Opp
+         Result
+         Pos
+         AB
+         R
+         H
+         2B
+         3B
+         HR
+         RBI
+         BB
+         SO
+         SB
+         CS
+         IBB
+         GIDP
+         SF
+         SH
+         ROE
+         BOP
+         WPA
+         aLI
+         cWPA
+         acLI
+         RE24
+         PO
+         A
+      
+      
+2025-08-03NYMSFGL, 4-12 1B40000000100010004-0.0480.39-0.04%0.60-1.15850
+2025-08-02NYMSFGW, 12-6 1B422101310000000040.2270.920.21%1.443.028100
+2025-08-01NYMSFGL, 3-4 (10) 1B311001212000010040.2052.980.19%4.530.95570
+2025-07-30NYM@SDPL, 0-5 1B30000000000000004-0.0390.47-0.04%0.74-0.506110
+2025-07-29NYM@SDPL, 1-7 1B30000001000000004-0.0521.020.00%0.00-0.58671
+
+
+
+
+
+
+
+
+
+
+    
+        Next Game:
+     
+
+    Monday, August 4th vs 
+    CLE
+    
+    
+
+
+
+    
+        More:
+     
+    
+        
+        
+            
+        
+        Game Log
+    
+     •
+    
+        
+        
+            
+        
+        Splits
+    
+     •
+    
+        
+        
+            
+        
+        Home Run Log
+    
+     •
+    
+        
+        
+            
+        
+        Batter vs. Pitcher
+    
+    
+    
+
+
+
+
+
+
+
+            
+            
+              
+               
+                  
+
+	
+		
+			
+		
+    POWERED BY
+    
+			
+		
+  
+	
+        
+            Did you know that Pete Alonso's 53 Home Runs in 2019 were the most by a rookie in baseball history?
+        
+        
+          
+		      Subscribe to Stathead, your all-access pass to the Baseball Reference database, to answer more questions like this.
+          
+        
+        
+          
+		        Become a Stathead
+          
+	      
+	
+
+  
+
+
+               
+              
+            
+            
+         
+      
+         
+      
+         
+      
+         
+            
+
+	
+		
+	
+
+
+  Standard Batting
+  ✨Upgraded✨    
+      
+      
+    
+    Show Non‑Major
+    		
+
+
+
+
+  Standard Batting
+  ✨Upgraded✨    
+      
+      
+    
+    Show Non‑Major
+    		
+
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+
+
+
+	Regular Season
+
+	Playoffs
+
+
+
+
+	
+		
+		 Standard Batting Table    Season Age Team Lg WAR G PA AB R H 2B 3B HR RBI SB CS BB SO BA OBP SLG OPS OPS+ rOBA Rbat+ TB GIDP HBP SH SF IBB Pos Awards    2019 24 NYM NL 5.4 161 693 597 103 155 30 2 53 120 1 0 72 183 .260 .358 .583 .941 147 .399 154 348 13 21 0 3 6 *3/HD AS,MVP-7,ROY-1   2020 25 NYM NL 0.1 57 239 208 31 48 6 0 16 35 1 0 24 61 .231 .326 .490 .817 122 .342 114 102 4 6 0 1 4 3D/H    2021 26 NYM NL 4.1 152 637 561 81 147 27 3 37 94 3 0 60 127 .262 .344 .519 .863 133 .377 137 291 20 12 0 4 6 *3/DH    2022 27 NYM NL 4.4 160 685 597 95 162 27 0 40 131 5 1 67 128 .271 .352 .518 .869 146 .371 143 309 17 12 0 9 16 *3D AS,MVP-8   2023 28 NYM NL 3.3 154 658 568 92 123 21 2 46 118 4 1 65 151 .217 .318 .504 .821 123 .351 122 286 17 21 0 4 6 *3/D AS,MVP-17   2024 29 NYM NL 2.6 162 695 608 91 146 31 0 34 88 3 0 70 172 .240 .329 .459 .788 124 .341 122 279 14 13 0 4 4 *3/DH AS   2025 30 NYM NL 2.5 112 484 416 57 108 27 1 24 86 1 2 50 112 .260 .351 .502 .854 143 .365 140 209 17 12 0 6 4 *3 AS    7 Yrs 22.4 958 4091 3555 550 889 169 8 250 672 18 4 408 934 .250 .341 .513 .854 135 .366 135 1824 102 97 0 31 46 *3DH    162 Game Avg 3.8 162.0 691.8 601.2 93.0 150.3 28.6 1.4 42.3 113.6 3.0 0.7 69.0 157.9 .250 .341 .513 .854 135 .366 135 308.4 17.2 16.4 0.0 5.2 7.8     
+		
+
+ 
+
+	
+	
+		
+		 Standard Batting Table    Season Age Team Lg G PA AB R H 2B 3B HR RBI SB CS BB SO BA OBP SLG OPS TB GIDP HBP SH SF IBB Pos Awards    2022 27 NYM NL 3 12 10 2 3 0 0 1 1 0 0 2 4 .300 .417 .600 1.017 6 0 0 0 0 0 /*3                                   2024 29 NYM NL 13 58 44 10 12 1 0 4 10 2 0 12 15 .273 .431 .568 .999 25 2 1 0 1 1 *3     2 Yrs 16 70 54 12 15 1 0 5 11 2 0 14 19 .278 .429 .574 1.003 31 2 1 0 1 1 *3    162 Game Avg 162.0 708.8 546.8 121.5 151.9 10.1 0.0 50.6 111.4 20.3 0.0 141.8 192.4 .278 .429 .574 1.003 313.9 20.3 10.1 0.0 10.1 10.1     
+		
+
+ 
+
+	
+
+
+Bold season totals indicate player led league. Italic season totals indicate player led all major leagues. 
+Black Ink appears for stats with a leaderboard.
+
+
+
+
+
+
+
+
+
+
+
+            
+            
+            
+	       	
+
+
+
+
+
+
+    
+    
+      freestar.config.enabled_slots.push({ placementName: "baseball-reference_300x250_BTF-1-1", slotId: "baseball-reference_300x250_BTF-1-1" });
+    
+  
+
+
+
+
+
+
+
+
+            
+         
+      
+         
+            
+
+	
+		
+	
+
+
+  Value Batting
+  ✨Upgraded✨    
+      
+      
+    
+    
+    		
+
+
+
+	
+		
+		 Value Batting Table    Season Age Team Lg PA Rbat Rbaser Rdp Rfield Rpos RAA WAA Rrep RAR WAR waaWL% 162WL% oWAR dWAR oRAR Pos Awards    2019 24 NYM NL 693 44 0 0 1 -8 37 3.3 22 59 5.4 .523 .522 5.6 -0.9 58 *3/HD AS,MVP-7,ROY-1   2020 25 NYM NL 239 4 -2 0 -5 -3 -7 -0.7 8 1 0.1 .488 .496 0.6 -0.8 6 3D/H    2021 26 NYM NL 637 28 -1 -3 5 -8 20 1.9 22 42 4.1 .514 .513 3.6 -0.4 37 *3/DH    2022 27 NYM NL 685 32 -1 0 -2 -9 21 2.2 23 44 4.4 .513 .513 4.6 -1.1 46 *3D AS,MVP-8   2023 28 NYM NL 658 17 -2 -1 6 -8 12 1.2 22 34 3.3 .508 .507 2.7 -0.2 28 *3/D AS,MVP-17   2024 29 NYM NL 695 17 -3 -1 -3 -8 3 0.4 23 27 2.6 .502 .502 2.9 -1.1 30 *3/DH AS   2025 30 NYM NL 484 22 0 -3 -4 -5 10 1.0 16 26 2.5 .509 .506 3.0 -1.0 30 *3 AS    7 Yrs 4091 165 -9 -9 -2 -49 96 9.3 137 233 22.4 .510 .510 23.0 -5.6 235 *3DH    162 Game Avg 691.8 28 -1 -2 0 -8 16 1.6 23 39 3.8 .510 .510 3.9 -0.9 40     
+		
+
+ 
+
+	
+
+
+    
+        WAR Explained (v2.2): 8+ MVP, 5+ A-S, 2+ Starter, 0-2 Sub, < 0 Repl
+    
+
+
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+	
+		
+	
+
+
+  Advanced Batting
+  ✨Upgraded✨    
+      
+      
+    
+    
+    		
+
+
+
+
+  Advanced Batting
+  ✨Upgraded✨    
+      
+      
+    
+    
+    		
+
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+
+
+
+	Regular Season
+
+	Playoffs
+
+
+
+
+	
+		
+		 Advanced Batting Table      Batting Batting Ratios Batted Ball Win Probability Baserunning    Season Age Team Lg PA rOBA Rbat+ BAbip ISO HR% SO% BB% EV HardH% LD% GB% FB% GB/FB Pull% Cent% Oppo% WPA cWPA RE24 RS% SB% XBT% Pos Awards    2019 24 NYM NL 693 .399 154 .280 .323 7.6 26.4 10.4 91.4 46.6 23.3 40.5 28.3 0.68 30.4 56.4 13.3 3.5 1.8% 41.93 25.6 100.0 32.8 *3/HD AS,MVP-7,ROY-1   2020 25 NYM NL 239 .342 114 .242 .260 6.7 25.5 10.0 90.2 42.1 23.6 39.9 26.4 0.66 29.9 48.3 21.8 -0.4 -0.7% -1.24 24.2 100.0 20.8 3D/H    2021 26 NYM NL 637 .377 137 .274 .257 5.8 19.9 9.4 91.0 47.4 22.8 39.0 31.1 0.64 27.4 53.0 19.6 1.7 1.1% 16.82 24.2 100.0 27.3 *3/DH    2022 27 NYM NL 685 .371 143 .279 .246 5.8 18.7 9.8 89.8 44.8 23.0 36.4 30.5 0.57 31.6 49.6 18.8 2.5 1.6% 36.35 27.4 83.3 42.0 *3D AS,MVP-8   2023 28 NYM NL 658 .351 122 .205 .287 7.0 22.9 9.9 89.5 40.1 19.0 36.3 35.4 0.57 30.2 53.7 16.2 0.6 0.8% 15.02 28.2 80.0 47.9 *3/D AS,MVP-17   2024 29 NYM NL 695 .341 122 .276 .219 4.9 24.7 10.1 89.8 46.5 21.1 42.0 28.2 0.73 29.3 49.3 21.4 0.5 0.2% 11.38 29.2 100.0 36.9 *3/DH AS   2025 30 NYM NL 484 .365 140 .294 .243 5.0 23.1 10.3 93.9 53.2 26.8 35.2 30.3 0.54 27.1 50.6 22.3 3.1 2.2% 20.75 22.6 33.3 41.9 *3 AS    7 Yrs 4091 .366 135 .266 .263 6.1 22.8 10.0 90.7 45.9 22.5 38.5 30.4 0.63 29.5 51.9 18.6 11.5 7.0% 141.02 26.2 81.8 36.8 *3DH    MLB Average  .321 100 .293 .164 3.2 22.7 8.5 88.4 39.3 24.3 42.3 25.4 0.75 29.6 52.4 18.0    31.0 77.0 41.5     
+		
+
+ 
+
+	
+	
+		
+		 Advanced Batting Table      Batting Batting Ratios Win Probability Baserunning    Season Age Team Lg PA BAbip ISO HR% SO% BB% WPA cWPA RE24 RS% SB% Pos Awards    2022 27 NYM NL 12 .400 .300 8.3 33.3 16.7 0.0 0.1% 0.04 25.0  /*3                       2024 29 NYM NL 58 .308 .295 6.9 25.9 20.7 0.8 11.8% 6.35 28.6 100.0 *3     2 Yrs 70 .323 .296 7.1 27.1 20.0 0.9 11.9% 6.40 28.0 100.0 *3    MLB Average  .269 .147 3.1 24.7 8.9    27.6 82.1     
+		
+
+ 
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+            
+            
+	       	
+
+
+
+
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-728x90-BTF-2');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-728x90-BTF-2", slotId: "div-gpt-ad-728x90-BTF-2" });
+    }
+  
+
+
+
+Become a Stathead & surf this site ad-free.
+
+
+
+            
+         
+      
+         
+            
+
+	
+		Compare Pete Alonso to 
+	
+
+	
+
+	
+	
+	
+		
+		
+	
+		
+		
+	
+	
+
+	
+		Javascript is required for the selection of a player.
+
+
+	
+		 
+		
+			
+				
+			
+		
+	
+	
+
+
+Choice is:  
+	
+
+
+
+		Ex: Khris Davis, Jim Gentile
+	
+
+	
+	
+	
+
+	
+
+	
+		
+		
+		
+		
+			
+		
+		Career
+		
+		
+	
+	
+		
+		
+		
+		
+			
+		
+		2025
+		
+		
+	
+
+
+
+	
+
+	
+	
+	
+	
+	
+	
+		
+			
+		
+			
+		
+			
+		
+			
+		
+	
+	
+	
+	
+		Powered by 
+	
+
+
+
+
+.fieldset.linear .ac-outline {
+    width: 300px;
+    vertical-align: middle;
+}
+
+            
+            
+            
+         
+      
+         
+      
+         
+            
+
+  Player News
+      
+      Add Your Blog Posts HerePlayer News ArchivePlayer News RSS FeedShow/Hide More Stories
+      
+    
+    
+    		
+
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+	
+		
+	
+
+
+
+
+            
+            
+            
+	       	
+
+
+
+
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-728x90-BTF-3');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-728x90-BTF-3", slotId: "div-gpt-ad-728x90-BTF-3" });
+    }
+  
+
+
+
+
+
+
+
+            
+         
+      
+         
+      
+         
+      
+         
+      
+         
+      
+         
+            
+
+	
+		
+	
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+	
+		
+	
+
+
+  Standard Fielding
+  ✨Upgraded✨    
+      
+      
+    
+    
+    		
+
+
+
+
+  Standard Fielding
+  ✨Upgraded✨    
+      
+      
+    
+    
+    		
+
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+		
+		
+		
+		
+		
+	
+	
+	
+
+
+
+	Regular Season
+
+	Playoffs
+
+
+
+
+	
+		
+		 Standard Fielding Table     Standard Total Zone DRS Range Factor    Season Age Team Lg Pos G GS CG Inn Ch PO A E DP Fld% lgFld% Rtot Rtot/yr Rdrs Rdrs/yr RF/9 lgRF9 RF/G lgRFG Awards    2019 24 NYM NL 1B 156 152 123 1328.0 1202 1078 112 12 108 .990 .993 7 6 1 1 8.06 8.57 7.63 8.52 AS,MVP-7,ROY-1   2019 24 NYM NL DH 1 1                0.00  AS,MVP-7,ROY-1   2020 25 NYM NL 1B 39 38 35 320.1 283 264 14 5 21 .982 .992 -5 -18 -5 -19 7.81 8.33 7.13 7.92    2020 25 NYM NL DH 17 17                0.00     2021 26 NYM NL 1B 148 148 140 1243.2 1084 978 98 8 98 .993 .994 1 1 5 5 7.79 8.35 7.27 8.13    2021 26 NYM NL DH 3 3                0.00     2022 27 NYM NL 1B 134 133 108 1141.2 1013 913 92 8 102 .992 .994 -8 -8 -2 -2 7.92 8.48 7.50 8.35 AS,MVP-8   2022 27 NYM NL DH 27 27                0.00  AS,MVP-8   2023 28 NYM NL 1B 144 144 142 1256.2 1111 983 122 6 119 .995 .995 10 9 6 6 7.91 8.42 7.67 8.28 AS,MVP-17   2023 28 NYM NL DH 9 9                0.00  AS,MVP-17   2024 29 NYM NL 1B 161 159 157 1412.1 1285 1179 99 7 117 .995 .995 -1 -1 -3 -3 8.14 8.29 7.94 8.18 AS   2024 29 NYM NL DH 1 1                0.00  AS   2025 30 NYM NL 1B 112 111 110 986.0 897 810 82 5 73 .994 .994 -5 -6 -4 -5 8.14 8.26 7.96 8.13 AS    7 Yrs  894 885 815 7688.2 6875 6205 619 51 638 .993 .994 -1 0 -2 0 7.99 8.40 7.63 8.26                            1B (7 Yrs) 1B 894 885 815 7688.2 6875 6205 619 51 638 .993 .994 -1 0 -2 0 7.99 8.40 7.63 8.26    DH (6 Yrs) DH 58 58                0.00     
+		
+
+ 
+
+	
+	
+		
+		 Standard Fielding Table     Standard Range Factor    Season Age Team Lg Pos G GS CG Inn Ch PO A E DP Fld% RF/9 RF/G Awards    2022 27 NYM NL 1B 3 3 3 27.0 21 19 2 0 0 1.000 7.00 7.00                        2024 29 NYM NL 1B 13 13 13 113.2 104 96 7 1 5 .990 8.16 7.92     2 Yrs  16 16 16 140.2 125 115 9 1 5 .992 7.93 7.75    
+		
+
+ 
+
+	
+
+
+    
+        Fielding stats are a combination of official records and
+        Retrosheet records.
+        Both are likely to have substantial errors and will not match perfectly.
+        (See data coverage details)
+    Bold season totals indicate player led league. Italic season totals indicate player led all major leagues. 
+Black Ink appears for stats with a leaderboard.
+
+
+
+
+    
+        Fielding stats are a combination of official records and
+        Retrosheet records.
+        Both are likely to have substantial errors and will not match perfectly.
+        (See data coverage details)
+    
+
+
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+
+
+  Appearances on Leaderboards, Awards, and Honors
+      
+      
+      
+    
+    
+    		
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+  Hall of Fame Statistics
+      
+      
+      
+    
+    
+    		
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+  Similarity Scores
+      
+      Explanation of Similarity Scores
+      
+    
+    
+    		
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+  Transactions
+      
+      
+      
+    
+    
+    		
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+
+
+  Salaries
+      
+      Salaries may not be complete (especially pre-1985) and may not include some earned bonuses
+      
+    
+    
+    		
+
+
+
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+  Frequently Asked Questions
+  		
+    
+	      How old is Pete Alonso?
+  Pete Alonso is 30 years old.
+  When was Pete Alonso born?
+  Pete Alonso was born on December 7, 1994.
+  Where was Pete Alonso born?
+  Pete Alonso was born in Tampa, FL.
+  How tall is Pete Alonso?
+  Pete Alonso is 6-3 (190 cm) tall.
+  How much does Pete Alonso weigh?
+  Pete Alonso weighs 245 lbs (111 kg).
+  How many seasons has Pete Alonso played?
+  Pete Alonso is in his 7th season.
+  When was Pete Alonso drafted?
+  Pete Alonso was drafted by   the New York Mets in the 2nd round  of the 2016 MLB June Amateur Draft  from University of Florida (Gainesville, FL).
+  What position does Pete Alonso play?
+  Pete Alonso is a First Baseman.
+  How many hits does Pete Alonso have?
+  Pete Alonso has  108 hits this season and has  889 hits over his career.
+  How many home runs does Pete Alonso have?
+  Pete Alonso has  24 home runs this season and has  250 home runs over his career.
+  What is Pete Alonso's average?
+  Pete Alonso has a .260 average this season and has a .250 average over his career.
+  How much is Pete Alonso worth?
+  Pete Alonso makes $30,000,000.00 this year. His current contract terms are 1 yr/$30M (25) & 26 player option.
+  How many teams has Pete Alonso played for?
+  Pete Alonso has played for 1 team, the New York Mets.
+  How many World Series has Pete Alonso won?
+  Pete Alonso has never won a World Series.
+  What are Pete Alonso's nicknames?
+  Polar Bear is a nickname for Pete Alonso.
+
+
+  
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+              {
+        "@type": "Question",
+        "name": "How old is Pete Alonso?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso is 30 years old."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "When was Pete Alonso born?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso was born on December 7, 1994."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "Where was Pete Alonso born?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso was born in Tampa, <a href=\"/bio/FL_born.shtml\">FL</a>."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How tall is Pete Alonso?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso is 6-3 (190 cm) tall."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How much does Pete Alonso weigh?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso weighs 245 lbs (111 kg)."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How many seasons has Pete Alonso played?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso is in his 7th season."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "When was Pete Alonso drafted?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso was drafted by   the <a href=\"/draft/?team_ID=NYM&amp;year_ID=2016&amp;draft_type=junreg&amp;query_type=franch_year\">New York Mets</a> in the <a href=\"/draft/?year_ID=2016&amp;draft_round=2&amp;draft_type=junreg&amp;query_type=year_round\">2nd round</a>  of the 2016 MLB June Amateur Draft  from <a href=\"/draft/?key_school=e6258d6a&amp;exact=1&amp;query_type=key_school\">University of Florida (Gainesville, FL)</a>."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "What position does Pete Alonso play?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso is a First Baseman."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How many hits does Pete Alonso have?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso has  108 hits this season and has  889 hits over his career."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How many home runs does Pete Alonso have?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso has  24 home runs this season and has  250 home runs over his career."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "What is Pete Alonso's average?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso has a .260 average this season and has a .250 average over his career."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How much is Pete Alonso worth?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso makes $30,000,000.00 this year. His current contract terms are 1 yr/$30M (25) &amp; 26 player option."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How many teams has Pete Alonso played for?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso has played for 1 team, the New York Mets."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "How many World Series has Pete Alonso won?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pete Alonso has never won a World Series."
+        }
+      },
+              {
+        "@type": "Question",
+        "name": "What are Pete Alonso's nicknames?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Polar Bear is a nickname for Pete Alonso."
+        }
+      }
+      ]
+    }
+
+
+		
+    
+
+
+
+            
+            
+            
+         
+      
+         
+            
+
+  Other Resources & Links
+      
+      
+      
+    
+    
+    		
+
+
+
+
+            
+            
+            
+         
+      
+
+
+   
+
+More Alonso Pages
+
+
+  Pete Alonso Overview
+  
+        
+          College, Amateur, Minor & Fall Lg Stats        Batting Splits
+        
+          Career
+          2019
+          2020
+          2021
+          2022
+          2023
+          2024
+          2025
+        Batting Game Logs
+        
+          2019
+          2020
+          2021
+          2022
+          2023
+          2024
+          2025
+          Postseason
+        Fielding Game Logs
+        
+          2019
+          2020
+          2021
+          2022
+          2023
+          2024
+          2025
+          Postseason
+        Batting Finders & Advanced Stats
+        
+          Advanced Stats
+          Home Run Log
+          Game Finder
+          Streak Finder
+          Event Finder
+          vs. Pitcher
+          Pivotal Play Finder
+          Span Finder
+          Split Finder
+          Postseason Event Finder
+        Fielding Finders & Advanced Stats
+        
+          Advanced Stats
+        More Pete Alonso Pages at Baseball Reference
+        
+          Pete Alonso page at the Bullpen Wiki
+        
+
+   
+
+
+
+
+
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-728x90-Footer');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-728x90-Footer", slotId: "div-gpt-ad-728x90-Footer" });
+    }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+		 Welcome  · Your Account
+Logout
+Ad-Free Login
+Create Account
+
+		 You are here: BR Home Page  > Major League Players  > A Listing  > Pete Alonso Statistics and History
+	
+
+	
+		
+			
+			
+
+  Full Site Menu
+      
+      Return to Top
+      
+    
+    
+    		
+
+			
+				
+	Major League Players
+	Current Greats: Clayton Kershaw, 
+Mike Trout, 
+Mookie Betts, 
+Jacob deGrom, 
+Ronald Acuña Jr., 
+Zack Greinke, 
+Jose Altuve,
+...   
+
+	All-Time Greats:  
+Stan Musial, 
+Barry Bonds, 
+Babe Ruth, 
+Derek Jeter, 
+Oscar Charleston, 
+Ken Griffey Jr, 
+Jackie Robinson, 
+Hank Aaron, ...
+
+
+
+	 Major League Teams
+	 	NL East:
+Atlanta Braves, 
+Miami Marlins, 
+New York Mets, 
+Philadelphia Phillies, 
+Washington Nationals
+			
+	 	NL Central:
+Chicago Cubs, 
+Cincinnati Reds, 
+Milwaukee Brewers, 
+Pittsburgh Pirates, 
+St. Louis Cardinals
+			
+	 	NL West:
+Arizona Diamondbacks, 
+Colorado Rockies, 
+Los Angeles Dodgers , 
+San Diego Padres, 
+San Francisco Giants
+			
+	 	AL East:
+Baltimore Orioles, 
+Boston Red Sox, 
+New York Yankees, 
+Tampa Bay Rays, 
+Toronto Blue Jays
+			
+	 	AL Central:
+Chicago White Sox, 
+Cleveland Guardians, 
+Detroit Tigers, 
+Kansas City Royals, 
+Minnesota Twins
+			
+	 	AL West:
+Houston Astros, 
+Los Angeles Angels, 
+Athletics, 
+Seattle Mariners, 
+Texas Rangers
+			
+	 
+
+Seasons
+	     2025,
+	     2024,
+	     2025 MLB Pitching,
+	     2025 MLB Batting,
+	     2025 MLB Standings,
+	     2025 MLB Attendance,
+	     2025 MLB Rookies,
+	     ...
+
+
+         Major League Leaders
+	     
+	     2025 MLB Batting,
+	     2025 MLB Pitching,
+	     Career WAR Leaders,
+	     Single-Season Home Run Leaders,
+	     Active Strikeout Leaders,
+	     Upcoming Player Milestones,
+	     ...
+	 
+
+         MLB Scores
+	     Yesterday's MLB Games,
+	     Scores from any date in Major League history,
+	     MLB Probable Pitchers,
+	     Baseball-Reference Stream Finder,
+	     ...
+	 
+	 MLB Schedule
+
+         MLB Standings
+	     
+	     AL Standings,
+	     NL Standings,
+	     Standings for any date in history,
+	     ...
+	 
+
+         Playoffs
+	     
+	     World Series Winners,
+	     2019 World Series: Astros vs Nationals,
+	     2018 World Series: Red Sox vs Dodgers,
+	     2017 World Series: Astros vs Dodgers,
+	     World Series Batting Leaders,
+	     World Series Pitching Leaders,
+	     ...
+	 
+
+         Stathead
+	     Player Finders:
+	     Season & Career Finder,
+	     Game Finder,
+	     Streak Finder,
+	     Span Finder,
+	     Split Finder,
+	     Versus Finder,
+	     ...
+	     Team Finders:
+	     Season Finder,
+	     Game Finder,
+	     Streak Finder,
+	     Span Finder,
+	     Split Finder,
+	     Event Finder,
+	     ...
+	     Other Finders:
+	     Draft Finder,
+	     Team Trade Histories,
+	     Head-to-Head Records,
+	     ...
+	 
+
+         Managers
+	     Active:	     
+	     Brian Snitker,
+	     Rocco Baldelli,
+	     Dave Roberts,
+	     ...
+	     Retired:
+	     John McGraw,
+	     Bobby Cox,
+	     Earl Weaver,
+	     ...
+	 
+
+         Awards
+	     
+	     Baseball Hall of Fame,
+	     MLB MVP's,
+	     MLB Cy Young Award,
+	     MLB Rookie of the Year,
+	     Rawlings Gold Gloves,
+	     2025 HOF results,
+	     2026 Hall of Fame ballot,
+	     ...
+	 
+
+         All-Star Games
+	     
+	     2026 All-Star Game,
+	     2025 All-Star Game,
+	     All-Time All-Star Batters,
+	     All-Time All-Star Pitchers,
+	     ...
+	 
+
+         Frivolities and More
+	     
+	     Players who played for multiple teams,
+	     Uniform Number Tracker,
+	     Cups of Coffee,
+	     Pronunciation Guide,
+	     Birthplaces,
+	     Players by School Attended,
+	     ....
+	 
+
+         MLB Draft
+	     
+	     2025 Draft,
+	     2024 Draft,
+	     2023 Draft,
+	     MLB Number One Picks,
+	     ...
+	 
+
+         Minor, Foreign, College, & Black Baseball
+	     
+	     Minor League Stats,
+		 College Baseball Stats,
+	     Black Baseball Stats,
+	     Nippon Pro Baseball Stats,
+		 Korean Baseball Stats,
+	     Cuban National Series Stats,
+		 Mexican Baseball Stats,
+		 Winter Leagues Stats,
+		 Independent League Stats,
+	     2025 Minor Leagues,
+	     2025 Affiliates,
+	     ...
+	 
+
+         Baseball-Reference Bullpen
+	     
+	     100,000+ pages of baseball information,
+	     How to Contribute,
+	     ...
+	 
+
+         About Baseball Reference / Glossary
+	     
+	     Batting Glossary,
+	     Pitching Glossary,
+	     Wins Above Replacement Explainer,
+	     WAR data archive,
+	     BR Data Coverage,
+	     Frequently Asked Questions about MLB and Baseball,
+	     ...
+	 
+
+         Immaculate Grid
+	     Put your baseball knowledge to the test with our daily baseball trivia game. Can you complete the grid?
+	 
+
+
+   
+
+			
+   		        
+
+      
+             
+       Baseball-Reference.com Blog and Articles
+
+	        
+		
+			
+	
+
+  We're Social...for Statheads
+  		
+
+	
+	
+	
+		
+		
+		
+	
+	
+	
+	
+		
+		
+
+
+Site Last Updated: Monday, August  4,  4:56PM
+
+Question, Comment, Feedback, or Correction?
+
+Subscribe to our Free Email Newsletter
+
+
+Subscribe to Stathead Baseball: Get your first month FREEYour All-Access Ticket to the Baseball Reference Database
+
+
+Do you have a sports website? Or write about sports? We have tools and resources that can help you use sports data.  Find out more.
+
+
+
+
+			
+   
+
+  FAQs, Tip & Tricks
+  		
+
+   
+Learn about the Wins Above Replacement Formula
+
+           Tips and Tricks from our Blog.
+           Do you have a blog? Join our linker program.
+	   Watch our How-To Videos to Become a Stathead
+	   Subscribe to Stathead and get access to more data than you can imagine
+   
+
+
+			
+				All logos are the trademark & property of their owners and not Sports Reference LLC.  We present them here for purely educational purposes.
+				Our reasoning for presenting offensive logos.
+				
+					
+					Logos were compiled by the amazing SportsLogos.net.
+				
+				
+     
+          Copyright © 2000-2025 Sports Reference LLC. All rights reserved.
+
+     The SPORTS REFERENCE, STATHEAD, IMMACULATE GRID, and IMMACULATE FOOTY trademarks are owned exclusively by Sports Reference LLC. Use without license or authorization is expressly prohibited.
+     Much of the play-by-play, game results, and transaction information both shown and used to create certain data sets was obtained free of charge from and is copyrighted by RetroSheet.
+     Win Expectancy, Run Expectancy, and Leverage Index calculations provided by Tom Tango of InsideTheBook.com, and co-author of The Book: Playing the Percentages in Baseball.
+     Total Zone Rating and initial framework for Wins above Replacement calculations provided by Sean Smith of Baseballprojection.com and author of WAR in Pieces.
+     Full-year historical Major League statistics provided by Pete Palmer and Gary Gillette of Hidden Game Sports.
+     
+     Some defensive statistics Copyright © Sports Info Solutions, 2010-2025.
+     Some high school data is courtesy David McWater.
+     Many historical player head shots courtesy of David Davis. Many thanks to him. All images are property the copyright holder and are displayed here for informational purposes only.
+     
+Data Provided By
+	
+	the official stats partner of the NBA, NHL and MLB.
+	
+	
+
+
+			
+		
+	
+
+	
+
+	 Sports Reference ®
+	Baseball
+	Football (college)
+	Basketball (college)
+	Hockey
+	Soccer
+	Blog
+    Stathead ®
+	
+	Immaculate Grid ®
+	
+
+
+
+
+	
+  About •
+  Conditions & Terms of Service •
+  Advertise With Us
+ •
+  Jobs at SR
+ •
+  Baseball-Reference.com T-Shirts & Store
+ •
+  Cookie Preferences
+  
+  
+Sports Reference Purpose: We will be the trusted source of information and tools that inspire and empower users to enjoy, understand, and share the sports they love.
+  
+  Privacy Policy •
+  Gambling Revenue Policy •
+  Accessibility Policy •
+  Use of Data
+  
+  
+
+
+
+
+
+      
+
+
+
+
+
+
+
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-160x600-1');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-160x600-1", slotId: "div-gpt-ad-160x600-1" });
+    }
+  
+
+
+
+
+
+  
+    if (sr_detect_ie || sr_detect_edge || Modernizr.adfree) {
+    }
+    else {
+        console.log('push ad:div-gpt-ad-160x600-2');
+        freestar.config.enabled_slots.push({ placementName: "div-gpt-ad-160x600-2", slotId: "div-gpt-ad-160x600-2" });
+    }
+  
+
+
+
+
+
+
+var sr_gender = "";
+
+
+
+ (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start': new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0], j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src= 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f); })(window,document,'script','dataLayer','GTM-MC36NL2');    
+ var sr_cookie = vjs_readCookie('stathead_user') || ''; var sr_cookie_split = sr_cookie.split("::"); var sr_session_key = (sr_cookie_split.length > 1)?sr_cookie_split[2]:''; var sr_ad_free_key = "2"; var sr_site_id = "br"; var sr_is_subscriber = (sr_ad_free_key && sr_session_key.vjs_isMatch(new RegExp(sr_ad_free_key + "$"))) || sr_session_key.vjs_isMatch(/1$/) || (sr_site_id === 'stathead' && sr_session_key.vjs_isMatch(/[0-7]$/)); var sr_is_user = sr_cookie !== null && sr_cookie !== ''; var sr_seen_modal = vjs_readCookie('modal_ad') !== null; var sr_device = 'unk'; if (Modernizr.phone) { sr_device = 'phone'; } else if (Modernizr.tablet) { sr_device = 'tablet'; } else if (Modernizr.laptop) { sr_device = 'laptop'; } else if (Modernizr.desktop) { sr_device = 'desktop'; } var sr_stathead_site = vjs_readCookie('stathead_site') || ''; var sr_stathead_type = vjs_readCookie('stathead_type') || ''; window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); /* GA4: individual site code config, do not send a page view (double counts) */ gtag('config', 'G-9W1J1KYCNH', { 'is_sub': sr_is_subscriber, 'is_user': sr_is_user, 'page_gender': typeof(sr_gender) === 'string'? sr_gender: null, 'stathead_type': sr_stathead_type, 'stathead_site': sr_stathead_site, 'viewport_width': Modernizr.viewport_width, send_page_view: false }); /* GA4: all sr sites together */ /* I believe linker works as a parameter here, although there didn\'t seem to be a simple "true" value to set besides this one --NW https://developers.google.com/analytics/devguides/collection/gtagjs/cross-domain Add configs for both sets of code. */ gtag('config', 'G-80FRT7VJ60', { 'linker': { 'domains' : ['stathead.com'] }, 'is_sub': sr_is_subscriber, 'is_user': sr_is_user, 'page_gender': typeof(sr_gender) === 'string'? sr_gender: null, 'stathead_type': sr_stathead_type, 'stathead_site': sr_stathead_site, 'viewport_width': Modernizr.viewport_width }); 
+
+
+
+
+
+
+
