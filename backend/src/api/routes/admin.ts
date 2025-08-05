@@ -309,6 +309,7 @@ router.post('/execute-command', authenticate, isAdmin, async (req: Request, res:
     'cd backend && npm run odds',
     'python insights_personalized_enhanced.py',
     'python daily_trends_generator.py',
+    'python trendsnew.py',
   ];
 
   if (!allowedCommands.includes(command)) {
