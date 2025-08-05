@@ -9,10 +9,10 @@ interface UserActivityData {
 }
 
 interface UserActivityChartProps {
-  data: UserActivityData[]
+  data?: UserActivityData[]
 }
 
-export default function UserActivityChart({ data }: UserActivityChartProps) {
+export default function UserActivityChart({ data = [] }: UserActivityChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {

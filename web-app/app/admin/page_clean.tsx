@@ -37,9 +37,6 @@ import {
 import { motion } from 'framer-motion'
 import UserActivityChart from './components/UserActivityChart'
 import QuickActions from './components/QuickActions'
-import FeedbackSection from './components/FeedbackSection'
-import SupportRequestsSection from './components/SupportRequestsSection'
-import AIPredictionsSection from './components/AIPredictionsSection'
 
 interface UserData {
   id: string
@@ -390,59 +387,11 @@ export default function AdminDashboard() {
           <UserActivityChart />
         </div>
 
-        {/* Feedback Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Mail className="w-6 h-6 text-blue-400" />
-              <span>User Feedback</span>
-            </h2>
-          </div>
-          <FeedbackSection />
-        </motion.div>
-
-        {/* Support Requests Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Settings className="w-6 h-6 text-green-400" />
-              <span>Support Requests</span>
-            </h2>
-          </div>
-          <SupportRequestsSection />
-        </motion.div>
-
-        {/* AI Predictions Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Target className="w-6 h-6 text-purple-400" />
-              <span>Today's AI Predictions</span>
-            </h2>
-          </div>
-          <AIPredictionsSection />
-        </motion.div>
-
         {/* Users Management */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.0 }}
+          transition={{ delay: 0.7 }}
           className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6"
         >
           {/* Filters */}

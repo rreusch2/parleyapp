@@ -1,5 +1,5 @@
 // Shared AI service (adapted from mobile app)
-import { supabase } from './supabaseClient'
+import { supabase } from '../../lib/supabase'
 import apiClient from './apiClient'
 
 export interface AIPrediction {
