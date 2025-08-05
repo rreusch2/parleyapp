@@ -9,12 +9,16 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Copy the StatMuse API server script
+// Use the StatMuse API server script directly
 const statmuseScriptPath = path.join(__dirname, 'statmuse_api_server.py');
-fs.writeFileSync(
-  statmuseScriptPath, 
-  fs.readFileSync(path.join(__dirname, '../statmuse_api_server.py'))
-);
+
+// Verify the script exists
+if (!fs.existsSync(statmuseScriptPath)) {
+  console.error('❌ ERROR: statmuse_api_server.py not found!');
+  process.exit(1);
+}
+
+console.log('✅ Found statmuse_api_server.py');
 
 // Enable CORS for all routes
 app.use(cors());

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // Safe AdMob imports for production builds
 let AdMobModule: any = null;
@@ -100,7 +101,7 @@ export function isAdMobReady(): boolean {
 export function getRewardAdUnitId(): string {
   // Always use test ads for development and TestFlight builds
   // Only use production ads when explicitly building for App Store release
-  const useTestAds = __DEV__ || !Constants.isDevice || Constants.debugMode;
+  const useTestAds = __DEV__ || (Constants && (!Constants.isDevice || Constants.debugMode));
   
   if (useTestAds) {
     console.log('🟡 Using TEST AdMob ads for development/TestFlight');

@@ -26,6 +26,14 @@ class RewardAdService {
 
   constructor() {
     // SDK initialization is handled by admobUtils
+    // Ensure SDK is initialized early
+    if (Platform.OS !== 'web' && isAdMobAvailable) {
+      setTimeout(() => {
+        initializeAdMobSDK()
+          .then(success => console.log(`🚀 AdMob SDK early initialization: ${success ? 'success' : 'failed'}`))
+          .catch(err => console.error('❌ Early initialization error:', err));
+      }, 1000);
+    }
   }
 
   private getTodayDateString(): string {
@@ -116,6 +124,7 @@ class RewardAdService {
       // Create new ad instance
       const adUnitId = getRewardAdUnitId();
       console.log(`🎬 Creating rewarded ad with unit ID: ${adUnitId}`);
+      console.log(`📊 Debug info: RewardedAd available=${!!RewardedAd}, adType=${__DEV__ ? 'TEST' : 'PROD'}`);
       
       this.rewardedAd = RewardedAd.createForAdRequest(adUnitId, {
         requestNonPersonalizedAdsOnly: true,
@@ -130,7 +139,11 @@ class RewardAdService {
 
         this.rewardedAd.addAdEventListener(RewardedAdEventType.ERROR, (error: any) => {
           console.error('❌ Ad load error:', error);
-          reject(error);
+          console.error('Error details:', JSON.stringify(error));
+          // Try to provide more specific error message
+          const errorMessage = error?.message || error?.code || 'Unknown ad error';
+          console.log(`Ad error message: ${errorMessage}`);
+          reject(new Error(`Ad load error: ${errorMessage}`));
         });
 
         console.log('🔄 Loading rewarded ad...');
@@ -161,6 +174,14 @@ class RewardAdService {
       return rewarded;
     } catch (error) {
       console.error('❌ Error showing reward ad:', error);
+      console.error('Error stack:', error?.stack);
+      
+      // Log detailed diagnostic information
+      console.log(`Debug info - isAdMobAvailable: ${isAdMobAvailable}`);
+      console.log(`Debug info - RewardedAd exists: ${!!RewardedAd}`);
+      console.log(`Debug info - rewardedAd instance exists: ${!!this.rewardedAd}`);
+      console.log(`Debug info - Platform: ${Platform.OS}, Version: ${Platform.Version}`);
+      
       return false;
     }
   }
@@ -188,6 +209,25 @@ class RewardAdService {
 
 // Export singleton instance
 export const rewardAdService = new RewardAdService();
+
+// Preload ads function to call early in app initialization
+export function preloadRewardAds(): void {
+  // Try to load ads in the background when app starts
+  setTimeout(async () => {
+    try {
+      const initialized = await initializeAdMobSDK();
+      console.log(`🔄 Preloading ads - SDK initialized: ${initialized}`);
+      if (initialized) {
+        // Try to show a pick ad
+        rewardAdService.showRewardedAd('extra_pick')
+          .then(() => console.log('✅ Preloaded pick ad successfully'))
+          .catch(err => console.log('⚠️ Preload pick ad error:', err));
+      }
+    } catch (error) {
+      console.error('❌ Error in preloadRewardAds:', error);
+    }
+  }, 3000); // Wait 3 seconds after app launch
+}
 
 // Export helper functions for components
 export async function getDailyAdTracker(): Promise<DailyAdTracker> {

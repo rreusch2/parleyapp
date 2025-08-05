@@ -92,11 +92,21 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
           ]
         );
       } else {
-        Alert.alert(
-          "Ad Not Available",
-          "The ad couldn't load right now. Please try again later.",
-          [{ text: "OK" }]
-        );
+        // Check if AdMob is actually available
+        if (!isAdMobAvailable) {
+          console.error('AdMob is not available - this should never happen as button should be hidden');
+          Alert.alert(
+            "Ad System Unavailable",
+            "The ad system is not available on this device. Please try again later.",
+            [{ text: "OK" }]
+          );
+        } else {
+          Alert.alert(
+            "Ad Not Available",
+            "The ad couldn't load right now. Please try again later. This is common during development and testing.",
+            [{ text: "OK" }]
+          );
+        }
       }
     } catch (error) {
       console.error('Error showing ad:', error);
