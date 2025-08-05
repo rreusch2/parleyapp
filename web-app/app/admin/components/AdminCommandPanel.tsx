@@ -77,7 +77,7 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
     { 
       id: 'setup-odds',
       label: 'Generate Odds', 
-      command: 'cd backend && npm run odds',
+      command: 'npm run odds',
       icon: Database,
       color: 'bg-amber-600 hover:bg-amber-700 border-amber-500/30'
     },
