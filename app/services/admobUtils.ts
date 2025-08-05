@@ -35,7 +35,7 @@ export const RewardedAdEventType = isAdMobAvailable && AdMobModule ? AdMobModule
   CLOSED: 'closed',
 };
 export const TestIds = isAdMobAvailable && AdMobModule ? AdMobModule.TestIds : {
-  REWARDED: 'ca-app-pub-3940256099942544/5224354917',
+  REWARDED: 'ca-app-pub-3940256099942544/1712485313', // iOS test rewarded ad unit ID
 };
 export const mobileAds = isAdMobAvailable && AdMobModule ? AdMobModule.default : null;
 
@@ -68,6 +68,8 @@ export async function initializeAdMobSDK(): Promise<boolean> {
       if (!mobileAds) {
         throw new Error('Mobile Ads module not available');
       }
+      
+      // Simple initialization - start the SDK
       await mobileAds().initialize();
       isSDKInitialized = true;
       console.log('✅ Google Mobile Ads SDK initialized successfully');
@@ -102,10 +104,10 @@ export function getRewardAdUnitId(): string {
   
   if (useTestAds) {
     console.log('🟡 Using TEST AdMob ads for development/TestFlight');
-    return TestIds.REWARDED;
+    return TestIds.REWARDED; // ca-app-pub-3940256099942544/1712485313
   } else {
     console.log('🟢 Using PRODUCTION AdMob ads');
-    return 'ca-app-pub-9584826565591456/9182858395';
+    return 'ca-app-pub-9584826565591456/9182858395'; // Your production rewarded ad unit ID
   }
 }
 

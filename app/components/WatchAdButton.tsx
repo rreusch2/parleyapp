@@ -37,6 +37,8 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
   // Check if user can watch ads and get current count
   const checkAdStatus = async () => {
     try {
+      console.log(`🔍 Checking ad status for ${rewardType}...`);
+      
       const canWatchAd = rewardType === 'extra_pick' 
         ? await canWatchPicksAd() 
         : await canWatchTrendsAd();
@@ -46,6 +48,8 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
         ? tracker.extraPicksEarned 
         : tracker.extraTrendsEarned;
 
+      console.log(`📊 Ad status: canWatch=${canWatchAd}, earned=${earned}/3, isAdMobAvailable=${isAdMobAvailable}`);
+      
       setCanWatch(canWatchAd);
       setRewardsEarned(earned);
     } catch (error) {
@@ -58,12 +62,18 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
   }, [rewardType]);
 
   const handleWatchAd = async () => {
-    if (isLoading || !canWatch) return;
+    if (isLoading || !canWatch) {
+      console.log(`❌ Cannot watch ad: loading=${isLoading}, canWatch=${canWatch}`);
+      return;
+    }
 
+    console.log(`🎬 Starting ad watch process for ${rewardType}`);
     setIsLoading(true);
     
     try {
+      console.log('📞 Calling rewardAdService.showRewardedAd...');
       const success = await rewardAdService.showRewardedAd(rewardType);
+      console.log(`📊 Ad result: ${success ? 'SUCCESS' : 'FAILED'}`);
       
       if (success) {
         Alert.alert(
@@ -102,6 +112,7 @@ const WatchAdButton: React.FC<WatchAdButtonProps> = ({
 
   // Don't show button if user has reached daily limit or AdMob not available
   if (!canWatch || !isAdMobAvailable) {
+    console.log(`🚫 Not showing ad button: canWatch=${canWatch}, isAdMobAvailable=${isAdMobAvailable}`);
     return null;
   }
 

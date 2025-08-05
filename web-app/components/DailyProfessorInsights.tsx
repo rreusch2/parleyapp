@@ -65,7 +65,7 @@ export default function DailyProfessorInsights({ sport = 'MLB', limit }: DailyPr
   // Determine insights limit based on subscription tier if not explicitly provided
   const insightsLimit = limit || (
     subscriptionTier === 'elite' ? 12 :
-    subscriptionTier === 'pro' ? 8 : 6
+    subscriptionTier === 'pro' ? 8 : 2
   )
 
   useEffect(() => {
@@ -100,7 +100,7 @@ export default function DailyProfessorInsights({ sport = 'MLB', limit }: DailyPr
       // Extract daily message and insights
       const { message, remainingInsights } = extractDailyMessage(data)
       setDailyMessage(message)
-      setInsights(remainingInsights.slice(0, subscriptionTier === 'free' ? 2 : 5))
+      setInsights(remainingInsights.slice(0, insightsLimit))
       setLastGenerated(new Date(data[0]?.created_at))
       
     } catch (error) {

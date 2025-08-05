@@ -20,6 +20,8 @@ import {
   X
 } from 'lucide-react'
 import TrendChart from '@/components/TrendChart'
+import { supabase } from '@/shared/services/supabaseClient'
+import { getTierCapabilities } from '@/lib/subscriptionUtils'
 
 interface Trend {
   id: string
@@ -88,10 +90,10 @@ export default function TrendsPage() {
   const { subscriptionTier } = useSubscription()
   const [activeTab, setActiveTab] = useState<'player' | 'team'>('player')
   const [activeSport, setActiveSport] = useState<'All' | 'MLB' | 'NBA' | 'NFL' | 'NHL'>('All')
-  const [trends, setTrends] = useState<Trend[]>(mockTrends)
+  const [trends, setTrends] = useState<Trend[]>([])
   const [selectedTrend, setSelectedTrend] = useState<Trend | null>(null)
   const [mounted, setMounted] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -100,7 +102,33 @@ export default function TrendsPage() {
       return
     }
     setMounted(true)
+    fetchTrends()
   }, [user, router])
+
+  const fetchTrends = async () => {
+    try {
+      setIsLoading(true)
+      
+      const { data, error } = await supabase
+        .from('ai_trends')
+        .select('*')
+        .eq('is_global', true)
+        .eq('sport', 'MLB') // TODO: Make this dynamic based on activeSport
+        .order('created_at', { ascending: false })
+        .limit(50) // Get more than we need, then filter client-side
+      
+      if (error) throw error
+      
+      setTrends(data || [])
+      
+    } catch (error) {
+      console.error('Error fetching trends:', error)
+      // Fallback to mock data if real data fails
+      setTrends(mockTrends)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredTrends = trends.filter(trend => {
     const matchesTab = trend.trend_type === (activeTab === 'player' ? 'player_prop' : 'team')
@@ -108,7 +136,8 @@ export default function TrendsPage() {
     return matchesTab && matchesSport
   })
 
-  const trendLimit = subscriptionTier === 'free' ? 3 : subscriptionTier === 'pro' ? 10 : 25
+  const capabilities = getTierCapabilities(subscriptionTier as any)
+  const trendLimit = capabilities.dailyTrends
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 80) return 'text-green-400'

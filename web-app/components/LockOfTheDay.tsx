@@ -46,15 +46,18 @@ export default function LockOfTheDay({ userId }: LockOfTheDayProps) {
   const fetchLockOfTheDay = async () => {
     setLoading(true)
     try {
-      // Get the prediction with the highest confidence for today
+      // Get the prediction with the highest confidence for today (global picks for all users)
       const today = new Date().toISOString().split('T')[0]
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowStr = tomorrow.toISOString().split('T')[0]
       
       const { data, error } = await supabase
         .from('ai_predictions')
         .select('*')
-        .eq('user_id', userId)
         .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`)
+        .lte('created_at', `${tomorrowStr}T23:59:59`)
+        .eq('status', 'pending')
         .order('confidence', { ascending: false })
         .limit(1)
 
@@ -65,6 +68,8 @@ export default function LockOfTheDay({ userId }: LockOfTheDayProps) {
 
       if (data && data.length > 0) {
         setLockPick(data[0])
+      } else {
+        console.log('No predictions found for Lock of the Day')
       }
     } catch (error) {
       console.error('Error:', error)

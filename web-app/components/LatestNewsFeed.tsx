@@ -68,6 +68,8 @@ export default function LatestNewsFeed({
     try {
       setError(null)
       
+      console.log('[LatestNewsFeed] Fetching news with limit:', limit, 'sport:', sport)
+      
       let query = supabase
         .from('scrapy_news')
         .select('*')
@@ -82,12 +84,15 @@ export default function LatestNewsFeed({
 
       const { data, error: queryError } = await query
 
+      console.log('[LatestNewsFeed] Query result:', { data, error: queryError })
+
       if (queryError) {
         console.error('Error fetching news:', queryError)
         setError('Failed to load news')
         return
       }
 
+      console.log('[LatestNewsFeed] Setting news data:', data?.length || 0, 'items')
       setNews(data || [])
     } catch (error) {
       console.error('Error:', error)

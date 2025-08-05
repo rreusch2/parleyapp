@@ -19,9 +19,10 @@ import {
   Crown,
   Lock
 } from 'lucide-react'
+import AIChatModal from '@/components/AIChatModal'
 
 export default function PredictionsPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { subscriptionTier } = useSubscription()
   const [activeTab, setActiveTab] = useState<'all' | 'team' | 'props'>('all')
   const [mounted, setMounted] = useState(false)
@@ -39,10 +40,14 @@ export default function PredictionsPage() {
     highConfidencePicks,
     averageConfidence,
     refreshAll,
-    generatePredictions
-  } = usePredictions()
 
-  const { openChatWithContext } = useAIChat()
+  } = usePredictions({
+    subscriptionTier: subscriptionTier as any,
+    welcomeBonusClaimed: profile?.welcome_bonus_claimed || true,
+    welcomeBonusExpiresAt: profile?.welcome_bonus_expires_at || null
+  })
+
+  const { openChatWithContext, showAIChat, setShowAIChat } = useAIChat()
 
   useEffect(() => {
     if (!user) {
@@ -92,14 +97,7 @@ export default function PredictionsPage() {
               <span>Refresh</span>
             </button>
             
-            <button
-              onClick={() => generatePredictions('MLB')}
-              disabled={isLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50"
-            >
-              <Zap className="w-4 h-4" />
-              <span>Generate New</span>
-            </button>
+
           </div>
         </div>
 
@@ -264,16 +262,8 @@ export default function PredictionsPage() {
               No {activeTab === 'all' ? '' : activeTab === 'team' ? 'team ' : 'player props '}predictions available
             </h3>
             <p className="text-gray-400 mb-4">
-              Generate fresh AI predictions to get started
+              Check back later for fresh AI predictions or try refreshing the page
             </p>
-            <button
-              onClick={() => generatePredictions('MLB')}
-              disabled={isLoading}
-              className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50"
-            >
-              <Zap className="w-4 h-4" />
-              <span>Generate Predictions</span>
-            </button>
           </motion.div>
         )}
 
@@ -388,5 +378,11 @@ export default function PredictionsPage() {
         )}
       </div>
     </div>
+
+    {/* AI Chat Modal (Professor Lock) */}
+    <AIChatModal 
+      isOpen={showAIChat}
+      onClose={() => setShowAIChat(false)}
+    />
   )
 }

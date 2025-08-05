@@ -115,11 +115,16 @@ class RewardAdService {
     try {
       // Create new ad instance
       const adUnitId = getRewardAdUnitId();
-      this.rewardedAd = RewardedAd.createForAdRequest(adUnitId);
+      console.log(`🎬 Creating rewarded ad with unit ID: ${adUnitId}`);
+      
+      this.rewardedAd = RewardedAd.createForAdRequest(adUnitId, {
+        requestNonPersonalizedAdsOnly: true,
+      });
 
       // Load the ad
       await new Promise<void>((resolve, reject) => {
         this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
+          console.log('✅ Rewarded ad loaded successfully');
           resolve();
         });
 
@@ -128,10 +133,11 @@ class RewardAdService {
           reject(error);
         });
 
+        console.log('🔄 Loading rewarded ad...');
         this.rewardedAd.load();
 
-        // Timeout after 10 seconds
-        setTimeout(() => reject(new Error('Ad load timeout')), 10000);
+        // Timeout after 15 seconds (increased from 10)
+        setTimeout(() => reject(new Error('Ad load timeout after 15 seconds')), 15000);
       });
 
       // Show the ad and wait for reward

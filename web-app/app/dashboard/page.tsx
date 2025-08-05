@@ -7,6 +7,7 @@ import TieredSubscriptionModal from '@/components/TieredSubscriptionModal'
 import AIChatModal from '@/components/AIChatModal'
 import LockOfTheDay from '@/components/LockOfTheDay'
 import DailyProfessorInsights from '@/components/DailyProfessorInsights'
+import TierEnhancedUI, { TierGatedContent, NoUpgradePrompts, TierButton } from '@/components/TierEnhancedUI'
 import PredictionsPreview from '@/components/PredictionsPreview'
 import TrendsPreview from '@/components/TrendsPreview'
 import LatestNewsFeed from '@/components/LatestNewsFeed'
@@ -63,7 +64,11 @@ export default function Dashboard() {
     highConfidencePicks,
     averageConfidence,
     teamPicks
-  } = usePredictions()
+  } = usePredictions({
+    subscriptionTier: subscriptionTier as any,
+    welcomeBonusClaimed: profile?.welcome_bonus_claimed || true,
+    welcomeBonusExpiresAt: profile?.welcome_bonus_expires_at || null
+  })
 
   const {
     showAIChat,

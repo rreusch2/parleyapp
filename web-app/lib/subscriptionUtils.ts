@@ -60,6 +60,42 @@ export function getTierCapabilities(tier: SubscriptionTier): TierCapabilities {
   return TIER_CAPABILITIES[tier] || TIER_CAPABILITIES.free
 }
 
+export interface TierStyling {
+  containerClass: string
+  gradientClass: string
+  accentColor: string
+  borderClass: string
+  textAccentClass: string
+}
+
+export const TIER_STYLING: Record<SubscriptionTier, TierStyling> = {
+  free: {
+    containerClass: '',
+    gradientClass: 'bg-gradient-to-r from-blue-600 to-purple-600',
+    accentColor: 'blue',
+    borderClass: 'border-blue-500/30',
+    textAccentClass: 'text-blue-400'
+  },
+  pro: {
+    containerClass: 'relative overflow-hidden',
+    gradientClass: 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600',
+    accentColor: 'purple',
+    borderClass: 'border-purple-500/40 shadow-purple-500/20',
+    textAccentClass: 'text-purple-400'
+  },
+  elite: {
+    containerClass: 'relative overflow-hidden',
+    gradientClass: 'bg-gradient-to-r from-yellow-600 via-amber-600 to-orange-600',
+    accentColor: 'amber', 
+    borderClass: 'border-yellow-500/50 shadow-yellow-500/30',
+    textAccentClass: 'text-yellow-400'
+  }
+}
+
+export function getTierStyling(tier: SubscriptionTier): TierStyling {
+  return TIER_STYLING[tier] || TIER_STYLING.free
+}
+
 /**
  * Get the number of picks to show during welcome bonus period
  */
@@ -95,39 +131,7 @@ export function getDisplayPicksCount(
   return getTierCapabilities(tier).dailyPicks
 }
 
-/**
- * Get tier-specific styling classes
- */
-export function getTierStyling(tier: SubscriptionTier): {
-  gradient: string
-  accent: string
-  cardBg: string
-  border: string
-} {
-  switch (tier) {
-    case 'elite':
-      return {
-        gradient: 'from-purple-900 via-blue-900 to-purple-900',
-        accent: 'purple-400',
-        cardBg: 'bg-gradient-to-br from-gray-900/95 to-purple-900/20',
-        border: 'border-purple-500/30',
-      }
-    case 'pro':
-      return {
-        gradient: 'from-blue-900 via-indigo-900 to-blue-900',
-        accent: 'blue-400',
-        cardBg: 'bg-gradient-to-br from-gray-900/95 to-blue-900/20',
-        border: 'border-blue-500/30',
-      }
-    default:
-      return {
-        gradient: 'from-gray-900 via-blue-900 to-gray-900',
-        accent: 'blue-500',
-        cardBg: 'bg-gray-900/95',
-        border: 'border-gray-700',
-      }
-  }
-}
+
 
 /**
  * Get display name for subscription tier
