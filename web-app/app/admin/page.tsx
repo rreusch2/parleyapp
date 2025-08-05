@@ -35,7 +35,7 @@ import {
   XCircle
 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import UserActivityChart from './components/UserActivityChart'
+import AdminCommandPanel from './components/AdminCommandPanel'
 import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
@@ -393,7 +393,7 @@ export default function AdminDashboard() {
             onBackupDatabase={handleBackupDatabase}
             onOpenTodaysPicks={handleOpenTodaysPicks}
           />
-          <UserActivityChart />
+          <AdminCommandPanel />
         </div>
 
         {/* Users Management */}

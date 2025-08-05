@@ -17,6 +17,7 @@ import sportsDataAdminRoutes from './routes/sportsDataAdmin';
 import injuriesRoutes from './routes/injuries';
 import trendsRoutes from './routes/trends';
 import insightsRoutes from './routes/insights';
+import adminRoutes from './routes/admin';
 
 // Initialize express app
 const app = express();
@@ -74,6 +75,7 @@ app.use('/api/sports-data-admin', sportsDataAdminRoutes);
 app.use('/api/injuries', injuriesRoutes);
 app.use('/api/trends', trendsRoutes);
 app.use('/api/insights', insightsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Fetch tomorrow's games endpoint
 app.post('/api/fetch-tomorrow-games', async (req, res) => {

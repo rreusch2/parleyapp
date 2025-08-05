@@ -31,9 +31,11 @@ class ResearchInsight:
     timestamp: datetime
 
 class StatMuseClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:5001"):
-        self.base_url = base_url
+    def __init__(self, base_url: str = None):
+        # Get the StatMuse API URL from environment variable, with fallback
+        self.base_url = base_url or os.getenv("STATMUSE_API_URL", "http://127.0.0.1:5001")
         self.session = requests.Session()
+        logger.info(f"Using StatMuse API URL: {self.base_url}")
         
     def query(self, question: str) -> Dict[str, Any]:
         try:
