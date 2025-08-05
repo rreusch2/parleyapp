@@ -40,7 +40,7 @@ import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
 import TodaysPicksModal from './components/TodaysPicksModal'
-import ReportsModal from './components/ReportsModal'
+import ReportsModal from '@/components/ReportsModal'
 
 
 interface UserData {

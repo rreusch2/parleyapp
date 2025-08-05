@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { parseCsv } from '../lib/csvParser';
 
 const ReportsModal = ({ open, setOpen }) => {
   const [subscriptionsData, setSubscriptionsData] = useState([]);
@@ -11,81 +12,72 @@ const ReportsModal = ({ open, setOpen }) => {
   const [revenueData, setRevenueData] = useState([]);
 
   useEffect(() => {
-    // Fetch and parse data here
     const fetchAllData = async () => {
-      // Subscriptions
-      const subsResponse = await fetch('/itunes_subscriptionsEvent_chart-2025-07-06-2025-08-04.csv');
-      const subsText = await subsResponse.text();
-      const subsParsed = parseSubscriptions(subsText);
-      setSubscriptionsData(subsParsed);
+      try {
+        // Subscriptions
+        const subsResponse = await fetch('/itunes_subscriptionsEvent_chart-2025-07-06-2025-08-04.csv');
+        const subsText = await subsResponse.text();
+        const subsParsed = await parseCsv(subsText);
+        setSubscriptionsData(transformSubscriptions(subsParsed));
 
-      // Downloads
-      const downloadsResponse = await fetch('/predictive_play-total_downloads-20250706-20250804.csv');
+        // Downloads
+        const downloadsResponse = await fetch('/predictive_play-total_downloads-20250706-20250804.csv');
         const downloadsText = await downloadsResponse.text();
-        const downloadsParsed = parseDownloads(downloadsText);
-        setDownloadsData(downloadsParsed);
+        const downloadsParsed = await parseCsv(downloadsText);
+        setDownloadsData(transformDownloads(downloadsParsed));
 
-      // Revenue
-      const revenueResponse = await fetch('rc-1754429936872-Revenue-20250725-20250805.csv');
+        // Revenue
+        const revenueResponse = await fetch('/rc-1754429936872-Revenue-20250725-20250805.csv');
         const revenueText = await revenueResponse.text();
-        const revenueParsed = parseRevenue(revenueText);
-        setRevenueData(revenueParsed);
+        const revenueParsed = await parseCsv(revenueText);
+        setRevenueData(transformRevenue(revenueParsed));
+      } catch (error) {
+        console.error("Failed to parse CSV data", error);
+      }
     };
 
-    fetchAllData();
-  }, []);
-    
-    const parseSubscriptions = (text) => {
-        const lines = text.split('\n').slice(4, -1);
-        const headers = lines[0].split(',').slice(2, -1).map(h => h.trim().replace(/"/g, ''));
-        const eventTypes = ["Activations", "Cancellations", "Renewals"];
-        const data = [];
+    if (open) {
+      fetchAllData();
+    }
+  }, [open]);
 
-        lines.slice(1).forEach(line => {
-            const columns = line.split(',');
-            const eventType = columns[0].replace(/"/g, '').trim();
-            if (eventTypes.includes(eventType)) {
-                const values = columns.slice(2, -1).map(v => parseInt(v.replace(/"/g, '')));
-                headers.forEach((header, i) => {
-                    const date = new Date(header).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    let entry = data.find(d => d.date === date);
-                    if (!entry) {
-                        entry = { date };
-                        data.push(entry);
+  const transformSubscriptions = (data) => {
+    const eventTypes = ["Activations", "Cancellations", "Renewals"];
+    const transformed = {};
+
+    data.forEach(row => {
+        const eventType = row['Event Type'];
+        if (eventTypes.includes(eventType)) {
+            Object.keys(row).forEach(key => {
+                if (key.match(/\d{4}-\d{2}-\d{2}/)) {
+                    const date = new Date(key).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    if (!transformed[date]) {
+                        transformed[date] = { date };
                     }
-                    entry[eventType] = values[i];
-                });
-            }
-        });
+                    transformed[date][eventType] = row[key];
+                }
+            });
+        }
+    });
 
-        return data;
-    };
-    
-    const parseDownloads = (text) => {
-        const lines = text.split('\n').slice(5);
-        const data = lines.map(line => {
-            const [date, ...values] = line.split(',');
-            return {
-                date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                'App Referrer': parseInt(values[0]),
-                'App Store Browse': parseInt(values[1]),
-                'App Store Search': parseInt(values[2]),
-            };
-        });
-        return data;
-    };
+    return Object.values(transformed);
+  };
 
-    const parseRevenue = (text) => {
-        const lines = text.split('\n').slice(2);
-        const data = lines.map(line => {
-            const [date, revenue] = line.split(',');
-            return {
-                date: new Date(date.replace(/"/g, '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                revenue: parseFloat(revenue.replace(/"/g, '')),
-            };
-        });
-        return data;
-    };
+  const transformDownloads = (data) => {
+    return data.map(row => ({
+      date: new Date(row.Date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      'App Referrer': row['App Referrer'],
+      'App Store Browse': row['App Store Browse'],
+      'App Store Search': row['App Store Search'],
+    }));
+  };
+
+  const transformRevenue = (data) => {
+    return data.map(row => ({
+      date: new Date(row.Date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      revenue: row.Revenue,
+    }));
+  };
 
   return (
     <Transition.Root show={open} as={Fragment}>
