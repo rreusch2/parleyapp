@@ -91,7 +91,7 @@ export const SUBSCRIPTION_TIERS = {
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: false,
-    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99, lifetime: 199.99 }
+    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99, lifetime: 349.99 }
   },
   elite: { 
     picks: 30, 
