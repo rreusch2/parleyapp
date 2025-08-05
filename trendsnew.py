@@ -53,6 +53,7 @@ class IntelligentTrendsGenerator:
         self.apify_api_token = os.getenv('APIFY_API_TOKEN')
         if not self.apify_api_token:
             logger.warning("APIFY_API_TOKEN not found in environment variables")
+        self.statmuse_api_url = os.getenv('STATMUSE_API_URL', 'https://web-production-f090e.up.railway.app')
         
         logger.info(f"Connecting to Supabase at: {self.supabase_url[:50]}...")
         
@@ -955,25 +956,24 @@ Focus on actionable betting insights. Be concise but thorough.
 
     async def run_statmuse_queries(self, queries: List[Dict]) -> List[Dict]:
         """Execute StatMuse queries for team trends and additional insights"""
-        # Placeholder for StatMuse integration
-        # This would integrate with your existing StatMuse tool
         results = []
-        
         for query_info in queries:
             try:
-                # Simulate StatMuse query result
-                result = {
-                    'query': query_info['query'],
-                    'purpose': query_info['purpose'],
-                    'data': f"StatMuse analysis for: {query_info['query']}",
-                    'timestamp': datetime.now().isoformat()
-                }
-                results.append(result)
-                logger.info(f"Executed StatMuse query: {query_info['query'][:50]}...")
+                response = requests.post(
+                    f"{self.statmuse_api_url}/query",
+                    json={'query': query_info['query']},
+                    headers={'Content-Type': 'application/json'},
+                    timeout=30
+                )
                 
-                # Add small delay to avoid rate limiting
-                await asyncio.sleep(1)
-                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('success'):
+                        results.append(result)
+                    else:
+                        logger.warning(f"StatMuse query failed: {query_info['query']} - {result.get('error')}")
+                else:
+                    logger.warning(f"StatMuse API returned {response.status_code} for query: {query_info['query']}")
             except Exception as e:
                 logger.error(f"Error executing StatMuse query: {e}")
                 continue

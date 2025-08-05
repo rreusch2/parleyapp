@@ -293,8 +293,7 @@ router.get('/charts/subscription-distribution', async (req: Request, res: Respon
 });
 
 
-// Execute admin command
-router.post('/execute-command', async (req: Request, res: Response) => {
+router.post('/execute-command', authenticate, isAdmin, async (req: Request, res: Response) => {
   const { command } = req.body;
   
   if (!command) {
@@ -340,9 +339,17 @@ router.post('/execute-command', async (req: Request, res: Response) => {
 
     logger.info(`Forwarding command to Python Scripts Service: ${scriptsServiceUrl}`);
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ success: false, error: 'Unauthorized - no token provided' });
+      }
+
       const serviceResponse = await fetch(`${scriptsServiceUrl}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authHeader 
+        },
         body: JSON.stringify({ command }),
       });
 

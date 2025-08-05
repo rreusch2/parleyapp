@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Process the command - don't execute locally, send to the backend API
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
     if (!backendUrl) {
       return NextResponse.json({ 
         success: false, 

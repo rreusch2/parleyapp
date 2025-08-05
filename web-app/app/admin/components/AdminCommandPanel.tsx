@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Terminal, Play, Calendar, BarChart3, TrendingUp, Database, RefreshCw, Zap } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface AdminCommandPanelProps {
   // No props needed for now
@@ -10,9 +11,14 @@ interface AdminCommandPanelProps {
 
 export default function AdminCommandPanel({}: AdminCommandPanelProps) {
   const [isRunning, setIsRunning] = useState<string | null>(null)
+  const { session } = useAuth()
 
   const runCommand = async (command: string, label: string) => {
-    if (isRunning) return // Prevent multiple commands running simultaneously
+    if (isRunning) return
+    if (!session?.access_token) {
+      toast.error('Authentication error: Not logged in')
+      return
+    }
 
     setIsRunning(command)
     try {
@@ -20,10 +26,11 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ command }),
       })
-
+      
       const data = await response.json()
       if (data.success) {
         toast.success(`${label} command executed successfully!`)
@@ -84,7 +91,7 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
     { 
       id: 'trends',
       label: 'Generate Trends', 
-      command: 'python daily_trends_generator.py',
+      command: 'python trendsnew.py',
       icon: TrendingUp,
       color: 'bg-pink-600 hover:bg-pink-700 border-pink-500/30'
     },
