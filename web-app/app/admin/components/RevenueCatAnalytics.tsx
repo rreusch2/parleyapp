@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { DollarSign, Users, TrendingDown, BarChart3, RefreshCw, AlertTriangle } from 'lucide-react'
+import { DollarSign, Users, TrendingUp, BarChart3, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -26,11 +26,26 @@ ChartJS.register(
   Filler
 );
 
-interface RevenueStats {
+// Define the new interface for the data from the /api/revenuecat/revenue endpoint
+interface RevenueData {
+  currency: string;
+  data: {
+    date: string;
+    revenue: number;
+  }[];
+  end_date: string;
+  start_date: string;
+  project_id: string;
+  metric: string;
+  aggregation: string;
+  interval: string;
+}
+
+// Keep a simplified stats structure for the UI
+interface DisplayStats {
   totalRevenue: number;
-  mrr: number;
-  activeSubscriptions: number;
-  churnRate: number;
+  startDate: string;
+  endDate: string;
   revenueHistory: {
     labels: string[];
     datasets: {
@@ -44,7 +59,7 @@ interface RevenueStats {
 }
 
 export default function RevenueCatAnalytics() {
-  const [stats, setStats] = useState<RevenueStats | null>(null);
+  const [stats, setStats] = useState<DisplayStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,12 +68,44 @@ export default function RevenueCatAnalytics() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/revenuecat/stats');
+        
+        // Construct the request to the new endpoint
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+        const endDate = new Date().toISOString().split('T')[0];
+        const projectId = 'appac744357a5'; // Hardcoded Project ID
+
+        const response = await fetch(`/api/revenuecat/revenue?start_date=${startDate}&end_date=${endDate}&project_id=${projectId}&interval=day`);
+        
         if (!response.ok) {
-          throw new Error('Failed to fetch RevenueCat stats');
+          throw new Error('Failed to fetch RevenueCat revenue data');
         }
-        const data = await response.json();
-        setStats(data);
+        
+        const data: RevenueData = await response.json();
+
+        // Transform the fetched data into the structure the component expects
+        const totalRevenue = data.data.reduce((acc, item) => acc + item.revenue, 0);
+        const labels = data.data.map(item => new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const revenueValues = data.data.map(item => item.revenue);
+
+        const displayData: DisplayStats = {
+          totalRevenue,
+          startDate: data.start_date,
+          endDate: data.end_date,
+          revenueHistory: {
+            labels,
+            datasets: [{
+              label: 'Daily Revenue (USD)',
+              data: revenueValues,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              fill: true,
+            }],
+          },
+        };
+
+        setStats(displayData);
       } catch (err: any) {
         setError(err.message);
         console.error(err);
@@ -75,33 +122,23 @@ export default function RevenueCatAnalytics() {
     plugins: {
       legend: {
         position: 'top' as const,
-        labels: {
-            color: '#fff'
-        }
+        labels: { color: '#fff' }
       },
       title: {
         display: true,
-        text: 'Monthly Revenue Trend',
+        text: 'Revenue Trend (Last 30 Days)',
         color: '#fff'
       },
     },
     scales: {
-        x: {
-            ticks: {
-                color: '#ddd'
-            },
-            grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
-            }
-        },
-        y: {
-            ticks: {
-                color: '#ddd'
-            },
-            grid: {
-                color: 'rgba(255, 255, 255, 0.1)'
-            }
-        }
+      x: {
+        ticks: { color: '#ddd' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+      },
+      y: {
+        ticks: { color: '#ddd' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+      }
     }
   };
   
@@ -134,23 +171,21 @@ export default function RevenueCatAnalytics() {
       transition={{ delay: 0.2 }}
       className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6"
     >
-        <h2 className="text-2xl font-bold text-white mb-6 flex items-center space-x-3">
-            <BarChart3 className="w-6 h-6 text-green-400" />
-            <span>RevenueCat Analytics</span>
-        </h2>
+      <h2 className="text-2xl font-bold text-white mb-6 flex items-center space-x-3">
+        <BarChart3 className="w-6 h-6 text-green-400" />
+        <span>RevenueCat Analytics</span>
+      </h2>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard icon={DollarSign} title="Total Revenue" value={`$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} color="green" />
-            <StatCard icon={Users} title="Active Subscriptions" value={stats.activeSubscriptions.toLocaleString()} color="blue" />
-            <StatCard icon={TrendingDown} title="Churn Rate" value={`${(stats.churnRate * 100).toFixed(2)}%`} color="red" />
-            <StatCard icon={DollarSign} title="MRR" value={`$${stats.mrr.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} color="purple" />
-        </div>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+        <StatCard icon={DollarSign} title="Total Revenue (Last 30 Days)" value={`$${stats.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} color="green" />
+        <StatCard icon={TrendingUp} title="Date Range" value={`${new Date(stats.startDate).toLocaleDateString()} - ${new Date(stats.endDate).toLocaleDateString()}`} color="blue" />
+      </div>
 
-        {/* Revenue Chart */}
-        <div className="mt-8">
-            <Line options={chartOptions} data={stats.revenueHistory} />
-        </div>
+      {/* Revenue Chart */}
+      <div className="mt-8">
+        <Line options={chartOptions} data={stats.revenueHistory} />
+      </div>
     </motion.div>
   );
 }
@@ -160,8 +195,6 @@ function StatCard({ icon: Icon, title, value, color }: { icon: React.ElementType
     const colors = {
         green: 'from-green-500/20 to-green-600/20 border-green-500/30 text-green-400',
         blue: 'from-blue-500/20 to-blue-600/20 border-blue-500/30 text-blue-400',
-        red: 'from-red-500/20 to-red-600/20 border-red-500/30 text-red-400',
-        purple: 'from-purple-500/20 to-purple-600/20 border-purple-500/30 text-purple-400'
     }
     const colorClasses = colors[color as keyof typeof colors] || colors.blue;
 
