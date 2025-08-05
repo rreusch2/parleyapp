@@ -17,7 +17,7 @@ import {
   Brain
 } from 'lucide-react'
 import { useSubscription } from '@/contexts/SubscriptionContext'
-import { supabase } from '@/shared/services/supabaseClient'
+import { supabase } from '@/lib/supabase'
 
 interface LockOfTheDayPick {
   id: string
