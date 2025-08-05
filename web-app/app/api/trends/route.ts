@@ -29,6 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('line, over_odds, under_odds, event_id, prop_type_id')
       .eq('player_id', trend.player_id)
       .eq('event_id', trend.metadata?.event_id)
+      .eq('prop_type_id', trend.metadata?.prop_type_id)
       .single();
 
     if (propError && propError.code !== 'PGRST116') {
@@ -57,4 +58,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(500).json({ error: error.message });
   }
 }
-
