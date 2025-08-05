@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { HelpCircle, User, Calendar, ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -32,29 +31,24 @@ export default function SupportRequestsSection() {
 
   const loadSupportRequests = async () => {
     try {
-      let query = supabase
-        .from('support_requests')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        statusFilter: statusFilter,
+        categoryFilter: categoryFilter
+      })
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter)
+      const response = await fetch(`/api/admin/support-requests?${params}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+      
+      const result = await response.json()
 
-      if (categoryFilter !== 'all') {
-        query = query.eq('category', categoryFilter)
-      }
-
-      const from = (currentPage - 1) * pageSize
-      const to = from + pageSize - 1
-      query = query.range(from, to)
-
-      const { data, error, count } = await query
-
-      if (error) throw error
-
-      setRequests(data || [])
-      setTotalPages(Math.ceil((count || 0) / pageSize))
+      console.log('Support requests data loaded:', result.data?.length)
+      setRequests(result.data || [])
+      setTotalPages(result.totalPages || 1)
     } catch (error) {
       console.error('Error loading support requests:', error)
     } finally {
@@ -67,15 +61,20 @@ export default function SupportRequestsSection() {
     
     setUpdating(requestId)
     try {
-      const { error } = await supabase
-        .from('support_requests')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
+      const response = await fetch('/api/admin/support-requests', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: requestId,
+          status: newStatus
         })
-        .eq('id', requestId)
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
       await loadSupportRequests()
       alert(`✅ Support request status updated to ${newStatus}!`)

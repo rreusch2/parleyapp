@@ -9,19 +9,22 @@ import {
   MessageSquare,
   FileText,
   Users,
-  Settings
+  Settings,
+  Target
 } from 'lucide-react'
 
 interface QuickActionsProps {
   onSendNotification: () => void
   onExportData: () => void
   onBackupDatabase: () => void
+  onOpenTodaysPicks: () => void
 }
 
 export default function QuickActions({ 
   onSendNotification, 
   onExportData, 
-  onBackupDatabase 
+  onBackupDatabase,
+  onOpenTodaysPicks
 }: QuickActionsProps) {
   const [loading, setLoading] = useState<string | null>(null)
 
@@ -62,12 +65,12 @@ export default function QuickActions({
       action: onBackupDatabase
     },
     {
-      id: 'analytics',
-      title: 'View Analytics',
-      description: 'Detailed analytics dashboard',
-      icon: FileText,
-      color: 'from-orange-500 to-orange-600',
-      action: () => alert('Analytics feature coming soon!')
+      id: 'todays-picks',
+      title: "Today's Picks",
+      description: 'View and manage AI predictions',
+      icon: Target,
+      color: 'from-purple-500 to-pink-600',
+      action: onOpenTodaysPicks
     }
   ]
 

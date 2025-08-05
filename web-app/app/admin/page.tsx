@@ -39,7 +39,7 @@ import UserActivityChart from './components/UserActivityChart'
 import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
-import AIPredictionsSection from './components/AIPredictionsSection'
+import TodaysPicksModal from './components/TodaysPicksModal'
 
 interface UserData {
   id: string
@@ -84,6 +84,7 @@ export default function AdminDashboard() {
   const [totalPages, setTotalPages] = useState(1)
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [showTodaysPicksModal, setShowTodaysPicksModal] = useState(false)
   const pageSize = 20
 
   // Check admin access
@@ -238,6 +239,10 @@ export default function AdminDashboard() {
     alert('💾 Database backup feature would be implemented here')
   }
 
+  const handleOpenTodaysPicks = () => {
+    setShowTodaysPicksModal(true)
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
   }
@@ -386,6 +391,7 @@ export default function AdminDashboard() {
             onSendNotification={handleSendNotification}
             onExportData={handleExportData}
             onBackupDatabase={handleBackupDatabase}
+            onOpenTodaysPicks={handleOpenTodaysPicks}
           />
           <UserActivityChart />
         </div>
@@ -422,21 +428,7 @@ export default function AdminDashboard() {
           <SupportRequestsSection />
         </motion.div>
 
-        {/* AI Predictions Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Target className="w-6 h-6 text-purple-400" />
-              <span>Today's AI Predictions</span>
-            </h2>
-          </div>
-          <AIPredictionsSection />
-        </motion.div>
+
 
         {/* Users Management */}
         <motion.div
@@ -630,6 +622,12 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Today's Picks Modal */}
+        <TodaysPicksModal 
+          isOpen={showTodaysPicksModal}
+          onClose={() => setShowTodaysPicksModal(false)}
+        />
       </div>
     </div>
   )

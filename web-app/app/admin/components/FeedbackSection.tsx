@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { MessageSquare, Star, Calendar, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -28,25 +27,23 @@ export default function FeedbackSection() {
 
   const loadFeedback = async () => {
     try {
-      let query = supabase
-        .from('feedback')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        pageSize: pageSize.toString(),
+        typeFilter: typeFilter
+      })
 
-      if (typeFilter !== 'all') {
-        query = query.eq('feedback_type', typeFilter)
+      const response = await fetch(`/api/admin/feedback?${params}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
+      
+      const result = await response.json()
 
-      const from = (currentPage - 1) * pageSize
-      const to = from + pageSize - 1
-      query = query.range(from, to)
-
-      const { data, error, count } = await query
-
-      if (error) throw error
-
-      setFeedback(data || [])
-      setTotalPages(Math.ceil((count || 0) / pageSize))
+      console.log('Feedback data loaded:', result.data?.length)
+      setFeedback(result.data || [])
+      setTotalPages(result.totalPages || 1)
     } catch (error) {
       console.error('Error loading feedback:', error)
     } finally {
