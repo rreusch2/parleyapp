@@ -41,17 +41,25 @@ router.get('/stats', async (req: Request, res: Response) => {
     
     // Active subscription counts
     const activeUsers = users.filter(u => u.subscription_status === 'active');
-    const weeklySubs = activeUsers.filter(u => u.subscription_plan_type === 'weekly').length;
-    const monthlySubs = activeUsers.filter(u => u.subscription_plan_type === 'monthly').length;
-    const yearlySubs = activeUsers.filter(u => u.subscription_plan_type === 'yearly').length;
-    const lifetimeSubs = activeUsers.filter(u => u.subscription_plan_type === 'lifetime').length;
+    
+    const weeklyProSubs = activeUsers.filter(u => u.subscription_plan_type === 'weekly' && u.subscription_tier === 'pro').length;
+    const monthlyProSubs = activeUsers.filter(u => u.subscription_plan_type === 'monthly' && u.subscription_tier === 'pro').length;
+    const yearlyProSubs = activeUsers.filter(u => u.subscription_plan_type === 'yearly' && u.subscription_tier === 'pro').length;
+    const lifetimeProSubs = activeUsers.filter(u => u.subscription_plan_type === 'lifetime' && u.subscription_tier === 'pro').length;
+    
+    const weeklyEliteSubs = activeUsers.filter(u => u.subscription_plan_type === 'weekly' && u.subscription_tier === 'elite').length;
+    const monthlyEliteSubs = activeUsers.filter(u => u.subscription_plan_type === 'monthly' && u.subscription_tier === 'elite').length;
+    const yearlyEliteSubs = activeUsers.filter(u => u.subscription_plan_type === 'yearly' && u.subscription_tier === 'elite').length;
 
-    // Calculate estimated monthly revenue
+    // Calculate estimated monthly revenue (assuming Elite is 2x Pro pricing)
     const monthlyRevenue = (
-      (weeklySubs * 12.49 * 4.33) + // Weekly * 4.33 weeks per month
-      (monthlySubs * 24.99) +
-      (yearlySubs * 199.99 / 12) + // Yearly divided by 12 months
-      (lifetimeSubs * 349.99 / 60) // Lifetime spread over 5 years (60 months)
+      (weeklyProSubs * 12.49 * 4.33) +
+      (monthlyProSubs * 24.99) +
+      (yearlyProSubs * 199.99 / 12) +
+      (lifetimeProSubs * 349.99 / 60) +
+      (weeklyEliteSubs * 24.99 * 4.33) +
+      (monthlyEliteSubs * 49.99) +
+      (yearlyEliteSubs * 399.99 / 12)
     );
 
     // New users in last 7 days
@@ -75,10 +83,13 @@ router.get('/stats', async (req: Request, res: Response) => {
       totalUsers,
       proUsers,
       freeUsers,
-      weeklySubs,
-      monthlySubs,
-      yearlySubs,
-      lifetimeSubs,
+      weeklyProSubs,
+      monthlyProSubs,
+      yearlyProSubs,
+      lifetimeProSubs,
+      weeklyEliteSubs,
+      monthlyEliteSubs,
+      yearlyEliteSubs,
       monthlyRevenue: parseFloat(monthlyRevenue.toFixed(2)),
       newUsers7d,
       userGrowthChange: parseFloat(userGrowthChange)
@@ -306,7 +317,7 @@ router.post('/execute-command', authenticate, isAdmin, async (req: Request, res:
     'python props_enhanced.py --tomorrow',
     'python teams_enhanced.py',
     'python teams_enhanced.py --tomorrow',
-    'cd backend && npm run odds',
+    'npm run odds',
     'python insights_personalized_enhanced.py',
     'python daily_trends_generator.py',
     'python trendsnew.py',
