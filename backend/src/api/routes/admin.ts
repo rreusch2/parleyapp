@@ -1,21 +1,20 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../../services/supabase/client';
+import { exec } from 'child_process';
+import { logger } from '../../utils/logger';
+import fetch from 'node-fetch';
+
+import { authenticate } from '../../middleware/authenticate';
+import { isAdmin } from '../../middleware/isAdmin';
 
 const router = Router();
 
 // Admin authentication middleware
-const authenticateAdmin = (req: Request, res: Response, next: any) => {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || authHeader !== 'Bearer admin-pplay12345') {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  
-  next();
-};
+router.use(authenticate);
+router.use(isAdmin);
 
 // Get dashboard summary statistics
-router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
+router.get('/stats', async (req: Request, res: Response) => {
   try {
     // Get all active users with subscription info
     const { data: users, error } = await supabaseAdmin
@@ -92,7 +91,7 @@ router.get('/stats', authenticateAdmin, async (req: Request, res: Response) => {
 });
 
 // Get paginated user list with filters
-router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
+router.get('/users', async (req: Request, res: Response) => {
   try {
     const {
       page = '1',
@@ -183,7 +182,7 @@ router.get('/users', authenticateAdmin, async (req: Request, res: Response) => {
 });
 
 // Get user details by ID
-router.get('/users/:userId', authenticateAdmin, async (req: Request, res: Response) => {
+router.get('/users/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
@@ -211,7 +210,7 @@ router.get('/users/:userId', authenticateAdmin, async (req: Request, res: Respon
 });
 
 // Get user growth chart data (last 30 days)
-router.get('/charts/user-growth', authenticateAdmin, async (req: Request, res: Response) => {
+router.get('/charts/user-growth', async (req: Request, res: Response) => {
   try {
     const { data: users, error } = await supabaseAdmin
       .from('profiles')
@@ -265,7 +264,7 @@ router.get('/charts/user-growth', authenticateAdmin, async (req: Request, res: R
 });
 
 // Get subscription distribution chart data
-router.get('/charts/subscription-distribution', authenticateAdmin, async (req: Request, res: Response) => {
+router.get('/charts/subscription-distribution', async (req: Request, res: Response) => {
   try {
     const { data: users, error } = await supabaseAdmin
       .from('profiles')
@@ -293,4 +292,76 @@ router.get('/charts/subscription-distribution', authenticateAdmin, async (req: R
   }
 });
 
+
+// Execute admin command
+router.post('/execute-command', async (req: Request, res: Response) => {
+  const { command } = req.body;
+  
+  if (!command) {
+    return res.status(400).json({ success: false, error: 'Command is required' });
+  }
+  
+  // Whitelist of allowed commands
+  const allowedCommands = [
+    'python props_enhanced.py',
+    'python props_enhanced.py --tomorrow',
+    'python teams_enhanced.py',
+    'python teams_enhanced.py --tomorrow',
+    'cd backend && npm run odds',
+    'python insights_personalized_enhanced.py',
+    'python daily_trends_generator.py',
+  ];
+
+  if (!allowedCommands.includes(command)) {
+    return res.status(403).json({ success: false, error: 'Command not allowed' });
+  }
+
+  logger.info(`Received admin command: ${command}`);
+
+  // Handle npm command locally
+  if (command === 'cd backend && npm run odds') {
+    logger.info('Executing local npm command...');
+    exec(command, { cwd: process.cwd() }, (error, stdout, stderr) => {
+      if (error) {
+        logger.error(`Local command execution error: ${error.message}`);
+        return res.status(500).json({ success: false, error: error.message, stderr });
+      }
+      const output = stdout || stderr;
+      logger.info('Local command executed successfully.');
+      return res.json({ success: true, output: output.substring(0, 2000) });
+    });
+  } else {
+    // Forward Python scripts to the scripts service
+    const scriptsServiceUrl = process.env.PYTHON_SCRIPTS_SERVICE_URL;
+    if (!scriptsServiceUrl) {
+      logger.error('PYTHON_SCRIPTS_SERVICE_URL is not set.');
+      return res.status(500).json({ success: false, error: 'Python scripts service is not configured' });
+    }
+
+    logger.info(`Forwarding command to Python Scripts Service: ${scriptsServiceUrl}`);
+    try {
+      const serviceResponse = await fetch(`${scriptsServiceUrl}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      });
+
+      const data = await serviceResponse.json();
+      
+      if (!serviceResponse.ok) {
+        logger.error(`Python script execution failed with status ${serviceResponse.status}: ${data.error}`);
+        return res.status(serviceResponse.status).json({ success: false, error: data.error || 'Failed to execute script' });
+      }
+
+      logger.info('Command forwarded and executed successfully.');
+      return res.json({ success: true, output: data.output });
+
+    } catch (error: any) {
+      logger.error(`Error forwarding command to scripts service: ${error.message}`);
+      return res.status(500).json({ success: false, error: 'Failed to connect to Python scripts service' });
+    }
+  }
+});
+
 export default router;
+

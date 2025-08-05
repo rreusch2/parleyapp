@@ -88,13 +88,6 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
       icon: TrendingUp,
       color: 'bg-pink-600 hover:bg-pink-700 border-pink-500/30'
     },
-    { 
-      id: 'statmuse-server',
-      label: 'Start StatMuse Server', 
-      command: 'python statmuse_api_server.py',
-      icon: Zap,
-      color: 'bg-red-600 hover:bg-red-700 border-red-500/30'
-    },
   ]
 
   return (
