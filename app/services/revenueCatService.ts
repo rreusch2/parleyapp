@@ -6,6 +6,7 @@ import Purchases, {
   PURCHASE_TYPE,
   PACKAGE_TYPE,
   LOG_LEVEL,
+  PURCHASES_ERROR_CODE,
 } from 'react-native-purchases';
 import { Platform, Alert } from 'react-native';
 import { supabase } from './api/supabaseClient';
@@ -54,23 +55,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     yearly: 'com.parleyapp.premiumyearly:yearly-pro2025',
     lifetime: 'com.parleyapp.premium_lifetime',
   },
-}) || {
-  // Pro Tier
-  pro_weekly: 'com.parleyapp.pro_weekly',
-  pro_monthly: 'com.parleyapp.pro_monthly',
-  pro_yearly: 'com.parleyapp.pro_yearly',
-  pro_daypass: 'com.parleyapp.pro_daypass',
-  pro_lifetime: 'com.parleyapp.premium_lifetime',
-  // Elite Tier (matching App Store Connect)
-  elite_weekly: 'com.parleyapp.allstarweekly',
-  elite_monthly: 'com.parleyapp.allstarmonthly',
-  elite_yearly: 'com.parleyapp.allstaryearly',
-  // Legacy products
-  weekly: 'com.parleyapp.premium_weekly',
-  monthly: 'com.parleyapp.premium_monthly',
-  yearly: 'com.parleyapp.premiumyearly',
-  lifetime: 'com.parleyapp.premium_lifetime',
-};
+}) as { [key: string]: string };
 
 // Subscription tiers and plans
 export type SubscriptionTier = 'free' | 'pro' | 'elite';
@@ -157,7 +142,7 @@ class RevenueCatService {
       await Purchases.configure({
         apiKey: REVENUECAT_API_KEY,
         appUserID: undefined, // Will be set when user logs in
-        observerMode: false,
+
         userDefaultsSuiteName: undefined,
         useAmazon: false,
         shouldShowInAppMessagesAutomatically: true,
@@ -399,34 +384,25 @@ class RevenueCatService {
     });
 
     let errorMessage = 'Purchase failed. Please try again.';
-    
-    switch (error.code) {
-      case 'PURCHASE_CANCELLED':
-        console.log('ℹ️ User cancelled purchase');
-        return { success: false, error: 'cancelled' };
-      
-      case 'STORE_PROBLEM':
-        errorMessage = 'App Store connection problem. Please try again.';
-        break;
-      
-      case 'PURCHASE_NOT_ALLOWED':
-        errorMessage = 'Purchases are not allowed on this device.';
-        break;
-      
-      case 'PURCHASE_INVALID':
-        errorMessage = 'Invalid purchase. Please try again.';
-        break;
-      
-      case 'PRODUCT_NOT_AVAILABLE':
-        errorMessage = 'This product is not available. Please try a different plan.';
-        break;
-      
-      case 'NETWORK_ERROR':
-        errorMessage = 'Network error. Please check your connection and try again.';
-        break;
-      
-      default:
-        errorMessage = error.message || 'An unexpected error occurred.';
+    const errorCode = error.code;
+
+    if (errorCode === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+      console.log('ℹ️ User cancelled purchase');
+      return { success: false, error: 'cancelled' };
+    } else if (errorCode === PURCHASES_ERROR_CODE.STORE_PROBLEM_ERROR) {
+      errorMessage = 'App Store connection problem. Please try again.';
+    } else if (errorCode === PURCHASES_ERROR_CODE.PURCHASE_NOT_ALLOWED_ERROR) {
+      errorMessage = 'Purchases are not allowed on this device.';
+    } else if (errorCode === PURCHASES_ERROR_CODE.PURCHASE_INVALID_ERROR) {
+      errorMessage = 'Invalid purchase. Please try again.';
+    } else if (errorCode === PURCHASES_ERROR_CODE.PRODUCT_NOT_AVAILABLE_FOR_PURCHASE_ERROR) {
+      errorMessage = 'This product is not available. Please try a different plan.';
+    } else if (errorCode === PURCHASES_ERROR_CODE.NETWORK_ERROR) {
+      errorMessage = 'Network error. Please check your connection and try again.';
+    } else if (errorCode === PURCHASES_ERROR_CODE.RECEIPT_IN_USE_BY_OTHER_SUBSCRIBER_ERROR) {
+        errorMessage = 'This receipt is already in use by another account.';
+    } else {
+      errorMessage = error.message || 'An unexpected error occurred.';
     }
 
     return {
@@ -697,7 +673,7 @@ class RevenueCatService {
         await this.initialize();
       }
 
-      const { customerInfo } = await Purchases.restorePurchases();
+      const customerInfo = await Purchases.restorePurchases();
       
       // Update user's subscription status in Supabase
       await this.updateUserSubscriptionStatus(customerInfo);

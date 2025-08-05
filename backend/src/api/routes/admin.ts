@@ -435,7 +435,7 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
     } else {
       let updateData = {};
       switch (notification.notificationType) {
-        case 'SUBSCRIBED':
+        case 'SUBSCRIBed':
           updateData = {
             subscription_status: 'active',
             subscription_tier: 'pro', 
@@ -478,5 +478,44 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+router.post('/revenuecat-webhook', async (req: express.Request, res: express.Response) => {
+    const event = req.body.event;
+  
+    try {
+      await supabaseAdmin
+        .from('webhook_events')
+        .insert({
+          source: 'revenuecat',
+          event_type: event.type,
+          notification_data: event,
+          revenuecat_customer_id: event.app_user_id,
+        });
+  
+      if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
+        const { data: profile, error } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('revenuecat_customer_id', event.app_user_id)
+          .single();
+  
+        if (profile) {
+          await supabaseAdmin
+            .from('profiles')
+            .update({
+              subscription_status: 'active',
+              subscription_tier: 'pro', // Or determine from event data
+              subscription_expires_at: event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null,
+            })
+            .eq('id', profile.id);
+        }
+      }
+  
+      res.status(200).json({ received: true });
+    } catch (error) {
+      logger.error('Error processing RevenueCat webhook:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 
 export default router;
