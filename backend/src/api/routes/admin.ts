@@ -306,7 +306,7 @@ router.post('/execute-command', authenticate, isAdmin, async (req: Request, res:
     'python props_enhanced.py --tomorrow',
     'python teams_enhanced.py',
     'python teams_enhanced.py --tomorrow',
-    'cd backend && npm run odds',
+    'npm run odds',
     'python insights_personalized_enhanced.py',
     'python daily_trends_generator.py',
     'python trendsnew.py',
