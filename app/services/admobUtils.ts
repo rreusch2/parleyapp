@@ -108,7 +108,7 @@ export function getRewardAdUnitId(): string {
     return TestIds.REWARDED; // ca-app-pub-3940256099942544/1712485313
   } else {
     console.log('🟢 Using PRODUCTION AdMob ads');
-    return 'ca-app-pub-9584826565591456/9182858395'; // Your production rewarded ad unit ID
+    return 'ca-app-pub-3940256099942544/1712485313'; // Your production rewarded ad unit ID
   }
 }
 

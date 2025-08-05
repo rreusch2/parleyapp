@@ -66,7 +66,7 @@ module.exports = {
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-9584826565591456~1910888945",
-          "iosAppId": "ca-app-pub-9584826565591456~1910888945"
+          "iosAppId": "ca-app-pub-3940256099942544/1712485313"
         }
       ]
     ],

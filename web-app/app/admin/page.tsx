@@ -40,8 +40,8 @@ import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
 import TodaysPicksModal from './components/TodaysPicksModal'
-import RevenueCatAnalytics from './components/RevenueCatAnalytics'
-import WebhookEvents from './components/WebhookEvents'
+import ReportsModal from './components/ReportsModal'
+
 
 interface UserData {
   id: string
@@ -101,6 +101,7 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [showTodaysPicksModal, setShowTodaysPicksModal] = useState(false)
+  const [showReportsModal, setShowReportsModal] = useState(false)
   const pageSize = 20
 
   // Check admin access
@@ -277,6 +278,10 @@ export default function AdminDashboard() {
 
   const handleOpenTodaysPicks = () => {
     setShowTodaysPicksModal(true)
+  }
+
+  const handleOpenReports = () => {
+    setShowReportsModal(true)
   }
 
   const formatDate = (dateString: string) => {
@@ -468,26 +473,12 @@ export default function AdminDashboard() {
             onExportData={handleExportData}
             onBackupDatabase={handleBackupDatabase}
             onOpenTodaysPicks={handleOpenTodaysPicks}
+            onOpenReports={handleOpenReports}
           />
           <AdminCommandPanel />
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <RevenueCatAnalytics />
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.9 }}
-          className="my-8"
-        >
-          <WebhookEvents />
-        </motion.div>
 
         {/* Users Management */}
         <motion.div
@@ -722,6 +713,10 @@ export default function AdminDashboard() {
         <TodaysPicksModal 
           isOpen={showTodaysPicksModal}
           onClose={() => setShowTodaysPicksModal(false)}
+        />
+        <ReportsModal
+            open={showReportsModal}
+            setOpen={setShowReportsModal}
         />
       </div>
     </div>

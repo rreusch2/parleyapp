@@ -10,7 +10,8 @@ import {
   FileText,
   Users,
   Settings,
-  Target
+  Target,
+  BarChart3
 } from 'lucide-react'
 
 interface QuickActionsProps {
@@ -18,13 +19,15 @@ interface QuickActionsProps {
   onExportData: () => void
   onBackupDatabase: () => void
   onOpenTodaysPicks: () => void
+  onOpenReports: () => void
 }
 
 export default function QuickActions({ 
   onSendNotification, 
   onExportData, 
   onBackupDatabase,
-  onOpenTodaysPicks
+  onOpenTodaysPicks,
+  onOpenReports
 }: QuickActionsProps) {
   const [loading, setLoading] = useState<string | null>(null)
 
@@ -71,6 +74,14 @@ export default function QuickActions({
       icon: Target,
       color: 'from-purple-500 to-pink-600',
       action: onOpenTodaysPicks
+    },
+    {
+      id: 'reports',
+      title: 'Reports',
+      description: 'View sales and subscription reports',
+      icon: BarChart3,
+      color: 'from-orange-500 to-yellow-600',
+      action: onOpenReports
     }
   ]
 
