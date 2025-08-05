@@ -178,8 +178,13 @@ export default function UserPreferencesModal({
 
     } catch (error) {
       console.error('❌ Failed to update preferences:', error)
-      // Could show a toast notification here
+      console.error('❌ Full error details:', JSON.stringify(error, null, 2))
+      
+      // Show user-friendly error (you can replace with toast)
+      alert(`Failed to save preferences: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
     } finally {
+      console.log('🔄 Setting loading to false')
       setIsLoading(false)
     }
   }

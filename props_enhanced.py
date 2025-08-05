@@ -178,8 +178,9 @@ class DatabaseClient:
             current_date = now.date()
             
             if target_date == current_date:
-                # Today - start from now
-                start_time = now
+                # Today - get ALL games for today (including games that already happened)
+                start_time_local = datetime.combine(current_date, datetime.min.time())
+                start_time = start_time_local - timedelta(hours=8)  # Pad for timezone differences
                 # End of day in EST, converted to UTC (EST games can run until ~3 AM UTC next day)
                 end_time_local = datetime.combine(current_date, datetime.min.time().replace(hour=23, minute=59, second=59))
                 end_time = end_time_local + timedelta(hours=8)  # EST to UTC conversion (worst case)
@@ -396,11 +397,11 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
-        return self.db.get_upcoming_games(hours_ahead=24)  # Changed to 24 hours (just today)
+        return self.db.get_upcoming_games()  # Get today's games
     
     async def fetch_player_props(self) -> List[PlayerProp]:
-        # Changed to use get_upcoming_games which now only gets today's games
-        games = self.db.get_upcoming_games(hours_ahead=24)  # Only today's games
+        # Get today's games
+        games = self.db.get_upcoming_games()  # Only today's games
         if not games:
             return []
         game_ids = [game["id"] for game in games]
@@ -420,18 +421,28 @@ class IntelligentPlayerPropsAgent:
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # Generate abundant props per sport (frontend will filter based on user preferences and tier)
-        # Target: 15-20 props per available sport to ensure enough for all tiers
+        # PRIORITIZE MLB PROPS - generate more MLB than WNBA
         distribution = {}
         
-        for sport, game_count in sport_counts.items():
-            if game_count > 0:
-                # Generate 15-20 props per sport if games are available
-                # Player props can have multiple per game (multiple players, multiple prop types)
-                max_props_for_sport = min(20, game_count * 6)  # Up to 6 props per game
-                distribution[sport] = max_props_for_sport
-            else:
-                distribution[sport] = 0
+        mlb_games = sport_counts.get("MLB", 0)
+        wnba_games = sport_counts.get("WNBA", 0)
+        
+        if mlb_games > 0 and wnba_games > 0:
+            # Both sports available - heavily favor MLB (70% of picks)
+            total_available = target_picks
+            distribution["MLB"] = min(25, max(15, int(total_available * 0.70)))  # 70% MLB
+            distribution["WNBA"] = min(15, max(8, int(total_available * 0.30)))   # 30% WNBA
+        elif mlb_games > 0:
+            # Only MLB available
+            distribution["MLB"] = min(30, max(20, target_picks))
+            distribution["WNBA"] = 0
+        elif wnba_games > 0:
+            # Only WNBA available
+            distribution["MLB"] = 0
+            distribution["WNBA"] = min(20, max(15, target_picks))
+        else:
+            distribution["MLB"] = 0
+            distribution["WNBA"] = 0
         
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
@@ -537,93 +548,113 @@ class IntelligentPlayerPropsAgent:
         # STEP 1: Scrape StatMuse main pages for current context
         statmuse_context = self.scrape_statmuse_context()
         
-        # STEP 2: Analyze the actual props data to understand what we're working with
-        props_analysis = self._analyze_available_props(props, games)
+        # STEP 2: PROPERLY analyze props by sport using enhanced detection
+        mlb_props = [p for p in props if self._get_prop_sport(p, games) == 'MLB']
+        wnba_props = [p for p in props if self._get_prop_sport(p, games) == 'WNBA']
+        unknown_props = [p for p in props if self._get_prop_sport(p, games) == 'Unknown']
         
-        # Get sport distribution for balanced research
-        sport_distribution = props_analysis.get('sport_distribution', {})
-        wnba_props = sport_distribution.get('WNBA', 0)
-        mlb_props = sport_distribution.get('MLB', 0)
+        logger.info(f"🔍 Enhanced prop detection results:")
+        logger.info(f"  MLB: {len(mlb_props)} props")
+        logger.info(f"  WNBA: {len(wnba_props)} props") 
+        logger.info(f"  Unknown: {len(unknown_props)} props")
         
-        # Calculate research allocation based on PICK NEEDS, not prop counts
-        # Need 7 MLB picks vs 3 WNBA picks = 70% MLB research, 30% WNBA research
+        if unknown_props:
+            logger.info(f"  Unknown teams: {list(set(p.team for p in unknown_props[:5]))}")
         
-        # Fixed allocation based on actual pick distribution needs
-        if wnba_props > 0 and mlb_props > 0:
-            # Both sports available - prioritize MLB since we need 7 picks vs 3 WNBA
-            target_wnba_queries = 8   # 8 diverse WNBA players for 3 picks
-            target_mlb_queries = 15   # 15 diverse MLB players for 7 picks
-        elif mlb_props > 0:
+        # PRIORITIZE MLB - we want more MLB picks than WNBA picks
+        if len(mlb_props) > 0 and len(wnba_props) > 0:
+            # Both sports available - heavily favor MLB research (75% MLB, 25% WNBA)  
+            target_mlb_queries = min(18, max(10, int(len(mlb_props) * 0.8)))
+            target_wnba_queries = min(8, max(3, int(len(wnba_props) * 0.6)))
+        elif len(mlb_props) > 0:
             # Only MLB available
+            target_mlb_queries = min(20, max(12, len(mlb_props)))
             target_wnba_queries = 0
-            target_mlb_queries = 20
-        elif wnba_props > 0:
-            # Only WNBA available
-            target_wnba_queries = 15
+        elif len(wnba_props) > 0:
+            # Only WNBA available  
             target_mlb_queries = 0
+            target_wnba_queries = min(15, max(8, len(wnba_props)))
         else:
             # No props available
-            target_wnba_queries = 0
             target_mlb_queries = 0
+            target_wnba_queries = 0
         
-        logger.info(f"🎯 Research allocation: WNBA={target_wnba_queries}, MLB={target_mlb_queries}, Total={target_wnba_queries + target_mlb_queries}")
+        logger.info(f"🎯 Dynamic research allocation: MLB={target_mlb_queries}, WNBA={target_wnba_queries}, Total={target_mlb_queries + target_wnba_queries}")
         
-        prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE research strategy.
+        # STEP 3: Create dynamic analysis using Grok AI (like teams_enhanced.py)
+        mlb_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in mlb_props[:20]]
+        wnba_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in wnba_props[:15]]
+        
+        prompt = f"""You are an elite sports betting analyst. Analyze the available player props and create an INTELLIGENT, DYNAMIC research strategy.
 
-# CRITICAL REQUIREMENTS - BALANCED RESEARCH STRATEGY:
+# CRITICAL ANALYSIS TASK:
+Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research queries.
 
-## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
-- **MLB PRIORITY**: {target_mlb_queries} different MLB players (for 7 final picks - MAIN FOCUS)
-- **WNBA Secondary**: {target_wnba_queries} different WNBA players (for 3 final picks - SECONDARY)
-- **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
-- **Web Searches**: 5 total (3 MLB injury/lineup, 2 WNBA injury/lineup)
-- **CRITICAL**: Do MORE MLB research since we need 7 MLB picks vs only 3 WNBA picks!
+## AVAILABLE PROPS DATA:
 
-## DIVERSITY REQUIREMENTS:
-- **NO REPETITIVE STAR PICKS**: Avoid A'ja Wilson, Breanna Stewart every time
-- **RESEARCH DIFFERENT PLAYERS**: Mix stars, role players, value plays
-- **VARIED PROP TYPES**: Don't just research points - include rebounds, assists, hits, home runs, etc.
-- **TEAM VARIETY**: Research players from different teams, not just popular teams
+**MLB PROPS ({len(mlb_props)} total):**
+{json.dumps(mlb_sample, indent=2)}
 
-# AVAILABLE PROPS DATA:
-{json.dumps(props_analysis, indent=2)}
+**WNBA PROPS ({len(wnba_props)} total):**  
+{json.dumps(wnba_sample, indent=2)}
 
-# CURRENT STATMUSE CONTEXT:
-{json.dumps(statmuse_context, indent=2)}
+**CURRENT GAMES TODAY:**
+{json.dumps([{"sport": g.get("sport"), "home": g.get("home_team"), "away": g.get("away_team")} for g in games[:10]], indent=2)}
 
-# YOUR TASK:
-Generate a research plan that follows the EXACT allocation above and focuses on DIVERSE players from the actual props data.
+# DYNAMIC RESEARCH ALLOCATION:
+- **MLB Queries**: {target_mlb_queries} (PRIORITY - we need more MLB picks)
+- **WNBA Queries**: {target_wnba_queries} (Secondary)
+- **Web Searches**: 5-7 total (injury/lineup news)
 
-**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA players (mix of stars, role players, value opportunities)
-**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB players (variety of batters, pitchers, different teams)
+# YOUR INTELLIGENCE TASK:
+1. **ANALYZE THE ACTUAL PROPS**: What players have props? What prop types? What lines look interesting?
+2. **IDENTIFY VALUE OPPORTUNITIES**: Which players/props might be mispriced based on recent performance?
+3. **CREATE DIVERSE RESEARCH**: Don't repeat the same players/queries every time - be INTELLIGENT and ADAPTIVE
+4. **FOCUS ON ACTIONABLE DATA**: Research recent form, matchups, injuries that could affect these specific props
 
-Return ONLY valid JSON:
+## RESEARCH STRATEGY REQUIREMENTS:
+- **MLB FOCUS**: Research diverse MLB players from the props list (batters AND pitchers)
+- **VARIED PROP TYPES**: Research different prop types (hits, HRs, strikeouts, etc.)
+- **DIFFERENT TEAMS**: Spread research across multiple teams
+- **AVOID REPETITION**: Don't use the same players/queries every single time
+- **VALUE HUNTING**: Look for mispriced lines based on recent trends
+
+**StatMuse Works Best For:**
+- "[Player Name] hits this season" 
+- "[Player Name] home runs last 10 games"
+- "[Player Name] strikeouts this season"
+- "[Player Name] points this season" (WNBA)
+- "[Player Name] rebounds last 5 games" (WNBA)
+
+**Web Search For:**
+- "[Player Name] injury status lineup news"
+- "[Team Name] starting lineup injury report"
+
+Generate intelligent research plan as JSON:
 {{
-    "analysis_summary": "Balanced research strategy focusing on diversity",
+    "analysis_summary": "Brief analysis of the props data and research strategy",
     "statmuse_queries": [
-        // {target_wnba_queries} WNBA player queries (different players, varied prop types)
-        // {target_mlb_queries} MLB player queries (different players, varied prop types)
         {{
-            "query": "[Diverse Player Name] [varied stat] this season",
-            "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "query": "Specific player stat query based on available props",
+            "priority": "high/medium/low", 
+            "sport": "MLB/WNBA",
+            "reasoning": "Why this player/stat is worth researching"
         }}
     ],
     "web_searches": [
-        // 3 MLB injury/lineup searches, 2 WNBA injury/lineup searches
         {{
-            "query": "[Player Name] injury status lineup news",
+            "query": "Injury/lineup search query",
             "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "sport": "MLB/WNBA"
         }}
     ]
 }}
 
-**CRITICAL**: Use REAL diverse players from the props data above. NO repetitive A'ja Wilson/Breanna Stewart pattern!"""
+**BE INTELLIGENT**: Look at the ACTUAL props data and create research that will help evaluate those SPECIFIC props!"""
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-3-beta",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -647,26 +678,64 @@ Return ONLY valid JSON:
         players_by_sport = {}
         prop_types_by_sport = {}
         
+        # Create MLB team abbreviation mapping
+        mlb_team_mapping = {
+            'ari': ['arizona diamondbacks', 'diamondbacks'],
+            'atl': ['atlanta braves', 'braves'], 
+            'bal': ['baltimore orioles', 'orioles'],
+            'bos': ['boston red sox', 'red sox'],
+            'chc': ['chicago cubs', 'cubs'],
+            'cws': ['chicago white sox', 'white sox'],
+            'cin': ['cincinnati reds', 'reds'],
+            'cle': ['cleveland guardians', 'guardians'],
+            'col': ['colorado rockies', 'rockies'],
+            'det': ['detroit tigers', 'tigers'], 
+            'hou': ['houston astros', 'astros'],
+            'kc': ['kansas city royals', 'royals'],
+            'laa': ['los angeles angels', 'angels'],
+            'lad': ['los angeles dodgers', 'dodgers'],
+            'mia': ['miami marlins', 'marlins'],
+            'mil': ['milwaukee brewers', 'brewers'],
+            'min': ['minnesota twins', 'twins'],
+            'nym': ['new york mets', 'mets'],
+            'nyy': ['new york yankees', 'yankees'],
+            'oak': ['oakland athletics', 'athletics'],
+            'phi': ['philadelphia phillies', 'phillies'],
+            'pit': ['pittsburgh pirates', 'pirates'],
+            'sd': ['san diego padres', 'padres'],
+            'sf': ['san francisco giants', 'giants'],
+            'sea': ['seattle mariners', 'mariners'],
+            'stl': ['st. louis cardinals', 'cardinals'],
+            'tb': ['tampa bay rays', 'rays'],
+            'tex': ['texas rangers', 'rangers'],
+            'tor': ['toronto blue jays', 'blue jays'],
+            'wsh': ['washington nationals', 'nationals']
+        }
+        
+        # WNBA team mapping
+        wnba_team_mapping = {
+            'liberty': ['new york liberty'],
+            'wings': ['dallas wings'],
+            'storm': ['seattle storm'],
+            'aces': ['las vegas aces'],
+            'mystics': ['washington mystics'],
+            'sun': ['connecticut sun'],
+            'fever': ['indiana fever'],
+            'sky': ['chicago sky'],
+            'dream': ['atlanta dream'],
+            'lynx': ['minnesota lynx'],
+            'mercury': ['phoenix mercury'],
+            'sparks': ['los angeles sparks']
+        }
+        
+        # Debug: Log all game teams for reference
+        logger.info(f"🔍 Available games and teams:")
+        for game in games:
+            logger.info(f"  {game.get('sport', 'Unknown')}: {game.get('home_team')} vs {game.get('away_team')}")
+        
         for prop in props:
-            # Determine sport from games data with better team matching
-            sport = "Unknown"
-            for game in games:
-                home_team = game.get('home_team', '').lower()
-                away_team = game.get('away_team', '').lower()
-                prop_team = prop.team.lower()
-                
-                # Try exact match first, then partial match
-                if (prop_team == home_team or prop_team == away_team or
-                    prop_team in home_team or prop_team in away_team or
-                    home_team in prop_team or away_team in prop_team):
-                    sport = game.get('sport', 'Unknown')
-                    break
-            
-            # Normalize sport names
-            if sport == "Women's National Basketball Association":
-                sport = "WNBA"
-            elif sport == "Major League Baseball":
-                sport = "MLB"
+            # Use the new enhanced sport detection
+            sport = self._get_prop_sport(prop, games)
             
             if sport not in props_by_sport:
                 props_by_sport[sport] = []
@@ -684,6 +753,14 @@ Return ONLY valid JSON:
             
             players_by_sport[sport].add(prop.player_name)
             prop_types_by_sport[sport].add(prop.prop_type)
+        
+        # Debug logging for sport detection
+        logger.info(f"🔍 Sport detection results:")
+        for sport, sport_props in props_by_sport.items():
+            logger.info(f"  {sport}: {len(sport_props)} props")
+            if sport_props:
+                sample_players = list(set(prop['player'] for prop in sport_props[:5]))
+                logger.info(f"    Sample players: {sample_players}")
         
         # Create analysis summary
         analysis = {
@@ -703,6 +780,73 @@ Return ONLY valid JSON:
             analysis["sample_props_by_sport"][sport] = sport_props[:20]  # Sample for analysis
         
         return analysis
+    
+    def _get_prop_sport(self, prop: PlayerProp, games: List[Dict]) -> str:
+        """Determine sport for a prop using enhanced team matching"""
+        # First try to match using the enhanced team matching we added
+        for game in games:
+            home_team = game.get('home_team', '').lower()
+            away_team = game.get('away_team', '').lower()
+            prop_team = prop.team.lower()
+            
+            # Use the same teams_match function logic from teams_enhanced.py
+            if self._teams_match_enhanced(prop_team, home_team, away_team):
+                sport = game.get('sport', 'Unknown')
+                if sport == "Women's National Basketball Association":
+                    return "WNBA"
+                elif sport == "Major League Baseball":
+                    return "MLB"
+                elif sport == "Ultimate Fighting Championship":
+                    return "MMA"
+                else:
+                    return "MLB"  # Default to MLB
+        
+        # If no match found, try to infer from team name patterns
+        prop_team_lower = prop.team.lower()
+        
+        # Common MLB abbreviations
+        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min', 
+                    'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
+                    'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
+        
+        # Common WNBA teams  
+        wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever', 
+                     'sky', 'dream', 'lynx', 'mercury', 'sparks']
+        
+        if prop_team_lower in mlb_teams:
+            return "MLB"
+        elif prop_team_lower in wnba_teams:
+            return "WNBA"
+        
+        return "Unknown"
+    
+    def _teams_match_enhanced(self, prop_team: str, home_team: str, away_team: str) -> bool:
+        """Enhanced team matching using multiple strategies"""
+        # Direct matches
+        if prop_team == home_team or prop_team == away_team:
+            return True
+            
+        # Partial matches
+        if prop_team in home_team or home_team in prop_team:
+            return True
+        if prop_team in away_team or away_team in prop_team:
+            return True
+            
+        # Word matching for significant words
+        prop_words = prop_team.split()
+        home_words = home_team.split()
+        away_words = away_team.split()
+        
+        for prop_word in prop_words:
+            if len(prop_word) > 3:
+                for home_word in home_words:
+                    if len(home_word) > 3 and prop_word == home_word:
+                        return True
+                for away_word in away_words:
+                    if len(away_word) > 3 and prop_word == away_word:
+                        return True
+        
+        return False
     
     def _create_fallback_research_plan(self, props: List[PlayerProp]) -> Dict[str, Any]:
         """Create a basic research plan if AI planning fails"""
@@ -860,7 +1004,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-3-beta",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.4
             )
@@ -1150,7 +1294,7 @@ REMEMBER:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-3-beta",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=4000
@@ -1328,7 +1472,7 @@ REMEMBER:
                             "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
-                            "model_used": "grok-4-0709"
+                            "model_used": "grok-3-beta"
                         }
                     })
                 else:

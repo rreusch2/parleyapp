@@ -9,6 +9,8 @@ interface AuthContextType {
   profile: UserProfile | null
   session: Session | null
   loading: boolean
+  justSignedUp: boolean
+  clearJustSignedUp: () => void
   signUp: (email: string, password: string, username: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -23,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [justSignedUp, setJustSignedUp] = useState(false)
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
@@ -83,6 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
       
+      console.log('📈 Starting signup process for:', email)
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -93,13 +98,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Supabase Auth signup error:', error)
+        throw error
+      }
+
+      console.log('📊 Signup response:', {
+        user: data.user ? 'User object received' : 'No user object',
+        user_id: data.user?.id,
+        session: data.session ? 'Session created' : 'No session',
+        confirmation_sent_at: data.user?.confirmation_sent_at
+      })
 
       if (data.user) {
-        // Create profile record
+                // Create or update profile record - handle duplicates gracefully
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([
+          .upsert([
             {
               id: data.user.id,
               username,
@@ -109,16 +124,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               welcome_bonus_claimed: false,
               admin_role: false,
               subscription_status: 'inactive',
-              sport_preferences: { mlb: true, ufc: false, wnba: false },
               notification_settings: { ai_picks: true }
             }
-          ])
+          ], {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          })
 
         if (profileError) {
-          console.error('Error creating profile:', profileError)
+          console.error('❌ Error creating/updating profile:', profileError)
+          // DON'T throw error - still trigger onboarding even if profile exists
+          console.warn('⚠️ Profile creation failed but continuing with signup flow')
+        } else {
+          console.log('✅ Profile created/updated successfully')
         }
 
-        toast.success('Account created successfully! Please check your email to verify your account.')
+        console.log('✅ Account/Auth successful! User ID:', data.user.id)
+        
+        // ALWAYS set justSignedUp flag for ANY successful auth flow
+        console.log('🚀 Setting justSignedUp flag to trigger onboarding')
+        setJustSignedUp(true)
+        
+        // Show success message
+        if (data.user.confirmation_sent_at) {
+          toast.success('Please check your email to confirm your account!')
+        } else {
+          toast.success('Account created successfully!')
+        }
       }
     } catch (error: any) {
       console.error('Sign up error:', error)
@@ -202,11 +234,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const clearJustSignedUp = () => {
+    console.log('🗑️ Clearing justSignedUp flag')
+    setJustSignedUp(false)
+  }
+
   const value = {
     user,
     profile,
     session,
     loading,
+    justSignedUp,
+    clearJustSignedUp,
     signUp,
     signIn,
     signOut,

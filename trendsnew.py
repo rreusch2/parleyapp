@@ -726,8 +726,10 @@ SCRAPED CONTENT:
 
 TASK: Analyze this player's recent performance and extract key insights for sports betting trends.
 
+IMPORTANT: Extract data from the "Last 5 Games" table at the top of the page. Look for the table with columns like Date, Tm, Opp, Result, Pos, AB, R, H, 2B, 3B, HR, RBI, BB, SO.
+
 Please provide a JSON response with:
-1. recent_games: List of recent games with basic stats (date, opponent, hits, home runs, RBIs, at-bats)  
+1. last_5_games: Array of exactly 5 games with stats: [{{"date": "2025-08-03", "opponent": "SFG", "hits": 1, "home_runs": 0, "rbis": 0, "at_bats": 4}}]
 2. performance_trends: Key performance patterns (hot/cold streaks, matchup preferences)
 3. prop_insights: Insights relevant to betting props (hits, HRs, RBIs, total bases)
 4. situational_analysis: How player performs in different situations
@@ -990,18 +992,24 @@ SCRAPED PLAYER DATA:
 STATMUSE INSIGHTS:
 {json.dumps(statmuse_data, indent=2, default=str)}
 
+CRITICAL REQUIREMENTS:
+1. ALL charts must be BAR CHARTS (chart_type: "bar")
+2. Use exactly 5 games in chart_data.recent_games (from Last 5 Games table)
+3. Generate sensible Y-axis intervals (no weird duplicates like 0,0,1,1,1)
+4. Create meaningful key_stats (no nonsensical phrases like "Ba Vs Rhp - higher")
+5. For team trends, provide simplified data or skip charts if data quality is poor
+
 Generate trends that are:
 1. Actionable for bettors
 2. Based on strong statistical evidence  
 3. Focused on upcoming games
 4. Clear and specific
 
-For each trend, also provide:
+For each trend, provide:
 - A SHORT catchy headline (5-8 words max) for the trend card display
-- Chart data extracted from Baseball Reference scraped data (recent games performance, key stats over time)
-- Trend category (streak, matchup, form, performance, injury_impact, weather, etc.)
-- Key statistics from the scraped data that support the trend
-- Visual data elements for charts (game dates, stat values, trends over time)
+- Chart data with EXACTLY 5 games from Baseball Reference Last 5 Games table
+- Meaningful key statistics (avoid nonsensical abbreviations)
+- Proper Y-axis values with clear intervals
 
 Return JSON format:
 {{
@@ -1009,72 +1017,66 @@ Return JSON format:
     {{
       "title": "Freddie Freeman RBI Hot Streak",
       "headline": "Freeman RBI Surge",
-      "description": "Freeman has recorded RBIs in 8 of his last 10 games (80% success rate) with upcoming favorable matchups.",
+      "description": "Freeman has recorded RBIs in 4 of his last 5 games with strong recent production.",
       "insight": "Consider Over 0.5 RBIs props for Freeman",
-      "supporting_data": "8/10 games over 0.5 RBIs, facing weak bullpens next 2 games",
+      "supporting_data": "4/5 games over 0.5 RBIs in last 5 games, facing weak bullpens",
       "confidence": 85,
       "player_name": "Freddie Freeman",
       "prop_type": "RBIs",
       "trend_type": "player_prop",
       "trend_category": "streak",
       "key_stats": {{
-        "recent_rbi_rate": "80%",
-        "last_10_rbis": 12,
-        "season_avg": 0.7,
-        "vs_upcoming_pitchers": "1.2 RBI avg"
+        "Last 5 Games RBI Rate": "4 of 5 games",
+        "Total RBIs Last 5": 7,
+        "Average RBIs per Game": 1.4,
+        "Current Streak": "3 games with RBI"
       }},
       "chart_data": {{
         "recent_games": [
-          {{"date": "2025-01-19", "rbis": 1, "result": "success"}},
-          {{"date": "2025-01-18", "rbis": 2, "result": "success"}},
-          {{"date": "2025-01-17", "rbis": 0, "result": "fail"}}
+          {{"date": "Aug 3", "rbis": 3, "game_number": 1}},
+          {{"date": "Aug 2", "rbis": 2, "game_number": 2}},
+          {{"date": "Aug 1", "rbis": 0, "game_number": 3}},
+          {{"date": "Jul 30", "rbis": 1, "game_number": 4}},
+          {{"date": "Jul 29", "rbis": 1, "game_number": 5}}
         ],
+        "y_axis_max": 4,
+        "y_axis_intervals": [0, 1, 2, 3, 4],
         "trend_direction": "up",
         "success_rate": 80
       }},
       "visual_data": {{
-        "chart_type": "line",
-        "x_axis": "Last 10 Games",
-        "y_axis": "RBIs per Game",
-        "trend_color": "#22c55e"
+        "chart_type": "bar",
+        "x_axis": "Last 5 Games",
+        "y_axis": "RBIs",
+        "trend_color": "#3b82f6",
+        "bar_color": "#1e40af"
       }}
     }}
   ],
   "team_trends": [
     {{
-      "title": "Dodgers Home Run Surge",
-      "headline": "LAD Power Explosion",
-      "description": "LAD averaging 2.1 HRs per game over last 10, well above season average",
-      "insight": "Team totals and run lines trending over at home",
-      "supporting_data": "21 HRs in last 10 games, 12-game home HR streak",
+      "title": "Dodgers Recent Offensive Surge",
+      "headline": "LAD Offense Hot",
+      "description": "Dodgers have scored 6+ runs in 4 of last 5 games, showing strong offensive consistency",
+      "insight": "Team totals and run lines trending over",
+      "supporting_data": "Averaging 7.2 runs per game over last 5, well above season average",
       "confidence": 78,
       "team": "LAD",
       "trend_type": "team",
       "trend_category": "form",
       "key_stats": {{
-        "recent_hr_avg": 2.1,
-        "season_hr_avg": 1.4,
-        "last_10_total_hrs": 21,
-        "home_hr_streak": 12
+        "Recent Runs Average": "7.2 per game",
+        "Season Runs Average": "5.1 per game",
+        "Games with 6+ Runs": "4 of 5",
+        "Offensive Improvement": "+41% vs season avg"
       }},
-      "chart_data": {{
-        "recent_games": [
-          {{"date": "2025-01-19", "home_runs": 3}},
-          {{"date": "2025-01-18", "home_runs": 1}},
-          {{"date": "2025-01-17", "home_runs": 2}}
-        ],
-        "trend_direction": "up",
-        "performance_increase": "50%"
-      }},
-      "visual_data": {{
-        "chart_type": "bar",
-        "x_axis": "Last 10 Games",
-        "y_axis": "Home Runs",
-        "trend_color": "#3b82f6"
-      }}
+      "chart_data": null,
+      "visual_data": null
     }}
   ]
 }}
+
+NOTE: For team trends, if you don't have reliable game-by-game team data, set chart_data and visual_data to null to avoid displaying poor quality charts.
 """
 
         try:
@@ -1158,13 +1160,14 @@ Return JSON format:
                     'is_global': True,
                     'player_id': player_id,
                     'full_player_name': full_name,
-                    'scraped_prop_data': player_data.get('prop_performance', {}) if player_data else {},
-                    'prop_performance_stats': player_data.get('recent_games', []) if player_data else [],
+                    'scraped_prop_data': player_data.get('ai_analysis', {}) if player_data else {},
+                    'prop_performance_stats': player_data.get('ai_analysis', {}).get('last_5_games', []) if player_data and player_data.get('ai_analysis') else [],
                     'data_sources': ['baseball_reference', 'ai_analysis'],
                     'metadata': {
                         'prop_type': trend.get('prop_type', ''),
-                        'games_analyzed': player_data.get('games_scraped', 0) if player_data else 0,
-                        'scrape_timestamp': player_data.get('scrape_timestamp') if player_data else None
+                        'games_analyzed': 5,  # Always 5 games from Last 5 Games table
+                        'scrape_timestamp': player_data.get('scrape_timestamp') if player_data else None,
+                        'chart_type': 'bar'  # Always bar charts
                     }
                 }
                 trends_to_store.append(trend_entry)
@@ -1181,16 +1184,17 @@ Return JSON format:
                     'confidence_score': trend.get('confidence', 50),
                     'trend_text': trend.get('description', ''),  # Use description as trend_text
                     'headline': trend.get('headline', ''),  # New: Short catchy headline
-                    'chart_data': trend.get('chart_data', {}),  # New: Chart visualization data
+                    'chart_data': trend.get('chart_data'),  # Allow null for teams with poor data
                     'trend_category': trend.get('trend_category', 'general'),  # New: Trend category
                     'key_stats': trend.get('key_stats', {}),  # New: Key statistics
-                    'visual_data': trend.get('visual_data', {}),  # New: Visual elements for display
+                    'visual_data': trend.get('visual_data'),  # Allow null for teams with poor data
                     'sport': 'MLB',
                     'is_global': True,
                     'data_sources': ['statmuse', 'ai_analysis'],
                     'metadata': {
                         'team': trend.get('team', ''),
-                        'analysis_type': 'team_performance'
+                        'analysis_type': 'team_performance',
+                        'has_chart': trend.get('chart_data') is not None
                     }
                 }
                 trends_to_store.append(trend_entry)

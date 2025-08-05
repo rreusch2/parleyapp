@@ -19,6 +19,7 @@ import {
   Lock,
   X
 } from 'lucide-react'
+import TrendChart from '@/components/TrendChart'
 
 interface Trend {
   id: string
@@ -432,23 +433,30 @@ export default function TrendsPage() {
                   </div>
                 )}
 
-                {selectedTrend.chart_data?.recent_results && (
+                {/* Chart Section */}
+                {selectedTrend.chart_data && selectedTrend.visual_data && (
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">Recent Performance</h3>
+                    <TrendChart 
+                      chartData={selectedTrend.chart_data}
+                      visualData={selectedTrend.visual_data}
+                      propType={selectedTrend.trend_type === 'player_prop' ? selectedTrend.description?.match(/(RBI|Hit|Home Run|Run)/)?.[0] : undefined}
+                    />
+                  </div>
+                )}
+
+                {/* Key Statistics Section */}
+                {selectedTrend.key_stats && Object.keys(selectedTrend.key_stats).length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-3">Key Statistics</h3>
                     <div className="bg-gray-800 rounded-lg p-4">
-                      <div className="flex items-center space-x-2">
-                        {selectedTrend.chart_data.recent_results.map((result: string, index: number) => (
-                          <div
-                            key={index}
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
-                              result === 'over' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                            }`}
-                          >
-                            {result === 'over' ? '✓' : '✗'}
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(selectedTrend.key_stats).map(([key, value]) => (
+                          <div key={key} className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wide">{key}</p>
+                            <p className="text-lg font-semibold text-white mt-1">{value}</p>
                           </div>
                         ))}
                       </div>
-                      <p className="text-gray-400 text-sm mt-2">Most recent games (left to right)</p>
                     </div>
                   </div>
                 )}

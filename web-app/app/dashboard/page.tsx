@@ -10,6 +10,9 @@ import DailyProfessorInsights from '@/components/DailyProfessorInsights'
 import PredictionsPreview from '@/components/PredictionsPreview'
 import TrendsPreview from '@/components/TrendsPreview'
 import LatestNewsFeed from '@/components/LatestNewsFeed'
+import OnboardingFlow from '@/components/OnboardingFlow'
+import WelcomeBonusBanner from '@/components/WelcomeBonusBanner'
+import { useOnboarding } from '@/hooks/useOnboarding'
 import { usePredictions } from '@/shared/hooks/usePredictions'
 import { useAIChat } from '@/shared/hooks/useAIChat'
 import { AIPrediction } from '@/shared/services/aiService'
@@ -23,11 +26,20 @@ import {
 } from 'lucide-react'
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, justSignedUp } = useAuth()
   const { subscriptionTier } = useSubscription()
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  
+  // 🎯 ONBOARDING INTEGRATION
+  const {
+    needsOnboarding,
+    isOnboardingOpen,
+    closeOnboarding,
+    completeOnboarding,
+    forceOnboarding
+  } = useOnboarding()
 
   // 🔥 MOBILE APP FUNCTIONALITY
   const {
@@ -66,6 +78,41 @@ export default function Dashboard() {
 
   return (
     <>
+      {/* Debug Section - Only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
+            <h3 className="text-red-400 font-semibold mb-2">🔧 DEBUG: Onboarding Status</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-300">Needs Onboarding: <span className={needsOnboarding ? 'text-green-400' : 'text-red-400'}>{needsOnboarding ? 'Yes' : 'No'}</span></p>
+                <p className="text-gray-300">Modal Open: <span className={isOnboardingOpen ? 'text-green-400' : 'text-red-400'}>{isOnboardingOpen ? 'Yes' : 'No'}</span></p>
+                <p className="text-gray-300">Just Signed Up: <span className={justSignedUp ? 'text-green-400' : 'text-red-400'}>{justSignedUp ? 'Yes' : 'No'}</span></p>
+                <p className="text-gray-300">User ID: <span className="text-blue-400">{user?.id?.slice(0, 8)}...</span></p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={forceOnboarding}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm w-full"
+                >
+                  🚀 Force Onboarding
+                </button>
+                <button
+                  onClick={() => {
+                    console.log('🗑️ Clearing all flags and refreshing')
+                    localStorage.clear()
+                    window.location.reload()
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm w-full"
+                >
+                  🔄 Reset & Reload
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
@@ -177,7 +224,12 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* Subscription Prompt for Free Users */}
+        {/* Welcome Bonus Banner */}
+        {subscriptionTier === 'free' && user && (
+          <WelcomeBonusBanner userId={user.id} />
+        )}
+
+        {/* Subscription Prompt for Free Users (only if no welcome bonus) */}
         {subscriptionTier === 'free' && (
           <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl p-6 border border-blue-500/30 mb-8">
             <div className="flex items-center justify-between">
@@ -264,6 +316,13 @@ export default function Dashboard() {
       <AIChatModal 
         isOpen={showAIChat}
         onClose={() => setShowAIChat(false)}
+      />
+
+      {/* 🎯 ONBOARDING FLOW */}
+      <OnboardingFlow
+        isOpen={isOnboardingOpen}
+        onClose={closeOnboarding}
+        onComplete={completeOnboarding}
       />
     </>
   )

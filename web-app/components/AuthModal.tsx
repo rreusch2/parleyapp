@@ -112,7 +112,16 @@ export default function AuthModal({ isOpen, onClose, mode, onModeChange }: AuthM
       if (mode === 'login') {
         await signIn(email, password)
       } else {
+        // For signup, handle differently
         await signUp(email, password, username)
+        
+        // Delay closing modal to ensure localStorage flag is set
+        // This gives the auth context time to set the needsOnboarding flag
+        setTimeout(() => {
+          handleClose()
+        }, 500)
+        
+        return // Skip immediate handleClose()
       }
       
       handleClose()
