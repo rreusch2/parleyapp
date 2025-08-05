@@ -40,7 +40,6 @@ import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
 import TodaysPicksModal from './components/TodaysPicksModal'
-import ReportsModal from '@/components/ReportsModal'
 
 
 interface UserData {
@@ -101,7 +100,6 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [showTodaysPicksModal, setShowTodaysPicksModal] = useState(false)
-  const [showReportsModal, setShowReportsModal] = useState(false)
   const pageSize = 20
 
   // Check admin access
@@ -278,10 +276,6 @@ export default function AdminDashboard() {
 
   const handleOpenTodaysPicks = () => {
     setShowTodaysPicksModal(true)
-  }
-
-  const handleOpenReports = () => {
-    setShowReportsModal(true)
   }
 
   const formatDate = (dateString: string) => {
@@ -473,7 +467,6 @@ export default function AdminDashboard() {
             onExportData={handleExportData}
             onBackupDatabase={handleBackupDatabase}
             onOpenTodaysPicks={handleOpenTodaysPicks}
-            onOpenReports={handleOpenReports}
           />
           <AdminCommandPanel />
         </div>
@@ -713,10 +706,6 @@ export default function AdminDashboard() {
         <TodaysPicksModal 
           isOpen={showTodaysPicksModal}
           onClose={() => setShowTodaysPicksModal(false)}
-        />
-        <ReportsModal
-            open={showReportsModal}
-            setOpen={setShowReportsModal}
         />
       </div>
     </div>

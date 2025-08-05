@@ -76,13 +76,13 @@ export default function QuickActions({
       action: onOpenTodaysPicks
     },
     {
-      id: 'reports',
-      title: 'Reports',
-      description: 'View sales and subscription reports',
-      icon: BarChart3,
-      color: 'from-orange-500 to-yellow-600',
-      action: onOpenReports
-    }
+        id: 'reports',
+        title: "Reports",
+        description: 'View business intelligence reports',
+        icon: BarChart3,
+        color: 'from-indigo-500 to-violet-600',
+        action: onOpenReports
+      }
   ]
 
   return (
@@ -93,7 +93,7 @@ export default function QuickActions({
     >
       <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {actions.map((action, index) => {
           const Icon = action.icon
           const isLoading = loading === action.id
