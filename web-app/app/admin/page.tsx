@@ -396,46 +396,12 @@ export default function AdminDashboard() {
           <UserActivityChart />
         </div>
 
-        {/* Feedback Section */}
+        {/* Users Management */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
           className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Mail className="w-6 h-6 text-blue-400" />
-              <span>User Feedback</span>
-            </h2>
-          </div>
-          <FeedbackSection />
-        </motion.div>
-
-        {/* Support Requests Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
-              <Settings className="w-6 h-6 text-green-400" />
-              <span>Support Requests</span>
-            </h2>
-          </div>
-          <SupportRequestsSection />
-        </motion.div>
-
-
-
-        {/* Users Management */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.0 }}
-          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6"
         >
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -622,6 +588,38 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Feedback Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
+              <Mail className="w-6 h-6 text-blue-400" />
+              <span>User Feedback</span>
+            </h2>
+          </div>
+          <FeedbackSection />
+        </motion.div>
+
+        {/* Support Requests Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+          className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6 mb-8"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white flex items-center space-x-3">
+              <Settings className="w-6 h-6 text-green-400" />
+              <span>Support Requests</span>
+            </h2>
+          </div>
+          <SupportRequestsSection />
+        </motion.div>
 
         {/* Today's Picks Modal */}
         <TodaysPicksModal 

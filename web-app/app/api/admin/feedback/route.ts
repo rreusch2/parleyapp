@@ -37,9 +37,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const isAdmin = await checkAdminAccess(user.id)
-    if (!isAdmin) {
+    // Check if user is admin using service role (bypass RLS)
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('admin_role')
+      .eq('id', user.id)
+      .single()
+    
+    if (profileError || !profile?.admin_role) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
