@@ -1,31 +1,33 @@
-FROM node:18
+FROM node:18-alpine
 
-# Install Python and pip
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+# Set working directory to the backend application directory
+WORKDIR /app/backend
 
-# Create app directory
-WORKDIR /app
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Install Node.js dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
-# Install Python dependencies (if requirements.txt exists)
-COPY requirements.txt* ./
-RUN if [ -f requirements.txt ]; then pip3 install -r requirements.txt --break-system-packages; fi
+# Copy TypeScript config, babel config, and source files
+COPY tsconfig.json ./
+COPY .babelrc ./
+COPY src ./src
 
-# Copy application code
-COPY . .
+# Build TypeScript application
+RUN npm run build:babel
 
-# Build the application if needed
-RUN if [ -f "tsconfig.json" ]; then npm run build; fi
+# Copy our robust startup script
+COPY start.js ./
 
-# Expose the port
-ENV PORT=3000
+# Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); })"
+
+# Run the application directly
+CMD ["node", "dist/index.js"]
+
