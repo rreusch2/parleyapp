@@ -41,7 +41,7 @@ export default function Dashboard() {
   const tierStyling = getTierStyling(subscriptionTier as any)
   const isWelcomeBonus = profile ? isInWelcomeBonusPeriod(
     profile.welcome_bonus_claimed || false,
-    profile.welcome_bonus_expires_at
+    profile.welcome_bonus_expires_at || null
   ) : false
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -97,27 +97,62 @@ export default function Dashboard() {
 
   return (
     <>
-
-
+    <TierEnhancedUI>
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Welcome back, {user.user_metadata?.display_name || user.email}!
-          </h1>
-          <p className="text-xl text-gray-300">
-            Ready to make some winning predictions? 🚀
-          </p>
+        {/* Enhanced Welcome Section with tier-based styling */}
+        <div className={`mb-8 p-6 rounded-xl ${
+          subscriptionTier === 'elite' ? 'bg-gradient-to-r from-yellow-900/20 to-amber-900/20 border border-yellow-500/30' :
+          subscriptionTier === 'pro' ? 'bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30' :
+          'bg-gray-800/30 border border-gray-700/30'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center space-x-3 mb-2">
+                <h1 className="text-4xl font-bold text-white">
+                  Welcome back, {user.user_metadata?.display_name || user.email}!
+                </h1>
+                <TierGatedContent requiredTier="pro">
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    subscriptionTier === 'elite' ? 'bg-gradient-to-r from-yellow-600 to-amber-600 text-black' :
+                    'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  }`}>
+                    {subscriptionTier.toUpperCase()} ✨
+                  </div>
+                </TierGatedContent>
+              </div>
+              <p className={`text-xl ${
+                subscriptionTier === 'elite' ? 'text-yellow-300' :
+                subscriptionTier === 'pro' ? 'text-purple-300' :
+                'text-gray-300'
+              }`}>
+                {subscriptionTier === 'elite' ? 'Elite AI-powered insights with premium analytics 🏆' :
+                 subscriptionTier === 'pro' ? 'Professional AI-powered betting insights 🚀' :
+                 'Ready to make some winning predictions? 🚀'}
+              </p>
+            </div>
+            <NoUpgradePrompts>
+              <TierButton 
+                onClick={() => setSubscriptionModalOpen(true)}
+                className="text-sm"
+              >
+                Upgrade Now
+              </TierButton>
+            </NoUpgradePrompts>
+          </div>
         </div>
 
-        {/* 🔥 REAL AI STATS FROM MOBILE APP */}
+        {/* Enhanced AI Stats with tier-based styling */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-blue-500/50 transition-all duration-300"
+            className={`backdrop-blur-sm rounded-xl p-6 border transition-all duration-300 ${
+              subscriptionTier === 'elite' ? 'bg-gradient-to-br from-yellow-900/10 to-amber-900/10 border-yellow-500/30 hover:border-yellow-400/60' :
+              subscriptionTier === 'pro' ? 'bg-gradient-to-br from-purple-900/10 to-blue-900/10 border-purple-500/30 hover:border-purple-400/60' :
+              'bg-white/5 border-white/10 hover:border-blue-500/50'
+            }`}
           >
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
@@ -294,26 +329,27 @@ export default function Dashboard() {
         </motion.div>
 
       </div>
+    </TierEnhancedUI>
 
-      {/* Subscription Modal */}
-      <TieredSubscriptionModal
-        isOpen={subscriptionModalOpen}
-        onClose={() => setSubscriptionModalOpen(false)}
-        onContinueFree={() => setSubscriptionModalOpen(false)}
-      />
+    {/* Subscription Modal */}
+    <TieredSubscriptionModal
+      isOpen={subscriptionModalOpen}
+      onClose={() => setSubscriptionModalOpen(false)}
+      onContinueFree={() => setSubscriptionModalOpen(false)}
+    />
 
-      {/* 🔥 AI Chat Modal (Professor Lock) */}
-      <AIChatModal 
-        isOpen={showAIChat}
-        onClose={() => setShowAIChat(false)}
-      />
+    {/* 🔥 AI Chat Modal (Professor Lock) */}
+    <AIChatModal 
+      isOpen={showAIChat}
+      onClose={() => setShowAIChat(false)}
+    />
 
-      {/* 🎯 ONBOARDING FLOW */}
-      <OnboardingFlow
-        isOpen={isOnboardingOpen}
-        onClose={closeOnboarding}
-        onComplete={completeOnboarding}
-      />
+    {/* 🎯 ONBOARDING FLOW */}
+    <OnboardingFlow
+      isOpen={isOnboardingOpen}
+      onClose={closeOnboarding}
+      onComplete={completeOnboarding}
+    />
     </>
   )
 }

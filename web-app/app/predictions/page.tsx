@@ -19,7 +19,8 @@ import {
   Crown,
   Lock
 } from 'lucide-react'
-import AIChatModal from '@/components/AIChatModal'
+import TierEnhancedUI, { TierGatedContent, NoUpgradePrompts, TierButton } from '@/components/TierEnhancedUI'
+import { getTierStyling } from '@/lib/subscriptionUtils'
 
 export default function PredictionsPage() {
   const { user, profile } = useAuth()
@@ -40,14 +41,15 @@ export default function PredictionsPage() {
     highConfidencePicks,
     averageConfidence,
     refreshAll,
-
+    generatePredictions
   } = usePredictions({
     subscriptionTier: subscriptionTier as any,
     welcomeBonusClaimed: profile?.welcome_bonus_claimed || true,
     welcomeBonusExpiresAt: profile?.welcome_bonus_expires_at || null
   })
 
-  const { openChatWithContext, showAIChat, setShowAIChat } = useAIChat()
+  const { openChatWithContext } = useAIChat()
+  const tierStyling = getTierStyling(subscriptionTier as any)
 
   useEffect(() => {
     if (!user) {
@@ -71,21 +73,42 @@ export default function PredictionsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header with Stats */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-        transition={{ duration: 0.6 }}
-        className="mb-8"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">AI Predictions</h1>
-            <p className="text-xl text-gray-300">
-              Advanced analytics powered by machine learning
-            </p>
-          </div>
+    <TierEnhancedUI>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Enhanced Header with tier-based styling */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          transition={{ duration: 0.6 }}
+          className={`mb-8 p-6 rounded-xl ${
+            subscriptionTier === 'elite' ? 'bg-gradient-to-r from-yellow-900/20 to-amber-900/20 border border-yellow-500/30' :
+            subscriptionTier === 'pro' ? 'bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-500/30' :
+            'bg-gray-800/30 border border-gray-700/30'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <div className="flex items-center space-x-3 mb-2">
+                <h1 className="text-4xl font-bold text-white">AI Predictions</h1>
+                <TierGatedContent requiredTier="pro">
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    subscriptionTier === 'elite' ? 'bg-gradient-to-r from-yellow-600 to-amber-600 text-black' :
+                    'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                  }`}>
+                    {subscriptionTier.toUpperCase()} TIER
+                  </div>
+                </TierGatedContent>
+              </div>
+              <p className={`text-xl ${
+                subscriptionTier === 'elite' ? 'text-yellow-300' :
+                subscriptionTier === 'pro' ? 'text-purple-300' :
+                'text-gray-300'
+              }`}>
+                {subscriptionTier === 'elite' ? 'Elite AI analytics with premium machine learning models 🏆' :
+                 subscriptionTier === 'pro' ? 'Professional AI analytics powered by advanced machine learning 🚀' :
+                 'Advanced analytics powered by machine learning'}
+              </p>
+            </div>
           
           <div className="flex items-center space-x-4">
             <button
@@ -262,7 +285,7 @@ export default function PredictionsPage() {
               No {activeTab === 'all' ? '' : activeTab === 'team' ? 'team ' : 'player props '}predictions available
             </h3>
             <p className="text-gray-400 mb-4">
-              Check back later for fresh AI predictions or try refreshing the page
+              Check back soon for the latest AI predictions
             </p>
           </motion.div>
         )}
@@ -377,12 +400,6 @@ export default function PredictionsPage() {
           </div>
         )}
       </div>
-    </div>
-
-    {/* AI Chat Modal (Professor Lock) */}
-    <AIChatModal 
-      isOpen={showAIChat}
-      onClose={() => setShowAIChat(false)}
-    />
+    </TierEnhancedUI>
   )
 }

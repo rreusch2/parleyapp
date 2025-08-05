@@ -38,70 +38,25 @@ export function usePredictions({
     error: null
   })
 
-  // Filter predictions based on tier and welcome bonus with proper team/player prop split
+  // Filter predictions based on tier and welcome bonus
   const filterPredictionsByTier = useCallback((predictions: AIPrediction[]) => {
     const isWelcomeBonus = isInWelcomeBonusPeriod(welcomeBonusClaimed, welcomeBonusExpiresAt)
-    
-    // Separate team picks from player props
-    const teamPicks = predictions.filter(p => 
-      ['moneyline', 'spread', 'total'].includes(p.bet_type || '')
-    )
-    const playerProps = predictions.filter(p => 
-      p.bet_type === 'player_prop'
-    )
-    
-    let maxTeamPicks = 0
-    let maxPlayerProps = 0
-    let totalLimit = 0
-    
-    if (isWelcomeBonus) {
-      // During welcome bonus, show 5 picks regardless of tier (mixed)
-      totalLimit = 5
-    } else {
-      // Regular tier-based filtering with proper splits
-      switch (subscriptionTier) {
-        case 'elite':
-          maxTeamPicks = 15
-          maxPlayerProps = 15
-          totalLimit = 30
-          break
-        case 'pro':
-          maxTeamPicks = 10
-          maxPlayerProps = 10
-          totalLimit = 20
-          break
-        case 'free':
-        default:
-          maxTeamPicks = 1
-          maxPlayerProps = 1
-          totalLimit = 2
-          break
-      }
-    }
+    const capabilities = getTierCapabilities(subscriptionTier)
     
     console.log('🎯 Filtering predictions by tier:', {
       subscriptionTier,
       isWelcomeBonus,
       totalPredictions: predictions.length,
-      teamPicks: teamPicks.length,
-      playerProps: playerProps.length,
-      limits: { maxTeamPicks, maxPlayerProps, totalLimit }
+      maxPicks: isWelcomeBonus ? 5 : capabilities.dailyPicks
     })
     
     if (isWelcomeBonus) {
-      // During welcome bonus, return first 5 predictions (mixed)
-      return predictions.slice(0, totalLimit)
+      // During welcome bonus, show 5 picks regardless of tier
+      return predictions.slice(0, 5)
     }
     
-    // For regular tiers, combine team picks and player props with proper limits
-    const filteredTeamPicks = teamPicks.slice(0, maxTeamPicks)
-    const filteredPlayerProps = playerProps.slice(0, maxPlayerProps)
-    
-    // Combine and sort by confidence or creation date
-    const combined = [...filteredTeamPicks, ...filteredPlayerProps]
-      .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-    
-    return combined.slice(0, totalLimit)
+    // Regular tier-based filtering
+    return predictions.slice(0, capabilities.dailyPicks)
   }, [subscriptionTier, welcomeBonusClaimed, welcomeBonusExpiresAt])
 
   // Fetch today's predictions
@@ -133,30 +88,20 @@ export function usePredictions({
     setState(prev => ({ ...prev, isLoadingTeam: true, error: null }))
     try {
       const allPredictions = await aiService.getTodaysPredictions()
-      // Filter for team bets using consistent criteria
+      // Filter for team bets (not player props)
       const allTeamPicks = allPredictions.filter(p => 
-        ['moneyline', 'spread', 'total'].includes(p.bet_type || '')
+        p.bet_type && !p.bet_type.toLowerCase().includes('prop') &&
+        (p.bet_type.includes('ML') || 
+         p.bet_type.includes('spread') || 
+         p.bet_type.includes('total') ||
+         p.bet_type.includes('moneyline') ||
+         p.bet_type.includes('over') ||
+         p.bet_type.includes('under'))
       )
       
       const isWelcomeBonus = isInWelcomeBonusPeriod(welcomeBonusClaimed, welcomeBonusExpiresAt)
-      let teamPicksLimit = 0
-      
-      if (isWelcomeBonus) {
-        teamPicksLimit = Math.ceil(5 / 2) // About half of welcome bonus picks
-      } else {
-        switch (subscriptionTier) {
-          case 'elite':
-            teamPicksLimit = 15
-            break
-          case 'pro':
-            teamPicksLimit = 10
-            break
-          case 'free':
-          default:
-            teamPicksLimit = 1
-            break
-        }
-      }
+      const capabilities = getTierCapabilities(subscriptionTier)
+      const teamPicksLimit = isWelcomeBonus ? Math.ceil(5 / 2) : capabilities.teamPicks
       
       const teamPicks = allTeamPicks.slice(0, teamPicksLimit)
       
@@ -182,30 +127,22 @@ export function usePredictions({
     setState(prev => ({ ...prev, isLoadingProps: true, error: null }))
     try {
       const allPredictions = await aiService.getTodaysPredictions()
-      // Filter for player props using consistent criteria
+      // Filter for player props
       const allPropsPicks = allPredictions.filter(p => 
-        p.bet_type === 'player_prop'
+        p.bet_type && (
+          p.bet_type.toLowerCase().includes('prop') ||
+          p.bet_type.toLowerCase().includes('hit') ||
+          p.bet_type.toLowerCase().includes('homer') ||
+          p.bet_type.toLowerCase().includes('rbi') ||
+          p.bet_type.toLowerCase().includes('strikeout') ||
+          p.bet_type.toLowerCase().includes('assist') ||
+          p.bet_type.toLowerCase().includes('rebound')
+        )
       )
       
       const isWelcomeBonus = isInWelcomeBonusPeriod(welcomeBonusClaimed, welcomeBonusExpiresAt)
-      let propsPicksLimit = 0
-      
-      if (isWelcomeBonus) {
-        propsPicksLimit = Math.floor(5 / 2) // About half of welcome bonus picks
-      } else {
-        switch (subscriptionTier) {
-          case 'elite':
-            propsPicksLimit = 15
-            break
-          case 'pro':
-            propsPicksLimit = 10
-            break
-          case 'free':
-          default:
-            propsPicksLimit = 1
-            break
-        }
-      }
+      const capabilities = getTierCapabilities(subscriptionTier)
+      const propsPicksLimit = isWelcomeBonus ? Math.floor(5 / 2) : capabilities.playerPropPicks
       
       const propsPicks = allPropsPicks.slice(0, propsPicksLimit)
       

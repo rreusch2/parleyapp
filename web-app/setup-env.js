@@ -9,6 +9,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 # API URLs
 NEXT_PUBLIC_BACKEND_URL=https://zooming-rebirth-production-a305.up.railway.app
 NEXT_PUBLIC_PYTHON_API_URL=https://zooming-rebirth-production-a305.up.railway.app
+
+# RevenueCat API Key (Server-side only)
+REVENUECAT_API_KEY=your_revenuecat_api_key_here
 `;
 
 try {

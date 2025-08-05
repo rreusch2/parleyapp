@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { 
   Brain, 
   TrendingUp, 
@@ -25,17 +24,17 @@ export default function LandingPage() {
   const { user } = useAuth()
   const router = useRouter()
 
-  // Fix hydration and animation issues
+  // Fix hydration issues
   useEffect(() => {
     setMounted(true)
   }, [])
 
   // Redirect if user is already logged in
   useEffect(() => {
-    if (user) {
+    if (user && mounted) {
       router.push('/dashboard')
     }
-  }, [user, router])
+  }, [user, router, mounted])
 
   const openAuthModal = (mode: 'login' | 'signup') => {
     setAuthMode(mode)
@@ -43,7 +42,8 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 relative">
+
       {/* Navigation */}
       <nav className="relative z-50 bg-black/20 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,14 +76,11 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden py-20 px-4 sm:px-6 lg:px-8">
+      <section className="relative z-10 overflow-hidden py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.8 }}
-            >
+            {/* Removed animation for hero text as requested */}
+            <div>
               <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
                 <span className="gradient-text">AI-Powered</span>
                 <br />
@@ -93,14 +90,9 @@ export default function LandingPage() {
                 Smarter betting with advanced AI predictions, real-time analytics, 
                 and expert insights for all major sports.
               </p>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
-            >
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <button
                 onClick={() => openAuthModal('signup')}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center space-x-2 group"
@@ -114,7 +106,7 @@ export default function LandingPage() {
               >
                 Sign In
               </button>
-            </motion.div>
+            </div>
 
           </div>
         </div>
@@ -134,11 +126,8 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <motion.div
+              <div
                 key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                transition={{ duration: 0.6, delay: mounted ? index * 0.1 : 0 }}
                 className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-blue-500/50 transition-all duration-300"
               >
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mb-4">
@@ -150,7 +139,7 @@ export default function LandingPage() {
                 <p className="text-gray-300">
                   {feature.description}
                 </p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -170,11 +159,8 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {pricingPlans.map((plan, index) => (
-              <motion.div
+              <div
                 key={plan.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                transition={{ duration: 0.6, delay: mounted ? index * 0.1 : 0 }}
                 className={`relative bg-white/5 backdrop-blur-sm rounded-xl p-6 border ${
                   plan.popular 
                     ? 'border-blue-500 ring-2 ring-blue-500/20' 
@@ -223,7 +209,7 @@ export default function LandingPage() {
                     </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -232,11 +218,7 @@ export default function LandingPage() {
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ duration: 0.8 }}
-          >
+          <div>
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
               Ready to Start Winning?
             </h2>
@@ -250,7 +232,7 @@ export default function LandingPage() {
               <span>Start Your Free Trial</span>
               <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
             </button>
-          </motion.div>
+          </div>
         </div>
       </section>
 
