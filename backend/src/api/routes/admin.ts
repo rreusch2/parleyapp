@@ -1,6 +1,5 @@
 import express from 'express';
-import { authenticateToken, isAdmin } from '../middleware/auth';
-import { exec } from 'child_process';
+import { authenticateToken, isAdmin } from '../../middleware/authenticate';
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
@@ -38,29 +37,44 @@ router.post('/execute-command', async (req, res) => {
     });
   }
   
-  logger.info(`Executing admin command: ${command}`);
+  logger.info(`Forwarding admin command to Python Scripts Service: ${command}`);
   
-  // Execute the command
-  exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
-    if (error) {
-      logger.error(`Command execution error: ${error.message}`);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message,
-        stderr: stderr
-      });
+  // Forward command to Python Scripts Service
+  const scriptsServiceUrl = process.env.PYTHON_SCRIPTS_SERVICE_URL;
+  if (!scriptsServiceUrl) {
+    return res.status(500).json({
+      success: false,
+      error: 'Python Scripts Service URL not configured'
+    });
+  }
+  
+  try {
+    const fetch = require('node-fetch');
+    const response = await fetch(`${scriptsServiceUrl}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ command }),
+      timeout: 300000 // 5 minute timeout
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return res.status(response.status).json(data);
     }
     
-    // Handle process output
-    const output = stdout || stderr;
-    logger.info(`Command executed successfully: ${command}`);
+    logger.info(`Command executed successfully via Scripts Service: ${command}`);
+    return res.json(data);
     
-    return res.json({
-      success: true,
-      output: output.substring(0, 1000), // Limit response size
-      command
+  } catch (error) {
+    logger.error(`Error calling Python Scripts Service: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      error: `Failed to execute command: ${error.message}`
     });
-  });
+  }
 });
 
 export default router;

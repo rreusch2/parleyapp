@@ -31,6 +31,9 @@
       "./src/types"
     ]
   },
+  "files": [
+    "src/types/express.d.ts"
+  ],
   "include": [
     "src/**/*",
     "src/types/**/*.d.ts"
