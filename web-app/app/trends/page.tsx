@@ -198,7 +198,7 @@ export default function TrendsPage() {
               <Crown className="w-5 h-5 text-yellow-400" />
               <div>
                 <h3 className="text-white font-semibold">Free Tier - Limited Trends</h3>
-                <p className="text-gray-300 text-sm">Access to {trendLimit} trends. Upgrade for unlimited access.</p>
+                <p className="text-gray-300 text-sm">Access to {trendLimit} trends. Upgrade for unlimited access or use the mobile app to watch ads for extra trends!</p>
               </div>
             </div>
             <button className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200">

@@ -50,9 +50,10 @@ interface DailyInsight {
 
 interface DailyProfessorInsightsProps {
   sport?: string
+  limit?: number
 }
 
-export default function DailyProfessorInsights({ sport = 'MLB' }: DailyProfessorInsightsProps) {
+export default function DailyProfessorInsights({ sport = 'MLB', limit }: DailyProfessorInsightsProps) {
   const [insights, setInsights] = useState<DailyInsight[]>([])
   const [dailyMessage, setDailyMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -60,6 +61,12 @@ export default function DailyProfessorInsights({ sport = 'MLB' }: DailyProfessor
   const [lastGenerated, setLastGenerated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { subscriptionTier } = useSubscription()
+  
+  // Determine insights limit based on subscription tier if not explicitly provided
+  const insightsLimit = limit || (
+    subscriptionTier === 'elite' ? 12 :
+    subscriptionTier === 'pro' ? 8 : 6
+  )
 
   useEffect(() => {
     fetchInsights()
@@ -77,6 +84,7 @@ export default function DailyProfessorInsights({ sport = 'MLB' }: DailyProfessor
         .select('*')
         .eq('date_generated', today)
         .order('insight_order', { ascending: true })
+        .limit(insightsLimit)
 
       if (queryError) {
         console.error('Error fetching insights:', queryError)

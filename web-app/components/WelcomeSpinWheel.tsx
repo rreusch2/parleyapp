@@ -81,11 +81,17 @@ export default function WelcomeSpinWheel({ isOpen, onClose, onComplete }: Welcom
     
     setIsSpinning(true)
     
-    // Calculate final rotation to always land on 5 picks (segment 5: 288-360 degrees)
-    // We want to land in the middle of that segment: 324 degrees
+    // EXACTLY match React Native logic - always land on 5 picks!
+    // Target the middle of segment 5 (288-360 degrees): 324 degrees
     const targetAngle = 324
-    const spins = 5 // Number of full rotations
+    const spins = 5 // Number of full rotations (same as mobile)
     const finalRotation = spins * 360 + targetAngle
+    
+    console.log('🎰 Spinning to GUARANTEE 5 picks (matching mobile app):', {
+      targetAngle,
+      finalRotation,
+      totalDegrees: finalRotation
+    })
     
     // Animate the rotation
     const duration = 4000
@@ -187,9 +193,14 @@ export default function WelcomeSpinWheel({ isOpen, onClose, onComplete }: Welcom
             {/* Wheel Container */}
             <div className="flex justify-center mb-8">
               <div className="relative">
-                {/* Pointer */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2 z-20">
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-b-8 border-l-transparent border-r-transparent border-b-yellow-400 drop-shadow-lg"></div>
+                {/* Pointer - Bigger and prominent (pointing down into wheel) */}
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 z-20">
+                  <div className="relative">
+                    {/* Glow effect behind arrow */}
+                    <div className="absolute inset-0 w-0 h-0 border-l-8 border-r-8 border-t-16 border-l-transparent border-r-transparent border-t-yellow-300 blur-sm opacity-60"></div>
+                    {/* Main arrow */}
+                    <div className="w-0 h-0 border-l-6 border-r-6 border-t-14 border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-xl"></div>
+                  </div>
                 </div>
                 
                 {/* Wheel */}
@@ -269,11 +280,16 @@ export default function WelcomeSpinWheel({ isOpen, onClose, onComplete }: Welcom
                   </div>
                   <p className="text-purple-300 text-lg mb-2">You won</p>
                   <div className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    {result} Premium Picks!
+                    5 Premium Picks!
                   </div>
                   <p className="text-sm text-gray-400 mt-2">
                     🔥 Worth $24.95 - Yours free for 24 hours!
                   </p>
+                  <div className="mt-3 px-4 py-2 bg-green-500/20 border border-green-400/30 rounded-lg">
+                    <p className="text-green-300 text-sm font-semibold">
+                      ✅ Guaranteed: Always lands on 5 picks!
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}

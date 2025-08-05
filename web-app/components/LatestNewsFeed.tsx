@@ -72,7 +72,7 @@ export default function LatestNewsFeed({
         .from('scrapy_news')
         .select('*')
         .eq('is_active', true)
-        .order('published_date', { ascending: false })
+        .order('scraped_at', { ascending: false })
         .limit(limit)
 
       if (sport) {

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useSubscription } from '@/contexts/SubscriptionContext'
 import TieredSubscriptionModal from '@/components/TieredSubscriptionModal'
 import AIChatModal from '@/components/AIChatModal'
-import EliteLockOfTheDay from '@/components/EliteLockOfTheDay'
+import LockOfTheDay from '@/components/LockOfTheDay'
 import DailyProfessorInsights from '@/components/DailyProfessorInsights'
 import PredictionsPreview from '@/components/PredictionsPreview'
 import TrendsPreview from '@/components/TrendsPreview'
@@ -16,6 +16,12 @@ import { useOnboarding } from '@/hooks/useOnboarding'
 import { usePredictions } from '@/shared/hooks/usePredictions'
 import { useAIChat } from '@/shared/hooks/useAIChat'
 import { AIPrediction } from '@/shared/services/aiService'
+import { 
+  getTierCapabilities, 
+  getDisplayPicksCount, 
+  getTierStyling, 
+  isInWelcomeBonusPeriod 
+} from '@/lib/subscriptionUtils'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Brain, 
@@ -26,8 +32,16 @@ import {
 } from 'lucide-react'
 
 export default function Dashboard() {
-  const { user, signOut, justSignedUp } = useAuth()
+  const { user, signOut, justSignedUp, profile } = useAuth()
   const { subscriptionTier } = useSubscription()
+  
+  // Get tier-based capabilities and styling
+  const tierCapabilities = getTierCapabilities(subscriptionTier as any)
+  const tierStyling = getTierStyling(subscriptionTier as any)
+  const isWelcomeBonus = profile ? isInWelcomeBonusPeriod(
+    profile.welcome_bonus_claimed || false,
+    profile.welcome_bonus_expires_at
+  ) : false
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
@@ -78,40 +92,7 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* Debug Section - Only show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-4">
-            <h3 className="text-red-400 font-semibold mb-2">🔧 DEBUG: Onboarding Status</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-300">Needs Onboarding: <span className={needsOnboarding ? 'text-green-400' : 'text-red-400'}>{needsOnboarding ? 'Yes' : 'No'}</span></p>
-                <p className="text-gray-300">Modal Open: <span className={isOnboardingOpen ? 'text-green-400' : 'text-red-400'}>{isOnboardingOpen ? 'Yes' : 'No'}</span></p>
-                <p className="text-gray-300">Just Signed Up: <span className={justSignedUp ? 'text-green-400' : 'text-red-400'}>{justSignedUp ? 'Yes' : 'No'}</span></p>
-                <p className="text-gray-300">User ID: <span className="text-blue-400">{user?.id?.slice(0, 8)}...</span></p>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={forceOnboarding}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm w-full"
-                >
-                  🚀 Force Onboarding
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('🗑️ Clearing all flags and refreshing')
-                    localStorage.clear()
-                    window.location.reload()
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm w-full"
-                >
-                  🔄 Reset & Reload
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -143,7 +124,11 @@ export default function Dashboard() {
                   {isLoading ? (
                     <div className="animate-pulse bg-gray-600 h-6 w-8 rounded"></div>
                   ) : (
-                    totalPredictions
+                    getDisplayPicksCount(
+                      subscriptionTier as any,
+                      profile?.welcome_bonus_claimed || false,
+                      profile?.welcome_bonus_expires_at || null
+                    )
                   )}
                 </p>
                 <p className="text-xs text-gray-400">AI Generated</p>
@@ -252,14 +237,14 @@ export default function Dashboard() {
         )}
 
         {/* 🔒 ELITE LOCK OF THE DAY */}
-        {subscriptionTier === 'elite' && (
+        {subscriptionTier === 'elite' && user && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mb-8"
           >
-            <EliteLockOfTheDay onPickPress={() => setShowAIChat(true)} />
+            <LockOfTheDay userId={user.id} />
           </motion.div>
         )}
 

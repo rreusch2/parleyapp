@@ -30,6 +30,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('📁 Fetching profile for user:', userId)
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -37,9 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.error('Error fetching profile:', error)
+        console.error('❌ Error fetching profile:', error)
         return null
       }
+
+      console.log('✅ Profile fetched successfully:', {
+        username: data.username,
+        sport_preferences: data.sport_preferences,
+        betting_style: data.betting_style,
+        welcome_bonus_claimed: data.welcome_bonus_claimed
+      })
 
       return data as UserProfile
     } catch (error) {
@@ -66,6 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state change:', {
+        event,
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id
+      })
+      
       setSession(session)
       setUser(session?.user ?? null)
       
