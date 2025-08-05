@@ -11,7 +11,7 @@ async function fetchRevenueData(
   start_date: string,
   end_date: string
 ) {
-  const url = new URL('https://api.revenuecat.com/v2/charts/revenue');
+  const url = new URL('https://api.revenuecat.com/v1/charts/revenue');
   const params = new URLSearchParams({
     metric,
     aggregation,

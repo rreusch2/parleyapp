@@ -41,6 +41,7 @@ import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
 import TodaysPicksModal from './components/TodaysPicksModal'
 import RevenueCatAnalytics from './components/RevenueCatAnalytics'
+import WebhookEvents from './components/WebhookEvents'
 
 interface UserData {
   id: string
@@ -338,7 +339,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-200 text-sm font-medium">Total Users</p>
-                <p className="text-3xl font-bold text-white">{stats.totalUsers.toLocaleString()}</p>
+                <div className="text-3xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
               </div>
               <Users className="w-8 h-8 text-blue-400" />
             </div>
@@ -353,7 +354,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-200 text-sm font-medium">Active Subs</p>
-                <p className="text-3xl font-bold text-white">{stats.activeSubscriptions}</p>
+                <div className="text-3xl font-bold text-white">{stats.activeSubscriptions}</div>
               </div>
               <UserCheck className="w-8 h-8 text-green-400" />
             </div>
@@ -368,7 +369,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-200 text-sm font-medium">Pro Users</p>
-                <p className="text-3xl font-bold text-white">{stats.proUsers}</p>
+                <div className="text-3xl font-bold text-white">{stats.proUsers}</div>
               </div>
               <Star className="w-8 h-8 text-purple-400" />
             </div>
@@ -383,7 +384,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-yellow-200 text-sm font-medium">Elite Users</p>
-                <p className="text-3xl font-bold text-white">{stats.eliteUsers}</p>
+                <div className="text-3xl font-bold text-white">{stats.eliteUsers}</div>
               </div>
               <Crown className="w-8 h-8 text-yellow-400" />
             </div>
@@ -398,7 +399,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-emerald-200 text-sm font-medium">Est. Monthly Revenue</p>
-                <p className="text-3xl font-bold text-white">${stats.monthlyRevenue.toFixed(0)}</p>
+                <div className="text-3xl font-bold text-white">${stats.monthlyRevenue.toFixed(0)}</div>
               </div>
               <DollarSign className="w-8 h-8 text-emerald-400" />
             </div>
@@ -413,7 +414,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-cyan-200 text-sm font-medium">New Today</p>
-                <p className="text-3xl font-bold text-white">{stats.newUsersToday}</p>
+                <div className="text-3xl font-bold text-white">{stats.newUsersToday}</div>
               </div>
               <TrendingUp className="w-8 h-8 text-cyan-400" />
             </div>
@@ -428,16 +429,16 @@ export default function AdminDashboard() {
                     <h3 className="text-xl font-semibold text-blue-300 mb-4">Pro Tier</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Weekly Pro</p><p className="text-3xl font-bold text-white">{stats.weeklyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Weekly Pro</p><div className="text-3xl font-bold text-white">{stats.weeklyPro}</div></div><Calendar className="w-8 h-8 text-blue-400" /></div>
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Monthly Pro</p><p className="text-3xl font-bold text-white">{stats.monthlyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Monthly Pro</p><div className="text-3xl font-bold text-white">{stats.monthlyPro}</div></div><Calendar className="w-8 h-8 text-blue-400" /></div>
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Yearly Pro</p><p className="text-3xl font-bold text-white">{stats.yearlyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Yearly Pro</p><div className="text-3xl font-bold text-white">{stats.yearlyPro}</div></div><Calendar className="w-8 h-8 text-blue-400" /></div>
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Lifetime Pro</p><p className="text-3xl font-bold text-white">{stats.lifetimePro}</p></div><Award className="w-8 h-8 text-blue-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Lifetime Pro</p><div className="text-3xl font-bold text-white">{stats.lifetimePro}</div></div><Award className="w-8 h-8 text-blue-400" /></div>
                         </motion.div>
                     </div>
                 </div>
@@ -447,13 +448,13 @@ export default function AdminDashboard() {
                     <h3 className="text-xl font-semibold text-purple-300 mb-4">Elite Tier</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Weekly Elite</p><p className="text-3xl font-bold text-white">{stats.weeklyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Weekly Elite</p><div className="text-3xl font-bold text-white">{stats.weeklyElite}</div></div><Calendar className="w-8 h-8 text-purple-400" /></div>
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Monthly Elite</p><p className="text-3xl font-bold text-white">{stats.monthlyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Monthly Elite</p><div className="text-3xl font-bold text-white">{stats.monthlyElite}</div></div><Calendar className="w-8 h-8 text-purple-400" /></div>
                         </motion.div>
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
-                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Yearly Elite</p><p className="text-3xl font-bold text-white">{stats.yearlyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Yearly Elite</p><div className="text-3xl font-bold text-white">{stats.yearlyElite}</div></div><Calendar className="w-8 h-8 text-purple-400" /></div>
                         </motion.div>
                     </div>
                 </div>
@@ -477,6 +478,15 @@ export default function AdminDashboard() {
           transition={{ delay: 0.8 }}
         >
           <RevenueCatAnalytics />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.9 }}
+          className="my-8"
+        >
+          <WebhookEvents />
         </motion.div>
 
         {/* Users Management */}

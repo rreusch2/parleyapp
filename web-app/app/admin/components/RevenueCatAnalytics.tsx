@@ -207,8 +207,8 @@ function StatCard({ icon: Icon, title, value, color }: { icon: React.ElementType
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm font-medium`}>{title}</p>
-                <p className="text-3xl font-bold text-white">{value}</p>
+                <div className={`text-sm font-medium`}>{title}</div>
+                <div className="text-3xl font-bold text-white">{value}</div>
               </div>
               <Icon className="w-8 h-8" />
             </div>
