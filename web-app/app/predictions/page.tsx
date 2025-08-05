@@ -400,6 +400,7 @@ export default function PredictionsPage() {
           </div>
         )}
       </div>
+      </div>
     </TierEnhancedUI>
   )
 }

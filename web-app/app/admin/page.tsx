@@ -147,13 +147,22 @@ export default function AdminDashboard() {
 
     setLoadingRevenueCatMetrics(true)
     try {
-      console.log('🔄 Loading comprehensive RevenueCat metrics...')
+      console.log('🔄 Loading REAL RevenueCat metrics with user data...')
       
-      // Load overview metrics, product metrics, and revenue data in parallel
+      // Get user IDs for metrics calculation
+      const userIds = users.map(user => user.revenuecat_customer_id || user.id).filter(Boolean)
+      console.log(`📄 Using ${userIds.length} user IDs for metrics calculation`)
+      
+      if (userIds.length === 0) {
+        console.log('⚠️ No users available for metrics calculation')
+        return
+      }
+      
+      // Load REAL metrics based on actual subscriber data
       const [overview, products, revenue] = await Promise.all([
-        revenueCatAPI.getOverviewMetrics(),
-        revenueCatAPI.getProductMetrics(),
-        revenueCatAPI.getRevenueData(30)
+        revenueCatAPI.getOverviewMetrics(userIds),
+        revenueCatAPI.getProductMetrics(userIds),
+        revenueCatAPI.getRevenueData(30, userIds)
       ])
 
       setRevenueCatOverview(overview)
@@ -172,12 +181,15 @@ export default function AdminDashboard() {
         }
         setEnhancedStats(enhanced)
         
-        console.log('✅ Successfully loaded RevenueCat metrics:', {
-          mrr: overview.mrr,
+        console.log('✅ Successfully loaded REAL RevenueCat metrics:', {
+          totalUsers: userIds.length,
           activeSubscriptions: overview.active_subscriptions,
           activeTrials: overview.active_trials,
+          mrr: overview.mrr,
           products: products.length,
-          revenueDataPoints: revenue.length
+          revenueDataPoints: revenue.length,
+          productBreakdown: overview.product_breakdown,
+          storeBreakdown: overview.store_breakdown
         })
       }
     } catch (error) {
@@ -263,10 +275,10 @@ export default function AdminDashboard() {
         }
         
         // Refresh all data to show updated information
+        await loadUsers() // Load users first
         await Promise.all([
-          loadUsers(),
           loadStats(),
-          loadRevenueCatMetrics()
+          loadRevenueCatMetrics() // This now uses the updated users data
         ])
         
         const message = `🎉 Successfully synced ${updates.length} users!\n\n` +
@@ -279,9 +291,15 @@ export default function AdminDashboard() {
         
         alert(message)
         console.log('✅ RevenueCat sync completed successfully!')
+        
+        // Refresh RevenueCat metrics with the updated data
+        await loadRevenueCatMetrics()
       } else {
         alert('✨ All user subscription statuses are already up to date!')
         console.log('ℹ️ No updates needed - all data is current')
+        
+        // Still refresh metrics to show current data
+        await loadRevenueCatMetrics()
       }
     } catch (error) {
       console.error('❌ Error syncing RevenueCat data:', error)
