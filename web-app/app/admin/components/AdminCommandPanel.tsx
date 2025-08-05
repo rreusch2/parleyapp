@@ -13,7 +13,7 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
   const [isRunning, setIsRunning] = useState<string | null>(null)
   const { session } = useAuth()
 
-  const runCommand = async (command: string, label: string) => {
+  const runCommand = async (command: string, label: string, id: string) => {
     if (isRunning) return
     if (!session?.access_token) {
       toast.error('Authentication error: Not logged in')
@@ -22,13 +22,17 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
 
     setIsRunning(command)
     try {
-      const response = await fetch('/api/admin/run-command', {
+      const endpoint = id === 'setup-odds' ? '/api/admin/generate-odds' : '/api/admin/run-command'
+      const body = id === 'setup-odds' ? {} : { command }
+
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ command }),
+        body: JSON.stringify(body),
       })
       
       const data = await response.json()
@@ -114,7 +118,7 @@ export default function AdminCommandPanel({}: AdminCommandPanelProps) {
         {commands.map((cmd) => (
           <button
             key={cmd.id}
-            onClick={() => runCommand(cmd.command, cmd.label)}
+            onClick={() => runCommand(cmd.command, cmd.label, cmd.id)}
             disabled={isRunning !== null}
             className={`flex items-center p-3 rounded-lg text-white transition-all ${cmd.color} ${
               isRunning === cmd.command 

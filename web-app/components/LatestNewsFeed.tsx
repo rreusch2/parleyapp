@@ -19,7 +19,7 @@ import {
   BarChart3,
   Newspaper
 } from 'lucide-react'
-import { supabase } from '@/shared/services/supabaseClient'
+import { supabase } from '@/lib/supabase'
 
 interface NewsItem {
   id: string

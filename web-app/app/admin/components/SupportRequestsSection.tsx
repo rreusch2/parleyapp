@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import apiClient from '@/lib/apiClient'
 import { HelpCircle, User, Calendar, ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -31,24 +32,18 @@ export default function SupportRequestsSection() {
 
   const loadSupportRequests = async () => {
     try {
-      const params = new URLSearchParams({
+      const params = {
         page: currentPage.toString(),
         pageSize: pageSize.toString(),
         statusFilter: statusFilter,
         categoryFilter: categoryFilter
-      })
-
-      const response = await fetch(`/api/admin/support-requests?${params}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
-      const result = await response.json()
 
-      console.log('Support requests data loaded:', result.data?.length)
-      setRequests(result.data || [])
-      setTotalPages(result.totalPages || 1)
+      const { data } = await apiClient.get('/admin/support-requests', { params })
+
+      console.log('Support requests data loaded:', data.data?.length)
+      setRequests(data.data || [])
+      setTotalPages(data.totalPages || 1)
     } catch (error) {
       console.error('Error loading support requests:', error)
     } finally {
@@ -61,20 +56,10 @@ export default function SupportRequestsSection() {
     
     setUpdating(requestId)
     try {
-      const response = await fetch('/api/admin/support-requests', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: requestId,
-          status: newStatus
-        })
+      await apiClient.patch('/admin/support-requests', {
+        id: requestId,
+        status: newStatus
       })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
 
       await loadSupportRequests()
       alert(`✅ Support request status updated to ${newStatus}!`)

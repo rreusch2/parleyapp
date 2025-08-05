@@ -40,6 +40,7 @@ import QuickActions from './components/QuickActions'
 import FeedbackSection from './components/FeedbackSection'
 import SupportRequestsSection from './components/SupportRequestsSection'
 import TodaysPicksModal from './components/TodaysPicksModal'
+import RevenueCatAnalytics from './components/RevenueCatAnalytics'
 
 interface UserData {
   id: string
@@ -62,6 +63,13 @@ interface AdminStats {
   activeSubscriptions: number
   monthlyRevenue: number
   newUsersToday: number
+  yearlyPro: number
+  monthlyPro: number
+  weeklyPro: number
+  lifetimePro: number
+  yearlyElite: number
+  monthlyElite: number
+  weeklyElite: number
 }
 
 export default function AdminDashboard() {
@@ -75,7 +83,14 @@ export default function AdminDashboard() {
     eliteUsers: 0,
     activeSubscriptions: 0,
     monthlyRevenue: 0,
-    newUsersToday: 0
+    newUsersToday: 0,
+    yearlyPro: 0,
+    monthlyPro: 0,
+    weeklyPro: 0,
+    lifetimePro: 0,
+    yearlyElite: 0,
+    monthlyElite: 0,
+    weeklyElite: 0,
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'pro' | 'elite'>('all')
@@ -168,7 +183,7 @@ export default function AdminDashboard() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('subscription_tier, subscription_status, created_at')
+        .select('subscription_tier, subscription_status, created_at, subscription_plan_type')
 
       if (error) throw error
 
@@ -186,6 +201,19 @@ export default function AdminDashboard() {
 
       // Simple monthly revenue estimate (this would be better with real pricing data)
       const monthlyRevenue = (proUsers * 19.99) + (eliteUsers * 29.99)
+      
+      const activeSubs = data?.filter(user => user.subscription_status === 'active') || []
+      const proSubs = activeSubs.filter(user => user.subscription_tier === 'pro')
+      const eliteSubs = activeSubs.filter(user => user.subscription_tier === 'elite')
+
+      const yearlyPro = proSubs.filter(u => u.subscription_plan_type === 'yearly').length
+      const monthlyPro = proSubs.filter(u => u.subscription_plan_type === 'monthly').length
+      const weeklyPro = proSubs.filter(u => u.subscription_plan_type === 'weekly').length
+      const lifetimePro = proSubs.filter(u => u.subscription_plan_type === 'lifetime').length
+      
+      const yearlyElite = eliteSubs.filter(u => u.subscription_plan_type === 'yearly').length
+      const monthlyElite = eliteSubs.filter(u => u.subscription_plan_type === 'monthly').length
+      const weeklyElite = eliteSubs.filter(u => u.subscription_plan_type === 'weekly').length
 
       setStats({
         totalUsers: data?.length || 0,
@@ -193,7 +221,14 @@ export default function AdminDashboard() {
         eliteUsers,
         activeSubscriptions,
         monthlyRevenue,
-        newUsersToday
+        newUsersToday,
+        yearlyPro,
+        monthlyPro,
+        weeklyPro,
+        lifetimePro,
+        yearlyElite,
+        monthlyElite,
+        weeklyElite,
       })
     } catch (error) {
       console.error('Error loading stats:', error)
@@ -385,6 +420,46 @@ export default function AdminDashboard() {
           </motion.div>
         </div>
 
+        {/* Subscription Breakdown */}
+        <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Subscription Breakdown</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                <div className="lg:col-span-4">
+                    <h3 className="text-xl font-semibold text-blue-300 mb-4">Pro Tier</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Weekly Pro</p><p className="text-3xl font-bold text-white">{stats.weeklyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Monthly Pro</p><p className="text-3xl font-bold text-white">{stats.monthlyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Yearly Pro</p><p className="text-3xl font-bold text-white">{stats.yearlyPro}</p></div><Calendar className="w-8 h-8 text-blue-400" /></div>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 backdrop-blur-md rounded-xl p-6 border border-blue-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-blue-200 text-sm font-medium">Lifetime Pro</p><p className="text-3xl font-bold text-white">{stats.lifetimePro}</p></div><Award className="w-8 h-8 text-blue-400" /></div>
+                        </motion.div>
+                    </div>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-4">
+                    <h3 className="text-xl font-semibold text-purple-300 mb-4">Elite Tier</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Weekly Elite</p><p className="text-3xl font-bold text-white">{stats.weeklyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Monthly Elite</p><p className="text-3xl font-bold text-white">{stats.monthlyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                        </motion.div>
+                        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="bg-gradient-to-br from-purple-500/20 to-purple-600/20 backdrop-blur-md rounded-xl p-6 border border-purple-500/30">
+                            <div className="flex items-center justify-between"><div><p className="text-purple-200 text-sm font-medium">Yearly Elite</p><p className="text-3xl font-bold text-white">{stats.yearlyElite}</p></div><Calendar className="w-8 h-8 text-purple-400" /></div>
+                        </motion.div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {/* Quick Actions and Activity Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <QuickActions 
@@ -395,6 +470,14 @@ export default function AdminDashboard() {
           />
           <AdminCommandPanel />
         </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+        >
+          <RevenueCatAnalytics />
+        </motion.div>
 
         {/* Users Management */}
         <motion.div
@@ -444,6 +527,7 @@ export default function AdminDashboard() {
                   <th className="pb-3 text-gray-300 font-medium">User</th>
                   <th className="pb-3 text-gray-300 font-medium">Tier</th>
                   <th className="pb-3 text-gray-300 font-medium">Status</th>
+                  <th className="pb-3 text-gray-300 font-medium">Plan Type</th>
                   <th className="pb-3 text-gray-300 font-medium">Expires</th>
                   <th className="pb-3 text-gray-300 font-medium">Joined</th>
                   <th className="pb-3 text-gray-300 font-medium">Actions</th>
@@ -474,6 +558,9 @@ export default function AdminDashboard() {
                       <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusBadgeColor(user.subscription_status)}`}>
                         {user.subscription_status.toUpperCase()}
                       </span>
+                    </td>
+                    <td className="py-4 text-gray-300 capitalize">
+                      {user.subscription_plan_type || 'N/A'}
                     </td>
                     <td className="py-4 text-gray-300">
                       {user.subscription_expires_at ? formatDate(user.subscription_expires_at) : 'N/A'}

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { supabase } from '@/shared/services/supabaseClient'
+import { supabase } from '@/lib/supabase'
 import UserPreferencesModal, { UserPreferences } from './UserPreferencesModal'
 import TieredSubscriptionModal from './TieredSubscriptionModal'
 import WelcomeSpinWheel from './WelcomeSpinWheel'

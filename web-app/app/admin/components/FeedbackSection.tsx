@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import apiClient from '@/lib/apiClient'
 import { MessageSquare, Star, Calendar, User, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -27,23 +28,17 @@ export default function FeedbackSection() {
 
   const loadFeedback = async () => {
     try {
-      const params = new URLSearchParams({
+      const params = {
         page: currentPage.toString(),
         pageSize: pageSize.toString(),
         typeFilter: typeFilter
-      })
-
-      const response = await fetch(`/api/admin/feedback?${params}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
       }
-      
-      const result = await response.json()
 
-      console.log('Feedback data loaded:', result.data?.length)
-      setFeedback(result.data || [])
-      setTotalPages(result.totalPages || 1)
+      const { data } = await apiClient.get('/admin/feedback', { params })
+      
+      console.log('Feedback data loaded:', data.data?.length)
+      setFeedback(data.data || [])
+      setTotalPages(data.totalPages || 1)
     } catch (error) {
       console.error('Error loading feedback:', error)
     } finally {
