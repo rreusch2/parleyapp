@@ -163,40 +163,28 @@ export default function GamesScreen() {
       const games = response.data.data || [];
       console.log('Fetched games:', games.length);
 
-      // Filter for upcoming games (scheduled status for today and tomorrow)
+      // Filter for upcoming games (scheduled status for next 7 days to include NFL preseason)
       const today = new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      
-      const todayStr = today.toDateString();
-      const tomorrowStr = tomorrow.toDateString();
+      const nextWeek = new Date(today);
+      nextWeek.setDate(today.getDate() + 7);
       
       const now = new Date();
       
-      const todayGames = games.filter(game => {
+      const upcomingGamesList = games.filter(game => {
         const gameDate = new Date(game.start_time);
-        const gameDateStr = gameDate.toDateString();
-        
-        // Game must be scheduled AND either:
-        // 1. Game is in the future (hasn't started yet)
-        // 2. Game is within 30 minutes of start time (buffer for live games)
         const gameStartTime = gameDate.getTime();
         const currentTime = now.getTime();
         const timeDifference = gameStartTime - currentTime;
         const thirtyMinutesInMs = 30 * 60 * 1000;
         
+        // Game must be scheduled AND either:
+        // 1. Game is in the future (hasn't started yet)
+        // 2. Game is within 30 minutes of start time (buffer for live games)
+        // 3. Game is within the next 7 days (to show NFL preseason Aug 7-8)
         return game.status === 'scheduled' && 
-               gameDateStr === todayStr && 
+               gameStartTime <= nextWeek.getTime() && 
                timeDifference > -thirtyMinutesInMs; // Allow 30 min buffer for recently started games
       });
-
-      const tomorrowGames = games.filter(game => {
-        const gameDate = new Date(game.start_time);
-        const gameDateStr = gameDate.toDateString();
-        return game.status === 'scheduled' && gameDateStr === tomorrowStr;
-      });
-      
-      const upcomingGamesList = [...todayGames, ...tomorrowGames];
       
       // Enhance games with real odds and AI picks
       console.log(`🎯 Processing ${upcomingGamesList.length} upcoming games for enhancement`);
@@ -222,9 +210,7 @@ export default function GamesScreen() {
         })
       );
       
-      console.log('Today\'s games:', todayGames.length);
-      console.log('Tomorrow\'s games:', tomorrowGames.length);
-      console.log('Total upcoming games:', enhancedGames.length);
+      console.log('Total upcoming games (next 7 days):', enhancedGames.length);
 
       setUpcomingGames(enhancedGames);
       setLiveGames([]); // Clear live games
@@ -291,18 +277,18 @@ export default function GamesScreen() {
 
       const basicOdds: OddsData = {
         moneyline: { 
-          home: h2hMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110',
-          away: h2hMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString() || '+105'
+          home: h2hMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString(),
+          away: h2hMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString()
         },
         spread: { 
-          home: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString() || '-1.5',
-          away: spreadMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString() || '+1.5',
-          line: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110'
+          home: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString(),
+          away: spreadMarket?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString(),
+          line: spreadMarket?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString()
         },
         total: { 
-          over: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString() || '8.5',
-          under: totalMarket?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString() || '8.5',
-          line: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString() || '-110'
+          over: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString(),
+          under: totalMarket?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString(),
+          line: totalMarket?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString()
         }
       };
 
@@ -316,18 +302,18 @@ export default function GamesScreen() {
           return {
             bookName: book.title,
             moneyline: {
-              home: h2h?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110',
-              away: h2h?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString() || '+105'
+              home: h2h?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString(),
+              away: h2h?.outcomes?.find((o: any) => o.name === game.away_team)?.price?.toString()
             },
             spread: {
-              home: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString() || '-1.5',
-              away: spread?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString() || '+1.5',
-              line: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString() || '-110'
+              home: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.point?.toString(),
+              away: spread?.outcomes?.find((o: any) => o.name === game.away_team)?.point?.toString(),
+              line: spread?.outcomes?.find((o: any) => o.name === game.home_team)?.price?.toString()
             },
             total: {
-              over: total?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString() || '8.5',
-              under: total?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString() || '8.5',
-              line: total?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString() || '-110'
+              over: total?.outcomes?.find((o: any) => o.name === 'Over')?.point?.toString(),
+              under: total?.outcomes?.find((o: any) => o.name === 'Under')?.point?.toString(),
+              line: total?.outcomes?.find((o: any) => o.name === 'Over')?.price?.toString()
             },
             lastUpdated: new Date(book.last_update || Date.now())
           };

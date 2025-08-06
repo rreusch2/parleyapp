@@ -9,6 +9,12 @@ import { supabase } from './api/supabaseClient';
  */
 export async function registerForPushNotificationsAsync(): Promise<string | undefined> {
   try {
+    // Skip notifications on web platform
+    if (Platform.OS === 'web') {
+      console.log('📵 Push notifications not supported on web');
+      return undefined;
+    }
+
     // Android channel (required for foreground notifications)
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {

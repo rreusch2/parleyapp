@@ -24,7 +24,6 @@ import {
   Award,
 } from 'lucide-react-native';
 import { LineChart, BarChart, ContributionGraph } from 'react-native-chart-kit';
-import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { normalize, isTablet } from '../services/device';
 import { supabase } from '../services/api/supabaseClient';
 
@@ -40,149 +39,11 @@ interface PropLineData {
   eventId: string;
 }
 
-// Custom colored bar chart component
-interface CustomBarChartProps {
-  data: {
-    labels: string[];
-    datasets: Array<{
-      data: number[];
-      colors: string[];
-    }>;
-  };
-  width: number;
-  height: number;
-  propLine?: number;
-  yAxisLabel?: string;
-  chartConfig: any;
-}
-
-const CustomColoredBarChart: React.FC<CustomBarChartProps> = ({
-  data,
-  width,
-  height,
-  propLine,
-  yAxisLabel,
-  chartConfig
-}) => {
-  const { labels, datasets } = data;
-  const values = datasets[0]?.data || [];
-  const colors = datasets[0]?.colors || [];
-  
-  const maxValue = Math.max(...values, propLine || 0);
-  const minValue = Math.min(...values, 0);
-  const range = maxValue - minValue;
-  
-  const chartWidth = width - 80;
-  const chartHeight = height - 100;
-  const barWidth = Math.max(20, (chartWidth - 40) / labels.length - 10);
-  const barSpacing = Math.max(5, (chartWidth - 40 - (barWidth * labels.length)) / (labels.length - 1));
-  
-  return (
-    <View style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: 16, padding: 20 }}>
-      <Svg width={width} height={height}>
-        {/* Background */}
-        <Rect width={width} height={height} fill="transparent" />
-        
-        {/* Y-axis grid lines */}
-        {Array.from({ length: 6 }, (_, i) => {
-          const y = 60 + (i * (chartHeight - 60) / 5);
-          const value = maxValue - (i * range / 5);
-          return (
-            <G key={i}>
-              <Line
-                x1={60}
-                y1={y}
-                x2={width - 20}
-                y2={y}
-                stroke="rgba(148, 163, 184, 0.1)"
-                strokeWidth={1}
-              />
-              <SvgText
-                x={50}
-                y={y + 4}
-                fontSize={10}
-                fill="rgba(148, 163, 184, 0.8)"
-                textAnchor="end"
-              >
-                {value.toFixed(range < 5 ? 1 : 0)}
-              </SvgText>
-            </G>
-          );
-        })}
-        
-        {/* Prop line if available */}
-        {propLine !== undefined && propLine >= minValue && propLine <= maxValue && (
-          <Line
-            x1={60}
-            y1={60 + ((maxValue - propLine) / range) * (chartHeight - 60)}
-            x2={width - 20}
-            y2={60 + ((maxValue - propLine) / range) * (chartHeight - 60)}
-            stroke="#F59E0B"
-            strokeWidth={2.5}
-            strokeDasharray="8,4"
-            opacity={0.9}
-          />
-        )}
-        
-        {/* Bars */}
-        {values.map((value, index) => {
-          const barHeight = Math.max(2, ((value - minValue) / range) * (chartHeight - 80));
-          const x = 60 + index * (barWidth + barSpacing);
-          const y = chartHeight - 20 - barHeight;
-          
-          return (
-            <G key={index}>
-              <Rect
-                x={x}
-                y={y}
-                width={barWidth}
-                height={barHeight}
-                fill={colors[index] || '#3B82F6'}
-                rx={2}
-              />
-              {/* Value on top of bar */}
-              <SvgText
-                x={x + barWidth / 2}
-                y={y - 5}
-                fontSize={10}
-                fill="rgba(226, 232, 240, 0.9)"
-                textAnchor="middle"
-                fontWeight="600"
-              >
-                {value}
-              </SvgText>
-            </G>
-          );
-        })}
-        
-        {/* X-axis labels */}
-        {labels.map((label, index) => {
-          const x = 60 + index * (barWidth + barSpacing) + barWidth / 2;
-          return (
-            <SvgText
-              key={index}
-              x={x}
-              y={chartHeight + 15}
-              fontSize={10}
-              fill="rgba(148, 163, 184, 0.8)"
-              textAnchor="middle"
-            >
-              {label}
-            </SvgText>
-          );
-        })}
-      </Svg>
-    </View>
-  );
-};
-
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function TrendModal({ visible, trend, onClose }: TrendModalProps) {
   const [propLineData, setPropLineData] = useState<PropLineData | null>(null);
   const [loadingPropLine, setLoadingPropLine] = useState(false);
-
-  if (!trend) return null;
 
   // Fetch the actual prop line from the database
   useEffect(() => {
@@ -261,6 +122,9 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
     fetchPropLine();
   }, [visible, trend?.player_id, trend?.metadata?.prop_type_id, trend?.type, trend?.metadata?.prop_type]);
 
+  // Early return AFTER all hooks to prevent React Hooks violation
+  if (!trend) return null;
+
   const getSportIcon = (sport?: string) => {
     if (!sport) return '🏟️';
     switch (sport.toLowerCase()) {
@@ -319,64 +183,72 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         );
       }
       
-      // Generate meaningful X-axis labels with enhanced logic
+      // Generate labels for games (prioritize opponent teams from pybaseball data)
       const labels = recentGames.map((game: any, index: number) => {
         try {
-          // Try to get opponent abbreviation first
-          if (game?.opponent && game.opponent !== 'NaN' && game.opponent !== 'null' && game.opponent !== null && game.opponent !== undefined) {
-            const opponent = String(game.opponent).trim();
+          // Try to get opponent first (pybaseball format)
+          if (game?.opponent && typeof game.opponent === 'string' && game.opponent.length > 0) {
+            const opponent = game.opponent.trim().toUpperCase();
             
-            // Handle common team abbreviations and full names
+            // Enhanced team abbreviation mapping for pybaseball data
             const teamAbbreviations: { [key: string]: string } = {
-              'SFG': 'SF', 'SF Giants': 'SF', 'San Francisco Giants': 'SF',
-              'LAD': 'LAD', 'LA Dodgers': 'LAD', 'Los Angeles Dodgers': 'LAD',
-              'NYY': 'NYY', 'NY Yankees': 'NYY', 'New York Yankees': 'NYY',
-              'NYM': 'NYM', 'NY Mets': 'NYM', 'New York Mets': 'NYM',
-              'BOS': 'BOS', 'Boston Red Sox': 'BOS',
-              'PHI': 'PHI', 'Philadelphia Phillies': 'PHI',
-              'ATL': 'ATL', 'Atlanta Braves': 'ATL',
-              'MIA': 'MIA', 'Miami Marlins': 'MIA',
-              'WSN': 'WSH', 'Washington Nationals': 'WSH',
-              'TB': 'TB', 'Tampa Bay Rays': 'TB',
-              'BAL': 'BAL', 'Baltimore Orioles': 'BAL',
-              'TOR': 'TOR', 'Toronto Blue Jays': 'TOR',
-              'CLE': 'CLE', 'Cleveland Guardians': 'CLE',
-              'DET': 'DET', 'Detroit Tigers': 'DET',
-              'CWS': 'CWS', 'Chicago White Sox': 'CWS',
-              'KC': 'KC', 'Kansas City Royals': 'KC',
-              'MIN': 'MIN', 'Minnesota Twins': 'MIN',
-              'HOU': 'HOU', 'Houston Astros': 'HOU',
-              'LAA': 'LAA', 'Los Angeles Angels': 'LAA',
-              'OAK': 'OAK', 'Oakland Athletics': 'OAK',
-              'SEA': 'SEA', 'Seattle Mariners': 'SEA',
-              'TEX': 'TEX', 'Texas Rangers': 'TEX'
+              // Standard abbreviations
+              'NYY': 'NYY', 'BOS': 'BOS', 'TB': 'TB', 'TOR': 'TOR', 'BAL': 'BAL',
+              'CWS': 'CWS', 'CLE': 'CLE', 'DET': 'DET', 'KC': 'KC', 'MIN': 'MIN',
+              'HOU': 'HOU', 'LAA': 'LAA', 'OAK': 'OAK', 'SEA': 'SEA', 'TEX': 'TEX',
+              'NYM': 'NYM', 'WSH': 'WSH', 'MIA': 'MIA', 'ATL': 'ATL', 'PHI': 'PHI',
+              'CHC': 'CHC', 'MIL': 'MIL', 'STL': 'STL', 'CIN': 'CIN', 'PIT': 'PIT',
+              'SD': 'SD', 'SF': 'SF', 'LAD': 'LAD', 'COL': 'COL', 'AZ': 'AZ', 'ARI': 'AZ',
+              // Full team names
+              'NEW YORK YANKEES': 'NYY', 'BOSTON RED SOX': 'BOS', 'TAMPA BAY RAYS': 'TB',
+              'TORONTO BLUE JAYS': 'TOR', 'BALTIMORE ORIOLES': 'BAL', 'CHICAGO WHITE SOX': 'CWS',
+              'CLEVELAND GUARDIANS': 'CLE', 'DETROIT TIGERS': 'DET', 'KANSAS CITY ROYALS': 'KC',
+              'MINNESOTA TWINS': 'MIN', 'HOUSTON ASTROS': 'HOU', 'LOS ANGELES ANGELS': 'LAA',
+              'OAKLAND ATHLETICS': 'OAK', 'SEATTLE MARINERS': 'SEA', 'TEXAS RANGERS': 'TEX',
+              'NEW YORK METS': 'NYM', 'WASHINGTON NATIONALS': 'WSH', 'MIAMI MARLINS': 'MIA',
+              'ATLANTA BRAVES': 'ATL', 'PHILADELPHIA PHILLIES': 'PHI', 'CHICAGO CUBS': 'CHC',
+              'MILWAUKEE BREWERS': 'MIL', 'ST. LOUIS CARDINALS': 'STL', 'CINCINNATI REDS': 'CIN',
+              'PITTSBURGH PIRATES': 'PIT', 'SAN DIEGO PADRES': 'SD', 'SAN FRANCISCO GIANTS': 'SF',
+              'LOS ANGELES DODGERS': 'LAD', 'COLORADO ROCKIES': 'COL', 'ARIZONA DIAMONDBACKS': 'AZ'
             };
             
-            // Check if it's already a known abbreviation
+            // Direct lookup first
             if (teamAbbreviations[opponent]) {
               return teamAbbreviations[opponent];
             }
             
-            // If opponent is already short (3-4 chars), use it
-            if (opponent.length <= 4 && opponent.length >= 2) {
-              return opponent.toUpperCase();
-            } else if (opponent.length > 4) {
-              // Extract abbreviation from full team name
-              const words = opponent.split(' ').filter(word => word.length > 0);
-              if (words.length > 1) {
-                // Use last word (team name) first 3 chars
-                return words[words.length - 1].substring(0, 3).toUpperCase();
-              }
-              return opponent.substring(0, 3).toUpperCase();
+            // If already 2-4 chars, likely an abbreviation
+            if (opponent.length >= 2 && opponent.length <= 4) {
+              return opponent;
             }
+            
+            // For longer names, try to extract abbreviation
+            if (opponent.length > 4) {
+              const words = opponent.split(' ').filter(word => word.length > 0);
+              if (words.length >= 2) {
+                // Use last word (team name) first 3 chars
+                return words[words.length - 1].substring(0, 3);
+              }
+              return opponent.substring(0, 3);
+            }
+            
+            return opponent;
           }
           
-          // Fallback to date if available
+          // Fallback to date if available (pybaseball format: "07/25" or "2025-07-25")
           if (game?.date && game.date !== 'NaN' && game.date !== null && game.date !== undefined) {
+            const dateStr = String(game.date).trim();
+            
+            // Handle "07/25" format
+            if (dateStr.includes('/') && dateStr.length <= 6) {
+              return dateStr;
+            }
+            
+            // Handle full date format
             try {
-              const date = new Date(game.date);
+              const date = new Date(dateStr);
               if (!isNaN(date.getTime())) {
-                return `${date.getMonth() + 1}/${date.getDate()}`;
+                return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
               }
             } catch (dateError) {
               console.warn('Date parsing error:', dateError);
@@ -386,7 +258,7 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
           console.warn('Error processing game label:', e, game);
         }
         
-        // Final fallback to game number (most recent first)
+        // Final fallback to game number (oldest to newest)
         return `G${index + 1}`;
       });
       
@@ -592,13 +464,16 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
               )}
             </Text>
             <View style={styles.chartContainer}>
-              <CustomColoredBarChart
+              <BarChart
                 data={data}
                 width={screenWidth - 80}
                 height={220}
-                propLine={propLineData?.line}
                 yAxisLabel={yAxisLabel}
+                yAxisSuffix=""
                 chartConfig={chartConfig}
+                verticalLabelRotation={0}
+                showValuesOnTopOfBars={true}
+                fromZero={true}
               />
               
               {/* Prop line info display */}

@@ -115,6 +115,18 @@ class SportsApi {
     }
   }
 
+  // Get real odds for a game from odds_data table
+  async getGameOdds(gameId: string) {
+    try {
+      const headers = await this.getAuthHeader();
+      const response = await this.api.get(`/sports-events/${gameId}/odds`, { headers });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching odds for game ${gameId}:`, error);
+      return null;
+    }
+  }
+
   // Search for games
   async searchGames(query: string): Promise<SportsEvent[]> {
     try {

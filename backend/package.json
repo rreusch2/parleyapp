@@ -13,7 +13,8 @@
     "daily-automation": "./daily-automation.sh",
     "odds-integration": "ts-node src/scripts/setupOddsIntegration.ts",
     "odds": "ts-node src/scripts/setupOddsIntegration.ts",
-    "orchestrator": "ts-node src/scripts/run-orchestrator.ts"
+    "orchestrator": "ts-node src/scripts/run-orchestrator.ts",
+    "nfl-preseason": "ts-node src/scripts/fetchNFLPreseason.ts"
   },
   "dependencies": {
     "@babel/cli": "^7.28.0",

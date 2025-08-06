@@ -1455,6 +1455,8 @@ REMEMBER:
                             sport = "MLB"
                         elif game_sport == "Ultimate Fighting Championship":
                             sport = "UFC"
+                        elif game_sport == "National Football League":
+                            sport = "NFL"
                         
                         # Create proper game info with team matchup
                         home_team = game.get('home_team', 'Unknown')
