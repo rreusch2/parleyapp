@@ -187,7 +187,7 @@ class DatabaseClient:
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -469,7 +469,7 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
         """Generate abundant picks across all available sports for frontend filtering"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0}
+        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
@@ -480,6 +480,8 @@ class IntelligentTeamsAgent:
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
                 sport_counts["MMA"] += 1
+            elif sport == "National Football League":
+                sport_counts["NFL"] += 1
         
         logger.info(f"Available games by sport: {sport_counts}")
         
@@ -514,7 +516,7 @@ class IntelligentTeamsAgent:
         total_expected = sum(active_sports.values())
         
         # Generate requirements for each sport
-        sport_order = ["WNBA", "MLB", "MMA"]  # Preferred ordering
+        sport_order = ["NFL", "MLB", "WNBA", "MMA"]  # Preferred ordering (NFL priority during season)
         for sport in sport_order:
             if sport in active_sports:
                 picks_count = active_sports[sport]

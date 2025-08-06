@@ -75,6 +75,38 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
       end: '2025-12-31',
       current: '2025'
     }
+  },
+  
+  NFL: {
+    sportKey: 'NFL',
+    sportName: 'National Football League',
+    theoddsKey: 'americanfootball_nfl',
+    propMarkets: [
+      'player_pass_yds',
+      'player_pass_tds',
+      'player_pass_completions',
+      'player_pass_attempts',
+      'player_pass_interceptions',
+      'player_rush_yds',
+      'player_rush_attempts',
+      'player_rush_tds',
+      'player_receptions',
+      'player_reception_yds',
+      'player_reception_tds',
+      'player_kicking_points',
+      'player_field_goals',
+      'player_tackles_assists',
+      'player_1st_td',
+      'player_last_td',
+      'player_anytime_td'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('NFL') && process.env.ENABLE_NFL_DATA === 'true',
+    seasonInfo: {
+      start: '2025-09-01',
+      end: '2026-02-28',
+      current: '2025'
+    }
   }
 };
 
@@ -90,6 +122,9 @@ export const getActiveSportConfigs = (): SportConfig[] => {
     }
     if (sport.sportKey === 'UFC') {
       return activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
+    }
+    if (sport.sportKey === 'NFL') {
+      return activeSports.includes('NFL') && process.env.ENABLE_NFL_DATA === 'true';
     }
     return false;
   });
@@ -107,48 +142,64 @@ export interface PickDistribution {
   mlb: { team: number; props: number };
   wnba: { team: number; props: number };
   ufc: { fights: number };
+  nfl: { team: number; props: number };
   total: number;
 }
 
 export const getPickDistribution = (userPreferences?: Record<string, boolean>): PickDistribution => {
   const activeSports = getActiveSportConfigs();
-  const prefs = userPreferences || { mlb: true, wnba: true, ufc: true };
+  const prefs = userPreferences || { mlb: true, wnba: true, ufc: true, nfl: true };
   
-  // Default distribution for all sports enabled
-  if (prefs.mlb && prefs.wnba && prefs.ufc) {
+  // Default distribution for all sports enabled (NFL season priority)
+  if (prefs.mlb && prefs.wnba && prefs.ufc && prefs.nfl) {
+    return {
+      mlb: { team: 3, props: 3 },
+      wnba: { team: 2, props: 2 },
+      ufc: { fights: 2 },
+      nfl: { team: 4, props: 4 },
+      total: 20
+    };
+  }
+  
+  // NFL + MLB (most common during NFL season)
+  if (prefs.mlb && !prefs.wnba && !prefs.ufc && prefs.nfl) {
+    return {
+      mlb: { team: 4, props: 4 },
+      wnba: { team: 0, props: 0 },
+      ufc: { fights: 0 },
+      nfl: { team: 6, props: 6 },
+      total: 20
+    };
+  }
+  
+  // NFL only (during peak NFL season)
+  if (!prefs.mlb && !prefs.wnba && !prefs.ufc && prefs.nfl) {
+    return {
+      mlb: { team: 0, props: 0 },
+      wnba: { team: 0, props: 0 },
+      ufc: { fights: 0 },
+      nfl: { team: 10, props: 10 },
+      total: 20
+    };
+  }
+  
+  // Legacy: MLB + WNBA + UFC (no NFL)
+  if (prefs.mlb && prefs.wnba && prefs.ufc && !prefs.nfl) {
     return {
       mlb: { team: 4, props: 4 },
       wnba: { team: 4, props: 4 },
       ufc: { fights: 4 },
+      nfl: { team: 0, props: 0 },
       total: 20
     };
   }
   
-  // If user disables WNBA
-  if (prefs.mlb && !prefs.wnba && prefs.ufc) {
-    return {
-      mlb: { team: 6, props: 6 },
-      wnba: { team: 0, props: 0 },
-      ufc: { fights: 8 },
-      total: 20
-    };
-  }
-  
-  // If user disables UFC
-  if (prefs.mlb && prefs.wnba && !prefs.ufc) {
-    return {
-      mlb: { team: 5, props: 5 },
-      wnba: { team: 5, props: 5 },
-      ufc: { fights: 0 },
-      total: 20
-    };
-  }
-  
-  // MLB only (current behavior)
+  // MLB only (legacy behavior)
   return {
     mlb: { team: 10, props: 10 },
     wnba: { team: 0, props: 0 },
     ufc: { fights: 0 },
+    nfl: { team: 0, props: 0 },
     total: 20
   };
 };

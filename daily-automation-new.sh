@@ -83,7 +83,7 @@ cd "$PROJECT_ROOT"
 # Step 3: Generate Personalized Enhanced Insights
 log "💡 Step 3/6: Generating personalized enhanced insights..."
 
-if python3 insights_personalized_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
+if python3 enhanced_insights.py --tomorrow >> "$LOG_FILE" 2>&1; then
     log "✅ Personalized enhanced insights completed successfully"
 else
     handle_error "Personalized enhanced insights failed" "Insights generation"

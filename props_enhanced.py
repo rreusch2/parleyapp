@@ -201,7 +201,7 @@ class DatabaseClient:
             
             # Fetch games from MLB and WNBA only - as per requirements (only these have player props)
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "National Football League"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -409,7 +409,7 @@ class IntelligentPlayerPropsAgent:
         
     def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 40) -> Dict[str, int]:
         """Generate abundant player props across all available sports for frontend filtering"""
-        sport_counts = {"MLB": 0, "WNBA": 0}
+        sport_counts = {"MLB": 0, "WNBA": 0, "NFL": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
@@ -418,31 +418,59 @@ class IntelligentPlayerPropsAgent:
                 sport_counts["MLB"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
+            elif sport == "National Football League":
+                sport_counts["NFL"] += 1
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # PRIORITIZE MLB PROPS - generate more MLB than WNBA
+        # PRIORITIZE NFL DURING SEASON, THEN MLB, THEN WNBA
         distribution = {}
         
         mlb_games = sport_counts.get("MLB", 0)
         wnba_games = sport_counts.get("WNBA", 0)
+        nfl_games = sport_counts.get("NFL", 0)
         
-        if mlb_games > 0 and wnba_games > 0:
-            # Both sports available - heavily favor MLB (70% of picks)
-            total_available = target_picks
-            distribution["MLB"] = min(25, max(15, int(total_available * 0.70)))  # 70% MLB
-            distribution["WNBA"] = min(15, max(8, int(total_available * 0.30)))   # 30% WNBA
+        total_sports_with_games = sum(1 for count in [mlb_games, wnba_games, nfl_games] if count > 0)
+        
+        if nfl_games > 0 and mlb_games > 0 and wnba_games > 0:
+            # All three sports available - NFL priority (50%), MLB (30%), WNBA (20%)
+            distribution["NFL"] = min(20, max(12, int(target_picks * 0.50)))   # 50% NFL
+            distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))    # 30% MLB
+            distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))   # 20% WNBA
+        elif nfl_games > 0 and mlb_games > 0:
+            # NFL + MLB available - NFL priority (60%), MLB (40%)
+            distribution["NFL"] = min(25, max(15, int(target_picks * 0.60)))   # 60% NFL
+            distribution["MLB"] = min(20, max(10, int(target_picks * 0.40)))   # 40% MLB
+            distribution["WNBA"] = 0
+        elif nfl_games > 0 and wnba_games > 0:
+            # NFL + WNBA available - NFL priority (70%), WNBA (30%)
+            distribution["NFL"] = min(25, max(15, int(target_picks * 0.70)))   # 70% NFL
+            distribution["WNBA"] = min(15, max(8, int(target_picks * 0.30)))   # 30% WNBA
+            distribution["MLB"] = 0
+        elif mlb_games > 0 and wnba_games > 0:
+            # MLB + WNBA available (no NFL) - heavily favor MLB (70%)
+            distribution["MLB"] = min(25, max(15, int(target_picks * 0.70)))   # 70% MLB
+            distribution["WNBA"] = min(15, max(8, int(target_picks * 0.30)))   # 30% WNBA
+            distribution["NFL"] = 0
+        elif nfl_games > 0:
+            # Only NFL available
+            distribution["NFL"] = min(30, max(20, target_picks))
+            distribution["MLB"] = 0
+            distribution["WNBA"] = 0
         elif mlb_games > 0:
             # Only MLB available
             distribution["MLB"] = min(30, max(20, target_picks))
             distribution["WNBA"] = 0
+            distribution["NFL"] = 0
         elif wnba_games > 0:
             # Only WNBA available
-            distribution["MLB"] = 0
             distribution["WNBA"] = min(20, max(15, target_picks))
+            distribution["MLB"] = 0
+            distribution["NFL"] = 0
         else:
             distribution["MLB"] = 0
             distribution["WNBA"] = 0
+            distribution["NFL"] = 0
         
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution

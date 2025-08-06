@@ -24,6 +24,7 @@ import {
   Award,
 } from 'lucide-react-native';
 import { LineChart, BarChart, ContributionGraph } from 'react-native-chart-kit';
+import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import { normalize, isTablet } from '../services/device';
 import { supabase } from '../services/api/supabaseClient';
 
@@ -39,6 +40,142 @@ interface PropLineData {
   eventId: string;
 }
 
+// Custom colored bar chart component
+interface CustomBarChartProps {
+  data: {
+    labels: string[];
+    datasets: Array<{
+      data: number[];
+      colors: string[];
+    }>;
+  };
+  width: number;
+  height: number;
+  propLine?: number;
+  yAxisLabel?: string;
+  chartConfig: any;
+}
+
+const CustomColoredBarChart: React.FC<CustomBarChartProps> = ({
+  data,
+  width,
+  height,
+  propLine,
+  yAxisLabel,
+  chartConfig
+}) => {
+  const { labels, datasets } = data;
+  const values = datasets[0]?.data || [];
+  const colors = datasets[0]?.colors || [];
+  
+  const maxValue = Math.max(...values, propLine || 0);
+  const minValue = Math.min(...values, 0);
+  const range = maxValue - minValue;
+  
+  const chartWidth = width - 80;
+  const chartHeight = height - 100;
+  const barWidth = Math.max(20, (chartWidth - 40) / labels.length - 10);
+  const barSpacing = Math.max(5, (chartWidth - 40 - (barWidth * labels.length)) / (labels.length - 1));
+  
+  return (
+    <View style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)', borderRadius: 16, padding: 20 }}>
+      <Svg width={width} height={height}>
+        {/* Background */}
+        <Rect width={width} height={height} fill="transparent" />
+        
+        {/* Y-axis grid lines */}
+        {Array.from({ length: 6 }, (_, i) => {
+          const y = 60 + (i * (chartHeight - 60) / 5);
+          const value = maxValue - (i * range / 5);
+          return (
+            <G key={i}>
+              <Line
+                x1={60}
+                y1={y}
+                x2={width - 20}
+                y2={y}
+                stroke="rgba(148, 163, 184, 0.1)"
+                strokeWidth={1}
+              />
+              <SvgText
+                x={50}
+                y={y + 4}
+                fontSize={10}
+                fill="rgba(148, 163, 184, 0.8)"
+                textAnchor="end"
+              >
+                {value.toFixed(range < 5 ? 1 : 0)}
+              </SvgText>
+            </G>
+          );
+        })}
+        
+        {/* Prop line if available */}
+        {propLine !== undefined && propLine >= minValue && propLine <= maxValue && (
+          <Line
+            x1={60}
+            y1={60 + ((maxValue - propLine) / range) * (chartHeight - 60)}
+            x2={width - 20}
+            y2={60 + ((maxValue - propLine) / range) * (chartHeight - 60)}
+            stroke="#F59E0B"
+            strokeWidth={2.5}
+            strokeDasharray="8,4"
+            opacity={0.9}
+          />
+        )}
+        
+        {/* Bars */}
+        {values.map((value, index) => {
+          const barHeight = Math.max(2, ((value - minValue) / range) * (chartHeight - 80));
+          const x = 60 + index * (barWidth + barSpacing);
+          const y = chartHeight - 20 - barHeight;
+          
+          return (
+            <G key={index}>
+              <Rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                fill={colors[index] || '#3B82F6'}
+                rx={2}
+              />
+              {/* Value on top of bar */}
+              <SvgText
+                x={x + barWidth / 2}
+                y={y - 5}
+                fontSize={10}
+                fill="rgba(226, 232, 240, 0.9)"
+                textAnchor="middle"
+                fontWeight="600"
+              >
+                {value}
+              </SvgText>
+            </G>
+          );
+        })}
+        
+        {/* X-axis labels */}
+        {labels.map((label, index) => {
+          const x = 60 + index * (barWidth + barSpacing) + barWidth / 2;
+          return (
+            <SvgText
+              key={index}
+              x={x}
+              y={chartHeight + 15}
+              fontSize={10}
+              fill="rgba(148, 163, 184, 0.8)"
+              textAnchor="middle"
+            >
+              {label}
+            </SvgText>
+          );
+        })}
+      </Svg>
+    </View>
+  );
+};
+
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function TrendModal({ visible, trend, onClose }: TrendModalProps) {
@@ -50,22 +187,48 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
   // Fetch the actual prop line from the database
   useEffect(() => {
     const fetchPropLine = async () => {
-      if (!trend?.player_id || !trend?.metadata?.prop_type_id) return;
+      if (!trend?.player_id || !visible || trend?.type !== 'player_prop') {
+        setPropLineData(null);
+        return;
+      }
       
       setLoadingPropLine(true);
       try {
-        // Get the most recent prop line for this player and prop type
-        const { data: propData, error } = await supabase
+        // First try to get prop line using metadata prop_type_id if available
+        let propQuery = supabase
           .from('player_props_odds')
           .select(`
             line,
             event_id,
+            over_odds,
+            under_odds,
             player_prop_types!inner(prop_name, prop_key)
           `)
           .eq('player_id', trend.player_id)
-          .eq('prop_type_id', trend.metadata.prop_type_id)
-          .order('created_at', { ascending: false })
-          .limit(1);
+          .order('created_at', { ascending: false });
+
+        // If we have specific prop type from metadata, use it
+        if (trend?.metadata?.prop_type_id) {
+          propQuery = propQuery.eq('prop_type_id', trend.metadata.prop_type_id);
+        } else {
+          // Otherwise, try to match based on the trend's prop type
+          const propType = trend?.metadata?.prop_type || trend?.metadata?.chart_type || 'hits';
+          const propKeyMap: { [key: string]: string } = {
+            'hits': 'batter_hits',
+            'home_runs': 'batter_home_runs', 
+            'rbis': 'batter_rbis',
+            'runs': 'batter_runs_scored',
+            'total_bases': 'batter_total_bases',
+            'strikeouts': 'pitcher_strikeouts'
+          };
+          const propKey = propKeyMap[propType.toLowerCase()] || 'batter_hits';
+          
+          // Join with player_prop_types to filter by prop_key
+          propQuery = propQuery.eq('player_prop_types.prop_key', propKey);
+        }
+
+        propQuery = propQuery.limit(1);
+        const { data: propData, error } = await propQuery;
 
         if (error) {
           console.error('Error fetching prop line:', error);
@@ -76,13 +239,16 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
           const prop = propData[0];
           const propTypes = prop.player_prop_types as any;
           const lineValue = parseFloat(prop.line);
-          if (!isNaN(lineValue) && lineValue > 0) {
+          if (!isNaN(lineValue) && lineValue >= 0) {
             setPropLineData({
               line: lineValue,
               propType: propTypes?.prop_name || 'Unknown',
               eventId: prop.event_id
             });
+            console.log('✅ Found prop line:', lineValue, 'for', propTypes?.prop_name);
           }
+        } else {
+          console.log('❌ No prop line found for player:', trend.full_player_name);
         }
       } catch (error) {
         console.error('Error fetching prop line:', error);
@@ -92,12 +258,8 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
       }
     };
 
-    if (visible && trend?.type === 'player_prop') {
-      fetchPropLine();
-    } else {
-      setPropLineData(null);
-    }
-  }, [visible, trend?.player_id, trend?.metadata?.prop_type_id, trend?.type]);
+    fetchPropLine();
+  }, [visible, trend?.player_id, trend?.metadata?.prop_type_id, trend?.type, trend?.metadata?.prop_type]);
 
   const getSportIcon = (sport?: string) => {
     if (!sport) return '🏟️';
@@ -157,36 +319,75 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         );
       }
       
-      // Generate meaningful X-axis labels with safety checks
+      // Generate meaningful X-axis labels with enhanced logic
       const labels = recentGames.map((game: any, index: number) => {
         try {
           // Try to get opponent abbreviation first
-          if (game?.opponent && game.opponent !== 'NaN' && game.opponent !== 'null' && game.opponent !== null) {
+          if (game?.opponent && game.opponent !== 'NaN' && game.opponent !== 'null' && game.opponent !== null && game.opponent !== undefined) {
             const opponent = String(game.opponent).trim();
-            // If opponent is already short, use it
-            if (opponent.length <= 4) {
-              return `vs ${opponent}`;
-            } else {
+            
+            // Handle common team abbreviations and full names
+            const teamAbbreviations: { [key: string]: string } = {
+              'SFG': 'SF', 'SF Giants': 'SF', 'San Francisco Giants': 'SF',
+              'LAD': 'LAD', 'LA Dodgers': 'LAD', 'Los Angeles Dodgers': 'LAD',
+              'NYY': 'NYY', 'NY Yankees': 'NYY', 'New York Yankees': 'NYY',
+              'NYM': 'NYM', 'NY Mets': 'NYM', 'New York Mets': 'NYM',
+              'BOS': 'BOS', 'Boston Red Sox': 'BOS',
+              'PHI': 'PHI', 'Philadelphia Phillies': 'PHI',
+              'ATL': 'ATL', 'Atlanta Braves': 'ATL',
+              'MIA': 'MIA', 'Miami Marlins': 'MIA',
+              'WSN': 'WSH', 'Washington Nationals': 'WSH',
+              'TB': 'TB', 'Tampa Bay Rays': 'TB',
+              'BAL': 'BAL', 'Baltimore Orioles': 'BAL',
+              'TOR': 'TOR', 'Toronto Blue Jays': 'TOR',
+              'CLE': 'CLE', 'Cleveland Guardians': 'CLE',
+              'DET': 'DET', 'Detroit Tigers': 'DET',
+              'CWS': 'CWS', 'Chicago White Sox': 'CWS',
+              'KC': 'KC', 'Kansas City Royals': 'KC',
+              'MIN': 'MIN', 'Minnesota Twins': 'MIN',
+              'HOU': 'HOU', 'Houston Astros': 'HOU',
+              'LAA': 'LAA', 'Los Angeles Angels': 'LAA',
+              'OAK': 'OAK', 'Oakland Athletics': 'OAK',
+              'SEA': 'SEA', 'Seattle Mariners': 'SEA',
+              'TEX': 'TEX', 'Texas Rangers': 'TEX'
+            };
+            
+            // Check if it's already a known abbreviation
+            if (teamAbbreviations[opponent]) {
+              return teamAbbreviations[opponent];
+            }
+            
+            // If opponent is already short (3-4 chars), use it
+            if (opponent.length <= 4 && opponent.length >= 2) {
+              return opponent.toUpperCase();
+            } else if (opponent.length > 4) {
               // Extract abbreviation from full team name
               const words = opponent.split(' ').filter(word => word.length > 0);
               if (words.length > 1) {
-                return `vs ${words[words.length - 1].substring(0, 3).toUpperCase()}`;
+                // Use last word (team name) first 3 chars
+                return words[words.length - 1].substring(0, 3).toUpperCase();
               }
-              return `vs ${opponent.substring(0, 3).toUpperCase()}`;
+              return opponent.substring(0, 3).toUpperCase();
             }
           }
+          
           // Fallback to date if available
-          else if (game?.date && game.date !== 'NaN' && game.date !== null) {
-            const date = new Date(game.date);
-            if (!isNaN(date.getTime())) {
-              return `${date.getMonth() + 1}/${date.getDate()}`;
+          if (game?.date && game.date !== 'NaN' && game.date !== null && game.date !== undefined) {
+            try {
+              const date = new Date(game.date);
+              if (!isNaN(date.getTime())) {
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+              }
+            } catch (dateError) {
+              console.warn('Date parsing error:', dateError);
             }
           }
         } catch (e) {
-          console.warn('Error processing game label:', e);
+          console.warn('Error processing game label:', e, game);
         }
-        // Final fallback to game number
-        return `G${recentGames.length - index}`;
+        
+        // Final fallback to game number (most recent first)
+        return `G${index + 1}`;
       });
       
       let datasets = [];
@@ -252,22 +453,27 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         
         // Create dynamic colors based on prop line if available
         let barColors = [];
-        if (propLineData && typeof propLineData.line === 'number' && propLineData.line > 0) {
+        const hasValidPropLine = propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0;
+        
+        if (hasValidPropLine) {
           barColors = values.map(value => {
-            return (typeof value === 'number' && value >= propLineData.line) 
-              ? 'rgba(34, 197, 94, 0.8)' // Green for above line
-              : 'rgba(239, 68, 68, 0.8)'; // Red for below line
+            if (typeof value === 'number') {
+              return value >= propLineData.line 
+                ? '#22C55E' // Bright green for above/equal to line
+                : '#EF4444'; // Bright red for below line
+            }
+            return '#6B7280'; // Gray for invalid values
           });
         } else {
-          // Default color if no prop line
-          barColors = values.map(() => 'rgba(34, 197, 94, 0.8)');
+          // Default blue color if no prop line
+          barColors = values.map(() => '#3B82F6');
         }
 
         datasets = [{
           data: values,
           color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`, // Green for line charts
           strokeWidth: 3,
-          colors: barColors, // For bar charts
+          colors: barColors, // For bar charts - this will be used by our custom renderer
         }];
       } else {
         // Team trends
@@ -307,26 +513,35 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
       };
 
       // Calculate better Y-axis intervals
-      const calculateYAxisIntervals = (maxVal: number, minVal: number = 0) => {
-        const range = maxVal - minVal;
-        let interval;
+      const calculateYAxisIntervals = (maxVal: number, minVal: number = 0, propLine?: number) => {
+        // Include prop line in range calculation if available
+        const effectiveMax = propLine ? Math.max(maxVal, propLine) : maxVal;
+        const effectiveMin = Math.min(minVal, 0);
+        const range = effectiveMax - effectiveMin;
         
-        if (range <= 5) {
+        let interval;
+        if (range <= 3) {
+          interval = 0.5;
+        } else if (range <= 5) {
           interval = 1;
         } else if (range <= 10) {
           interval = 2;
         } else if (range <= 25) {
           interval = 5;
         } else {
-          interval = Math.ceil(range / 5);
+          interval = Math.ceil(range / 6);
         }
         
-        return Math.max(1, interval);
+        return Math.max(isDecimalData ? 0.1 : 1, interval);
       };
 
       const minValue = Math.min(...datasets[0].data, 0);
-      const yAxisInterval = calculateYAxisIntervals(maxValue, minValue);
-      const segments = Math.min(6, Math.ceil((maxValue - minValue) / yAxisInterval));
+      const propLine = propLineData?.line;
+      const yAxisInterval = calculateYAxisIntervals(maxValue, minValue, propLine);
+      
+      // Ensure we have reasonable segments (3-8 segments)
+      const range = Math.max(maxValue, propLine || 0) - minValue;
+      const segments = Math.max(3, Math.min(8, Math.ceil(range / yAxisInterval)));
 
       const chartConfig = {
         backgroundColor: 'transparent',
@@ -353,13 +568,13 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         segments: segments,
         yAxisInterval: yAxisInterval,
         // Add prop line if available
-        ...(propLineData && propLineData.line > 0 && {
+        ...(propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && {
           horizontalLines: [{
             value: propLineData.line,
-            color: '#F59E0B',
-            strokeDasharray: '5,5',
-            strokeWidth: 2,
-            opacity: 0.8,
+            color: '#F59E0B', // Amber color for prop line
+            strokeDasharray: '8,4', // Dotted line pattern
+            strokeWidth: 2.5,
+            opacity: 0.9,
           }]
         })
       };
@@ -377,27 +592,18 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
               )}
             </Text>
             <View style={styles.chartContainer}>
-              <BarChart
+              <CustomColoredBarChart
                 data={data}
                 width={screenWidth - 80}
                 height={220}
-                yAxisLabel=""
-                yAxisSuffix=""
+                propLine={propLineData?.line}
+                yAxisLabel={yAxisLabel}
                 chartConfig={chartConfig}
-                style={styles.chart}
-                showValuesOnTopOfBars
-                fromZero={!isDecimalData}
-                verticalLabelRotation={labels.some(label => label.length > 6) ? 45 : 0}
               />
               
-              {/* Render prop line overlay */}
-              {propLineData && typeof propLineData.line === 'number' && propLineData.line > 0 && typeof maxValue === 'number' && maxValue > 0 && (
-                <View style={[
-                  styles.propLineOverlay,
-                  {
-                    bottom: Math.max(40, Math.min(220, ((propLineData.line / Math.max(maxValue, propLineData.line + 1)) * 180) + 40)),
-                  }
-                ]}>
+              {/* Prop line info display */}
+              {propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && (
+                <View style={styles.propLineInfo}>
                   <View style={styles.propLineDashed} />
                   <Text style={styles.propLineLabel}>
                     Line: {propLineData.line.toFixed(1)}
@@ -974,6 +1180,10 @@ const styles = StyleSheet.create({
     borderRadius: normalize(16),
     padding: normalize(20),
     marginBottom: normalize(24),
+  },
+  propLineInfo: {
+    marginTop: 10,
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: normalize(18),

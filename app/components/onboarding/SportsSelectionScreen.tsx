@@ -22,7 +22,7 @@ interface SportsSelectionScreenProps {
 }
 
 interface SportOption {
-  key: 'mlb' | 'wnba' | 'ufc';
+  key: 'mlb' | 'wnba' | 'ufc' | 'nfl';
   name: string;
   fullName: string;
   icon: string;
@@ -59,6 +59,15 @@ const sportOptions: SportOption[] = [
     gradient: ['#26de81', '#20bf6b'],
     season: 'Year Round',
   },
+  {
+    key: 'nfl',
+    name: 'NFL',
+    fullName: 'National Football League',
+    icon: '🏈',
+    description: 'America\'s most popular sport with thrilling matchups',
+    gradient: ['#fd79a8', '#e84393'],
+    season: 'Sep - Feb',
+  },
 ];
 
 const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
@@ -67,7 +76,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
   isExistingUser,
 }) => {
   const [selectedSports, setSelectedSports] = useState(
-    currentPreferences?.sportPreferences || { mlb: true, wnba: false, ufc: false }
+    currentPreferences?.sportPreferences || { mlb: true, wnba: false, ufc: false, nfl: true }
   );
   const [animatedValues] = useState(
     sportOptions.reduce((acc, sport) => {
@@ -76,7 +85,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
     }, {} as Record<string, Animated.Value>)
   );
 
-  const toggleSport = (sportKey: 'mlb' | 'wnba' | 'ufc') => {
+  const toggleSport = (sportKey: 'mlb' | 'wnba' | 'ufc' | 'nfl') => {
     const newSelected = { ...selectedSports, [sportKey]: !selectedSports[sportKey] };
     setSelectedSports(newSelected);
 
