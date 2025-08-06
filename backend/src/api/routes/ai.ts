@@ -2427,4 +2427,134 @@ router.get('/daily-picks-combined', async (req, res) => {
   }
 });
 
+// New endpoint: Get full predictions from ai_predictions table with tier-based limits
+router.get('/predictions', async (req, res) => {
+  try {
+    const { userId, userTier } = req.query as { userId?: string; userTier?: string };
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    logger.info(`🎯 Fetching full predictions for user ${userId} (tier: ${userTier})`);
+    
+    // Get today's date in ISO format
+    const today = new Date();
+    const todayISO = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Determine pick limits based on tier
+    let teamPicksLimit = 1; // Free tier default
+    let playerPropsLimit = 1; // Free tier default
+    
+    if (userTier === 'pro') {
+      teamPicksLimit = 10;
+      playerPropsLimit = 10;
+    } else if (userTier === 'elite') {
+      teamPicksLimit = 15;
+      playerPropsLimit = 15;
+    }
+    
+    logger.info(`📊 Fetching ${teamPicksLimit} team picks + ${playerPropsLimit} player props for ${userTier} tier`);
+    
+    // Fetch team picks (ML, spreads, totals)
+    const teamPicksResult = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', `${todayISO}T00:00:00.000Z`)
+      .lt('created_at', `${todayISO}T23:59:59.999Z`)
+      .in('bet_type', ['moneyline', 'spread', 'total', 'ML', 'over', 'under'])
+      .order('created_at', { ascending: false })
+      .limit(teamPicksLimit);
+    
+    // Fetch player props picks
+    const playerPropsResult = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', `${todayISO}T00:00:00.000Z`)
+      .lt('created_at', `${todayISO}T23:59:59.999Z`)
+      .like('bet_type', '%prop%')
+      .order('created_at', { ascending: false })
+      .limit(playerPropsLimit);
+    
+    if (teamPicksResult.error) {
+      logger.error('Error fetching team picks:', teamPicksResult.error);
+      return res.status(500).json({ error: 'Failed to fetch team picks' });
+    }
+    
+    if (playerPropsResult.error) {
+      logger.error('Error fetching player props:', playerPropsResult.error);
+      return res.status(500).json({ error: 'Failed to fetch player props' });
+    }
+    
+    // Combine all predictions
+    const allPredictions = [
+      ...(teamPicksResult.data || []),
+      ...(playerPropsResult.data || [])
+    ];
+    
+    logger.info(`✅ Returning ${allPredictions.length} total predictions (${teamPicksResult.data?.length || 0} team + ${playerPropsResult.data?.length || 0} props)`);
+    
+    res.json(allPredictions);
+    
+  } catch (error: any) {
+    logger.error(`💥 Error fetching full predictions: ${error instanceof Error ? error.message : String(error)}`);
+    res.status(500).json({
+      error: 'Failed to fetch predictions',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// New endpoint: Get Lock of the Day (highest confidence pick)
+router.get('/lock-of-the-day', async (req, res) => {
+  try {
+    const { userId } = req.query as { userId?: string };
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    logger.info(`🔒 Fetching Lock of the Day for user ${userId}`);
+    
+    // Get today's date in ISO format
+    const today = new Date();
+    const todayISO = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Fetch highest confidence pick from today
+    const lockResult = await supabase
+      .from('ai_predictions')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', `${todayISO}T00:00:00.000Z`)
+      .lt('created_at', `${todayISO}T23:59:59.999Z`)
+      .not('confidence', 'is', null)
+      .order('confidence', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (lockResult.error) {
+      if (lockResult.error.code === 'PGRST116') {
+        // No data found
+        logger.info('No Lock of the Day found for today');
+        return res.json(null);
+      }
+      logger.error('Error fetching Lock of the Day:', lockResult.error);
+      return res.status(500).json({ error: 'Failed to fetch Lock of the Day' });
+    }
+    
+    logger.info(`🔒 Lock of the Day found: ${lockResult.data.confidence}% confidence - ${lockResult.data.pick}`);
+    
+    res.json(lockResult.data);
+    
+  } catch (error: any) {
+    logger.error(`💥 Error fetching Lock of the Day: ${error instanceof Error ? error.message : String(error)}`);
+    res.status(500).json({
+      error: 'Failed to fetch Lock of the Day',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 export default router; 
