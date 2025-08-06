@@ -61,16 +61,36 @@ fi
 log "🎲 Step 2/6: Fetching odds and games data..."
 
 cd "$BACKEND_DIR"
+
+# Try multiple approaches to run the odds script
 if npm run odds >> "$LOG_FILE" 2>&1; then
     log "✅ Odds integration completed successfully"
+elif npx ts-node --transpile-only src/scripts/setupOddsIntegration.ts >> "$LOG_FILE" 2>&1; then
+    log "✅ Odds integration completed successfully (fallback method)"
+elif node -r ts-node/register src/scripts/setupOddsIntegration.ts >> "$LOG_FILE" 2>&1; then
+    log "✅ Odds integration completed successfully (alternative method)"
 else
-    handle_error "Odds integration failed" "Odds fetching"
+    log "⚠️ All TypeScript methods failed, trying to build and run compiled version..."
+    if npm run build >> "$LOG_FILE" 2>&1 && node dist/scripts/setupOddsIntegration.js >> "$LOG_FILE" 2>&1; then
+        log "✅ Odds integration completed successfully (compiled version)"
+    else
+        handle_error "Odds integration failed with all methods" "Odds fetching"
+    fi
 fi
 
 cd "$PROJECT_ROOT"
 
-# Step 3: Generate Enhanced Props Predictions
-log "🏈 Step 3/6: Generating enhanced props predictions..."
+# Step 3: Generate Personalized Enhanced Insights
+log "💡 Step 3/6: Generating personalized enhanced insights..."
+
+if python3 insights_personalized_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
+    log "✅ Personalized enhanced insights completed successfully"
+else
+    handle_error "Personalized enhanced insights failed" "Insights generation"
+fi
+
+# Step 4: Generate Enhanced Props Predictions
+log "🏈 Step 4/6: Generating enhanced props predictions..."
 
 if python3 props_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
     log "✅ Enhanced props predictions completed successfully"
@@ -78,8 +98,8 @@ else
     handle_error "Enhanced props predictions failed" "Props generation"
 fi
 
-# Step 4: Generate Enhanced Teams Predictions  
-log "🏆 Step 4/6: Generating enhanced teams predictions..."
+# Step 5: Generate Enhanced Teams Predictions  
+log "🏆 Step 5/6: Generating enhanced teams predictions..."
 
 if python3 teams_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
     log "✅ Enhanced teams predictions completed successfully"  
@@ -87,23 +107,14 @@ else
     handle_error "Enhanced teams predictions failed" "Teams generation"
 fi
 
-# Step 5: Generate Enhanced Insights
-log "💡 Step 5/6: Generating enhanced insights..."
+# Step 6: Generate Daily Trends
+log "📈 Step 6/6: Generating daily trends..."
 
-if python3 enhanced_insights.py --tomorrow >> "$LOG_FILE" 2>&1; then
-    log "✅ Enhanced insights completed successfully"
+cd "$PROJECT_ROOT/python-scripts-service"
+if python3 trendsnew.py >> "$LOG_FILE" 2>&1; then
+    log "✅ Daily trends completed successfully"
 else
-    handle_error "Enhanced insights failed" "Insights generation"
-fi
-
-# Step 6: Run Daily Injury Update
-log "🏥 Step 6/6: Running daily injury update..."
-
-cd "$BACKEND_DIR"
-if npx ts-node src/scripts/dailyInjuryUpdate.ts >> "$LOG_FILE" 2>&1; then
-    log "✅ Daily injury update completed successfully"
-else
-    handle_error "Daily injury update failed" "Injury update"
+    handle_error "Daily trends failed" "Trends generation"
 fi
 
 cd "$PROJECT_ROOT"

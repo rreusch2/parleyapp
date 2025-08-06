@@ -50,7 +50,7 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
   // Fetch the actual prop line from the database
   useEffect(() => {
     const fetchPropLine = async () => {
-      if (!trend.player_id || !trend.metadata?.prop_type_id) return;
+      if (!trend?.player_id || !trend?.metadata?.prop_type_id) return;
       
       setLoadingPropLine(true);
       try {
@@ -75,23 +75,29 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         if (propData && propData.length > 0) {
           const prop = propData[0];
           const propTypes = prop.player_prop_types as any;
-          setPropLineData({
-            line: parseFloat(prop.line),
-            propType: propTypes?.prop_name || 'Unknown',
-            eventId: prop.event_id
-          });
+          const lineValue = parseFloat(prop.line);
+          if (!isNaN(lineValue) && lineValue > 0) {
+            setPropLineData({
+              line: lineValue,
+              propType: propTypes?.prop_name || 'Unknown',
+              eventId: prop.event_id
+            });
+          }
         }
       } catch (error) {
         console.error('Error fetching prop line:', error);
+        setPropLineData(null);
       } finally {
         setLoadingPropLine(false);
       }
     };
 
-    if (visible && trend.type === 'player_prop') {
+    if (visible && trend?.type === 'player_prop') {
       fetchPropLine();
+    } else {
+      setPropLineData(null);
     }
-  }, [visible, trend.player_id, trend.metadata?.prop_type_id]);
+  }, [visible, trend?.player_id, trend?.metadata?.prop_type_id, trend?.type]);
 
   const getSportIcon = (sport?: string) => {
     if (!sport) return '🏟️';
@@ -124,10 +130,10 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
   };
 
   const renderChart = () => {
-    const chartData = trend.chart_data;
-    const visualData = trend.visual_data;
+    const chartData = trend?.chart_data;
+    const visualData = trend?.visual_data;
     
-    if (!chartData?.recent_games || chartData.recent_games.length === 0) {
+    if (!chartData?.recent_games || !Array.isArray(chartData.recent_games) || chartData.recent_games.length === 0) {
       return (
         <View style={styles.noChartContainer}>
           <BarChart3 size={normalize(40)} color="#6B7280" />
@@ -138,36 +144,46 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
     }
 
     try {
-      // Prepare data for the chart - limit to last 8 games for readability
-      const recentGames = chartData.recent_games.slice(-8);
+
+      // Process recent games data for chart
+      const recentGames = Array.isArray(visualData?.recent_games) ? visualData.recent_games : [];
       
-      // Create meaningful labels based on available data - prioritize opponent abbreviations
+      // Ensure we have valid data
+      if (recentGames.length === 0) {
+        return (
+          <View style={styles.noDataContainer}>
+            <Text style={styles.noDataText}>No chart data available</Text>
+          </View>
+        );
+      }
+      
+      // Generate meaningful X-axis labels with safety checks
       const labels = recentGames.map((game: any, index: number) => {
-        // First try opponent abbreviation
-        if (game.opponent && game.opponent !== 'NaN' && game.opponent.trim() !== '') {
-          // Handle common team abbreviations
-          const opponent = game.opponent.toString().trim();
-          if (opponent.length <= 4) {
-            return `vs ${opponent}`;
-          } else {
-            // Extract abbreviation from full team name
-            const words = opponent.split(' ');
-            if (words.length > 1) {
-              return `vs ${words[words.length - 1].substring(0, 3).toUpperCase()}`;
+        try {
+          // Try to get opponent abbreviation first
+          if (game?.opponent && game.opponent !== 'NaN' && game.opponent !== 'null' && game.opponent !== null) {
+            const opponent = String(game.opponent).trim();
+            // If opponent is already short, use it
+            if (opponent.length <= 4) {
+              return `vs ${opponent}`;
+            } else {
+              // Extract abbreviation from full team name
+              const words = opponent.split(' ').filter(word => word.length > 0);
+              if (words.length > 1) {
+                return `vs ${words[words.length - 1].substring(0, 3).toUpperCase()}`;
+              }
+              return `vs ${opponent.substring(0, 3).toUpperCase()}`;
             }
-            return `vs ${opponent.substring(0, 3).toUpperCase()}`;
           }
-        }
-        // Fallback to date if available
-        else if (game.date && game.date !== 'NaN') {
-          try {
+          // Fallback to date if available
+          else if (game?.date && game.date !== 'NaN' && game.date !== null) {
             const date = new Date(game.date);
             if (!isNaN(date.getTime())) {
               return `${date.getMonth() + 1}/${date.getDate()}`;
             }
-          } catch (e) {
-            // Date parsing failed, continue to fallback
           }
+        } catch (e) {
+          console.warn('Error processing game label:', e);
         }
         // Final fallback to game number
         return `G${recentGames.length - index}`;
@@ -179,40 +195,66 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
       let maxValue = 0;
       let isDecimalData = false;
       
-      if (trend.type === 'player_prop') {
+      if (trend?.type === 'player_prop') {
         // Determine what stat to show based on available data
         let values = [];
         
-        if (recentGames[0]?.hits !== undefined) {
-          values = recentGames.map((game: any) => game.hits || 0);
+        // Safely check first game data
+        const firstGame = recentGames[0] || {};
+        
+        if (typeof firstGame.hits === 'number' || firstGame.hits !== undefined) {
+          values = recentGames.map((game: any) => {
+            const hits = game?.hits;
+            return typeof hits === 'number' ? hits : 0;
+          });
           yAxisLabel = 'Hits';
           chartTitle = `${trend.full_player_name || 'Player'} - Recent Hits`;
-        } else if (recentGames[0]?.rbis !== undefined) {
-          values = recentGames.map((game: any) => game.rbis || 0);
+        } else if (typeof firstGame.rbis === 'number' || firstGame.rbis !== undefined) {
+          values = recentGames.map((game: any) => {
+            const rbis = game?.rbis;
+            return typeof rbis === 'number' ? rbis : 0;
+          });
           yAxisLabel = 'RBIs';
           chartTitle = `${trend.full_player_name || 'Player'} - Recent RBIs`;
-        } else if (recentGames[0]?.runs !== undefined) {
-          values = recentGames.map((game: any) => game.runs || 0);
+        } else if (typeof firstGame.runs === 'number' || firstGame.runs !== undefined) {
+          values = recentGames.map((game: any) => {
+            const runs = game?.runs;
+            return typeof runs === 'number' ? runs : 0;
+          });
           yAxisLabel = 'Runs';
           chartTitle = `${trend.full_player_name || 'Player'} - Recent Runs`;
-        } else if (recentGames[0]?.ba !== undefined) {
-          values = recentGames.map((game: any) => parseFloat(game.ba) || 0);
+        } else if (firstGame.ba !== undefined) {
+          values = recentGames.map((game: any) => {
+            const ba = parseFloat(game?.ba);
+            return !isNaN(ba) ? ba : 0;
+          });
           yAxisLabel = 'Batting Avg';
           chartTitle = `${trend.full_player_name || 'Player'} - Batting Average`;
           isDecimalData = true;
         } else {
-          values = recentGames.map((game: any) => game.value || 0);
+          values = recentGames.map((game: any) => {
+            const value = game?.value;
+            return typeof value === 'number' ? value : 0;
+          });
           yAxisLabel = 'Performance';
           chartTitle = `${trend.full_player_name || 'Player'} - Performance`;
         }
         
-        maxValue = Math.max(...values);
+        // Ensure we have valid values
+        if (values.length === 0) {
+          values = [0];
+        }
+        
+        maxValue = Math.max(...values.filter(v => typeof v === 'number' && !isNaN(v)));
+        if (!isFinite(maxValue) || maxValue <= 0) {
+          maxValue = 1; // Fallback to prevent chart errors
+        }
         
         // Create dynamic colors based on prop line if available
         let barColors = [];
-        if (propLineData && propLineData.line > 0) {
+        if (propLineData && typeof propLineData.line === 'number' && propLineData.line > 0) {
           barColors = values.map(value => {
-            return value >= propLineData.line 
+            return (typeof value === 'number' && value >= propLineData.line) 
               ? 'rgba(34, 197, 94, 0.8)' // Green for above line
               : 'rgba(239, 68, 68, 0.8)'; // Red for below line
           });
@@ -222,7 +264,7 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         }
 
         datasets = [{
-          data: values.length > 0 ? values : [0],
+          data: values,
           color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`, // Green for line charts
           strokeWidth: 3,
           colors: barColors, // For bar charts
@@ -349,33 +391,34 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
               />
               
               {/* Render prop line overlay */}
-              {propLineData && propLineData.line > 0 && (
+              {propLineData && typeof propLineData.line === 'number' && propLineData.line > 0 && typeof maxValue === 'number' && maxValue > 0 && (
                 <View style={[
                   styles.propLineOverlay,
                   {
-                    bottom: Math.max(40, ((propLineData.line / Math.max(maxValue, propLineData.line + 1)) * 180) + 40),
+                    bottom: Math.max(40, Math.min(220, ((propLineData.line / Math.max(maxValue, propLineData.line + 1)) * 180) + 40)),
                   }
                 ]}>
                   <View style={styles.propLineDashed} />
                   <Text style={styles.propLineLabel}>
-                    Line: {propLineData.line}
+                    Line: {propLineData.line.toFixed(1)}
                   </Text>
                 </View>
               )}
               
               {/* Render colored indicators for each bar */}
-              {propLineData && propLineData.line > 0 && (
+              {propLineData && typeof propLineData.line === 'number' && propLineData.line > 0 && datasets && datasets[0] && Array.isArray(datasets[0].data) && (
                 <View style={styles.barIndicators}>
                   {datasets[0].data.map((value: number, index: number) => {
-                    const isAboveLine = value >= propLineData.line;
+                    const isAboveLine = typeof value === 'number' && !isNaN(value) && value >= propLineData.line;
+                    const barWidth = Math.max(10, (screenWidth - 120) / Math.max(datasets[0].data.length, 1) - 4);
                     return (
                       <View 
-                        key={index} 
+                        key={`bar-indicator-${index}`}
                         style={[
                           styles.barIndicator,
                           {
                             backgroundColor: isAboveLine ? '#22C55E' : '#EF4444',
-                            width: (screenWidth - 120) / datasets[0].data.length - 4,
+                            width: barWidth,
                           }
                         ]} 
                       />
@@ -424,12 +467,12 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         );
       }
     } catch (error) {
-      console.error('Chart rendering error:', error);
+      console.error('Error rendering chart:', error);
       return (
         <View style={styles.noChartContainer}>
-          <BarChart3 size={normalize(40)} color="#6B7280" />
-          <Text style={styles.noChartText}>Unable to render chart</Text>
-          <Text style={styles.noChartSubtext}>Data format may be incompatible</Text>
+          <BarChart3 size={normalize(40)} color="#EF4444" />
+          <Text style={styles.noChartText}>Chart temporarily unavailable</Text>
+          <Text style={styles.noChartSubtext}>Please try refreshing the trend</Text>
         </View>
       );
     }
@@ -859,6 +902,17 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginHorizontal: 2,
+  },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  noDataText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
   propLineOverlay: {
     position: 'absolute',

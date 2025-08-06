@@ -60,6 +60,16 @@ interface PlayerPropsData {
   bookmakers: PlayerPropBookmaker[];
 }
 
+interface GroupedProp {
+  playerName: string;
+  propType: string;
+  line: number;
+  bookmaker: string;
+  overOdds: number | null;
+  underOdds: number | null;
+  playerTeam: string;
+}
+
 async function checkReferenceData(): Promise<boolean> {
   console.log('🔍 Checking reference data...');
   
@@ -345,7 +355,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
   }
   
   // Now store only the grouped props with BOTH over and under odds
-  const completeProps = [];
+  const completeProps: GroupedProp[] = [];
   let incompletePropsCount = 0;
   let extremeOddsCount = 0;
   
