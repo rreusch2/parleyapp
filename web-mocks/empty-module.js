@@ -6,7 +6,6 @@ export default {};
 // Export common patterns that native modules might expect
 export const TestIds = {};
 export const GoogleMobileAds = {};
-export const AdMob = {};
 export const InterstitialAd = {};
 export const RewardedAd = {};
 export const BannerAd = {};
@@ -23,7 +22,6 @@ module.exports = {
   default: {},
   TestIds: {},
   GoogleMobileAds: {},
-  AdMob: {},
   InterstitialAd: {},
   RewardedAd: {},
   BannerAd: {},

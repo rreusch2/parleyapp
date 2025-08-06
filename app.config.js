@@ -61,14 +61,7 @@ module.exports = {
       "expo-font",
       "expo-notifications",
       "expo-web-browser",
-      "expo-apple-authentication",
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-9584826565591456~1910888945",
-          "iosAppId": "ca-app-pub-3940256099942544/1712485313"
-        }
-      ]
+      "expo-apple-authentication"
     ],
     experiments: {
       typedRoutes: true

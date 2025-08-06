@@ -11,7 +11,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
-import { preloadRewardAds } from './services/rewardAdService';
 
 
 // Get device dimensions to adapt UI for iPad
@@ -63,14 +62,6 @@ function AppContent() {
 export default function RootLayout() {
   useFrameworkReady();
   
-  // Preload reward ads early
-  useEffect(() => {
-    // Initialize AdMob early to prevent "ad not available" errors
-    if (Platform.OS !== 'web') {
-      console.log('🚀 Preloading AdMob reward ads at app startup');
-      preloadRewardAds();
-    }
-  }, []);
 
   return (
     <ErrorBoundary>
