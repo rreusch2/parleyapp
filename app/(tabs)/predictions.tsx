@@ -42,8 +42,7 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
-import { rewardedAdService } from '../services/rewardedAdService';
-import WatchAdButton from '../components/WatchAdButton';
+
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -52,8 +51,7 @@ export default function PredictionsScreen() {
   const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   // Reward ads functionality for extra picks
-  const [extraPicksAvailable, setExtraPicksAvailable] = useState(0);
-  const [isAdLoading, setIsAdLoading] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
@@ -77,23 +75,9 @@ export default function PredictionsScreen() {
   useEffect(() => {
     loadUserPreferences();
     loadPredictions();
-    loadExtraPicksCount();
   }, [isPro, isElite]); // Added isElite to dependencies to re-render when subscription changes
 
-  const loadExtraPicksCount = async () => {
-    try {
-      const earned = await rewardedAdService.getEarnedRewardsToday('extra_pick');
-      setExtraPicksAvailable(earned);
-    } catch (error) {
-      console.error('Error loading extra picks count:', error);
-    }
-  };
-
-  const handleExtraPickEarned = () => {
-    // Refresh the extra picks count and predictions
-    loadExtraPicksCount();
-    loadPredictions();
-  };
+  
 
   const loadUserPreferences = async () => {
     try {
@@ -388,7 +372,7 @@ export default function PredictionsScreen() {
       
       if (!hasExtendedAccess) {
         const basePickLimit = 2;
-        const totalPickLimit = basePickLimit + extraPicksAvailable;
+        const totalPickLimit = basePickLimit;
         filtered = filtered.slice(0, totalPickLimit);
       }
       // If new user or welcome bonus is active, show all picks returned by backend (usually 5)
@@ -716,12 +700,7 @@ What are your thoughts on this prediction?`;
               ))}
 
               {/* Watch Ad for Extra Pick - Free Users Only */}
-              {!isPro && !isElite && (
-                <WatchAdButton 
-                  rewardType="extra_pick"
-                  onRewardEarned={handleExtraPickEarned}
-                />
-              )}
+              
 
               {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}
               {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > (2 + extraPicksAvailable) && (

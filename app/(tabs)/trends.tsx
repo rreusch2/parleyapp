@@ -16,8 +16,7 @@ import TrendCard from '../components/TrendCard';
 import TieredSubscriptionModal from '../components/TieredSubscriptionModal';
 import TrendModal from '../components/TrendModal';
 import { supabase } from '../services/api/supabaseClient';
-import { rewardedAdService } from '../services/rewardedAdService';
-import WatchAdButton from '../components/WatchAdButton';
+
 
 
 export default function TrendsScreen() {
@@ -32,15 +31,14 @@ export default function TrendsScreen() {
   const [showTrendModal, setShowTrendModal] = useState(false);
   const { isPro, isElite, subscriptionTier } = useSubscription();
   // Reward ads functionality for extra trends
-  const [extraTrendsAvailable, setExtraTrendsAvailable] = useState(0);
-  const [isAdLoading, setIsAdLoading] = useState(false);
+  
 
   const getTrendLimit = () => {
     switch (subscriptionTier) {
       case 'elite': return 15;
       case 'pro': return 10;
-      case 'free': return 2 + extraTrendsAvailable; // Base 2 + extra from ads
-      default: return 2 + extraTrendsAvailable;
+      case 'free': return 2;
+      default: return 2;
     }
   };
 
@@ -112,23 +110,7 @@ export default function TrendsScreen() {
 
   useEffect(() => {
     fetchTrends();
-    loadExtraTrendsCount();
   }, [subscriptionTier, activeTab, activeSport]);
-
-  const loadExtraTrendsCount = async () => {
-    try {
-      const earned = await rewardedAdService.getEarnedRewardsToday('extra_trend');
-      setExtraTrendsAvailable(earned);
-    } catch (error) {
-      console.error('Error loading extra trends count:', error);
-    }
-  };
-
-  const handleExtraTrendEarned = () => {
-    // Refresh the extra trends count and trends
-    loadExtraTrendsCount();
-    fetchTrends();
-  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -139,17 +121,6 @@ export default function TrendsScreen() {
   const handleViewFullTrend = (trend: any) => {
     setSelectedTrend(trend);
     setShowTrendModal(true);
-  };
-
-  const renderRewardAdButton = () => {
-    if (subscriptionTier !== 'free') return null;
-
-    return (
-      <WatchAdButton 
-        rewardType="extra_trend"
-        onRewardEarned={handleExtraTrendEarned}
-      />
-    );
   };
 
   const renderUpgradeButton = () => {
@@ -265,7 +236,7 @@ export default function TrendsScreen() {
                     onViewFullTrend={() => handleViewFullTrend(trend)}
                   />
                 ))}
-                {renderRewardAdButton()}
+                
                 {renderUpgradeButton()}
               </>
             ) : (
@@ -284,7 +255,7 @@ export default function TrendsScreen() {
                     onViewFullTrend={() => handleViewFullTrend(trend)}
                   />
                 ))}
-                {renderRewardAdButton()}
+                
                 {renderUpgradeButton()}
               </>
             ) : (

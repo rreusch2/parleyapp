@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,8 +23,9 @@ import {
   Activity,
   Award,
 } from 'lucide-react-native';
-import { LineChart, BarChart } from 'react-native-chart-kit';
+import { LineChart, BarChart, ContributionGraph } from 'react-native-chart-kit';
 import { normalize, isTablet } from '../services/device';
+import { supabase } from '../services/api/supabaseClient';
 
 interface TrendModalProps {
   visible: boolean;
@@ -32,10 +33,65 @@ interface TrendModalProps {
   onClose: () => void;
 }
 
+interface PropLineData {
+  line: number;
+  propType: string;
+  eventId: string;
+}
+
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function TrendModal({ visible, trend, onClose }: TrendModalProps) {
+  const [propLineData, setPropLineData] = useState<PropLineData | null>(null);
+  const [loadingPropLine, setLoadingPropLine] = useState(false);
+
   if (!trend) return null;
+
+  // Fetch the actual prop line from the database
+  useEffect(() => {
+    const fetchPropLine = async () => {
+      if (!trend.player_id || !trend.metadata?.prop_type_id) return;
+      
+      setLoadingPropLine(true);
+      try {
+        // Get the most recent prop line for this player and prop type
+        const { data: propData, error } = await supabase
+          .from('player_props_odds')
+          .select(`
+            line,
+            event_id,
+            player_prop_types!inner(prop_name, prop_key)
+          `)
+          .eq('player_id', trend.player_id)
+          .eq('prop_type_id', trend.metadata.prop_type_id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching prop line:', error);
+          return;
+        }
+
+        if (propData && propData.length > 0) {
+          const prop = propData[0];
+          const propTypes = prop.player_prop_types as any;
+          setPropLineData({
+            line: parseFloat(prop.line),
+            propType: propTypes?.prop_name || 'Unknown',
+            eventId: prop.event_id
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching prop line:', error);
+      } finally {
+        setLoadingPropLine(false);
+      }
+    };
+
+    if (visible && trend.type === 'player_prop') {
+      fetchPropLine();
+    }
+  }, [visible, trend.player_id, trend.metadata?.prop_type_id]);
 
   const getSportIcon = (sport?: string) => {
     if (!sport) return '🏟️';
@@ -85,16 +141,36 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
       // Prepare data for the chart - limit to last 8 games for readability
       const recentGames = chartData.recent_games.slice(-8);
       
-      // Create meaningful labels based on available data
+      // Create meaningful labels based on available data - prioritize opponent abbreviations
       const labels = recentGames.map((game: any, index: number) => {
-        if (game.opponent) {
-          return `vs ${game.opponent}`;
-        } else if (game.date) {
-          const date = new Date(game.date);
-          return `${date.getMonth() + 1}/${date.getDate()}`;
-        } else {
-          return `Game ${recentGames.length - index}`;
+        // First try opponent abbreviation
+        if (game.opponent && game.opponent !== 'NaN' && game.opponent.trim() !== '') {
+          // Handle common team abbreviations
+          const opponent = game.opponent.toString().trim();
+          if (opponent.length <= 4) {
+            return `vs ${opponent}`;
+          } else {
+            // Extract abbreviation from full team name
+            const words = opponent.split(' ');
+            if (words.length > 1) {
+              return `vs ${words[words.length - 1].substring(0, 3).toUpperCase()}`;
+            }
+            return `vs ${opponent.substring(0, 3).toUpperCase()}`;
+          }
         }
+        // Fallback to date if available
+        else if (game.date && game.date !== 'NaN') {
+          try {
+            const date = new Date(game.date);
+            if (!isNaN(date.getTime())) {
+              return `${date.getMonth() + 1}/${date.getDate()}`;
+            }
+          } catch (e) {
+            // Date parsing failed, continue to fallback
+          }
+        }
+        // Final fallback to game number
+        return `G${recentGames.length - index}`;
       });
       
       let datasets = [];
@@ -132,10 +208,24 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         
         maxValue = Math.max(...values);
         
+        // Create dynamic colors based on prop line if available
+        let barColors = [];
+        if (propLineData && propLineData.line > 0) {
+          barColors = values.map(value => {
+            return value >= propLineData.line 
+              ? 'rgba(34, 197, 94, 0.8)' // Green for above line
+              : 'rgba(239, 68, 68, 0.8)'; // Red for below line
+          });
+        } else {
+          // Default color if no prop line
+          barColors = values.map(() => 'rgba(34, 197, 94, 0.8)');
+        }
+
         datasets = [{
           data: values.length > 0 ? values : [0],
-          color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`, // Green
+          color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`, // Green for line charts
           strokeWidth: 3,
+          colors: barColors, // For bar charts
         }];
       } else {
         // Team trends
@@ -174,6 +264,28 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         datasets,
       };
 
+      // Calculate better Y-axis intervals
+      const calculateYAxisIntervals = (maxVal: number, minVal: number = 0) => {
+        const range = maxVal - minVal;
+        let interval;
+        
+        if (range <= 5) {
+          interval = 1;
+        } else if (range <= 10) {
+          interval = 2;
+        } else if (range <= 25) {
+          interval = 5;
+        } else {
+          interval = Math.ceil(range / 5);
+        }
+        
+        return Math.max(1, interval);
+      };
+
+      const minValue = Math.min(...datasets[0].data, 0);
+      const yAxisInterval = calculateYAxisIntervals(maxValue, minValue);
+      const segments = Math.min(6, Math.ceil((maxValue - minValue) / yAxisInterval));
+
       const chartConfig = {
         backgroundColor: 'transparent',
         backgroundGradientFrom: 'rgba(15, 23, 42, 0.8)',
@@ -194,26 +306,101 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
           strokeDasharray: '', // solid lines
           strokeOpacity: 0.1,
         },
-        // Adjust Y-axis range for better visibility
+        // Improved Y-axis configuration
         fromZero: !isDecimalData,
-        segments: 4,
+        segments: segments,
+        yAxisInterval: yAxisInterval,
+        // Add prop line if available
+        ...(propLineData && propLineData.line > 0 && {
+          horizontalLines: [{
+            value: propLineData.line,
+            color: '#F59E0B',
+            strokeDasharray: '5,5',
+            strokeWidth: 2,
+            opacity: 0.8,
+          }]
+        })
       };
 
       if (visualData?.chart_type === 'bar') {
         return (
           <View>
             <Text style={styles.chartTitle}>{chartTitle}</Text>
-            <Text style={styles.chartSubtitle}>Last {recentGames.length} Games • {yAxisLabel}</Text>
-            <BarChart
-              data={data}
-              width={screenWidth - 80}
-              height={220}
-              chartConfig={chartConfig}
-              style={styles.chart}
-              showValuesOnTopOfBars
-              fromZero={!isDecimalData}
-              verticalLabelRotation={30}
-            />
+            <Text style={styles.chartSubtitle}>
+              Last {recentGames.length} Games • {yAxisLabel}
+              {propLineData && (
+                <Text style={styles.propLineIndicator}>
+                  {' '}• Line: {propLineData.line}
+                </Text>
+              )}
+            </Text>
+            <View style={styles.chartContainer}>
+              <BarChart
+                data={data}
+                width={screenWidth - 80}
+                height={220}
+                yAxisLabel=""
+                yAxisSuffix=""
+                chartConfig={chartConfig}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                fromZero={!isDecimalData}
+                verticalLabelRotation={labels.some(label => label.length > 6) ? 45 : 0}
+              />
+              
+              {/* Render prop line overlay */}
+              {propLineData && propLineData.line > 0 && (
+                <View style={[
+                  styles.propLineOverlay,
+                  {
+                    bottom: Math.max(40, ((propLineData.line / Math.max(maxValue, propLineData.line + 1)) * 180) + 40),
+                  }
+                ]}>
+                  <View style={styles.propLineDashed} />
+                  <Text style={styles.propLineLabel}>
+                    Line: {propLineData.line}
+                  </Text>
+                </View>
+              )}
+              
+              {/* Render colored indicators for each bar */}
+              {propLineData && propLineData.line > 0 && (
+                <View style={styles.barIndicators}>
+                  {datasets[0].data.map((value: number, index: number) => {
+                    const isAboveLine = value >= propLineData.line;
+                    return (
+                      <View 
+                        key={index} 
+                        style={[
+                          styles.barIndicator,
+                          {
+                            backgroundColor: isAboveLine ? '#22C55E' : '#EF4444',
+                            width: (screenWidth - 120) / datasets[0].data.length - 4,
+                          }
+                        ]} 
+                      />
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+            {/* Legend */}
+            {propLineData && (
+              <View style={styles.chartLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: '#22C55E' }]} />
+                  <Text style={styles.legendText}>Above Line</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
+                  <Text style={styles.legendText}>Below Line</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendLine]} />
+                  <Text style={styles.legendText}>Prop Line ({propLineData.line})</Text>
+                </View>
+              </View>
+            )}
           </View>
         );
       } else {
@@ -616,12 +803,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: normalize(16),
   },
-  chartTitle: {
-    fontSize: normalize(18),
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: normalize(8),
-  },
   chart: {
     borderRadius: normalize(12),
   },
@@ -654,6 +835,84 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginBottom: normalize(16),
     textAlign: 'center',
+    fontWeight: '500',
+  },
+  propLineIndicator: {
+    color: '#F59E0B',
+    fontWeight: '600',
+  },
+  chartContainer: {
+    position: 'relative',
+  },
+  barIndicators: {
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 180,
+    pointerEvents: 'none',
+  },
+  barIndicator: {
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: 2,
+  },
+  propLineOverlay: {
+    position: 'absolute',
+    left: 40,
+    right: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  propLineDashed: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#F59E0B',
+    opacity: 0.8,
+  },
+  propLineLabel: {
+    fontSize: normalize(10),
+    color: '#F59E0B',
+    fontWeight: '600',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    paddingHorizontal: normalize(6),
+    paddingVertical: normalize(2),
+    borderRadius: normalize(4),
+    marginLeft: normalize(8),
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: normalize(12),
+    paddingTop: normalize(12),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: normalize(8),
+  },
+  legendColor: {
+    width: normalize(12),
+    height: normalize(12),
+    borderRadius: normalize(2),
+    marginRight: normalize(6),
+  },
+  legendLine: {
+    width: normalize(16),
+    height: 2,
+    backgroundColor: '#F59E0B',
+    marginRight: normalize(6),
+  },
+  legendText: {
+    fontSize: normalize(11),
+    color: '#94A3B8',
     fontWeight: '500',
   },
   keyStatsContainer: {
