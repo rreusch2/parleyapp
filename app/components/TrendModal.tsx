@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,6 @@ import {
   ScrollView,
   Modal,
   Dimensions,
-  Platform,
-  Pressable,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -18,14 +16,8 @@ import {
   Target,
   Trophy,
   BarChart3,
-  Calendar,
-  Star,
-  Activity,
-  Award,
 } from 'lucide-react-native';
-import { LineChart, BarChart, ContributionGraph } from 'react-native-chart-kit';
 import { normalize, isTablet } from '../services/device';
-import { supabase } from '../services/api/supabaseClient';
 
 interface TrendModalProps {
   visible: boolean;
@@ -33,96 +25,10 @@ interface TrendModalProps {
   onClose: () => void;
 }
 
-interface PropLineData {
-  line: number;
-  propType: string;
-  eventId: string;
-}
-
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function TrendModal({ visible, trend, onClose }: TrendModalProps) {
-  const [propLineData, setPropLineData] = useState<PropLineData | null>(null);
-  const [loadingPropLine, setLoadingPropLine] = useState(false);
-
-  // Fetch the actual prop line from the database
-  useEffect(() => {
-    const fetchPropLine = async () => {
-      if (!trend?.player_id || !visible || trend?.type !== 'player_prop') {
-        setPropLineData(null);
-        return;
-      }
-      
-      setLoadingPropLine(true);
-      try {
-        // First try to get prop line using metadata prop_type_id if available
-        let propQuery = supabase
-          .from('player_props_odds')
-          .select(`
-            line,
-            event_id,
-            over_odds,
-            under_odds,
-            player_prop_types!inner(prop_name, prop_key)
-          `)
-          .eq('player_id', trend.player_id)
-          .order('created_at', { ascending: false });
-
-        // If we have specific prop type from metadata, use it
-        if (trend?.metadata?.prop_type_id) {
-          propQuery = propQuery.eq('prop_type_id', trend.metadata.prop_type_id);
-        } else {
-          // Otherwise, try to match based on the trend's prop type
-          const propType = trend?.metadata?.prop_type || trend?.metadata?.chart_type || 'hits';
-          const propKeyMap: { [key: string]: string } = {
-            'hits': 'batter_hits',
-            'home_runs': 'batter_home_runs', 
-            'rbis': 'batter_rbis',
-            'runs': 'batter_runs_scored',
-            'total_bases': 'batter_total_bases',
-            'strikeouts': 'pitcher_strikeouts'
-          };
-          const propKey = propKeyMap[propType.toLowerCase()] || 'batter_hits';
-          
-          // Join with player_prop_types to filter by prop_key
-          propQuery = propQuery.eq('player_prop_types.prop_key', propKey);
-        }
-
-        propQuery = propQuery.limit(1);
-        const { data: propData, error } = await propQuery;
-
-        if (error) {
-          console.error('Error fetching prop line:', error);
-          return;
-        }
-
-        if (propData && propData.length > 0) {
-          const prop = propData[0];
-          const propTypes = prop.player_prop_types as any;
-          const lineValue = parseFloat(prop.line);
-          if (!isNaN(lineValue) && lineValue >= 0) {
-            setPropLineData({
-              line: lineValue,
-              propType: propTypes?.prop_name || 'Unknown',
-              eventId: prop.event_id
-            });
-            console.log('✅ Found prop line:', lineValue, 'for', propTypes?.prop_name);
-          }
-        } else {
-          console.log('❌ No prop line found for player:', trend.full_player_name);
-        }
-      } catch (error) {
-        console.error('Error fetching prop line:', error);
-        setPropLineData(null);
-      } finally {
-        setLoadingPropLine(false);
-      }
-    };
-
-    fetchPropLine();
-  }, [visible, trend?.player_id, trend?.metadata?.prop_type_id, trend?.type, trend?.metadata?.prop_type]);
-
-  // Early return AFTER all hooks to prevent React Hooks violation
+  // Early return for safety
   if (!trend) return null;
 
   const getSportIcon = (sport?: string) => {
@@ -155,1025 +61,315 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
     }
   };
 
-  const renderChart = () => {
-    const chartData = trend?.chart_data;
-    const visualData = trend?.visual_data;
-    
-    if (!chartData?.recent_games || !Array.isArray(chartData.recent_games) || chartData.recent_games.length === 0) {
-      return (
-        <View style={styles.noChartContainer}>
-          <BarChart3 size={normalize(40)} color="#6B7280" />
-          <Text style={styles.noChartText}>No performance data available</Text>
-          <Text style={styles.noChartSubtext}>Check back after more games are played</Text>
-        </View>
-      );
-    }
-
-    try {
-
-      // Process recent games data for chart
-      const recentGames = Array.isArray(visualData?.recent_games) ? visualData.recent_games : [];
-      
-      // Ensure we have valid data
-      if (recentGames.length === 0) {
-        return (
-          <View style={styles.noDataContainer}>
-            <Text style={styles.noDataText}>No chart data available</Text>
-          </View>
-        );
-      }
-      
-      // Generate labels for games (prioritize opponent teams from pybaseball data)
-      const labels = recentGames.map((game: any, index: number) => {
-        try {
-          // Try to get opponent first (pybaseball format)
-          if (game?.opponent && typeof game.opponent === 'string' && game.opponent.length > 0) {
-            const opponent = game.opponent.trim().toUpperCase();
-            
-            // Enhanced team abbreviation mapping for pybaseball data
-            const teamAbbreviations: { [key: string]: string } = {
-              // Standard abbreviations
-              'NYY': 'NYY', 'BOS': 'BOS', 'TB': 'TB', 'TOR': 'TOR', 'BAL': 'BAL',
-              'CWS': 'CWS', 'CLE': 'CLE', 'DET': 'DET', 'KC': 'KC', 'MIN': 'MIN',
-              'HOU': 'HOU', 'LAA': 'LAA', 'OAK': 'OAK', 'SEA': 'SEA', 'TEX': 'TEX',
-              'NYM': 'NYM', 'WSH': 'WSH', 'MIA': 'MIA', 'ATL': 'ATL', 'PHI': 'PHI',
-              'CHC': 'CHC', 'MIL': 'MIL', 'STL': 'STL', 'CIN': 'CIN', 'PIT': 'PIT',
-              'SD': 'SD', 'SF': 'SF', 'LAD': 'LAD', 'COL': 'COL', 'AZ': 'AZ', 'ARI': 'AZ',
-              // Full team names
-              'NEW YORK YANKEES': 'NYY', 'BOSTON RED SOX': 'BOS', 'TAMPA BAY RAYS': 'TB',
-              'TORONTO BLUE JAYS': 'TOR', 'BALTIMORE ORIOLES': 'BAL', 'CHICAGO WHITE SOX': 'CWS',
-              'CLEVELAND GUARDIANS': 'CLE', 'DETROIT TIGERS': 'DET', 'KANSAS CITY ROYALS': 'KC',
-              'MINNESOTA TWINS': 'MIN', 'HOUSTON ASTROS': 'HOU', 'LOS ANGELES ANGELS': 'LAA',
-              'OAKLAND ATHLETICS': 'OAK', 'SEATTLE MARINERS': 'SEA', 'TEXAS RANGERS': 'TEX',
-              'NEW YORK METS': 'NYM', 'WASHINGTON NATIONALS': 'WSH', 'MIAMI MARLINS': 'MIA',
-              'ATLANTA BRAVES': 'ATL', 'PHILADELPHIA PHILLIES': 'PHI', 'CHICAGO CUBS': 'CHC',
-              'MILWAUKEE BREWERS': 'MIL', 'ST. LOUIS CARDINALS': 'STL', 'CINCINNATI REDS': 'CIN',
-              'PITTSBURGH PIRATES': 'PIT', 'SAN DIEGO PADRES': 'SD', 'SAN FRANCISCO GIANTS': 'SF',
-              'LOS ANGELES DODGERS': 'LAD', 'COLORADO ROCKIES': 'COL', 'ARIZONA DIAMONDBACKS': 'AZ'
-            };
-            
-            // Direct lookup first
-            if (teamAbbreviations[opponent]) {
-              return teamAbbreviations[opponent];
-            }
-            
-            // If already 2-4 chars, likely an abbreviation
-            if (opponent.length >= 2 && opponent.length <= 4) {
-              return opponent;
-            }
-            
-            // For longer names, try to extract abbreviation
-            if (opponent.length > 4) {
-              const words = opponent.split(' ').filter(word => word.length > 0);
-              if (words.length >= 2) {
-                // Use last word (team name) first 3 chars
-                return words[words.length - 1].substring(0, 3);
-              }
-              return opponent.substring(0, 3);
-            }
-            
-            return opponent;
-          }
-          
-          // Fallback to date if available (pybaseball format: "07/25" or "2025-07-25")
-          if (game?.date && game.date !== 'NaN' && game.date !== null && game.date !== undefined) {
-            const dateStr = String(game.date).trim();
-            
-            // Handle "07/25" format
-            if (dateStr.includes('/') && dateStr.length <= 6) {
-              return dateStr;
-            }
-            
-            // Handle full date format
-            try {
-              const date = new Date(dateStr);
-              if (!isNaN(date.getTime())) {
-                return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
-              }
-            } catch (dateError) {
-              console.warn('Date parsing error:', dateError);
-            }
-          }
-        } catch (e) {
-          console.warn('Error processing game label:', e, game);
-        }
-        
-        // Final fallback to game number (oldest to newest)
-        return `G${index + 1}`;
-      });
-      
-      let datasets = [];
-      let yAxisLabel = '';
-      let chartTitle = '';
-      let maxValue = 0;
-      let isDecimalData = false;
-      
-      if (trend?.type === 'player_prop') {
-        // Determine what stat to show based on available data
-        let values = [];
-        
-        // Safely check first game data
-        const firstGame = recentGames[0] || {};
-        
-        if (typeof firstGame.hits === 'number' || firstGame.hits !== undefined) {
-          values = recentGames.map((game: any) => {
-            const hits = game?.hits;
-            return typeof hits === 'number' ? hits : 0;
-          });
-          yAxisLabel = 'Hits';
-          chartTitle = `${trend.full_player_name || 'Player'} - Recent Hits`;
-        } else if (typeof firstGame.rbis === 'number' || firstGame.rbis !== undefined) {
-          values = recentGames.map((game: any) => {
-            const rbis = game?.rbis;
-            return typeof rbis === 'number' ? rbis : 0;
-          });
-          yAxisLabel = 'RBIs';
-          chartTitle = `${trend.full_player_name || 'Player'} - Recent RBIs`;
-        } else if (typeof firstGame.runs === 'number' || firstGame.runs !== undefined) {
-          values = recentGames.map((game: any) => {
-            const runs = game?.runs;
-            return typeof runs === 'number' ? runs : 0;
-          });
-          yAxisLabel = 'Runs';
-          chartTitle = `${trend.full_player_name || 'Player'} - Recent Runs`;
-        } else if (firstGame.ba !== undefined) {
-          values = recentGames.map((game: any) => {
-            const ba = parseFloat(game?.ba);
-            return !isNaN(ba) ? ba : 0;
-          });
-          yAxisLabel = 'Batting Avg';
-          chartTitle = `${trend.full_player_name || 'Player'} - Batting Average`;
-          isDecimalData = true;
-        } else {
-          values = recentGames.map((game: any) => {
-            const value = game?.value;
-            return typeof value === 'number' ? value : 0;
-          });
-          yAxisLabel = 'Performance';
-          chartTitle = `${trend.full_player_name || 'Player'} - Performance`;
-        }
-        
-        // Ensure we have valid values
-        if (values.length === 0) {
-          values = [0];
-        }
-        
-        maxValue = Math.max(...values.filter(v => typeof v === 'number' && !isNaN(v)));
-        if (!isFinite(maxValue) || maxValue <= 0) {
-          maxValue = 1; // Fallback to prevent chart errors
-        }
-        
-        // Create dynamic colors based on prop line if available
-        let barColors = [];
-        const hasValidPropLine = propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0;
-        
-        if (hasValidPropLine) {
-          barColors = values.map(value => {
-            if (typeof value === 'number') {
-              return value >= propLineData.line 
-                ? '#22C55E' // Bright green for above/equal to line
-                : '#EF4444'; // Bright red for below line
-            }
-            return '#6B7280'; // Gray for invalid values
-          });
-        } else {
-          // Default blue color if no prop line
-          barColors = values.map(() => '#3B82F6');
-        }
-
-        datasets = [{
-          data: values,
-          color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`, // Green for line charts
-          strokeWidth: 3,
-          colors: barColors, // For bar charts - this will be used by our custom renderer
-        }];
-      } else {
-        // Team trends
-        let values = [];
-        
-        if (recentGames[0]?.runs !== undefined) {
-          values = recentGames.map((game: any) => game.runs || 0);
-          yAxisLabel = 'Runs';
-          chartTitle = 'Team Runs Per Game';
-        } else if (recentGames[0]?.ba !== undefined) {
-          values = recentGames.map((game: any) => parseFloat(game.ba) || 0);
-          yAxisLabel = 'Team BA';
-          chartTitle = 'Team Batting Average';
-          isDecimalData = true;
-        } else if (recentGames[0]?.home_runs !== undefined) {
-          values = recentGames.map((game: any) => game.home_runs || 0);
-          yAxisLabel = 'Home Runs';
-          chartTitle = 'Team Home Runs';
-        } else {
-          values = recentGames.map((game: any) => game.value || 0);
-          yAxisLabel = 'Performance';
-          chartTitle = 'Team Performance';
-        }
-        
-        maxValue = Math.max(...values);
-        
-        datasets = [{
-          data: values.length > 0 ? values : [0],
-          color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`, // Blue
-          strokeWidth: 3,
-        }];
-      }
-
-      const data = {
-        labels,
-        datasets,
-      };
-
-      // Calculate better Y-axis intervals
-      const calculateYAxisIntervals = (maxVal: number, minVal: number = 0, propLine?: number) => {
-        // Include prop line in range calculation if available
-        const effectiveMax = propLine ? Math.max(maxVal, propLine) : maxVal;
-        const effectiveMin = Math.min(minVal, 0);
-        const range = effectiveMax - effectiveMin;
-        
-        let interval;
-        if (range <= 3) {
-          interval = 0.5;
-        } else if (range <= 5) {
-          interval = 1;
-        } else if (range <= 10) {
-          interval = 2;
-        } else if (range <= 25) {
-          interval = 5;
-        } else {
-          interval = Math.ceil(range / 6);
-        }
-        
-        return Math.max(isDecimalData ? 0.1 : 1, interval);
-      };
-
-      const minValue = Math.min(...datasets[0].data, 0);
-      const propLine = propLineData?.line;
-      const yAxisInterval = calculateYAxisIntervals(maxValue, minValue, propLine);
-      
-      // Ensure we have reasonable segments (3-8 segments)
-      const range = Math.max(maxValue, propLine || 0) - minValue;
-      const segments = Math.max(3, Math.min(8, Math.ceil(range / yAxisInterval)));
-
-      const chartConfig = {
-        backgroundColor: 'transparent',
-        backgroundGradientFrom: 'rgba(15, 23, 42, 0.8)',
-        backgroundGradientTo: 'rgba(30, 41, 59, 0.8)',
-        decimalPlaces: isDecimalData ? 3 : 0,
-        color: (opacity = 1) => `rgba(226, 232, 240, ${opacity})`,
-        labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
-        style: {
-          borderRadius: 16,
-        },
-        propsForDots: {
-          r: '5',
-          strokeWidth: '2',
-          stroke: visualData?.trend_color || '#00E5FF',
-          fill: visualData?.trend_color || '#00E5FF',
-        },
-        propsForBackgroundLines: {
-          strokeDasharray: '', // solid lines
-          strokeOpacity: 0.1,
-        },
-        // Improved Y-axis configuration
-        fromZero: !isDecimalData,
-        segments: segments,
-        yAxisInterval: yAxisInterval,
-        // Add prop line if available
-        ...(propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && {
-          horizontalLines: [{
-            value: propLineData.line,
-            color: '#F59E0B', // Amber color for prop line
-            strokeDasharray: '8,4', // Dotted line pattern
-            strokeWidth: 2.5,
-            opacity: 0.9,
-          }]
-        })
-      };
-
-      if (visualData?.chart_type === 'bar') {
-        return (
-          <View>
-            <Text style={styles.chartTitle}>{chartTitle}</Text>
-            <Text style={styles.chartSubtitle}>
-              Last {recentGames.length} Games • {yAxisLabel}
-              {propLineData && (
-                <Text style={styles.propLineIndicator}>
-                  {' '}• Line: {propLineData.line}
-                </Text>
-              )}
-            </Text>
-            <View style={styles.chartContainer}>
-              <BarChart
-                data={data}
-                width={screenWidth - 80}
-                height={220}
-                yAxisLabel={yAxisLabel}
-                yAxisSuffix=""
-                chartConfig={chartConfig}
-                verticalLabelRotation={0}
-                showValuesOnTopOfBars={true}
-                fromZero={true}
-              />
-              
-              {/* Prop line info display */}
-              {propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && (
-                <View style={styles.propLineInfo}>
-                  <View style={styles.propLineDashed} />
-                  <Text style={styles.propLineLabel}>
-                    Line: {propLineData.line.toFixed(1)}
-                  </Text>
-                </View>
-              )}
-              
-              {/* Render colored indicators for each bar */}
-              {propLineData && typeof propLineData.line === 'number' && propLineData.line > 0 && datasets && datasets[0] && Array.isArray(datasets[0].data) && (
-                <View style={styles.barIndicators}>
-                  {datasets[0].data.map((value: number, index: number) => {
-                    const isAboveLine = typeof value === 'number' && !isNaN(value) && value >= propLineData.line;
-                    const barWidth = Math.max(10, (screenWidth - 120) / Math.max(datasets[0].data.length, 1) - 4);
-                    return (
-                      <View 
-                        key={`bar-indicator-${index}`}
-                        style={[
-                          styles.barIndicator,
-                          {
-                            backgroundColor: isAboveLine ? '#22C55E' : '#EF4444',
-                            width: barWidth,
-                          }
-                        ]} 
-                      />
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-            {/* Legend */}
-            {propLineData && (
-              <View style={styles.chartLegend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: '#22C55E' }]} />
-                  <Text style={styles.legendText}>Above Line</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
-                  <Text style={styles.legendText}>Below Line</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendLine]} />
-                  <Text style={styles.legendText}>Prop Line ({propLineData.line})</Text>
-                </View>
-              </View>
-            )}
-          </View>
-        );
-      } else {
-        return (
-          <View>
-            <Text style={styles.chartTitle}>{chartTitle}</Text>
-            <Text style={styles.chartSubtitle}>Last {recentGames.length} Games • {yAxisLabel}</Text>
-            <LineChart
-              data={data}
-              width={screenWidth - 80}
-              height={220}
-              chartConfig={chartConfig}
-              style={styles.chart}
-              bezier
-              withInnerLines={true}
-              withOuterLines={true}
-              withVerticalLines={true}
-              withHorizontalLines={true}
-            />
-          </View>
-        );
-      }
-    } catch (error) {
-      console.error('Error rendering chart:', error);
-      return (
-        <View style={styles.noChartContainer}>
-          <BarChart3 size={normalize(40)} color="#EF4444" />
-          <Text style={styles.noChartText}>Chart temporarily unavailable</Text>
-          <Text style={styles.noChartSubtext}>Please try refreshing the trend</Text>
-        </View>
-      );
-    }
-  };
-
-  const renderKeyStats = () => {
-    const keyStats = trend.key_stats;
-    if (!keyStats || Object.keys(keyStats).length === 0) return null;
-
-    return (
-      <View style={styles.keyStatsContainer}>
-        <View style={styles.sectionHeader}>
-          <Activity size={normalize(20)} color="#00E5FF" />
-          <Text style={styles.sectionTitle}>Key Statistics</Text>
-        </View>
-        <View style={styles.statsGrid}>
-          {Object.entries(keyStats).map(([key, value]) => {
-            // Format the value based on its type
-            let formattedValue = String(value);
-            if (typeof value === 'number') {
-              if (key.includes('ba') || key.includes('avg') || key.includes('rate')) {
-                formattedValue = value < 1 ? value.toFixed(3) : value.toString();
-              } else {
-                formattedValue = value.toString();
-              }
-            }
-
-            return (
-              <View key={key} style={styles.statItem}>
-                <Text style={styles.statLabel}>
-                  {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </Text>
-                <Text style={styles.statValue}>{formattedValue}</Text>
-              </View>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
-  const renderTrendMetrics = () => {
-    const chartData = trend.chart_data;
-    if (!chartData) return null;
-
-    return (
-      <View style={styles.metricsContainer}>
-        <View style={styles.sectionHeader}>
-          <TrendingUp size={normalize(20)} color="#22C55E" />
-          <Text style={styles.sectionTitle}>Trend Metrics</Text>
-        </View>
-        <View style={styles.metricsGrid}>
-          {chartData.success_rate && (
-            <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Success Rate</Text>
-              <Text style={[styles.metricValue, { color: chartData.success_rate >= 70 ? '#22C55E' : '#F59E0B' }]}>
-                {chartData.success_rate}%
-              </Text>
-            </View>
-          )}
-          {chartData.trend_direction && (
-            <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Trend</Text>
-              <View style={styles.trendIndicator}>
-                {chartData.trend_direction === 'up' ? (
-                  <TrendingUp size={normalize(16)} color="#22C55E" />
-                ) : chartData.trend_direction === 'down' ? (
-                  <TrendingDown size={normalize(16)} color="#EF4444" />
-                ) : (
-                  <Activity size={normalize(16)} color="#F59E0B" />
-                )}
-                <Text style={[
-                  styles.metricValue, 
-                  { color: chartData.trend_direction === 'up' ? '#22C55E' : chartData.trend_direction === 'down' ? '#EF4444' : '#F59E0B' }
-                ]}>
-                  {chartData.trend_direction.charAt(0).toUpperCase() + chartData.trend_direction.slice(1)}
-                </Text>
-              </View>
-            </View>
-          )}
-          {chartData.performance_increase && (
-            <View style={styles.metricItem}>
-              <Text style={styles.metricLabel}>Performance Change</Text>
-              <Text style={[styles.metricValue, { color: chartData.performance_increase.includes('+') ? '#22C55E' : '#F59E0B' }]}>
-                {chartData.performance_increase}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
-
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
-      transparent={Platform.OS === 'web'}
     >
-      {Platform.OS === 'web' ? (
-        <Pressable 
-          style={styles.modalOverlay} 
-          onPress={onClose}
-        >
-          <Pressable 
-            style={styles.modalContent} 
-            onPress={(e) => e.stopPropagation()}
-          >
-            <LinearGradient
-              colors={['#0F172A', '#1E293B']}
-              style={styles.container}
-            >
-              {renderModalContent()}
-            </LinearGradient>
-          </Pressable>
-        </Pressable>
-      ) : (
-        <LinearGradient
-          colors={['#0F172A', '#1E293B']}
-          style={styles.container}
-        >
-          {renderModalContent()}
-        </LinearGradient>
-      )}
-    </Modal>
-  );
-
-  function renderModalContent() {
-    return (
-      <>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable 
-            style={({ pressed }) => [
-              styles.closeButton,
-              pressed && styles.closeButtonPressed,
-              Platform.OS === 'web' && styles.closeButtonWeb
-            ]} 
-            onPress={onClose}
-            accessible={true}
-            accessibilityLabel="Close modal"
-            accessibilityRole="button"
-          >
-            <X size={normalize(24)} color="#FFFFFF" />
-          </Pressable>
-          <View style={styles.headerInfo}>
-            <Text style={styles.sportIcon}>{getSportIcon(trend.team)}</Text>
-            <View style={styles.typeIndicator}>
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#334155']}
+        style={styles.gradientContainer}
+      >
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
               {getTrendIcon()}
-              <Text style={styles.typeText}>
-                {trend.type === 'player_prop' ? 'Player Prop' : 'Team Trend'}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Title and Category */}
-          <View style={styles.titleSection}>
-            <Text style={styles.title}>{trend.headline || trend.title}</Text>
-            {trend.trend_category && (
-              <View 
-                style={[
-                  styles.categoryBadge, 
-                  { backgroundColor: getCategoryColor(trend.trend_category) }
-                ]}
-              >
-                <Text style={styles.categoryText}>
-                  {trend.trend_category.toUpperCase()}
+              <View style={styles.headerText}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {trend.title || trend.description || 'Trend Analysis'}
+                </Text>
+                <Text style={styles.subtitle}>
+                  {getSportIcon(trend.sport)} {trend.sport?.toUpperCase() || 'SPORTS'} • {trend.category || 'ANALYSIS'}
                 </Text>
               </View>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <X size={normalize(24)} color="#E2E8F0" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Trend Summary */}
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryHeader}>
+                <Text style={styles.summaryTitle}>Trend Summary</Text>
+                <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(trend.category) }]}>
+                  <Text style={styles.categoryText}>{trend.category?.toUpperCase() || 'ANALYSIS'}</Text>
+                </View>
+              </View>
+              
+              <Text style={styles.description}>
+                {trend.description || trend.insight || 'Detailed trend analysis for this player/team performance.'}
+              </Text>
+
+              {trend.confidence && (
+                <View style={styles.confidenceContainer}>
+                  <Text style={styles.confidenceLabel}>Confidence Level</Text>
+                  <View style={styles.confidenceBar}>
+                    <View 
+                      style={[
+                        styles.confidenceFill, 
+                        { width: `${trend.confidence}%`, backgroundColor: getCategoryColor(trend.category) }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.confidenceText}>{trend.confidence}%</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Player/Team Info */}
+            {(trend.player_name || trend.team_name || trend.full_player_name) && (
+              <View style={styles.infoCard}>
+                <Text style={styles.infoTitle}>
+                  {trend.type === 'player_prop' ? 'Player Information' : 'Team Information'}
+                </Text>
+                <Text style={styles.infoText}>
+                  {trend.full_player_name || trend.player_name || trend.team_name}
+                </Text>
+                {trend.team && (
+                  <Text style={styles.infoSubtext}>Team: {trend.team}</Text>
+                )}
+              </View>
             )}
-          </View>
 
-          {/* Player Name (if applicable) */}
-          {trend.full_player_name && (
-            <View style={styles.playerSection}>
-              <Award size={normalize(16)} color="#F59E0B" />
-              <Text style={styles.playerName}>{trend.full_player_name}</Text>
-            </View>
-          )}
-
-          {/* Main Description */}
-          <View style={styles.descriptionSection}>
-            <Text style={styles.description}>
-              {trend.trend_text || trend.description}
-            </Text>
-          </View>
-
-          {/* Chart Section */}
-          <View style={styles.chartSection}>
-            <View style={styles.chartHeader}>
-              <BarChart3 size={normalize(20)} color="#00E5FF" />
-              <Text style={styles.sectionTitle}>Performance Trend</Text>
-            </View>
-            {renderChart()}
-          </View>
-
-          {/* Trend Metrics */}
-          {renderTrendMetrics()}
-
-          {/* Key Statistics */}
-          {renderKeyStats()}
-
-          {/* Insight */}
-          {trend.insight && (
-            <View style={styles.insightSection}>
-              <View style={styles.insightHeader}>
-                <Star size={normalize(20)} color="#F59E0B" />
-                <Text style={styles.insightTitle}>Expert Insight</Text>
+            {/* Chart Placeholder */}
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <BarChart3 size={normalize(20)} color="#00E5FF" />
+                <Text style={styles.chartTitle}>Performance Data</Text>
               </View>
-              <Text style={styles.insightText}>{trend.insight}</Text>
-            </View>
-          )}
-
-          {/* Supporting Data */}
-          {trend.supporting_data && (
-            <View style={styles.supportingSection}>
-              <View style={styles.supportingHeader}>
-                <Activity size={normalize(20)} color="#8B5CF6" />
-                <Text style={styles.supportingTitle}>Supporting Data</Text>
+              <View style={styles.chartPlaceholder}>
+                <BarChart3 size={normalize(48)} color="#64748B" />
+                <Text style={styles.chartPlaceholderText}>Chart data will be displayed here</Text>
+                <Text style={styles.chartPlaceholderSubtext}>
+                  Detailed performance metrics and trends
+                </Text>
               </View>
-              <Text style={styles.supportingText}>{trend.supporting_data}</Text>
             </View>
-          )}
-        </ScrollView>
-      </>
-    );
-  }
+
+            {/* Additional Insights */}
+            {trend.metadata && (
+              <View style={styles.metadataCard}>
+                <Text style={styles.metadataTitle}>Additional Details</Text>
+                <View style={styles.metadataContent}>
+                  {Object.entries(trend.metadata).map(([key, value]) => (
+                    <View key={key} style={styles.metadataRow}>
+                      <Text style={styles.metadataKey}>{key.replace(/_/g, ' ').toUpperCase()}:</Text>
+                      <Text style={styles.metadataValue}>{String(value)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </LinearGradient>
+    </Modal>
+  );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  gradientContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: normalize(20),
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: normalize(800),
-    height: '90%',
-    borderRadius: normalize(20),
-    overflow: 'hidden',
   },
   container: {
     flex: 1,
+    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: normalize(20),
-    paddingTop: normalize(60),
     paddingBottom: normalize(20),
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
+    marginLeft: normalize(12),
+    flex: 1,
+  },
+  title: {
+    fontSize: normalize(20),
+    fontWeight: '700',
+    color: '#E2E8F0',
+    marginBottom: normalize(4),
+  },
+  subtitle: {
+    fontSize: normalize(14),
+    color: '#94A3B8',
+    fontWeight: '500',
   },
   closeButton: {
     padding: normalize(8),
     borderRadius: normalize(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    zIndex: 1000,
-    position: 'relative',
-  },
-  closeButtonPressed: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    transform: [{ scale: 0.95 }],
-  },
-  closeButtonWeb: {
-    cursor: 'pointer',
-    userSelect: 'none',
-    // Ensure it's above other elements
-    zIndex: 1001,
-  },
-  headerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    marginLeft: normalize(-40), // Center alignment accounting for close button
-  },
-  sportIcon: {
-    fontSize: normalize(28),
-    marginRight: normalize(12),
-  },
-  typeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: normalize(20),
-    paddingHorizontal: normalize(12),
-    paddingVertical: normalize(8),
-  },
-  typeText: {
-    fontSize: normalize(14),
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: normalize(8),
+    backgroundColor: 'rgba(148, 163, 184, 0.1)',
   },
   content: {
     flex: 1,
     paddingHorizontal: normalize(20),
+    paddingTop: normalize(20),
   },
-  titleSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: normalize(24),
+  summaryCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: normalize(16),
+    padding: normalize(20),
     marginBottom: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
   },
-  title: {
-    fontSize: normalize(24),
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 1,
-    lineHeight: normalize(30),
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: normalize(12),
+  },
+  summaryTitle: {
+    fontSize: normalize(18),
+    fontWeight: '600',
+    color: '#E2E8F0',
   },
   categoryBadge: {
     paddingHorizontal: normalize(12),
     paddingVertical: normalize(6),
-    borderRadius: normalize(16),
-    marginLeft: normalize(12),
+    borderRadius: normalize(12),
   },
   categoryText: {
-    fontSize: normalize(11),
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  playerSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: normalize(20),
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    paddingHorizontal: normalize(16),
-    paddingVertical: normalize(12),
-    borderRadius: normalize(12),
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  playerName: {
-    fontSize: normalize(16),
+    fontSize: normalize(12),
     fontWeight: '600',
-    color: '#F59E0B',
-    marginLeft: normalize(8),
-  },
-  descriptionSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: normalize(16),
-    padding: normalize(20),
-    marginBottom: normalize(24),
+    color: '#FFFFFF',
   },
   description: {
     fontSize: normalize(16),
-    fontWeight: '500',
-    color: '#E2E8F0',
+    color: '#CBD5E1',
     lineHeight: normalize(24),
+    marginBottom: normalize(16),
   },
-  chartSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  confidenceContainer: {
+    marginTop: normalize(8),
+  },
+  confidenceLabel: {
+    fontSize: normalize(14),
+    color: '#94A3B8',
+    marginBottom: normalize(8),
+  },
+  confidenceBar: {
+    height: normalize(8),
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+    borderRadius: normalize(4),
+    marginBottom: normalize(8),
+  },
+  confidenceFill: {
+    height: '100%',
+    borderRadius: normalize(4),
+  },
+  confidenceText: {
+    fontSize: normalize(14),
+    color: '#E2E8F0',
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  infoCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     borderRadius: normalize(16),
     padding: normalize(20),
-    marginBottom: normalize(24),
+    marginBottom: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  infoTitle: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#E2E8F0',
+    marginBottom: normalize(8),
+  },
+  infoText: {
+    fontSize: normalize(18),
+    color: '#00E5FF',
+    fontWeight: '700',
+    marginBottom: normalize(4),
+  },
+  infoSubtext: {
+    fontSize: normalize(14),
+    color: '#94A3B8',
+  },
+  chartCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: normalize(16),
+    padding: normalize(20),
+    marginBottom: normalize(16),
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
   },
   chartHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: normalize(16),
   },
-  chart: {
-    borderRadius: normalize(12),
+  chartTitle: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#E2E8F0',
+    marginLeft: normalize(8),
   },
-  noChartContainer: {
+  chartPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: normalize(40),
   },
-  noChartText: {
-    fontSize: normalize(14),
-    color: '#6B7280',
-    marginTop: normalize(8),
-    fontWeight: '600',
-  },
-  noChartSubtext: {
-    fontSize: normalize(12),
-    color: '#6B7280',
-    marginTop: normalize(4),
-    fontStyle: 'italic',
-  },
-  chartTitle: {
-    fontSize: normalize(18),
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: normalize(4),
-    textAlign: 'center',
-  },
-  chartSubtitle: {
-    fontSize: normalize(12),
-    color: '#94A3B8',
-    marginBottom: normalize(16),
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  propLineIndicator: {
-    color: '#F59E0B',
-    fontWeight: '600',
-  },
-  chartContainer: {
-    position: 'relative',
-  },
-  barIndicators: {
-    position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 180,
-    pointerEvents: 'none',
-  },
-  barIndicator: {
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 2,
-  },
-  noDataContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  noDataText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  propLineOverlay: {
-    position: 'absolute',
-    left: 40,
-    right: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  propLineDashed: {
-    flex: 1,
-    height: 2,
-    backgroundColor: '#F59E0B',
-    opacity: 0.8,
-  },
-  propLineLabel: {
-    fontSize: normalize(10),
-    color: '#F59E0B',
-    fontWeight: '600',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    paddingHorizontal: normalize(6),
-    paddingVertical: normalize(2),
-    borderRadius: normalize(4),
-    marginLeft: normalize(8),
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: normalize(12),
-    paddingTop: normalize(12),
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: normalize(8),
-  },
-  legendColor: {
-    width: normalize(12),
-    height: normalize(12),
-    borderRadius: normalize(2),
-    marginRight: normalize(6),
-  },
-  legendLine: {
-    width: normalize(16),
-    height: 2,
-    backgroundColor: '#F59E0B',
-    marginRight: normalize(6),
-  },
-  legendText: {
-    fontSize: normalize(11),
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  keyStatsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: normalize(16),
-    padding: normalize(20),
-    marginBottom: normalize(24),
-  },
-  propLineInfo: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: normalize(18),
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: normalize(16),
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: normalize(12),
-  },
-  statItem: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: normalize(12),
-    padding: normalize(12),
-  },
-  statLabel: {
-    fontSize: normalize(12),
-    color: '#94A3B8',
-    marginBottom: normalize(4),
-  },
-  statValue: {
-    fontSize: normalize(18),
-    fontWeight: '700',
-    color: '#00E5FF',
-  },
-  insightSection: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: normalize(16),
-    padding: normalize(20),
-    marginBottom: normalize(24),
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: normalize(12),
-  },
-  insightTitle: {
-    fontSize: normalize(18),
-    fontWeight: '600',
-    color: '#F59E0B',
-    marginLeft: normalize(8),
-  },
-  insightText: {
-    fontSize: normalize(15),
-    color: '#FED7AA',
-    lineHeight: normalize(22),
-  },
-  supportingSection: {
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderRadius: normalize(16),
-    padding: normalize(20),
-    marginBottom: normalize(40),
-    borderLeftWidth: 4,
-    borderLeftColor: '#8B5CF6',
-  },
-  supportingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: normalize(12),
-  },
-  supportingTitle: {
-    fontSize: normalize(18),
-    fontWeight: '600',
-    color: '#8B5CF6',
-    marginLeft: normalize(8),
-  },
-  supportingText: {
-    fontSize: normalize(15),
-    color: '#DDD6FE',
-    lineHeight: normalize(22),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: normalize(16),
-  },
-  metricsContainer: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: normalize(16),
-    padding: normalize(20),
-    marginBottom: normalize(24),
-    borderLeftWidth: 4,
-    borderLeftColor: '#22C55E',
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  metricItem: {
-    width: '48%',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: normalize(12),
-    padding: normalize(12),
-    marginBottom: normalize(12),
-  },
-  metricLabel: {
-    fontSize: normalize(12),
-    color: '#94A3B8',
-    marginBottom: normalize(4),
-    fontWeight: '500',
-  },
-  metricValue: {
+  chartPlaceholderText: {
     fontSize: normalize(16),
-    fontWeight: '700',
-    color: '#22C55E',
+    color: '#64748B',
+    marginTop: normalize(12),
+    fontWeight: '500',
   },
-  trendIndicator: {
+  chartPlaceholderSubtext: {
+    fontSize: normalize(14),
+    color: '#475569',
+    marginTop: normalize(4),
+  },
+  metadataCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    borderRadius: normalize(16),
+    padding: normalize(20),
+    marginBottom: normalize(20),
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  metadataTitle: {
+    fontSize: normalize(16),
+    fontWeight: '600',
+    color: '#E2E8F0',
+    marginBottom: normalize(12),
+  },
+  metadataContent: {
+    gap: normalize(8),
+  },
+  metadataRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  metadataKey: {
+    fontSize: normalize(14),
+    color: '#94A3B8',
+    fontWeight: '500',
+    flex: 1,
+  },
+  metadataValue: {
+    fontSize: normalize(14),
+    color: '#E2E8F0',
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
   },
 });
