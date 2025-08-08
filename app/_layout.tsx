@@ -11,6 +11,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
+import appsFlyerService from './services/appsFlyerService';
+import facebookAnalyticsService from './services/facebookAnalyticsService';
 
 
 // Get device dimensions to adapt UI for iPad
@@ -18,12 +20,34 @@ const { width: screenWidth } = Dimensions.get('window');
 const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
 
 function AppContent() {
-  const { showSubscriptionModal, closeSubscriptionModal, subscribeToPro } = useSubscription();
+  const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
   const { initializeReview } = useReview();
 
-  // Initialize review service on app startup
+  // Initialize review service, AppsFlyer, and Facebook Analytics on app startup
   useEffect(() => {
     initializeReview();
+    
+    // Initialize AppsFlyer for TikTok ads tracking
+    (async () => {
+      try {
+        console.log('🚀 Initializing AppsFlyer for TikTok ads tracking...');
+        await appsFlyerService.initialize();
+        console.log('✅ AppsFlyer initialized successfully');
+      } catch (error) {
+        console.error('❌ AppsFlyer initialization failed:', error);
+      }
+    })();
+    
+    // Initialize Facebook Analytics for Meta ads tracking
+    (async () => {
+      try {
+        console.log('🚀 Initializing Facebook Analytics for Meta ads tracking...');
+        await facebookAnalyticsService.initialize();
+        console.log('✅ Facebook Analytics initialized successfully');
+      } catch (error) {
+        console.error('❌ Facebook Analytics initialization failed:', error);
+      }
+    })();
     
     // Register push notifications
     (async () => {
@@ -52,7 +76,9 @@ function AppContent() {
         visible={showSubscriptionModal}
         onClose={closeSubscriptionModal}
         onSubscribe={async (plan, tier) => {
-          await subscribeToPro(plan);
+          // Track subscription with AppsFlyer
+          await appsFlyerService.trackSubscription(plan, tier === 'pro' ? 19.99 : 29.99);
+          closeSubscriptionModal();
         }}
       />
     </View>

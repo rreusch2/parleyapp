@@ -107,14 +107,14 @@ else
     handle_error "Enhanced teams predictions failed" "Teams generation"
 fi
 
-# Step 6: Generate Daily Trends (Using Accurate pybaseball Data)
-log "📈 Step 6/6: Generating daily trends with real MLB data..."
+# Step 6: Generate Daily Trends
+log "📈 Step 6/6: Generating daily trends..."
 
-cd "$PROJECT_ROOT"
-if python3 trends_pybaseball.py >> "$LOG_FILE" 2>&1; then
-    log "✅ Daily trends completed successfully with pybaseball data"
+cd "$PROJECT_ROOT/python-scripts-service"
+if python3 trendsnew.py >> "$LOG_FILE" 2>&1; then
+    log "✅ Daily trends completed successfully"
 else
-    handle_error "Daily trends failed" "Pybaseball trends generation"
+    handle_error "Daily trends failed" "Trends generation"
 fi
 
 cd "$PROJECT_ROOT"

@@ -33,13 +33,9 @@ export default function LoginScreen() {
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
   const router = useRouter();
 
-  // Check if Apple Auth is available on mount (only on iOS)
+  // Check if Apple Auth is available on mount
   React.useEffect(() => {
-    if (Platform.OS === 'ios') {
-      AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
-    } else {
-      setIsAppleAuthAvailable(false);
-    }
+    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
   }, []);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders

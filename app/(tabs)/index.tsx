@@ -28,6 +28,8 @@ import {
   Trophy
 } from 'lucide-react-native';
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
+import appsFlyerService from '../services/appsFlyerService';
+import facebookAnalyticsService from '../services/facebookAnalyticsService';
 import { supabase } from '../services/api/supabaseClient';
 import { router } from 'expo-router';
 
@@ -88,6 +90,24 @@ export default function HomeScreen() {
       
       try {
         await loadInitialData(abortController.signal);
+        
+        // Track prediction view for AppsFlyer/TikTok optimization
+        try {
+          await appsFlyerService.trackPredictionView();
+        } catch (error) {
+          console.error('Failed to track prediction view:', error);
+        }
+        
+        // Track daily picks view with Facebook Analytics
+        try {
+          facebookAnalyticsService.trackViewContent('Daily AI Picks', {
+            content_category: 'predictions',
+            user_tier: subscriptionTier,
+            picks_count: todaysPicks.length
+          });
+        } catch (error) {
+          console.error('Failed to track view content with Facebook Analytics:', error);
+        }
       } catch (error) {
         if (!abortController.signal.aborted) {
           console.error('Failed to load dashboard data:', error);

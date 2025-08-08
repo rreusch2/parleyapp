@@ -606,34 +606,75 @@ class IntelligentTeamsAgent:
         # STEP 3: Calculate balanced research allocation for team bets
         mlb_games = len([g for g in games if g.get('sport') == 'Major League Baseball'])
         wnba_games = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])
-        total_games = mlb_games + wnba_games
+        nfl_games = len([g for g in games if g.get('sport') == 'National Football League'])
+        total_games = mlb_games + wnba_games + nfl_games
         
         # Default research ratios
         wnba_research_ratio = 0.0
-        mlb_research_ratio = 1.0
+        mlb_research_ratio = 0.0
+        nfl_research_ratio = 0.0
         
-        if sport_distribution["WNBA"] > 0 and sport_distribution["MLB"] > 0:
-            # Both sports available - focus heavily on MLB since we need 7 picks vs 3 WNBA
-            wnba_research_ratio = 0.25  # Reduced WNBA research
-            mlb_research_ratio = 0.75   # Increased MLB research
-        elif sport_distribution["MLB"] > 0:
-            # Only MLB available
-            wnba_research_ratio = 0.0
+        # Calculate research allocation based on available sports
+        active_sports = []
+        if sport_distribution["NFL"] > 0:
+            active_sports.append("NFL")
+        if sport_distribution["MLB"] > 0:
+            active_sports.append("MLB")
+        if sport_distribution["WNBA"] > 0:
+            active_sports.append("WNBA")
+        
+        # Dynamic allocation based on available sports
+        if "NFL" in active_sports and "MLB" in active_sports and "WNBA" in active_sports:
+            # All three sports: NFL priority, then MLB, then WNBA
+            nfl_research_ratio = 0.5
+            mlb_research_ratio = 0.35
+            wnba_research_ratio = 0.15
+        elif "NFL" in active_sports and "MLB" in active_sports:
+            # NFL + MLB: NFL priority
+            nfl_research_ratio = 0.6
+            mlb_research_ratio = 0.4
+        elif "NFL" in active_sports and "WNBA" in active_sports:
+            # NFL + WNBA: NFL priority
+            nfl_research_ratio = 0.7
+            wnba_research_ratio = 0.3
+        elif "MLB" in active_sports and "WNBA" in active_sports:
+            # MLB + WNBA: MLB priority
+            mlb_research_ratio = 0.75
+            wnba_research_ratio = 0.25
+        elif "NFL" in active_sports:
+            # Only NFL
+            nfl_research_ratio = 1.0
+        elif "MLB" in active_sports:
+            # Only MLB
             mlb_research_ratio = 1.0
+        elif "WNBA" in active_sports:
+            # Only WNBA
+            wnba_research_ratio = 1.0
         
-        # Target: 6-8 WNBA teams for 3 picks, 16-20 MLB teams for 7 picks  
-        target_wnba_queries = min(8, max(6, int(15 * wnba_research_ratio)))
-        target_mlb_queries = min(20, max(16, int(15 * mlb_research_ratio)))
+        # Calculate target queries (total of 20-25 queries)
+        total_research_queries = 22
+        target_nfl_queries = int(total_research_queries * nfl_research_ratio)
+        target_mlb_queries = int(total_research_queries * mlb_research_ratio)
+        target_wnba_queries = int(total_research_queries * wnba_research_ratio)
+        
+        # Ensure at least some queries for each active sport
+        if "NFL" in active_sports and target_nfl_queries < 3:
+            target_nfl_queries = 3
+        if "MLB" in active_sports and target_mlb_queries < 3:
+            target_mlb_queries = 3
+        if "WNBA" in active_sports and target_wnba_queries < 3:
+            target_wnba_queries = 3
         
         prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE team research strategy.
 
 # CRITICAL REQUIREMENTS - BALANCED TEAM RESEARCH STRATEGY:
 
 ## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
-- **WNBA Team Research**: {target_wnba_queries} different teams/matchups (for 3 final picks)
-- **MLB Team Research**: {target_mlb_queries} different teams/matchups (for 7 final picks)
-- **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
-- **Web Searches**: 6 total (4 MLB injury/lineup/weather, 2 WNBA injury/lineup)
+- **NFL Team Research**: {target_nfl_queries} different teams/matchups
+- **MLB Team Research**: {target_mlb_queries} different teams/matchups
+- **WNBA Team Research**: {target_wnba_queries} different teams/matchups
+- **Total StatMuse Queries**: {target_nfl_queries + target_mlb_queries + target_wnba_queries}
+- **Web Searches**: 6 total (distributed across active sports for injury/lineup/weather)
 
 ## DIVERSITY REQUIREMENTS FOR TEAMS:
 - **NO REPETITIVE POPULAR TEAMS**: Avoid Yankees, Dodgers, Lakers-style teams every time
@@ -644,7 +685,9 @@ class IntelligentTeamsAgent:
 
 # AVAILABLE DATA:
 Games: {len(games)} across {sports_summary}
-MLB Games: {mlb_games}, WNBA Games: {wnba_games}
+NFL Games: {nfl_games} (NOTE: These are NFL PRESEASON games - different dynamics than regular season)
+MLB Games: {mlb_games} (Regular season games)
+WNBA Games: {wnba_games} (Regular season games)
 Total Team Bets: {len(bets)}
 
 # CURRENT STATMUSE CONTEXT:
@@ -667,22 +710,40 @@ AVAILABLE TEAM BETS SAMPLE:
 # YOUR TASK:
 Generate a research plan that follows the EXACT allocation above and focuses on DIVERSE teams from the actual games data.
 
-**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups (mix of contenders, underdogs, pace plays)
-**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups (variety of divisions, ballparks, situations)"
+**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups (PRESEASON GAMES - focus on coaching tendencies, roster battles, starter playing time)
+**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups (variety of divisions, ballparks, situations)
+**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups (mix of contenders, underdogs, pace plays)"
 
 # YOUR TOOLS
 
 ## StatMuse Tool
-You have access to a powerful StatMuse API that can answer baseball questions with real data.
+You have access to a powerful StatMuse API that can answer NFL, MLB, and WNBA questions with real data.
 
 **SUCCESSFUL QUERY EXAMPLES** (these work well but dont feel limited to just these):
+
+**NFL Examples:**
+- "Philadelphia Eagles NFL team home record last season"
+- "Cincinnati Bengals NFL team road record 2024"
+- "Baltimore Ravens NFL points scored per game 2024"
+- "Indianapolis Colts NFL points allowed per game 2024"
+- "Kansas City Chiefs NFL record vs AFC teams 2024"
+- "Seattle Seahawks NFL preseason record last 3 years"
+- "Las Vegas Raiders NFL team offensive stats 2024"
+
+**MLB Examples:**
 - "New York Yankees record vs Boston Red Sox this season" 
 - "Los Angeles Dodgers home record last 10 games"
 - "Atlanta Braves runs scored per game last 5 games"
 - "Houston Astros bullpen ERA last 30 days"
 - "Team batting average vs left handed pitching for Philadelphia Phillies"
 - "Coors Field home runs allowed this season"
-- "Yankee Stadium runs scored in day games"
+
+**WNBA Examples:**
+- "Chicago Sky home record last 10 games"
+- "Indiana Fever road record this season"
+- "Phoenix Mercury points scored per game last 5 games"
+- "Connecticut Sun defensive rating this season"
+- "Las Vegas Aces pace this season"
 
 **QUERIES THAT MAY FAIL** (avoid these patterns):
 - Very specific situational stats ("with runners in scoring position")
@@ -694,9 +755,11 @@ You have access to a powerful StatMuse API that can answer baseball questions wi
 **BEST PRACTICES**:
 - Keep queries simple and direct
 - Focus on season totals, averages, recent games (last 5-15)
-- Use team names exactly as they appear in MLB
-- Ask about standard team stats: record, runs scored/allowed, ERA, bullpen stats
-- Venue-specific queries work well for major stadiums
+- Use team names exactly as they appear in each sport
+- Ask about standard team stats: record, points/runs scored/allowed, efficiency ratings
+- Venue-specific queries work well for major stadiums/arenas
+- **FOR NFL QUERIES**: Add "NFL team" or "NFL" to avoid confusion with MLB teams (e.g., "Philadelphia Eagles NFL team")
+- **FOR PRESEASON**: Focus on coaching tendencies, depth charts, and previous preseason performance rather than regular season stats
 
 ## Web Search Tool
 You can search the web for:
@@ -720,20 +783,21 @@ Return ONLY a valid JSON object with this structure:
 {{
     "research_strategy": "Balanced diverse research strategy focusing on team diversity",
     "statmuse_queries": [
-        // {target_wnba_queries} WNBA team queries (different teams, varied bet types)
+        // {target_nfl_queries} NFL team queries (different teams, varied bet types)
         // {target_mlb_queries} MLB team queries (different teams, varied bet types)
+        // {target_wnba_queries} WNBA team queries (different teams, varied bet types)
         {{
             "query": "[Diverse Team Name] [varied stat/matchup] this season",
             "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "sport": "NFL/MLB/WNBA"
         }}
     ],
     "web_searches": [
-        // 3 MLB injury/lineup/weather searches, 2 WNBA injury/lineup searches
+        // Distributed across active sports for injury/lineup/weather searches
         {{
             "query": "[Team Name] injury status lineup news weather",
             "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "sport": "NFL/MLB/WNBA"
         }}
     ]
 }}
@@ -1321,6 +1385,8 @@ REMEMBER:
                             display_sport = "WNBA"
                         elif game_sport == "Ultimate Fighting Championship":
                             display_sport = "MMA"
+                        elif game_sport == "National Football League":
+                            display_sport = "NFL"
                         elif game_sport == "Major League Baseball":
                             display_sport = "MLB"
                         else:

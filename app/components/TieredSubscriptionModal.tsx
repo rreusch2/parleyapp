@@ -41,6 +41,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import { useReview } from '../hooks/useReview';
+import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -97,6 +98,28 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     try {
       setLoading(true);
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
+      
+      // Track subscription intent with Facebook Analytics (Add to Cart event)
+      try {
+        const planPrices = {
+          'pro_weekly': 12.49,
+          'pro_monthly': 24.99,
+          'pro_yearly': 199.99,
+          'pro_lifetime': 349.99,
+          'elite_weekly': 14.99,
+          'elite_monthly': 29.99,
+          'elite_yearly': 199.99
+        };
+        
+        const price = planPrices[selectedPlan] || 0;
+        facebookAnalyticsService.trackAddToCart(selectedTier, price, {
+          subscription_plan: selectedPlan,
+          subscription_tier: selectedTier
+        });
+        console.log('📊 Facebook Analytics Add to Cart event tracked');
+      } catch (error) {
+        console.error('❌ Failed to track Add to Cart with Facebook Analytics:', error);
+      }
 
       const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
 

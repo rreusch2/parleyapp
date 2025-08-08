@@ -6,10 +6,14 @@ module.exports = {
     orientation: "portrait",
     scheme: "predictiveplay",
     userInterfaceStyle: "automatic",
-    icon: "./assets/images/icon.png", // ← ADDED THIS
+    icon: "./assets/images/icon.png",
     updates: {
       fallbackToCacheTimeout: 0
     },
+    // Facebook SDK Configuration
+    facebookAppId: "1019527860059930", // Replace with your actual Facebook App ID
+    facebookAutoLogAppEventsEnabled: true,
+    facebookAdvertiserIDCollectionEnabled: true,
     assetBundlePatterns: [
       "**/*"
     ],
@@ -61,7 +65,15 @@ module.exports = {
       "expo-font",
       "expo-notifications",
       "expo-web-browser",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "react-native-appsflyer",
+        {
+          "devKey": "NgBrVqoMhaRVeeaekgT9xX",
+          "appId": "id6748275790",
+          "isDebug": false
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true

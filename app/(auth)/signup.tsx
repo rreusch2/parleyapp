@@ -24,6 +24,8 @@ import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import appsFlyerService from '../services/appsFlyerService';
+import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 
 export default function SignupScreen() {
@@ -174,6 +176,14 @@ export default function SignupScreen() {
           console.error('❌ Error details:', JSON.stringify(updateError, null, 2));
         } else {
           console.log(`✅ Welcome bonus activated! User stays FREE tier with ${picks} picks until ${expiration.toISOString()}`);
+          
+          // Track welcome bonus claim with Facebook Analytics
+          try {
+            facebookAnalyticsService.trackWelcomeBonusClaimed(picks);
+            console.log('📊 Facebook Analytics welcome bonus event tracked');
+          } catch (error) {
+            console.error('❌ Failed to track welcome bonus with Facebook Analytics:', error);
+          }
           
           // Force refresh the subscription context to ensure isPro stays false
           await checkSubscriptionStatus();
@@ -527,6 +537,26 @@ export default function SignupScreen() {
       if (data.user) {
         console.log('✅ Signup successful! User ID:', data.user.id);
         console.log('🎯 About to show preferences modal...');
+        
+        // Track signup with AppsFlyer for TikTok attribution
+        try {
+          await appsFlyerService.trackSignup('email');
+          console.log('📊 AppsFlyer signup event tracked');
+        } catch (error) {
+          console.error('❌ Failed to track signup with AppsFlyer:', error);
+        }
+        
+        // Track signup with Facebook Analytics for Meta ads attribution
+        try {
+          facebookAnalyticsService.trackCompleteRegistration({
+            fb_registration_method: 'email',
+            fb_content_name: 'Account Signup',
+            user_id: data.user.id
+          });
+          console.log('📊 Facebook Analytics signup event tracked');
+        } catch (error) {
+          console.error('❌ Failed to track signup with Facebook Analytics:', error);
+        }
         
         // Store user ID and show preferences modal first
         setCurrentUserId(data.user.id);

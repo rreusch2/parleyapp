@@ -4,6 +4,7 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
+import facebookAnalyticsService from './facebookAnalyticsService';
 
 
 interface SubscriptionContextType {
@@ -204,7 +205,28 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (result.success) {
         console.log('✅ DEBUG: Purchase completed successfully, now verifying status...');
         
-
+        // Track successful subscription purchase with Facebook Analytics
+        try {
+          const planPrices = {
+            'weekly': 12.49,
+            'monthly': 24.99,
+            'yearly': 199.99,
+            'lifetime': 349.99,
+            'allstar_weekly': 14.99,
+            'allstar_monthly': 29.99,
+            'allstar_yearly': 199.99
+          };
+          
+          const price = planPrices[planId] || 0;
+          facebookAnalyticsService.trackPurchase(price, 'USD', {
+            subscription_tier: tier,
+            subscription_plan: planId,
+            user_id: user.id
+          });
+          console.log('📊 Facebook Analytics purchase event tracked');
+        } catch (error) {
+          console.error('❌ Failed to track purchase with Facebook Analytics:', error);
+        }
 
         // CRITICAL FIX: Remove optimistic update.
         // Instead of setting isPro(true) immediately, we rely on checkSubscriptionStatus

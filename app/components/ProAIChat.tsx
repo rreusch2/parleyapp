@@ -46,6 +46,7 @@ import { AIPrediction } from '../services/api/aiService';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
 import { useReview } from '../hooks/useReview';
+import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -424,6 +425,13 @@ export default function ProAIChat({
     // Increment free user message count after sending
     if (!isPro) {
       incrementFreeUserMessages();
+    }
+    
+    // Track chat usage with Facebook Analytics
+    try {
+      facebookAnalyticsService.trackChatUsage(messages.length + 1, isPro ? 'pro' : 'free');
+    } catch (error) {
+      console.error('Failed to track chat usage with Facebook Analytics:', error);
     }
 
     setTimeout(() => {
