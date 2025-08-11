@@ -69,6 +69,49 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     return () => subscription.unsubscribe();
   }, []);
 
+  // Realtime listener: react immediately to manual DB updates on profiles
+  useEffect(() => {
+    let channel: any | null = null;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        channel = supabase
+          .channel(`profiles-changes-${user.id}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user.id}`,
+          }, (payload: any) => {
+            try {
+              console.log('📡 Realtime: profile updated, refreshing subscription status', {
+                newTier: payload?.new?.subscription_tier,
+                oldTier: payload?.old?.subscription_tier,
+              });
+              // Re-run the authoritative checker (handles welcome bonus, RevenueCat sync, etc.)
+              checkSubscriptionStatus();
+            } catch (e) {
+              console.warn('Realtime handler error', e);
+            }
+          })
+          .subscribe((status: string) => {
+            console.log('📡 Realtime channel status:', status);
+          });
+      } catch (e) {
+        console.warn('Failed to start realtime subscription for profiles', e);
+      }
+    })();
+
+    return () => {
+      if (channel) {
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
+      }
+    };
+  }, []);
+
   const checkSubscriptionStatus = async () => {
     console.log('🔄 DEBUG: checkSubscriptionStatus called');
     

@@ -13,7 +13,8 @@ import {
   Modal,
   TextInput,
   Keyboard,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Share
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import UserPreferencesModal from '../components/UserPreferencesModal';
@@ -52,6 +53,7 @@ import AboutModal from '../components/AboutModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
+import * as Clipboard from 'expo-clipboard';
 
 interface UserProfile {
   id: string;
@@ -325,17 +327,13 @@ export default function SettingsScreen() {
     const shareMessage = `🚀 Join me on Predictive Play - the AI-powered sports betting app! Get premium picks and insights. Use my referral code: ${userReferralCode}\n\nDownload: https://apps.apple.com/app/predictive-play`;
 
     try {
-      const { Share } = await import('react-native');
       await Share.share({
         message: shareMessage,
         title: 'Join Predictive Play',
       });
     } catch (error) {
       console.error('Error sharing referral code:', error);
-      // Fallback: copy to clipboard
-      const { Clipboard } = await import('react-native');
-      Clipboard.setString(userReferralCode);
-      Alert.alert('Copied!', `Your referral code "${userReferralCode}" has been copied to clipboard.`);
+      Alert.alert('Error', 'Unable to open the share sheet on this device.');
     }
   };
 
@@ -346,8 +344,7 @@ export default function SettingsScreen() {
     }
 
     try {
-      const { Clipboard } = await import('react-native');
-      Clipboard.setString(userReferralCode);
+      await Clipboard.setStringAsync(userReferralCode);
       Vibration.vibrate(50);
       Alert.alert('Copied!', `Your referral code "${userReferralCode}" has been copied to clipboard.`);
     } catch (error) {

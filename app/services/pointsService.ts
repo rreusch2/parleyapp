@@ -10,9 +10,9 @@ interface PointsBalance {
 
 interface PointsRedemption {
   id: string;
-  type: 'discount' | 'free_month' | 'tier_upgrade' | 'subscription_credit';
+  type: 'percent_discount' | 'free_month' | 'tier_upgrade';
   pointsCost: number;
-  dollarValue: number;
+  percentValue?: number; // for percent_discount
   description: string;
   tierRequired?: 'free' | 'pro' | 'elite';
 }
@@ -43,24 +43,23 @@ class PointsService {
   getRedemptionOptions(): PointsRedemption[] {
     return [
       {
-        id: 'discount_1000',
-        type: 'discount',
+        id: 'percent_25_next_billing',
+        type: 'percent_discount',
         pointsCost: 1000,
-        dollarValue: 10,
-        description: '$10 off any subscription',
+        percentValue: 25,
+        description: '25% off next subscription (one-time)',
       },
       {
-        id: 'discount_2500',
-        type: 'discount',
+        id: 'percent_50_next_billing',
+        type: 'percent_discount',
         pointsCost: 2500,
-        dollarValue: 25,
-        description: '$25 off any subscription',
+        percentValue: 50,
+        description: '50% off next subscription (one-time)',
       },
       {
         id: 'free_pro_month',
         type: 'free_month',
         pointsCost: 2000,
-        dollarValue: 20,
         description: '1 month Pro free',
         tierRequired: 'free',
       },
@@ -68,7 +67,6 @@ class PointsService {
         id: 'free_elite_month',
         type: 'free_month',
         pointsCost: 3000,
-        dollarValue: 30,
         description: '1 month Elite free',
         tierRequired: 'free',
       },
@@ -76,23 +74,8 @@ class PointsService {
         id: 'pro_to_elite_upgrade',
         type: 'tier_upgrade',
         pointsCost: 1000,
-        dollarValue: 10,
         description: 'Upgrade Pro to Elite for 1 month',
         tierRequired: 'pro',
-      },
-      {
-        id: 'discount_5000',
-        type: 'discount',
-        pointsCost: 5000,
-        dollarValue: 50,
-        description: '$50 off any subscription (50% off most plans)',
-      },
-      {
-        id: 'discount_10000',
-        type: 'discount',
-        pointsCost: 10000,
-        dollarValue: 100,
-        description: '$100 off lifetime subscription',
       },
     ];
   }
@@ -211,15 +194,15 @@ class PointsService {
   private async applyReward(userId: string, redemption: PointsRedemption): Promise<void> {
     try {
       switch (redemption.type) {
-        case 'discount':
-          // Create discount credit for next purchase
+        case 'percent_discount':
+          // Create a pending one-time percent discount for the next subscription billing/purchase
           await supabase
             .from('referral_rewards')
             .insert({
               user_id: userId,
-              reward_type: 'discount_credit',
-              reward_value: redemption.dollarValue,
-              description: `$${redemption.dollarValue} subscription credit`,
+              reward_type: 'one_time_percent_discount',
+              reward_value: redemption.percentValue ?? 0,
+              description: `${redemption.percentValue}% off next subscription (one-time)`,
               status: 'active',
               expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days
               created_at: new Date().toISOString()
@@ -299,8 +282,8 @@ class PointsService {
         return false;
       }
 
-      // Award 2,500 points to new user
-      await this.awardPoints(newUserId, 2500, 'Referral signup bonus');
+      // Award 1,500 points to new user (referred signup bonus)
+      await this.awardPoints(newUserId, 1500, 'Referral signup bonus');
 
       // Create referral tracking record
       await supabase
@@ -311,11 +294,11 @@ class PointsService {
           referral_code: referralCode,
           status: 'pending',
           reward_type: 'points',
-          reward_value: 5000, // Referrer will get 5000 points when referred user subscribes
+          reward_value: 0, // Will be determined on conversion based on plan
           created_at: new Date().toISOString()
         });
 
-      console.log('✅ Referral signup processed - 2,500 points awarded to new user');
+      console.log('✅ Referral signup processed - 1,500 points awarded to new user');
       return true;
     } catch (error) {
       console.error('Error processing referral signup:', error);
@@ -341,20 +324,38 @@ class PointsService {
         return;
       }
 
-      // Award 5,000 points to referrer
-      await this.awardPoints(referral.referrer_id, 5000, 'Successful referral conversion');
+      // Enforce 24-hour conversion window based on referral.created_at
+      const createdAt = referral.created_at ? new Date(referral.created_at) : null;
+      const within24h = createdAt ? (Date.now() - createdAt.getTime()) <= (24 * 60 * 60 * 1000) : true;
+
+      // Determine referred user's current subscription tier
+      let refPoints = 0;
+      if (within24h) {
+        const { data: userTier } = await supabase
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('id', referredUserId)
+          .single();
+
+        if (userTier?.subscription_tier === 'elite') refPoints = 2500;
+        else if (userTier?.subscription_tier === 'pro') refPoints = 1500;
+      }
+
+      if (refPoints > 0) {
+        await this.awardPoints(referral.referrer_id, refPoints, 'Successful referral conversion');
+      }
 
       // Mark referral as completed
       await supabase
         .from('referrals')
         .update({
           status: 'completed',
-          reward_granted: true,
+          reward_granted: refPoints > 0,
           completed_at: new Date().toISOString()
         })
         .eq('id', referral.id);
 
-      console.log('✅ Referral conversion processed - 5,000 points awarded to referrer');
+      console.log(`✅ Referral conversion processed - ${refPoints} points awarded to referrer`);
     } catch (error) {
       console.error('Error processing referral conversion:', error);
     }
