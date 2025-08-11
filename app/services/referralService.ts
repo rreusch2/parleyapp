@@ -10,6 +10,28 @@ interface ReferralData {
   discountExpiresAt: string | null;
 }
 
+interface ReferralBonus {
+  hasBonus: boolean;
+  bonusType: 'points' | 'free_trial';
+  bonusValue: number;
+  description: string;
+}
+
+interface PointsBalance {
+  totalPoints: number;
+  availablePoints: number;
+  pendingPoints: number;
+  lifetimeEarned: number;
+}
+
+interface PointsRedemption {
+  id: string;
+  type: 'discount' | 'free_month' | 'tier_upgrade';
+  pointsCost: number;
+  value: number;
+  description: string;
+}
+
 class ReferralService {
   private static instance: ReferralService;
   private readonly STORAGE_KEY = 'parley_referral_data';

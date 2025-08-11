@@ -34,6 +34,66 @@ log "📝 Log file: $LOG_FILE"
 # Change to project root
 cd "$PROJECT_ROOT"
 
+# Ensure correct shell environment for cron (Node via nvm/asdf/volta)
+# We tolerate failures in this block to avoid stopping the pipeline
+{
+    # Load common user profiles that may initialize version managers
+    [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+    [ -f "$HOME/.profile" ] && . "$HOME/.profile"
+
+    # Prefer NVM if available
+    if [ -d "$HOME/.nvm" ]; then
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+        if command -v nvm >/dev/null 2>&1; then
+            nvm install 18 >/dev/null 2>&1 || true
+            nvm use 18 >/dev/null 2>&1 || true
+        fi
+    fi
+
+    # Fallback to asdf if present
+    if command -v asdf >/dev/null 2>&1; then
+        asdf shell nodejs 18.20.3 >/dev/null 2>&1 || true
+    fi
+
+    # Fallback to Volta if present
+    if command -v volta >/dev/null 2>&1; then
+        volta install node@18 >/dev/null 2>&1 || true
+        volta pin node@18 >/dev/null 2>&1 || true
+    fi
+
+    NODE_VER=$(node -v 2>/dev/null || true)
+    NPM_VER=$(npm -v 2>/dev/null || true)
+    NODE_PATH_BIN=$(command -v node 2>/dev/null || true)
+    NPM_PATH_BIN=$(command -v npm 2>/dev/null || true)
+    log "🧰 Node runtime: ${NODE_PATH_BIN:-not found} ${NODE_VER:+($NODE_VER)}"
+    log "🧰 NPM binary: ${NPM_PATH_BIN:-not found} ${NPM_VER:+($NPM_VER)}"
+
+    # Optional diagnostics
+    if command -v ts-node >/dev/null 2>&1; then
+        TS_NODE_VER=$(ts-node --version 2>/dev/null || true)
+        log "🧰 ts-node: ${TS_NODE_VER:-not found}"
+    fi
+    if command -v tsc >/dev/null 2>&1; then
+        TSC_VER=$(tsc -v 2>/dev/null || true)
+        log "🧰 tsc: ${TSC_VER:-not found}"
+    fi
+
+    # Enforce Node >= 18 for backend per package.json engines
+    if [ -n "$NODE_VER" ]; then
+        NODE_MAJOR=$(echo "$NODE_VER" | sed -E 's/^v([0-9]+).*$/\1/')
+        if [ "$NODE_MAJOR" -lt 18 ]; then
+            log "⚠️  Detected Node $NODE_VER, attempting to switch to Node 18 via nvm/asdf/volta..."
+            if command -v nvm >/dev/null 2>&1; then nvm use 18 >/dev/null 2>&1 || true; fi
+            if command -v asdf >/dev/null 2>&1; then asdf shell nodejs 18.20.3 >/dev/null 2>&1 || true; fi
+            if command -v volta >/dev/null 2>&1; then volta pin node@18 >/dev/null 2>&1 || true; fi
+            NODE_VER=$(node -v 2>/dev/null || true)
+            log "🔁 After switch, Node: ${NODE_VER:-unavailable}"
+        fi
+    fi
+} || true
+
 # Step 1: Check/Start StatMuse API Server
 log "📡 Step 1/6: Checking StatMuse API Server..."
 

@@ -49,12 +49,16 @@ interface TieredSubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
   onSubscribe?: (planId: SubscriptionPlan, tier: SubscriptionTier) => Promise<void>;
+  hasReferralBonus?: boolean;
+  referralBonusType?: 'free_trial' | 'discount';
 }
 
 const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   visible,
   onClose,
   onSubscribe,
+  hasReferralBonus = false,
+  referralBonusType = 'free_trial',
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime');
@@ -204,6 +208,37 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       console.error('Error opening Privacy Policy:', error);
       Alert.alert('Error', 'Unable to open Privacy Policy');
     }
+  };
+
+  const renderReferralBonus = () => {
+    if (!hasReferralBonus) return null;
+
+    return (
+      <View style={styles.referralBonusContainer}>
+        <LinearGradient
+          colors={['#10B981', '#059669']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.referralBonusGradient}
+        >
+          <View style={styles.referralBonusContent}>
+            <Gift size={24} color="#FFFFFF" />
+            <View style={styles.referralBonusText}>
+              <Text style={styles.referralBonusTitle}>
+                🎉 Referral Bonus Applied!
+              </Text>
+              <Text style={styles.referralBonusSubtitle}>
+                {referralBonusType === 'free_trial' 
+                  ? '2,500 bonus points ($25 value) - Use for discounts or free upgrades!'
+                  : '50% off your first month - Limited time offer!'
+                }
+              </Text>
+            </View>
+            <Sparkles size={20} color="#FFFFFF" />
+          </View>
+        </LinearGradient>
+      </View>
+    );
   };
 
   const renderTierComparison = () => (
@@ -407,6 +442,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           </View>
 
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {/* Referral Bonus Banner */}
+            {renderReferralBonus()}
+            
             {/* Tier Comparison */}
             {renderTierComparison()}
 
@@ -915,6 +953,36 @@ const styles = StyleSheet.create({
   planNameWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Referral bonus styles
+  referralBonusContainer: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  referralBonusGradient: {
+    padding: 16,
+  },
+  referralBonusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  referralBonusText: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 12,
+  },
+  referralBonusTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  referralBonusSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
   },
 });
 

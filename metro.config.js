@@ -38,4 +38,17 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
+// Avoid Metro trying to open pseudo-files like "<anonymous>" when symbolication runs
+config.symbolicator = {
+  customizeFrame: (frame) => {
+    const file = frame && frame.file ? String(frame.file) : '';
+    const collapse =
+      file.includes('<anonymous>') ||
+      file.includes('eval at') ||
+      file.startsWith('native ') ||
+      file.startsWith('[native code]');
+    return { collapse };
+  },
+};
+
 module.exports = config;

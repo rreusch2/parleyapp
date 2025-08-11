@@ -32,13 +32,20 @@ import {
   Brain,
   Eye,
   EyeOff,
-  Trash2
+  Trash2,
+  Share2,
+  Gift,
+  Copy
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
+import { useSubscription } from '../services/subscriptionContext';
+import { useReview } from '../hooks/useReview';
+import facebookAnalyticsService from '../services/facebookAnalyticsService';
+import PointsService from '../services/pointsService';
+import PointsRedemptionModal from '../components/PointsRedemptionModal';
 import { aiService } from '../services/api/aiService';
 import { userApi } from '../services/api/client';
 import { router } from 'expo-router';
-import { useSubscription } from '../services/subscriptionContext';
 import HelpCenterModal from '../components/HelpCenterModal';
 import FeedbackModal from '../components/FeedbackModal';
 import AboutModal from '../components/AboutModal';
@@ -106,6 +113,12 @@ export default function SettingsScreen() {
   // Set username state
   const [newUsername, setNewUsername] = useState('');
   const [setUsernameLoading, setSetUsernameLoading] = useState(false);
+
+  // Referral state
+  const [userReferralCode, setUserReferralCode] = useState('');
+  const [referralStats, setReferralStats] = useState({ totalReferrals: 0, pendingRewards: 0 });
+  const [pointsBalance, setPointsBalance] = useState(0);
+  const [showPointsModal, setShowPointsModal] = useState(false);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -258,12 +271,88 @@ export default function SettingsScreen() {
             created_at: profile.created_at
           });
           setHasUsername(!!profile.username && profile.username.trim() !== '');
+          setUserReferralCode(profile.referral_code || '');
+          
+          // Fetch referral stats if user has a referral code
+          if (profile.referral_code) {
+            fetchReferralStats(profile.referral_code, user.id);
+          }
+
+          // Load points balance
+          loadPointsBalance(user.id);
         }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReferralStats = async (referralCode: string, userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('referrals')
+        .select('*')
+        .eq('referrer_id', userId);
+
+      if (!error && data) {
+        const totalReferrals = data.length;
+        const pendingRewards = data.filter(r => r.status === 'completed' && !r.reward_granted).length;
+        setReferralStats({ totalReferrals, pendingRewards });
+      }
+    } catch (error) {
+      console.error('Error fetching referral stats:', error);
+    }
+  };
+
+  const loadPointsBalance = async (userId: string) => {
+    try {
+      const pointsService = PointsService.getInstance();
+      const balance = await pointsService.getPointsBalance(userId);
+      setPointsBalance(balance.availablePoints);
+    } catch (error) {
+      console.error('Error loading points balance:', error);
+    }
+  };
+
+  const handleShareReferralCode = async () => {
+    if (!userReferralCode) {
+      Alert.alert('Error', 'No referral code found. Please contact support.');
+      return;
+    }
+
+    const shareMessage = `🚀 Join me on Predictive Play - the AI-powered sports betting app! Get premium picks and insights. Use my referral code: ${userReferralCode}\n\nDownload: https://apps.apple.com/app/predictive-play`;
+
+    try {
+      const { Share } = await import('react-native');
+      await Share.share({
+        message: shareMessage,
+        title: 'Join Predictive Play',
+      });
+    } catch (error) {
+      console.error('Error sharing referral code:', error);
+      // Fallback: copy to clipboard
+      const { Clipboard } = await import('react-native');
+      Clipboard.setString(userReferralCode);
+      Alert.alert('Copied!', `Your referral code "${userReferralCode}" has been copied to clipboard.`);
+    }
+  };
+
+  const handleCopyReferralCode = async () => {
+    if (!userReferralCode) {
+      Alert.alert('Error', 'No referral code found. Please contact support.');
+      return;
+    }
+
+    try {
+      const { Clipboard } = await import('react-native');
+      Clipboard.setString(userReferralCode);
+      Vibration.vibrate(50);
+      Alert.alert('Copied!', `Your referral code "${userReferralCode}" has been copied to clipboard.`);
+    } catch (error) {
+      console.error('Error copying referral code:', error);
+      Alert.alert('Error', 'Failed to copy referral code.');
     }
   };
 
@@ -753,6 +842,38 @@ export default function SettingsScreen() {
               Alert.alert('Error', 'Failed to restore purchases. Please try again.');
             }
           }
+        }
+      ]
+    },
+    {
+      title: 'Referrals & Points',
+      icon: Share2,
+      iconColor: '#10B981',
+      items: [
+        {
+          id: 'points_balance',
+          title: 'Points Balance',
+          type: 'link',
+          subtitle: `${pointsBalance.toLocaleString()} points ($${(pointsBalance / 100).toFixed(2)} value)`,
+          badge: pointsBalance > 0 ? 'Redeem' : undefined,
+          badgeColor: '#3B82F6',
+          action: () => setShowPointsModal(true)
+        },
+        {
+          id: 'share_referral',
+          title: 'Share Referral Code',
+          type: 'link',
+          subtitle: userReferralCode ? `Your code: ${userReferralCode}` : 'Get rewards for inviting friends',
+          badge: referralStats.totalReferrals > 0 ? `${referralStats.totalReferrals} referred` : undefined,
+          badgeColor: '#10B981',
+          action: handleShareReferralCode
+        },
+        {
+          id: 'copy_referral',
+          title: 'Copy Referral Code',
+          type: 'link',
+          subtitle: 'Copy to clipboard',
+          action: handleCopyReferralCode
         }
       ]
     },
@@ -1369,14 +1490,13 @@ export default function SettingsScreen() {
       <UserPreferencesModal
         visible={showUserPreferencesModal}
         onClose={() => setShowUserPreferencesModal(false)}
-        currentPreferences={userProfile ? {
-          sport_preferences: userProfile.sport_preferences || {},
-          betting_style: userProfile.betting_style || 'balanced',
-          pick_distribution: userProfile.pick_distribution || {},
-          max_daily_picks: userProfile.max_daily_picks || 20,
-          confidence_range: userProfile.confidence_range || [70, 100]
-        } : undefined}
         onPreferencesUpdated={fetchUserProfile}
+      />
+
+      <PointsRedemptionModal
+        visible={showPointsModal}
+        onClose={() => setShowPointsModal(false)}
+        userId={userProfile?.id || ''}
       />
     </ScrollView>
   );

@@ -33,6 +33,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -48,6 +49,7 @@ export default function SignupScreen() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [confirmPasswordFocused, setConfirmPasswordFocused] = useState(false);
+  const [referralCodeFocused, setReferralCodeFocused] = useState(false);
   
   // Password visibility states
   const [showPassword, setShowPassword] = useState(false);
@@ -100,6 +102,16 @@ export default function SignupScreen() {
   const handleConfirmPasswordFocus = useCallback(() => setConfirmPasswordFocused(true), []);
   const handleConfirmPasswordBlur = useCallback(() => setConfirmPasswordFocused(false), []);
 
+  // Referral code handlers
+  const handleReferralCodeChange = useCallback((text: string) => {
+    // Convert to uppercase and remove spaces
+    const cleanCode = text.toUpperCase().replace(/\s/g, '');
+    setReferralCode(cleanCode);
+  }, []);
+  
+  const handleReferralCodeFocus = useCallback(() => setReferralCodeFocused(true), []);
+  const handleReferralCodeBlur = useCallback(() => setReferralCodeFocused(false), []);
+
   // Password visibility toggles
   const togglePasswordVisibility = useCallback(() => {
     setShowPassword(prev => !prev);
@@ -134,12 +146,22 @@ export default function SignupScreen() {
     confirmPasswordFocused && styles.inputWrapperFocused
   ], [confirmPasswordFocused]);
 
+  const referralCodeInputWrapperStyle = useMemo(() => [
+    styles.inputWrapper,
+    referralCodeFocused && styles.inputWrapperFocused
+  ], [referralCodeFocused]);
+
   // Validation states
   const isValidEmail = useMemo(() => {
     if (!email) return true; // Don't show error for empty email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }, [email]);
+
+  const isValidReferralCode = useMemo(() => {
+    if (!referralCode) return true; // Optional field
+    return referralCode.length >= 6 && referralCode.length <= 10; // Reasonable length
+  }, [referralCode]);
 
   const passwordsMatch = useMemo(() => {
     if (!confirmPassword) return true; // Don't show error for empty confirm password
@@ -423,14 +445,55 @@ export default function SignupScreen() {
             .filter(Boolean)
             .join(' ') || credential.email?.split('@')[0] || 'AppleUser';
 
-          // Update the user's profile with their name
+          // Generate unique referral code for new user
+          const generateReferralCode = () => {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+              result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+          };
+
+          const userReferralCode = generateReferralCode();
+          
+          // Check if user entered a referral code
+          let referredBy = null;
+          if (referralCode && referralCode.trim().length > 0) {
+            referredBy = referralCode.trim().toUpperCase();
+            console.log('🎯 Apple user entered referral code:', referredBy);
+          }
+
+          // Update the user's profile with their name and referral info
           await supabase
             .from('profiles')
             .update({
               username: displayName,
               email: credential.email || data.user.email,
+              referral_code: userReferralCode,
+              referred_by: referredBy,
+              updated_at: new Date().toISOString()
             })
             .eq('id', data.user.id);
+
+          console.log('✅ Apple user profile updated with referral code:', userReferralCode);
+
+          // If user was referred, process with points system
+          if (referredBy) {
+            try {
+              const PointsService = (await import('../services/pointsService')).default;
+              const pointsService = PointsService.getInstance();
+              
+              const success = await pointsService.processReferralSignup(data.user.id, referredBy);
+              if (success) {
+                console.log('✅ Apple user referral processed - 2,500 points awarded');
+              } else {
+                console.log('❌ Invalid referral code for Apple user');
+              }
+            } catch (error) {
+              console.error('❌ Error processing Apple user referral:', error);
+            }
+          }
 
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
           
@@ -546,6 +609,63 @@ export default function SignupScreen() {
           console.error('❌ Failed to track signup with AppsFlyer:', error);
         }
         
+        // Generate unique referral code for new user
+        const generateReferralCode = () => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          let result = '';
+          for (let i = 0; i < 8; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          return result;
+        };
+
+        const userReferralCode = generateReferralCode();
+        
+        // Check if user entered a referral code
+        let referredBy = null;
+        if (referralCode && referralCode.trim().length > 0) {
+          referredBy = referralCode.trim().toUpperCase();
+          console.log('🎯 User entered referral code:', referredBy);
+        }
+
+        // Update user profile with referral code and referral attribution
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            username: username,
+            email: email,
+            referral_code: userReferralCode,
+            referred_by: referredBy,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.user.id);
+
+        if (profileError) {
+          console.error('❌ Failed to update profile with referral code:', profileError);
+        } else {
+          console.log('✅ Profile updated with referral code:', userReferralCode);
+          if (referredBy) {
+            console.log('✅ User attributed to referrer:', referredBy);
+          }
+        }
+
+        // If user was referred, process with points system
+        if (referredBy) {
+          try {
+            const PointsService = (await import('../services/pointsService')).default;
+            const pointsService = PointsService.getInstance();
+            
+            const success = await pointsService.processReferralSignup(data.user.id, referredBy);
+            if (success) {
+              console.log('✅ Email user referral processed - 2,500 points awarded');
+            } else {
+              console.log('❌ Invalid referral code for email user');
+            }
+          } catch (error) {
+            console.error('❌ Error processing email user referral:', error);
+          }
+        }
+
         // Track signup with Facebook Analytics for Meta ads attribution
         try {
           facebookAnalyticsService.trackCompleteRegistration({
@@ -761,6 +881,35 @@ export default function SignupScreen() {
                 )}
               </View>
 
+              {/* Referral Code Input (Optional) */}
+              <View style={styles.inputContainer}>
+                <View style={referralCodeInputWrapperStyle}>
+                  <UserPlus color="#e0e0e0" size={20} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Referral code (optional)"
+                    placeholderTextColor="#cccccc"
+                    value={referralCode}
+                    onChangeText={handleReferralCodeChange}
+                    onFocus={handleReferralCodeFocus}
+                    onBlur={handleReferralCodeBlur}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    selectionColor="#FFD700"
+                    maxLength={10}
+                    autoComplete="off"
+                    textContentType="none"
+                  />
+                </View>
+                {referralCode.length > 0 && !isValidReferralCode && (
+                  <Text style={styles.errorText}>Referral code should be 6-10 characters</Text>
+                )}
+                {referralCode.length > 0 && isValidReferralCode && (
+                  <Text style={styles.successText}>✓ Referral code looks good!</Text>
+                )}
+              </View>
+
               {/* Terms of Service Agreement */}
               <View style={styles.termsContainer}>
                 <TouchableOpacity 
@@ -932,6 +1081,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#EF4444',
+    fontSize: normalize(14),
+    marginTop: normalize(5),
+    marginLeft: normalize(5),
+  },
+  successText: {
+    color: '#10B981',
     fontSize: normalize(14),
     marginTop: normalize(5),
     marginLeft: normalize(5),

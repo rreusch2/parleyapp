@@ -26,7 +26,8 @@ echo "✅ Created logs directory"
 crontab -l > crontab-backup-$(date +%Y%m%d-%H%M%S).txt 2>/dev/null || echo "No existing crontab to backup"
 
 # Create the cron job entry
-CRON_JOB="$CRON_TIME cd $PROJECT_ROOT && ./$SCRIPT_NAME"
+# Use login shell to pick up environment, then run the script
+CRON_JOB="$CRON_TIME /usr/bin/bash -lc 'cd $PROJECT_ROOT && ./$SCRIPT_NAME'"
 
 # Check if cron job already exists
 if crontab -l 2>/dev/null | grep -q "$SCRIPT_NAME"; then
