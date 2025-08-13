@@ -2339,7 +2339,10 @@ router.get('/daily-picks-combined', async (req, res) => {
     let teamPicksLimit = 1; // Default for free users
     let playerPropsLimit = 1;
     
-    if (userTier === 'pro') {
+    if (userTier === 'elite') {
+      teamPicksLimit = 15;
+      playerPropsLimit = 15;
+    } else if (userTier === 'pro') {
       teamPicksLimit = 10;
       playerPropsLimit = 10;
     } else if (userTier === 'welcome_bonus') {
@@ -2354,13 +2357,13 @@ router.get('/daily-picks-combined', async (req, res) => {
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .in('bet_type', ['moneyline', 'spread', 'total'])
+        .in('bet_type', ['moneyline', 'spread', 'total', 'ML', 'over', 'under'])
         .order('created_at', { ascending: false })
         .limit(teamPicksLimit),
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .eq('bet_type', 'player_prop')
+        .like('bet_type', '%prop%')
         .order('created_at', { ascending: false })
         .limit(playerPropsLimit)
     ]);
