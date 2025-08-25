@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { supabaseAdmin } from '../../config/supabase';
+import { supabaseAdmin } from '../../services/supabase/client';
 import ratelimit from '../../middleware/rateLimit';
 
 const router = Router();

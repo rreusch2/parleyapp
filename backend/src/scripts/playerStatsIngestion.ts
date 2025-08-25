@@ -261,7 +261,7 @@ class PlayerStatsIngestion {
             console.log(`⚠️ No recent games found for ${player.player_name}`);
           }
         } catch (error) {
-          console.error(`❌ Error updating ${player.player_name}:`, error.message);
+          console.error(`❌ Error updating ${player.player_name}:`, (error as any)?.message || error);
         }
 
         // Rate limiting
