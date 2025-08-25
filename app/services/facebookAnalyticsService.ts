@@ -1,5 +1,19 @@
-import { AppEventsLogger, Settings } from 'react-native-fbsdk-next';
 import { Platform } from 'react-native';
+
+// Conditional imports for platform compatibility
+let AppEventsLogger: any = null;
+let Settings: any = null;
+
+// Only import Facebook SDK on mobile platforms
+if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  try {
+    const FBSDK = require('react-native-fbsdk-next');
+    AppEventsLogger = FBSDK.AppEventsLogger;
+    Settings = FBSDK.Settings;
+  } catch (error) {
+    console.warn('Facebook SDK not available on this platform:', error);
+  }
+}
 
 interface EventParameters {
   [key: string]: string | number;
@@ -23,6 +37,19 @@ class FacebookAnalyticsService {
     }
 
     try {
+      // Only initialize on mobile platforms where Facebook SDK is available
+      if (Platform.OS === 'web') {
+        console.log('📱 Facebook Analytics disabled on web platform');
+        this.isInitialized = true;
+        return;
+      }
+
+      if (!Settings || !AppEventsLogger) {
+        console.warn('📱 Facebook SDK not available, analytics disabled');
+        this.isInitialized = true;
+        return;
+      }
+
       // Enable auto-logging of app events
       Settings.setAutoLogAppEventsEnabled(true);
       
@@ -35,16 +62,28 @@ class FacebookAnalyticsService {
       console.log('✅ Facebook Analytics initialized successfully');
     } catch (error) {
       console.error('❌ Facebook Analytics initialization failed:', error);
-      throw error;
+      // Don't throw error - just disable analytics
+      this.isInitialized = true;
     }
   }
 
   // CORE CONVERSION EVENTS
 
   /**
+   * Helper method to check if Facebook SDK is available
+   */
+  private isFacebookAvailable(): boolean {
+    return Platform.OS !== 'web' && AppEventsLogger && Settings;
+  }
+
+  /**
    * Track app installation - automatically handled by Facebook SDK
    */
   trackAppInstall(): void {
+    if (!this.isFacebookAvailable()) {
+      console.log('📱 App Install tracking skipped (web platform)');
+      return;
+    }
     console.log('📱 App Install tracked automatically by Facebook SDK');
   }
 
@@ -52,6 +91,10 @@ class FacebookAnalyticsService {
    * Track user registration/signup
    */
   trackCompleteRegistration(parameters?: EventParameters): void {
+    if (!this.isFacebookAvailable()) {
+      console.log('📱 Complete Registration tracking skipped (web platform)');
+      return;
+    }
     try {
       AppEventsLogger.logEvent('CompleteRegistration', {
         fb_registration_method: 'email',
@@ -68,6 +111,10 @@ class FacebookAnalyticsService {
    * Track subscription purchase
    */
   trackPurchase(value: number, currency: string = 'USD', parameters?: EventParameters): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Purchase tracking skipped (web platform): $${value} ${currency}`);
+      return;
+    }
     try {
       AppEventsLogger.logPurchase(value, currency, {
         fb_content_type: 'subscription',
@@ -85,6 +132,10 @@ class FacebookAnalyticsService {
    * Track when user views daily picks content
    */
   trackViewContent(contentName: string, parameters?: EventParameters): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 View Content tracking skipped (web platform): ${contentName}`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('ViewContent', {
         fb_content_type: 'predictions',
@@ -102,6 +153,10 @@ class FacebookAnalyticsService {
    * Track when user opens subscription modal (intent to purchase)
    */
   trackAddToCart(subscriptionTier: string, value: number, parameters?: EventParameters): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Add To Cart tracking skipped (web platform): ${subscriptionTier} - $${value}`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('AddToCart', {
         fb_content_type: 'subscription',
@@ -122,6 +177,10 @@ class FacebookAnalyticsService {
    * Track welcome bonus claim from spinning wheel
    */
   trackWelcomeBonusClaimed(picksWon: number): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Welcome Bonus Claimed tracking skipped (web platform): ${picksWon} picks`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('WelcomeBonusClaimed', {
         picks_won: picksWon,
@@ -138,6 +197,10 @@ class FacebookAnalyticsService {
    * Track Professor Lock chat usage
    */
   trackChatUsage(messageCount: number, userTier: string): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Chat Usage tracking skipped (web platform): ${messageCount} messages`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('ChatUsage', {
         message_count: messageCount,
@@ -155,6 +218,10 @@ class FacebookAnalyticsService {
    * Track daily app return (retention metric)
    */
   trackDailyReturn(daysStreak: number): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Daily Return tracking skipped (web platform): ${daysStreak} day streak`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('DailyReturn', {
         days_streak: daysStreak,
@@ -171,6 +238,10 @@ class FacebookAnalyticsService {
    * Track subscription cancellation
    */
   trackSubscriptionCancelled(reason?: string): void {
+    if (!this.isFacebookAvailable()) {
+      console.log('📱 Subscription Cancelled tracking skipped (web platform)');
+      return;
+    }
     try {
       AppEventsLogger.logEvent('SubscriptionCancelled', {
         cancellation_reason: reason || 'unknown',
@@ -187,6 +258,10 @@ class FacebookAnalyticsService {
    * Track trial start
    */
   trackTrialStart(trialType: string, trialDuration: number): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Trial Start tracking skipped (web platform): ${trialType} for ${trialDuration} days`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent('StartTrial', {
         fb_content_name: trialType,
@@ -206,6 +281,10 @@ class FacebookAnalyticsService {
    * Set user properties for better targeting
    */
   setUserProperties(properties: { [key: string]: string }): void {
+    if (!this.isFacebookAvailable()) {
+      console.log('📱 User properties setting skipped (web platform)');
+      return;
+    }
     try {
       AppEventsLogger.setUserData(properties);
       console.log('✅ User properties set for Facebook targeting');
@@ -218,6 +297,10 @@ class FacebookAnalyticsService {
    * Track custom event with parameters
    */
   trackCustomEvent(eventName: string, parameters?: EventParameters): void {
+    if (!this.isFacebookAvailable()) {
+      console.log(`📱 Custom event tracking skipped (web platform): ${eventName}`);
+      return;
+    }
     try {
       AppEventsLogger.logEvent(eventName, parameters);
       console.log(`✅ Custom event tracked: ${eventName}`);
