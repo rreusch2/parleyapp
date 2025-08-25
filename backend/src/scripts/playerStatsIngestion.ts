@@ -1,6 +1,8 @@
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import axios from 'axios';
+import { spawn } from 'child_process';
+import path from 'path';
 
 // Load environment variables
 config();
@@ -225,7 +227,7 @@ class PlayerStatsIngestion {
       const { data: players, error } = await supabase
         .from('players')
         .select('id, player_name, external_player_id, sport, team')
-        .in('sport', ['MLB', 'WNBA', 'NBA', 'NFL'])
+        .in('sport', ['MLB', 'WNBA', 'NBA', 'NFL', 'CFB'])
         .limit(50);
 
       if (error) throw error;
@@ -322,6 +324,35 @@ class PlayerStatsIngestion {
   }
 }
 
+/**
+ * Run a script as a separate process and return a promise that resolves when it completes
+ */
+async function runScript(scriptPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    console.log(`🚀 Running script: ${scriptPath}`);
+    
+    const process = spawn('npx', ['ts-node', scriptPath], {
+      stdio: 'inherit',
+      shell: true
+    });
+    
+    process.on('close', (code) => {
+      if (code === 0) {
+        console.log(`✅ Script ${scriptPath} completed successfully`);
+        resolve();
+      } else {
+        console.error(`❌ Script ${scriptPath} failed with code ${code}`);
+        reject(new Error(`Script ${scriptPath} failed with code ${code}`));
+      }
+    });
+    
+    process.on('error', (err) => {
+      console.error(`❌ Error running script ${scriptPath}:`, err);
+      reject(err);
+    });
+  });
+}
+
 // Run daily updates
 export async function runDailyStatsUpdate(): Promise<void> {
   console.log('🚀 Starting daily player stats update pipeline...');
@@ -334,8 +365,33 @@ export async function runDailyStatsUpdate(): Promise<void> {
     console.log('\n📊 STEP 1: Updating player statistics...');
     await ingestion.updateAllActivePlayers();
     
-    // Step 2: Generate trends data
-    console.log('\n📈 STEP 2: Generating player trends...');
+    // Step 2: Run sport-specific ingestion scripts
+    console.log('\n📊 STEP 2: Running sport-specific ingestion scripts...');
+    
+    // NFL Stats
+    try {
+      const nflScriptPath = path.join(__dirname, 'nflPlayerStatsIngestion.ts');
+      await runScript(nflScriptPath);
+    } catch (error) {
+      console.error('❌ NFL stats ingestion failed:', error);
+      // Continue with other sports
+    }
+    
+    // CFB Stats (if API key exists)
+    if (process.env.CFBD_API_KEY) {
+      try {
+        const cfbScriptPath = path.join(__dirname, 'cfbPlayerStatsIngestion.ts');
+        await runScript(cfbScriptPath);
+      } catch (error) {
+        console.error('❌ CFB stats ingestion failed:', error);
+        // Continue with other sports
+      }
+    } else {
+      console.log('⚠️ CFBD_API_KEY not found in environment, skipping CFB stats ingestion');
+    }
+    
+    // Step 3: Generate trends data
+    console.log('\n📈 STEP 3: Generating player trends...');
     await ingestion.generateTrendsData();
     
     const endTime = Date.now();

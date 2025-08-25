@@ -1,109 +1,14 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 
-export interface ChartPoint {
-  label: string;
-  value: number;
-}
-
-interface PlayerStatsChartProps {
-  title: string;
-  data: ChartPoint[];
-  lineValue?: number | null;
-  height?: number;
-  barColorAbove?: string;
-  barColorBelow?: string;
-  accentColor?: string;
-}
-
-export default function PlayerStatsChart({
-  title,
-  data,
-  lineValue = null,
-  height = 220,
-  barColorAbove = '#10B981',
-  barColorBelow = '#6B7280',
-  accentColor = '#3B82F6'
-}: PlayerStatsChartProps) {
-  const width = 320;
-  const padding = 24;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
-
-  const values = data.map(d => d.value);
-  const maxDataValue = Math.max(1, ...values, lineValue || 0);
-
-  const barWidth = data.length > 0 ? chartWidth / data.length - 6 : 0;
-
-  return (
-    <View style={{ backgroundColor: '#111827', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1F2937' }}>
-      <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginBottom: 8 }}>{title}</Text>
-      <Svg width={width} height={height}>
-        {/* Axes baseline */}
-        <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#374151" strokeWidth={1} />
-        <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#374151" strokeWidth={1} />
-
-        {/* Dotted prop line */}
-        {typeof lineValue === 'number' && (
-          <Line
-            x1={padding}
-            x2={width - padding}
-            y1={padding + (1 - Math.min(lineValue, maxDataValue) / maxDataValue) * chartHeight}
-            y2={padding + (1 - Math.min(lineValue, maxDataValue) / maxDataValue) * chartHeight}
-            stroke={accentColor}
-            strokeDasharray="4,4"
-            strokeWidth={2}
-          />
-        )}
-
-        {/* Bars */}
-        {data.map((d, i) => {
-          const barHeight = (d.value / maxDataValue) * chartHeight;
-          const x = padding + i * (chartWidth / data.length) + 3;
-          const y = padding + (chartHeight - barHeight);
-          const isAbove = typeof lineValue === 'number' ? d.value >= (lineValue as number) : false;
-          const fill = isAbove ? barColorAbove : barColorBelow;
-          return (
-            <>
-              <Rect key={`bar-${i}`} x={x} y={y} width={barWidth} height={barHeight} rx={4} fill={fill} />
-              {/* Labels every few ticks to reduce clutter */}
-              {i % 2 === 0 && (
-                <SvgText
-                  key={`label-${i}`}
-                  x={x + barWidth / 2}
-                  y={height - padding + 14}
-                  fontSize={10}
-                  fill="#9CA3AF"
-                  textAnchor="middle"
-                >
-                  {d.label}
-                </SvgText>
-              )}
-            </>
-          );
-        })}
-
-        {/* Line label */}
-        {typeof lineValue === 'number' && (
-          <SvgText
-            x={width - padding}
-            y={padding + (1 - Math.min(lineValue, maxDataValue) / maxDataValue) * chartHeight - 4}
-            fontSize={11}
-            fill={accentColor}
-            textAnchor="end"
-          >
-            Line: {lineValue}
-          </SvgText>
-        )}
-      </Svg>
-    </View>
-  );
-}
 
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '@react-navigation/native';
+
+// Legacy interface for backward compatibility
+export interface ChartPoint {
+  label: string;
+  value: number;
+}
 
 const { width: screenWidth } = Dimensions.get('window');
 const CHART_WIDTH = screenWidth - 40;
@@ -520,3 +425,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+// Default export for backward compatibility
+export default PlayerStatsChart;

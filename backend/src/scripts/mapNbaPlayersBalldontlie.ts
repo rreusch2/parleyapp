@@ -20,62 +20,94 @@ async function findBalldontliePlayerIdByName(fullName: string): Promise<number |
 
     // naive matching: exact last-name contains and first initial
     const best = matches.find((p: any) => {
-      const candidate = `${p.first_name} ${p.last_name}`.toLowerCase();
-      return candidate.includes(fullName.toLowerCase());
-    }) || matches[0];
-    return best?.id ?? null;
-  } catch (e) {
-    console.error('Lookup error:', (e as any).message || e);
+      const candidateFirst = p.first_name.toLowerCase();
+      const candidateLast = p.last_name.toLowerCase();
+      const playerFirst = first.toLowerCase();
+      const playerLast = last.toLowerCase();
+
+      return (
+        candidateLast === playerLast &&
+        candidateFirst.charAt(0) === playerFirst.charAt(0)
+      );
+    });
+
+    return best ? best.id : null;
+  } catch (error) {
+    console.error(`Error finding player ID for ${fullName}:`, error);
     return null;
   }
 }
 
-export async function mapNbaPlayers() {
-  console.log('🔎 Mapping NBA players to balldontlie IDs...');
-  const { data: players, error } = await supabase
-    .from('players')
-    .select('id, player_name, name, sport, external_player_id')
-    .eq('sport', 'NBA')
-    .is('external_player_id', null)
-    .limit(200);
-
-  if (error) {
-    console.error('Supabase error:', error.message);
-    process.exit(1);
-  }
-
-  if (!players || players.length === 0) {
-    console.log('No unmapped NBA players found.');
-    return;
-  }
-
-  let updated = 0;
-  for (const p of players) {
-    const displayName = p.player_name || p.name;
-    if (!displayName) continue;
-
-    const id = await findBalldontliePlayerIdByName(displayName);
-    if (id) {
-      const { error: upErr } = await supabase
-        .from('players')
-        .update({ external_player_id: String(id) })
-        .eq('id', p.id);
-      if (!upErr) {
-        updated += 1;
-        console.log(`✅ ${displayName} -> ${id}`);
-      } else {
-        console.error(`❌ Failed to update ${displayName}: ${upErr.message}`);
+async function mapNbaPlayers() {
+  try {
+    console.log('🏀 Starting NBA player mapping to balldontlie IDs...');
+    
+    // Get all active NBA players without external_player_id
+    const { data: players, error } = await supabase
+      .from('players')
+      .select('id, name, player_name')
+      .eq('sport', 'NBA')
+      .eq('active', true)
+      .is('external_player_id', null);
+    
+    if (error) throw error;
+    
+    console.log(`Found ${players?.length || 0} NBA players to map`);
+    
+    // Process in batches to avoid rate limiting
+    const batchSize = 5;
+    let updated = 0;
+    
+    for (let i = 0; i < (players?.length || 0); i += batchSize) {
+      const batch = players!.slice(i, i + batchSize);
+      const promises = batch.map(async (player) => {
+        const playerName = player.player_name || player.name;
+        if (!playerName) return null;
+        
+        console.log(`Processing ${playerName}...`);
+        const externalId = await findBalldontliePlayerIdByName(playerName);
+        
+        if (externalId) {
+          console.log(`✅ Found ID for ${playerName}: ${externalId}`);
+          const { error: updateError } = await supabase
+            .from('players')
+            .update({ external_player_id: externalId.toString() })
+            .eq('id', player.id);
+          
+          if (updateError) {
+            console.error(`❌ Error updating ${playerName}:`, updateError);
+            return null;
+          }
+          
+          return externalId;
+        } else {
+          console.log(`❌ No match found for ${playerName}`);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(promises);
+      updated += results.filter(Boolean).length;
+      
+      // Sleep to avoid rate limiting
+      if (i + batchSize < (players?.length || 0)) {
+        console.log('Waiting 1s to avoid rate limiting...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      // rate limit courtesy
-      await new Promise(r => setTimeout(r, 150));
     }
+    
+    console.log(`✅ Mapping complete! Updated ${updated} of ${players?.length || 0} players`);
+    
+  } catch (error) {
+    console.error('❌ Error mapping NBA players:', error);
   }
-
-  console.log(`✅ Completed mapping. Updated ${updated} players.`);
 }
 
-if (require.main === module) {
-  mapNbaPlayers().catch((e) => { console.error(e); process.exit(1); });
-}
-
-
+// Run the mapping
+mapNbaPlayers().then(() => {
+  console.log('🏁 NBA player mapping script finished');
+  process.exit(0);
+}).catch(err => {
+  console.error('Fatal error:', err);
+  process.exit(1);
+});
