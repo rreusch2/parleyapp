@@ -204,7 +204,7 @@ Let's find some real insights that matter!"""
                 "conversationHistory": []
             }
             
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=45)
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=90)
             
             if response.status_code == 200:
                 result = response.json()
@@ -614,6 +614,22 @@ Generate ONE {style} greeting - just the message, nothing else:"""
             logger.error(f"Error generating greeting: {e}")
             return "Sharp minds find edges where others see chaos. Let's analyze today's opportunities."
     
+    def clear_daily_insights_table(self):
+        """Clear the entire daily_professor_insights table"""
+        try:
+            logger.info("🗑️ Clearing entire daily_professor_insights table...")
+            
+            # Delete all records from the table
+            delete_result = self.supabase.table('daily_professor_insights').delete().neq('id', 0).execute()
+            
+            if delete_result.data:
+                logger.info(f"✅ Cleared {len(delete_result.data)} existing insights from table")
+            else:
+                logger.info("✅ Table was already empty or cleared successfully")
+            
+        except Exception as e:
+            logger.error(f"Error clearing daily insights table: {e}")
+
     def store_enhanced_insights(self, enhanced_insights, target_date=None):
         """Store the enhanced insights with titles and categories + dynamic greeting"""
         try:
@@ -631,10 +647,6 @@ Generate ONE {style} greeting - just the message, nothing else:"""
                 today = target_date.isoformat()
             else:
                 today = date.today().isoformat()
-            
-            # Clear existing insights for today
-            delete_result = self.supabase.table('daily_professor_insights').delete().eq('date_generated', today).execute()
-            logger.info(f"🗑️ Cleared existing insights: {len(delete_result.data) if delete_result.data else 0} records")
             
             # Store greeting as insight_order = 1 with proper structure
             greeting_record = {
@@ -687,6 +699,9 @@ Generate ONE {style} greeting - just the message, nothing else:"""
         """Main function to run enhanced insights generation"""
         logger.info("🧠 Starting Enhanced Professor Lock Insights Generation")
         logger.info("🎯 With proper titles, categories, and greeting handling")
+        
+        # Clear the entire table first before generating new insights
+        self.clear_daily_insights_table()
         
         # Determine target date - default to current day
         if target_date:

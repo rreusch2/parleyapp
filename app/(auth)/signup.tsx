@@ -22,6 +22,7 @@ import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
 import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
+import PhoneVerification from '../components/PhoneVerification';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import appsFlyerService from '../services/appsFlyerService';
@@ -35,6 +36,8 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+  const [pendingVerifiedPhone, setPendingVerifiedPhone] = useState<string | null>(null);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showSpinningWheel, setShowSpinningWheel] = useState(false);
@@ -43,6 +46,7 @@ export default function SignupScreen() {
   const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [verifiedPhoneNumber, setVerifiedPhoneNumber] = useState<string | null>(null);
   
   // Focus states for better UX
   const [usernameFocused, setUsernameFocused] = useState(false);
@@ -189,6 +193,7 @@ export default function SignupScreen() {
             subscription_tier: 'free',  // EXPLICITLY set to free (critical!)
             welcome_bonus_claimed: true,
             welcome_bonus_expires_at: expiration.toISOString(),
+            trial_used: true,
             updated_at: new Date().toISOString()
           })
           .eq('id', userData.user.id);
@@ -383,6 +388,12 @@ export default function SignupScreen() {
       return;
     }
 
+    if (!pendingVerifiedPhone) {
+      console.log('📱 Phone not verified yet for Apple Sign Up; opening phone verification');
+      setShowPhoneVerification(true);
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -464,12 +475,15 @@ export default function SignupScreen() {
             console.log('🎯 Apple user entered referral code:', referredBy);
           }
 
-          // Update the user's profile with their name and referral info
+          // Update the user's profile with their name, phone, and referral info
           await supabase
             .from('profiles')
             .update({
               username: displayName,
               email: credential.email || data.user.email,
+              phone_number: pendingVerifiedPhone,
+              phone_verified: true,
+              phone_verified_at: new Date().toISOString(),
               referral_code: userReferralCode,
               referred_by: referredBy,
               updated_at: new Date().toISOString()
@@ -547,6 +561,13 @@ export default function SignupScreen() {
       return;
     }
 
+    // Enforce phone verification before signup
+    if (!pendingVerifiedPhone) {
+      console.log('📱 Phone not verified yet; opening phone verification flow');
+      setShowPhoneVerification(true);
+      return;
+    }
+
     if (!isValidEmail) {
       console.log('❌ Validation failed: Invalid email');
       Alert.alert('Signup Error', 'Please enter a valid email address');
@@ -582,6 +603,8 @@ export default function SignupScreen() {
         options: { 
           data: { 
             username: username,
+            phone_number: pendingVerifiedPhone,
+            phone_verified: true,
           } 
         }
       });
@@ -634,6 +657,9 @@ export default function SignupScreen() {
           .update({
             username: username,
             email: email,
+            phone_number: pendingVerifiedPhone,
+            phone_verified: true,
+            phone_verified_at: new Date().toISOString(),
             referral_code: userReferralCode,
             referred_by: referredBy,
             updated_at: new Date().toISOString()
@@ -910,6 +936,20 @@ export default function SignupScreen() {
                 )}
               </View>
 
+              {/* Phone verification entry point */}
+              <View style={styles.inputContainer}>
+                <TouchableOpacity
+                  style={[styles.button, { backgroundColor: pendingVerifiedPhone ? '#10B981' : '#ffffff' }]}
+                  onPress={() => setShowPhoneVerification(true)}
+                  activeOpacity={0.8}
+                >
+                  <UserPlus color="#000000" size={20} style={styles.buttonIcon} />
+                  <Text style={styles.buttonText}>
+                    {pendingVerifiedPhone ? `Verified: ${pendingVerifiedPhone}` : 'Verify Phone Number'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Terms of Service Agreement */}
               <View style={styles.termsContainer}>
                 <TouchableOpacity 
@@ -965,6 +1005,18 @@ export default function SignupScreen() {
       </KeyboardAvoidingView>
 
       <TermsOfServiceModal visible={showTermsModal} onClose={closeTermsModal} />
+
+      {/* Phone Verification Modal */}
+      {showPhoneVerification && (
+        <PhoneVerification
+          onVerificationComplete={(phone) => {
+            setPendingVerifiedPhone(phone);
+            setShowPhoneVerification(false);
+            Alert.alert('Phone Verified', 'Your phone number has been verified. You can now create your account.');
+          }}
+          onBack={() => setShowPhoneVerification(false)}
+        />
+      )}
       
       <UserPreferencesModal 
         visible={showPreferencesModal} 

@@ -12,12 +12,14 @@ import newsRouter from './api/routes/news';
 import trendsRouter from './api/routes/trends';
 import insightsRouter from './api/routes/insights';
 import adminRouter from './api/routes/admin';
+import authRouter from './api/routes/auth';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
 import automationRoutes from './routes/automation';
 import purchasesRouter from './routes/purchases';
 import webhooksRouter from './routes/webhooks';
+import playerRouter from './api/routes/players'; // Fixed: use players.ts not player.ts
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
@@ -111,9 +113,11 @@ app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/player', playerRouter); // Added registration for player routes
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
+app.use('/api/auth', authRouter);
 
 // Health check endpoints
 app.get('/health', (req, res) => {

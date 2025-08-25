@@ -26,6 +26,7 @@ import {
 import { LineChart, BarChart, ContributionGraph } from 'react-native-chart-kit';
 import { normalize, isTablet } from '../services/device';
 import { supabase } from '../services/api/supabaseClient';
+import EnhancedTrendChart from './EnhancedTrendChart';
 
 interface TrendModalProps {
   visible: boolean;
@@ -159,6 +160,30 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
     const chartData = trend?.chart_data;
     const visualData = trend?.visual_data;
     
+    // Check if we have enhanced chart data
+    if (chartData?.recent_games && Array.isArray(chartData.recent_games) && chartData.recent_games.length > 0) {
+      // Use the new EnhancedTrendChart component
+      const enhancedChartData = {
+        recent_games: chartData.recent_games,
+        ai_prediction_line: chartData.ai_prediction_line || 1.5,
+        prop_type: chartData.prop_type || 'Hits',
+        hit_rate: visualData?.hit_rate || 0,
+        recent_form: visualData?.recent_form || 0,
+        trend_strength: visualData?.trend_strength || 'Moderate',
+        strength_color: visualData?.strength_color || '#F59E0B',
+        last_5_average: visualData?.last_5_average || 0,
+        confidence_score: trend?.confidence_score || 75
+      };
+      
+      return (
+        <EnhancedTrendChart 
+          data={enhancedChartData}
+          playerName={trend?.full_player_name || 'Player'}
+        />
+      );
+    }
+    
+    // Fallback for legacy data or no data
     if (!chartData?.recent_games || !Array.isArray(chartData.recent_games) || chartData.recent_games.length === 0) {
       return (
         <View style={styles.noChartContainer}>
@@ -371,14 +396,6 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         }];
       }
 
-      // Calculate success count vs prop line (if available)
-      let successCount = 0;
-      if (propLineData && datasets && datasets[0] && Array.isArray(datasets[0].data)) {
-        successCount = (datasets[0].data as number[]).reduce((acc, v) => {
-          return acc + (typeof v === 'number' && !isNaN(v) && v >= (propLineData!.line ?? Number.POSITIVE_INFINITY) ? 1 : 0);
-        }, 0);
-      }
-
       const data = {
         labels,
         datasets,
@@ -439,23 +456,19 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         fromZero: !isDecimalData,
         segments: segments,
         yAxisInterval: yAxisInterval,
-        // Note: react-native-chart-kit does not natively support reference lines.
-        // We'll render a custom dashed overlay positioned at the correct Y.
+        // Add prop line if available
+        ...(propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && {
+          horizontalLines: [{
+            value: propLineData.line,
+            color: '#F59E0B', // Amber color for prop line
+            strokeDasharray: '8,4', // Dotted line pattern
+            strokeWidth: 2.5,
+            opacity: 0.9,
+          }]
+        })
       };
 
       if (visualData?.chart_type === 'bar') {
-        // Compute prop line overlay Y position within the chart area
-        const chartHeight = 220;
-        const paddingTop = 16; // approximate top padding inside chart area
-        const paddingBottom = 40; // approximate bottom axis/labels area
-        const effectiveMax = Math.max(maxValue, propLine || 0);
-        const denom = Math.max(1e-6, (effectiveMax - minValue));
-        const ratio = propLine !== undefined && typeof propLine === 'number'
-          ? (propLine - minValue) / denom
-          : undefined;
-        const overlayTop = ratio !== undefined
-          ? (paddingTop + (chartHeight - paddingTop - paddingBottom) * (1 - Math.max(0, Math.min(1, ratio))))
-          : undefined;
         return (
           <View>
             <Text style={styles.chartTitle}>{chartTitle}</Text>
@@ -464,11 +477,6 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
               {propLineData && (
                 <Text style={styles.propLineIndicator}>
                   {' '}• Line: {propLineData.line}
-                </Text>
-              )}
-              {propLineData && (
-                <Text style={styles.propLineIndicator}>
-                  {' '}• {successCount}/{datasets[0].data.length} ≥ line
                 </Text>
               )}
             </Text>
@@ -484,22 +492,13 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
                 showValuesOnTopOfBars={true}
                 fromZero={true}
               />
-              {/* Dotted prop line overlay */}
-              {propLineData && typeof propLineData.line === 'number' && overlayTop !== undefined && (
-                <View style={[styles.propLineOverlay, { top: overlayTop }]}> 
-                  <View style={styles.propLineDashedOverlay} />
-                  <Text style={styles.propLineLabel}>
-                    Line: {propLineData.line.toFixed(isDecimalData ? 3 : 1)}
-                  </Text>
-                </View>
-              )}
               
-              {/* Prop line info display (static legend under chart) */}
+              {/* Prop line info display */}
               {propLineData && typeof propLineData.line === 'number' && propLineData.line >= 0 && (
                 <View style={styles.propLineInfo}>
                   <View style={styles.propLineDashed} />
                   <Text style={styles.propLineLabel}>
-                    Line: {propLineData.line.toFixed(isDecimalData ? 3 : 1)}
+                    Line: {propLineData.line.toFixed(1)}
                   </Text>
                 </View>
               )}
@@ -1020,13 +1019,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 10,
-  },
-  propLineDashedOverlay: {
-    flex: 1,
-    borderTopWidth: 2,
-    borderTopColor: '#F59E0B',
-    borderStyle: 'dashed',
-    opacity: 0.9,
   },
   propLineDashed: {
     flex: 1,
