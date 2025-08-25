@@ -49,6 +49,19 @@ export default function TrendsScreen() {
     loadRecentSearches();
   }, []);
 
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      if (searchQuery.length >= 2) {
+        console.log('Triggering search for:', searchQuery); // Debug log
+        searchPlayers(searchQuery);
+      } else if (searchQuery.length === 0) {
+        setSearchResults([]);
+      }
+    }, 300); // Debounce search
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchQuery, selectedSport]);
+
   const loadRecentSearches = async () => {
     // Load from AsyncStorage or recent database queries
     // For now, we'll implement basic recent searches
@@ -62,6 +75,7 @@ export default function TrendsScreen() {
 
     setIsSearching(true);
     try {
+      // Build the query with prefix and contains matching
       let supabaseQuery = supabase
         .from('players')
         .select(`
@@ -71,28 +85,48 @@ export default function TrendsScreen() {
           sport,
           position
         `)
-        .ilike('name', `%${query}%`)
-        .eq('active', true)
-        .order('name');
+        .or(`name.ilike.${query}%,name.ilike.%${query}%`)
+        .eq('active', true);
 
+      // Add sport filter if not 'all'
       if (selectedSport !== 'all') {
-        supabaseQuery = supabaseQuery.eq('sport', selectedSport);
+        // Handle different sport name formats
+        const sportVariants = [selectedSport];
+        if (selectedSport === 'MLB') sportVariants.push('BASEBALL_MLB');
+        supabaseQuery = supabaseQuery.in('sport', sportVariants);
       }
 
-      const { data, error } = await supabaseQuery.limit(20);
+      const { data, error } = await supabaseQuery
+        .order('name')
+        .limit(20);
 
       if (error) throw error;
 
-      const playersWithStats = data?.map(player => ({
+      // Sort results to prioritize prefix matches (players whose names start with the query)
+      const sortedData = (data || []).sort((a, b) => {
+        const queryLower = query.toLowerCase();
+        const aStartsWith = a.name.toLowerCase().startsWith(queryLower);
+        const bStartsWith = b.name.toLowerCase().startsWith(queryLower);
+        
+        // Prioritize exact prefix matches first
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        
+        // Then sort alphabetically within each group
+        return a.name.localeCompare(b.name);
+      });
+
+      const playersWithStats = sortedData.map(player => ({
         ...player,
         recent_games_count: 0,
         last_game_date: new Date().toISOString()
-      })) || [];
+      }));
 
       setSearchResults(playersWithStats);
     } catch (error) {
       console.error('Search error:', error);
       Alert.alert('Search Error', 'Failed to search players. Please try again.');
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -201,7 +235,13 @@ export default function TrendsScreen() {
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
-                searchPlayers(text);
+                console.log('Search query changed:', text); // Debug log
+              }}
+              returnKeyType="search"
+              onSubmitEditing={() => {
+                if (searchQuery.length >= 2) {
+                  searchPlayers(searchQuery);
+                }
               }}
               autoCapitalize="words"
               autoCorrect={false}
@@ -212,9 +252,31 @@ export default function TrendsScreen() {
           </View>
         </View>
 
+        {/* Search Loading */}
+        {isSearching && searchQuery.length >= 2 && (
+          <View style={{
+            backgroundColor: '#1F2937',
+            borderRadius: 12,
+            padding: 20,
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: '#374151',
+            alignItems: 'center'
+          }}>
+            <ActivityIndicator size="small" color="#3B82F6" />
+            <Text style={{
+              color: '#9CA3AF',
+              marginTop: 8,
+              fontSize: 14
+            }}>
+              Searching for "{searchQuery}"...
+            </Text>
+          </View>
+        )}
+
         {/* Search Results */}
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          {searchQuery.length >= 2 && searchResults.length > 0 && (
+          {searchQuery.length >= 2 && searchResults.length > 0 && !isSearching && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{
                 fontSize: 18,
@@ -284,6 +346,38 @@ export default function TrendsScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
+            </View>
+          )}
+
+          {/* No Results */}
+          {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+            <View style={{
+              backgroundColor: '#1F2937',
+              borderRadius: 12,
+              padding: 20,
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: '#374151',
+              alignItems: 'center'
+            }}>
+              <Ionicons name="search-outline" size={48} color="#6B7280" />
+              <Text style={{
+                color: '#FFFFFF',
+                fontSize: 16,
+                fontWeight: '600',
+                marginTop: 12,
+                textAlign: 'center'
+              }}>
+                No players found
+              </Text>
+              <Text style={{
+                color: '#9CA3AF',
+                fontSize: 14,
+                marginTop: 4,
+                textAlign: 'center'
+              }}>
+                Try searching for a different player name
+              </Text>
             </View>
           )}
 
