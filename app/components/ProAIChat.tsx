@@ -15,7 +15,7 @@ import {
   ScrollView,
   Keyboard,
   Vibration,
-  TouchableWithoutFeedback
+  Pressable
 } from 'react-native';
 import EventSource from 'react-native-sse';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1105,7 +1105,7 @@ export default function ProAIChat({
         </View>
 
         {/* Enhanced Input */}
-        <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+        <Pressable onPress={() => Keyboard.dismiss()} style={{ flex: 1 }}>
           <View style={[
             styles.inputContainer, 
             keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0 }
@@ -1139,7 +1139,7 @@ export default function ProAIChat({
             <Text style={styles.charCount}>{500 - inputText.length}</Text>
           )}
           </View>
-        </TouchableWithoutFeedback>
+        </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );

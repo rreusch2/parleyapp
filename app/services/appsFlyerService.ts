@@ -1,5 +1,16 @@
-import appsFlyer from 'react-native-appsflyer';
 import { Platform } from 'react-native';
+
+// Conditional imports for platform compatibility
+let appsFlyer: any = null;
+
+// Only import AppsFlyer SDK on mobile platforms
+if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  try {
+    appsFlyer = require('react-native-appsflyer').default;
+  } catch (error) {
+    console.warn('AppsFlyer SDK not available on this platform:', error);
+  }
+}
 
 class AppsFlyerService {
   private static instance: AppsFlyerService;
@@ -17,6 +28,13 @@ class AppsFlyerService {
     return AppsFlyerService.instance;
   }
 
+  /**
+   * Helper method to check if AppsFlyer SDK is available
+   */
+  private isAppsFlyerAvailable(): boolean {
+    return Platform.OS !== 'web' && appsFlyer !== null;
+  }
+
   async initialize(): Promise<void> {
     if (this.isInitialized) {
       console.log('🔥 AppsFlyer already initialized');
@@ -24,6 +42,19 @@ class AppsFlyerService {
     }
 
     try {
+      // Only initialize on mobile platforms where AppsFlyer SDK is available
+      if (Platform.OS === 'web') {
+        console.log('📱 AppsFlyer disabled on web platform');
+        this.isInitialized = true;
+        return;
+      }
+
+      if (!this.isAppsFlyerAvailable()) {
+        console.warn('📱 AppsFlyer SDK not available, analytics disabled');
+        this.isInitialized = true;
+        return;
+      }
+
       // Configure AppsFlyer
       const options = {
         devKey: this.DEV_KEY,
@@ -50,11 +81,16 @@ class AppsFlyerService {
 
     } catch (error) {
       console.error('❌ AppsFlyer initialization failed:', error);
-      throw error;
+      // Don't throw error - just disable analytics
+      this.isInitialized = true;
     }
   }
 
   private setupConversionDataListener(): void {
+    if (!this.isAppsFlyerAvailable()) {
+      console.log('📱 Conversion data listener setup skipped (web platform)');
+      return;
+    }
     appsFlyer.onInstallConversionData((data) => {
       console.log('📊 AppsFlyer Install Conversion Data:', JSON.stringify(data, null, 2));
       
@@ -75,6 +111,10 @@ class AppsFlyerService {
   }
 
   private setupDeepLinkListener(): void {
+    if (!this.isAppsFlyerAvailable()) {
+      console.log('📱 Deep link listener setup skipped (web platform)');
+      return;
+    }
     appsFlyer.onDeepLink((data) => {
       console.log('🔗 AppsFlyer Deep Link:', JSON.stringify(data, null, 2));
       
@@ -122,6 +162,11 @@ class AppsFlyerService {
       return;
     }
 
+    if (!this.isAppsFlyerAvailable()) {
+      console.log(`📱 AppsFlyer event tracking skipped (web platform): ${eventName}`);
+      return;
+    }
+
     try {
       console.log(`📈 Tracking AppsFlyer event: ${eventName}`, eventValues);
       await appsFlyer.logEvent(eventName, eventValues || {});
@@ -163,6 +208,10 @@ class AppsFlyerService {
 
   // Get AppsFlyer ID for advanced tracking
   getAppsFlyerId(): Promise<string | null> {
+    if (!this.isAppsFlyerAvailable()) {
+      console.log('📱 AppsFlyer ID retrieval skipped (web platform)');
+      return Promise.resolve(null);
+    }
     return new Promise((resolve) => {
       appsFlyer.getAppsFlyerUID((error: Error | null, uid: string) => {
         if (error) {

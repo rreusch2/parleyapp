@@ -10,7 +10,7 @@ import {
   Alert,
   ScrollView,
   Keyboard,
-  TouchableWithoutFeedback,
+  Pressable,
   Dimensions,
 } from 'react-native';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
@@ -65,7 +65,12 @@ export default function SignupScreen() {
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
-    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+    // Apple Authentication is only available on iOS
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+    } else {
+      setIsAppleAuthAvailable(false);
+    }
     
     // Check if user was redirected from login after Apple Sign In
     if (params.appleSignInComplete === 'true' && params.userId) {
@@ -741,7 +746,7 @@ export default function SignupScreen() {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
           <ScrollView 
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -1001,7 +1006,7 @@ export default function SignupScreen() {
             </View>
           </View>
           </ScrollView>
-        </TouchableWithoutFeedback>
+        </Pressable>
       </KeyboardAvoidingView>
 
       <TermsOfServiceModal visible={showTermsModal} onClose={closeTermsModal} />

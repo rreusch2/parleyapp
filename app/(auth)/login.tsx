@@ -10,7 +10,7 @@ import {
   Alert,
   ScrollView,
   Keyboard,
-  TouchableWithoutFeedback,
+  Pressable,
   Animated,
   Dimensions,
 } from 'react-native';
@@ -35,7 +35,12 @@ export default function LoginScreen() {
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
-    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+    // Apple Authentication is only available on iOS
+    if (Platform.OS === 'ios') {
+      AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+    } else {
+      setIsAppleAuthAvailable(false);
+    }
   }, []);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
@@ -237,7 +242,7 @@ export default function LoginScreen() {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
@@ -354,7 +359,7 @@ export default function LoginScreen() {
               </View>
             </View>
           </ScrollView>
-        </TouchableWithoutFeedback>
+        </Pressable>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
