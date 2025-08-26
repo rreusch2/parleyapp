@@ -80,7 +80,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promi
     
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);
     
-    // Get upcoming games with odds (today and tomorrow only)
+    // Get upcoming games with odds (for specified date range)
     const response = await axios.get(`${API_BASE_URL}/sports/${sportInfo.key}/odds`, {
       params: {
         apiKey: THEODDS_API_KEY,

@@ -111,12 +111,13 @@ export default function GamesScreen() {
 
   const sportFilters = [
     { id: 'all', name: 'All' },
+    { id: 'CFB', name: 'CFB' },
+    { id: 'NFL', name: 'NFL' },
     { id: 'MLB', name: 'MLB' },
     { id: 'WNBA', name: 'WNBA' },
     { id: 'UFC', name: 'UFC' },
     { id: 'MMA', name: 'MMA' },
     { id: 'NBA', name: 'NBA' },
-    { id: 'NFL', name: 'NFL' },
     { id: 'NHL', name: 'NHL' }
   ];
 

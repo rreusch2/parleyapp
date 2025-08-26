@@ -83,14 +83,19 @@ export default function TrendsScreen() {
       const apiUrl = `${backendUrl}/api/players/search?query=${encodeURIComponent(query)}${sportFilter}&limit=20`;
       console.log('API URL:', apiUrl); // Debug log
       
+      // Create AbortController for mobile compatibility
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        // Add timeout for mobile networks
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: abortController.signal,
       });
+      
+      clearTimeout(timeoutId); // Clear timeout if request completes
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

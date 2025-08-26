@@ -77,6 +77,38 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
     }
   },
   
+  CFB: {
+    sportKey: 'CFB',
+    sportName: 'College Football',
+    theoddsKey: 'americanfootball_ncaaf',
+    propMarkets: [
+      'player_pass_yds',
+      'player_pass_tds',
+      'player_pass_completions', 
+      'player_pass_attempts',
+      'player_pass_interceptions',
+      'player_rush_yds',
+      'player_rush_attempts',
+      'player_rush_tds',
+      'player_receptions',
+      'player_reception_yds',
+      'player_reception_tds',
+      'player_kicking_points',
+      'player_field_goals',
+      'player_tackles_assists',
+      'player_1st_td',
+      'player_last_td',
+      'player_anytime_td'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('CFB') && process.env.ENABLE_CFB_DATA !== 'false',
+    seasonInfo: {
+      start: '2025-08-24',
+      end: '2026-01-20',
+      current: '2025'
+    }
+  },
+
   NFL: {
     sportKey: 'NFL',
     sportName: 'National Football League',
@@ -123,6 +155,9 @@ export const getActiveSportConfigs = (): SportConfig[] => {
     if (sport.sportKey === 'UFC') {
       return activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
     }
+    if (sport.sportKey === 'CFB') {
+      return activeSports.includes('CFB') && process.env.ENABLE_CFB_DATA !== 'false';
+    }
     if (sport.sportKey === 'NFL') {
       return activeSports.includes('NFL') && process.env.ENABLE_NFL_DATA === 'true';
     }
@@ -142,53 +177,82 @@ export interface PickDistribution {
   mlb: { team: number; props: number };
   wnba: { team: number; props: number };
   ufc: { fights: number };
+  cfb: { team: number; props: number };
   nfl: { team: number; props: number };
   total: number;
 }
 
 export const getPickDistribution = (userPreferences?: Record<string, boolean>): PickDistribution => {
   const activeSports = getActiveSportConfigs();
-  const prefs = userPreferences || { mlb: true, wnba: true, ufc: true, nfl: true };
+  const prefs = userPreferences || { mlb: true, wnba: true, ufc: true, cfb: true, nfl: true };
   
-  // Default distribution for all sports enabled (NFL season priority)
-  if (prefs.mlb && prefs.wnba && prefs.ufc && prefs.nfl) {
+  // CFB + NFL season (peak football season - August through January)
+  if (prefs.cfb && prefs.nfl && !prefs.mlb && !prefs.wnba && !prefs.ufc) {
     return {
-      mlb: { team: 3, props: 3 },
-      wnba: { team: 2, props: 2 },
-      ufc: { fights: 2 },
+      mlb: { team: 0, props: 0 },
+      wnba: { team: 0, props: 0 },
+      ufc: { fights: 0 },
+      cfb: { team: 6, props: 6 },
       nfl: { team: 4, props: 4 },
       total: 20
     };
   }
   
+  // CFB only (during college football season)
+  if (prefs.cfb && !prefs.nfl && !prefs.mlb && !prefs.wnba && !prefs.ufc) {
+    return {
+      mlb: { team: 0, props: 0 },
+      wnba: { team: 0, props: 0 },
+      ufc: { fights: 0 },
+      cfb: { team: 10, props: 10 },
+      nfl: { team: 0, props: 0 },
+      total: 20
+    };
+  }
+  
+  // All sports enabled (football season priority)
+  if (prefs.mlb && prefs.wnba && prefs.ufc && prefs.cfb && prefs.nfl) {
+    return {
+      mlb: { team: 2, props: 2 },
+      wnba: { team: 1, props: 1 },
+      ufc: { fights: 2 },
+      cfb: { team: 4, props: 4 },
+      nfl: { team: 2, props: 2 },
+      total: 20
+    };
+  }
+  
   // NFL + MLB (most common during NFL season)
-  if (prefs.mlb && !prefs.wnba && !prefs.ufc && prefs.nfl) {
+  if (prefs.mlb && !prefs.wnba && !prefs.ufc && !prefs.cfb && prefs.nfl) {
     return {
       mlb: { team: 4, props: 4 },
       wnba: { team: 0, props: 0 },
       ufc: { fights: 0 },
+      cfb: { team: 0, props: 0 },
       nfl: { team: 6, props: 6 },
       total: 20
     };
   }
   
   // NFL only (during peak NFL season)
-  if (!prefs.mlb && !prefs.wnba && !prefs.ufc && prefs.nfl) {
+  if (!prefs.mlb && !prefs.wnba && !prefs.ufc && !prefs.cfb && prefs.nfl) {
     return {
       mlb: { team: 0, props: 0 },
       wnba: { team: 0, props: 0 },
       ufc: { fights: 0 },
+      cfb: { team: 0, props: 0 },
       nfl: { team: 10, props: 10 },
       total: 20
     };
   }
   
-  // Legacy: MLB + WNBA + UFC (no NFL)
-  if (prefs.mlb && prefs.wnba && prefs.ufc && !prefs.nfl) {
+  // Legacy: MLB + WNBA + UFC (no football)
+  if (prefs.mlb && prefs.wnba && prefs.ufc && !prefs.cfb && !prefs.nfl) {
     return {
       mlb: { team: 4, props: 4 },
       wnba: { team: 4, props: 4 },
       ufc: { fights: 4 },
+      cfb: { team: 0, props: 0 },
       nfl: { team: 0, props: 0 },
       total: 20
     };
@@ -199,6 +263,7 @@ export const getPickDistribution = (userPreferences?: Record<string, boolean>): 
     mlb: { team: 10, props: 10 },
     wnba: { team: 0, props: 0 },
     ufc: { fights: 0 },
+    cfb: { team: 0, props: 0 },
     nfl: { team: 0, props: 0 },
     total: 20
   };

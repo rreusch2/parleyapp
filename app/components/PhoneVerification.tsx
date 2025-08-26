@@ -227,7 +227,7 @@ export default function PhoneVerification({
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardAvoidingContainer}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 20}
               >
                 <ScrollView 
                   contentContainerStyle={styles.scrollContent}
@@ -310,7 +310,7 @@ export default function PhoneVerification({
             <KeyboardAvoidingView 
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.keyboardAvoidingContainer}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 20}
             >
               <ScrollView 
                 contentContainerStyle={styles.scrollContent}
@@ -389,8 +389,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    minHeight: Dimensions.get('window').height * 0.7,
+    minHeight: Dimensions.get('window').height * 0.6,
     justifyContent: 'center',
+    paddingBottom: normalize(50), // Extra padding for keyboard
   },
   header: {
     flexDirection: 'row',
@@ -418,7 +419,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: normalize(20),
     justifyContent: 'center',
-    paddingBottom: normalize(40),
+    paddingBottom: normalize(60), // Increased bottom padding
+    paddingTop: normalize(20), // Add top padding for better spacing
   },
   subtitle: {
     fontSize: normalize(16),

@@ -66,7 +66,7 @@ export default function PredictionsScreen() {
   
   // Elite user preferences for filtering predictions
   const [userPreferences, setUserPreferences] = useState<any>({
-    sportPreferences: { mlb: true, wnba: false, ufc: false },
+    sportPreferences: { mlb: true, wnba: false, ufc: false, cfb: false },
     pickDistribution: { auto: true }
   });
   const [userId, setUserId] = useState<string>('');
@@ -92,7 +92,7 @@ export default function PredictionsScreen() {
         
         if (profile) {
           setUserPreferences({
-            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false, cfb: false },
             pickDistribution: profile.pick_distribution || { auto: true }
           });
         }
