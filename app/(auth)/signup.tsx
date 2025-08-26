@@ -746,12 +746,14 @@ export default function SignupScreen() {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
-        <Pressable onPress={Keyboard.dismiss} style={{ flex: 1 }}>
-          <ScrollView 
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={true}
+          bounces={true}
+        >
+          <Pressable onPress={Keyboard.dismiss} style={styles.pressableContent}>
           <View style={styles.content}>
             <Text style={styles.title}>Create Your Account</Text>
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
@@ -1005,8 +1007,8 @@ export default function SignupScreen() {
               </Link>
             </View>
           </View>
-          </ScrollView>
-        </Pressable>
+          </Pressable>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <TermsOfServiceModal visible={showTermsModal} onClose={closeTermsModal} />
@@ -1019,7 +1021,7 @@ export default function SignupScreen() {
             setShowPhoneVerification(false);
             Alert.alert('Phone Verified', 'Your phone number has been verified. You can now create your account.');
           }}
-          onBack={() => setShowPhoneVerification(false)}
+          onClose={() => setShowPhoneVerification(false)}
         />
       )}
       
@@ -1079,9 +1081,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? normalize(60) : normalize(40),
-    paddingBottom: normalize(20),
+    paddingBottom: normalize(40),
+  },
+  pressableContent: {
+    minHeight: Dimensions.get('window').height - normalize(100),
+    justifyContent: 'center',
   },
   content: {
     padding: normalize(25),

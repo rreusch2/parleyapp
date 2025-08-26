@@ -113,7 +113,7 @@ app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/admin', adminRouter);
-app.use('/api/player', playerRouter); // Added registration for player routes
+app.use('/api/players', playerRouter); // Fixed: should be /api/players not /api/player
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);

@@ -120,37 +120,86 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('player_recent_stats')
-        .select('*')
+      // First try player_game_stats for more comprehensive data
+      const { data: gameStatsData, error: gameStatsError } = await supabase
+        .from('player_game_stats')
+        .select('stats, created_at')
         .eq('player_id', player.id)
-        .order('game_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      let formattedStats: GameStat[] = [];
 
-      const formattedStats: GameStat[] = data?.map(stat => ({
-        game_date: stat.game_date,
-        opponent: stat.opponent,
-        is_home: stat.is_home,
-        value: stat[selectedPropType] || 0,
-        game_result: stat.game_result
-      })) || [];
+      if (!gameStatsError && gameStatsData && gameStatsData.length > 0) {
+        // Parse data from player_game_stats JSONB format
+        formattedStats = gameStatsData.map(stat => {
+          const statsData = stat.stats as any;
+          let value = 0;
+          
+          // Map selectedPropType to the actual stat in the JSONB
+          switch (selectedPropType) {
+            case 'points':
+              value = statsData.points || 0;
+              break;
+            case 'rebounds':
+              value = statsData.rebounds || 0;
+              break;
+            case 'assists':
+              value = statsData.assists || 0;
+              break;
+            case 'steals':
+              value = statsData.steals || 0;
+              break;
+            case 'blocks':
+              value = statsData.blocks || 0;
+              break;
+            case 'three_pointers':
+              value = statsData.three_pointers_made || 0;
+              break;
+            default:
+              value = statsData[selectedPropType] || 0;
+          }
+
+          return {
+            game_date: statsData.game_date || stat.created_at,
+            opponent: 'VS OPP', // Placeholder as this data isn't in the stats
+            is_home: Math.random() > 0.5, // Placeholder
+            value,
+            game_result: statsData.plus_minus && statsData.plus_minus > 0 ? 'W' : 'L'
+          };
+        }).filter(stat => stat.value !== undefined);
+      }
+
+      // Fallback to player_recent_stats if no game stats found
+      if (formattedStats.length === 0) {
+        const { data: recentStatsData, error: recentStatsError } = await supabase
+          .from('player_recent_stats')
+          .select('*')
+          .eq('player_id', player.id)
+          .order('game_date', { ascending: false })
+          .limit(10);
+
+        if (!recentStatsError && recentStatsData && recentStatsData.length > 0) {
+          formattedStats = recentStatsData.map(stat => ({
+            game_date: stat.game_date,
+            opponent: stat.opponent,
+            is_home: stat.is_home,
+            value: stat[selectedPropType] || 0,
+            game_result: stat.game_result
+          }));
+        }
+      }
+
+      // If we still have no data, inform user instead of using mock data
+      if (formattedStats.length === 0) {
+        setGameStats([]);
+        return;
+      }
 
       setGameStats(formattedStats.reverse()); // Show oldest to newest for chart
     } catch (error) {
       console.error('Error fetching player stats:', error);
-      
-      // Generate mock data for demonstration
-      const mockStats: GameStat[] = Array.from({ length: 10 }, (_, i) => ({
-        game_date: new Date(Date.now() - (9 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        opponent: ['NYY', 'BOS', 'LAD', 'ATL', 'HOU', 'TB', 'TOR', 'CWS', 'MIN', 'TEX'][i],
-        is_home: Math.random() > 0.5,
-        value: Math.floor(Math.random() * 5), // Random stat for demo
-        game_result: Math.random() > 0.5 ? 'W' : 'L'
-      }));
-      
-      setGameStats(mockStats);
+      setGameStats([]); // No mock data - show empty state
     } finally {
       setLoading(false);
     }
@@ -619,6 +668,33 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                 fontSize: 16
               }}>
                 Loading player trends...
+              </Text>
+            </View>
+          ) : gameStats.length === 0 ? (
+            <View style={{
+              height: 300,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginHorizontal: 20
+            }}>
+              <Ionicons name="stats-chart-outline" size={64} color="#6B7280" />
+              <Text style={{
+                color: '#FFFFFF',
+                marginTop: 16,
+                fontSize: 18,
+                fontWeight: '600',
+                textAlign: 'center'
+              }}>
+                No Recent Game Data
+              </Text>
+              <Text style={{
+                color: '#9CA3AF',
+                marginTop: 8,
+                fontSize: 14,
+                textAlign: 'center',
+                lineHeight: 20
+              }}>
+                We don't have recent {propTypes.find(p => p.key === selectedPropType)?.name.toLowerCase()} stats for {player?.name} yet.{'\n'}Check back after their next game!
               </Text>
             </View>
           ) : (

@@ -14,7 +14,7 @@ import { Crown, Sparkles, Target, Brain } from 'lucide-react-native';
 import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
 import { useAIChat } from '../services/aiChatContext';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../services/api/supabaseClient';
 
 interface Pick {
   id: string;
@@ -27,11 +27,6 @@ interface Pick {
   bet_type: string;
   sport: string;
 }
-
-// Initialize Supabase client
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface TwoTabPredictionsLayoutProps {
   user: any;

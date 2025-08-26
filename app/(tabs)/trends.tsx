@@ -12,7 +12,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import PlayerTrendsModal from '../components/PlayerTrendsModal';
-import { supabase } from '../services/api/supabaseClient';
 
 interface Player {
   id: string;
@@ -75,57 +74,54 @@ export default function TrendsScreen() {
 
     setIsSearching(true);
     try {
-      // Build the query with prefix and contains matching
-      let supabaseQuery = supabase
-        .from('players')
-        .select(`
-          id,
-          name,
-          team,
-          sport,
-          position
-        `)
-        .or(`name.ilike.${query}%,name.ilike.%${query}%`)
-        .eq('active', true);
-
-      // Add sport filter if not 'all'
-      if (selectedSport !== 'all') {
-        // Handle different sport name formats
-        const sportVariants = [selectedSport];
-        if (selectedSport === 'MLB') sportVariants.push('BASEBALL_MLB');
-        supabaseQuery = supabaseQuery.in('sport', sportVariants);
-      }
-
-      const { data, error } = await supabaseQuery
-        .order('name')
-        .limit(20);
-
-      if (error) throw error;
-
-      // Sort results to prioritize prefix matches (players whose names start with the query)
-      const sortedData = (data || []).sort((a, b) => {
-        const queryLower = query.toLowerCase();
-        const aStartsWith = a.name.toLowerCase().startsWith(queryLower);
-        const bStartsWith = b.name.toLowerCase().startsWith(queryLower);
-        
-        // Prioritize exact prefix matches first
-        if (aStartsWith && !bStartsWith) return -1;
-        if (!aStartsWith && bStartsWith) return 1;
-        
-        // Then sort alphabetically within each group
-        return a.name.localeCompare(b.name);
+      console.log('Searching players with backend API:', query, selectedSport); // Debug log
+      
+      // Use backend API instead of direct Supabase queries for better mobile compatibility
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      
+      const sportFilter = selectedSport === 'all' ? '' : `&sport=${selectedSport}`;
+      const apiUrl = `${backendUrl}/api/players/search?query=${encodeURIComponent(query)}${sportFilter}&limit=20`;
+      console.log('API URL:', apiUrl); // Debug log
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout for mobile networks
+        signal: AbortSignal.timeout(10000), // 10 second timeout
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Backend API response:', data); // Debug log
+      
+      if (data.players) {
+        // Sort results to prioritize prefix matches (players whose names start with the query)
+        const sortedData = data.players.sort((a: any, b: any) => {
+          const queryLower = query.toLowerCase();
+          const aStartsWith = a.name.toLowerCase().startsWith(queryLower);
+          const bStartsWith = b.name.toLowerCase().startsWith(queryLower);
+          
+          // Prioritize exact prefix matches first
+          if (aStartsWith && !bStartsWith) return -1;
+          if (!aStartsWith && bStartsWith) return 1;
+          
+          // Then sort alphabetically within each group
+          return a.name.localeCompare(b.name);
+        });
 
-      const playersWithStats = sortedData.map(player => ({
-        ...player,
-        recent_games_count: 0,
-        last_game_date: new Date().toISOString()
-      }));
-
-      setSearchResults(playersWithStats);
+        setSearchResults(sortedData);
+      } else {
+        console.warn('No players array in response:', data);
+        setSearchResults([]);
+      }
     } catch (error) {
       console.error('Search error:', error);
-      Alert.alert('Search Error', 'Failed to search players. Please try again.');
+      Alert.alert('Search Error', `Failed to search players: ${error instanceof Error ? error.message : 'Network error'}`);
       setSearchResults([]);
     } finally {
       setIsSearching(false);

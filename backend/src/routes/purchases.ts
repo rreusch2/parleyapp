@@ -193,10 +193,21 @@ router.post('/verify', async (req, res) => {
       subscription_tier: subscriptionTier,
       subscription_status: 'active',
       updated_at: new Date().toISOString(),
+      // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
+      welcome_bonus_claimed: false,
+      welcome_bonus_expires_at: null,
     };
     
-    // Only set expiration for non-lifetime subscriptions
-    if (subscriptionTier !== 'pro_lifetime') {
+    // Handle day pass expiration (24 hours)
+    if (productId.includes('daypass')) {
+      const dayPassExpiration = new Date();
+      dayPassExpiration.setHours(dayPassExpiration.getHours() + 24);
+      updateData.subscription_expires_at = dayPassExpiration.toISOString();
+      updateData.subscription_plan_type = 'daypass';
+      console.log(`📅 Day pass expires at: ${dayPassExpiration.toISOString()}`);
+    }
+    // Only set expiration for non-lifetime subscriptions  
+    else if (subscriptionTier !== 'pro_lifetime') {
       updateData.subscription_expires_at = expirationDate;
     }
     

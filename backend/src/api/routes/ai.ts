@@ -697,7 +697,7 @@ router.get('/picks', async (req, res) => {
     // First, check user's welcome bonus status, subscription tier, and sport preferences
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at, sport_preferences')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, subscription_expires_at, subscription_status, created_at, sport_preferences')
       .eq('id', userId)
       .single();
 
@@ -722,14 +722,39 @@ router.get('/picks', async (req, res) => {
       const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
       isNewUser = createdAt > fiveMinutesAgo;
       
-      if (profile.subscription_tier === 'pro') {
-        actualPickLimit = 20; // Pro tier gets 20 picks
-        bonusType = 'pro_unlimited';
-      } else if (profile.subscription_tier === 'elite') {
-        actualPickLimit = 30; // Elite tier gets 30 picks
-        bonusType = 'elite_unlimited';
+      // CRITICAL FIX: Check subscription tier FIRST, welcome bonus should not override paid subscriptions
+      if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite') {
+        // Check if subscription is still active (not expired)
+        const now = new Date();
+        const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+        const isSubscriptionActive = !expiresAt || now < expiresAt;
+        
+        if (isSubscriptionActive) {
+          if (profile.subscription_tier === 'pro') {
+            actualPickLimit = 20; // Pro tier gets 20 picks
+            bonusType = 'pro_unlimited';
+          } else if (profile.subscription_tier === 'elite') {
+            actualPickLimit = 30; // Elite tier gets 30 picks
+            bonusType = 'elite_unlimited';
+          }
+        } else {
+          // Subscription expired - downgrade to free and clear welcome bonus
+          await supabaseAdmin
+            .from('profiles')
+            .update({ 
+              subscription_tier: 'free', 
+              subscription_status: 'inactive',
+              welcome_bonus_claimed: false,
+              welcome_bonus_expires_at: null 
+            })
+            .eq('id', userId);
+          
+          actualPickLimit = 2; // Free tier
+          bonusType = null;
+          logger.info(`⚠️ Subscription expired for user ${userId}, downgraded to free tier`);
+        }
       } else if (isNewUser || welcomeBonusActive) {
-        actualPickLimit = 5; // Welcome bonus
+        actualPickLimit = 5; // Welcome bonus (only for free tier users)
         bonusType = welcomeBonusActive ? 'welcome_bonus' : 'new_user_auto';
       }
       

@@ -448,9 +448,9 @@ class IntelligentPlayerPropsAgent:
             distribution["WNBA"] = min(15, max(8, int(target_picks * 0.30)))   # 30% WNBA
             distribution["MLB"] = 0
         elif mlb_games > 0 and wnba_games > 0:
-            # MLB + WNBA available (no NFL) - heavily favor MLB (70%)
-            distribution["MLB"] = min(25, max(15, int(target_picks * 0.70)))   # 70% MLB
-            distribution["WNBA"] = min(15, max(8, int(target_picks * 0.30)))   # 30% WNBA
+            # MLB + WNBA available (no NFL) - heavily favor MLB (80%), cap WNBA
+            distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))   # 80% MLB
+            distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))    # 20% WNBA (cap at 8)
             distribution["NFL"] = 0
         elif nfl_games > 0:
             # Only NFL available
@@ -490,7 +490,7 @@ class IntelligentPlayerPropsAgent:
         total_expected = sum(active_sports.values())
         
         # Generate requirements for each sport  
-        sport_order = ["WNBA", "MLB"]  # Preferred ordering for props
+        sport_order = ["MLB", "WNBA"]  # Prioritize MLB in instructions
         for sport in sport_order:
             if sport in active_sports:
                 props_count = active_sports[sport]
@@ -503,7 +503,7 @@ class IntelligentPlayerPropsAgent:
         
         requirements.append(f"- TOTAL: Generate EXACTLY {total_expected} player props across all sports")
         requirements.append("- Focus on generating the FULL amount for each sport to maximize frontend filtering options")
-        requirements.append("- DIVERSIFY prop types within each sport (points, rebounds, assists for WNBA; hits, home runs, RBIs for MLB)")
+        requirements.append("- DIVERSIFY prop types within each sport (hits, home runs, RBIs for MLB; points, rebounds, assists for WNBA)")
         
         return "\n".join(requirements)
     
@@ -682,7 +682,7 @@ Generate intelligent research plan as JSON:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-3-beta",
+                model="grok-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -1032,7 +1032,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-3-beta",
+                model="grok-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.4
             )
@@ -1131,7 +1131,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 "timestamp": insight.timestamp.isoformat()
             })
         
-        MAX_ODDS = 350
+        MAX_ODDS = 450
         
         filtered_props = []
         long_shot_count = 0
@@ -1158,6 +1158,29 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                 logger.info(f"🚫 Filtered no odds: {prop.player_name} {prop.prop_type} (no odds available)")
         
         logger.info(f"🎯 Filtered props: {len(props)} → {len(filtered_props)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
+        
+        # Analyze filtered props by sport to understand supply before AI generation
+        try:
+            event_sport_map = {}
+            for g in games:
+                g_s = g.get('sport')
+                sp = 'Other'
+                if g_s == "Women's National Basketball Association":
+                    sp = "WNBA"
+                elif g_s == "Major League Baseball":
+                    sp = "MLB"
+                elif g_s == "Ultimate Fighting Championship":
+                    sp = "UFC"
+                elif g_s == "National Football League":
+                    sp = "NFL"
+                event_sport_map[str(g.get('id'))] = sp
+            filtered_counts = {}
+            for p in filtered_props:
+                sp = event_sport_map.get(str(p.event_id), "Unknown")
+                filtered_counts[sp] = filtered_counts.get(sp, 0) + 1
+            logger.info(f"📊 Filtered props by sport: {filtered_counts}")
+        except Exception as e:
+            logger.warning(f"Failed to summarize filtered props by sport: {e}")
         
         props_data = []
         for prop in filtered_props:
@@ -1194,7 +1217,7 @@ TODAY\'S DATA:
 🎯 AVAILABLE PLAYER PROPS ({len(filtered_props)}) - **ONLY PICK FROM THESE FILTERED PROPS**:
 {props_info}
 
-💡 **SMART FILTERING**: Long shot props (odds > +400) have been removed to focus on PROFITABLE opportunities.
+💡 **SMART FILTERING**: Long shot props (odds > +{MAX_ODDS}) have been removed to focus on PROFITABLE opportunities.
 
 ⚠️  **CRITICAL**: You MUST pick from the exact player names and prop types listed above. 
 Available prop types in this data: {set(prop.prop_type for prop in filtered_props[:50])}
@@ -1223,18 +1246,18 @@ TASK: Generate exactly {target_picks} strategic player prop picks that maximize 
 - Research data covers ALL players with props - use this broad analysis
 - Look for VALUE in lesser-known players, not just popular names
 - DIVERSIFY prop types: points, rebounds, assists, hits, home runs, RBIs, etc.
-- Select the BEST 10 picks from your comprehensive analysis of ALL options
+- Select the BEST {target_picks} picks from your comprehensive analysis of ALL options
 
 🚨 **BETTING DISCIPLINE REQUIREMENTS:**
 1. **MANDATORY ODDS CHECK**: Before picking, check the over_odds and under_odds in the data
-2. **ONLY PICK PROPS WITH BOTH ODDS**: Skip any prop where over_odds OR under_odds is null/missing
-3. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +350 (even if available)
-4. **AVOID LONG SHOTS**: Props with +400, +500, +950, +1300 odds are SUCKER BETS - ignore them!
+2. **ODDS PRESENCE FOR CHOSEN SIDE**: Only recommend a pick if odds for your chosen side (over or under) are present; skip if the chosen side's odds are missing
+3. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +{MAX_ODDS} (even if available)
+4. **AVOID LONG SHOTS**: Props with +450, +500, +950, +1300 odds are SUCKER BETS - ignore them!
 5. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
 6. **DIVERSIFY PROP TYPES**: 
    - **MLB**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases, Total Bases
    - **WNBA**: Points, Rebounds, Assists (see available props below)
-7. **MIX OVER/UNDER**: Don\'t just pick all overs - find spots where under has value
+7. **MIX OVER/UNDER**: Don't just pick all overs - find spots where under has value
 8. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
 9. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
 
@@ -1322,7 +1345,7 @@ REMEMBER:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-3-beta",
+                model="grok-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=4000
@@ -1502,26 +1525,111 @@ REMEMBER:
                             "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
-                            "model_used": "grok-3-beta"
+                            "model_used": "grok-4"
                         }
                     })
                 else:
                     logger.warning(f"No matching prop found for {pick.get('player_name')} {pick.get('prop_type')}")
             
-            # Return all generated picks - let frontend handle filtering based on user preferences and tiers
             # Sort all picks by confidence for best-first presentation
             formatted_picks.sort(key=lambda x: x["confidence"], reverse=True)
             
-            final_picks = formatted_picks  # Return all generated picks for frontend filtering
+            # Log AI picks by sport BEFORE enforcement
+            pre_counts = {}
+            for p in formatted_picks:
+                sp = p.get("sport", "Unknown")
+                pre_counts[sp] = pre_counts.get(sp, 0) + 1
+            pre_summary = " + ".join([f"{count} {sport}" for sport, count in pre_counts.items()])
+            logger.info(f"🧮 AI picks before enforcement: {pre_summary} = {len(formatted_picks)} total picks")
             
-            # Log sport distribution
+            # Enforce sport quotas programmatically to prioritize MLB and cap WNBA
+            final_picks = formatted_picks
+            if sport_distribution:
+                desired = {s: c for s, c in sport_distribution.items() if c and c > 0}
+                # Hard cap WNBA at 8
+                if "WNBA" in desired:
+                    desired["WNBA"] = min(desired["WNBA"], 8)
+                
+                logger.info(f"📐 Desired quotas by sport (post-cap): {desired}")
+
+                # Organize picks by sport (already confidence-sorted)
+                name_map = {
+                    "Major League Baseball": "MLB",
+                    "Women's National Basketball Association": "WNBA",
+                    "National Football League": "NFL",
+                    "Ultimate Fighting Championship": "UFC",
+                    "MLB": "MLB",
+                    "WNBA": "WNBA",
+                    "NFL": "NFL",
+                    "UFC": "UFC",
+                }
+                by_sport = {}
+                for p in formatted_picks:
+                    sp_raw = p.get("sport", "Other")
+                    sp = name_map.get(sp_raw, sp_raw)
+                    by_sport.setdefault(sp, []).append(p)
+                
+                # Priority order: MLB first
+                priority_order = ["MLB", "WNBA", "NFL", "UFC", "Other"]
+                selected = []
+                used_ids = set()
+                
+                # Helper to add picks without duplicates
+                def add_from_bucket(bucket, limit):
+                    added = 0
+                    for item in bucket:
+                        uid = f"{item.get('event_id')}|{item['metadata'].get('player_name')}|{item['metadata'].get('prop_type')}|{item['metadata'].get('recommendation')}"
+                        if uid in used_ids:
+                            continue
+                        selected.append(item)
+                        used_ids.add(uid)
+                        added += 1
+                        if added >= limit:
+                            break
+                    return added
+                
+                # Allocate quotas by sport
+                total_quota = 0
+                for sp in priority_order:
+                    if sp in desired and desired[sp] > 0:
+                        take = min(desired[sp], len(by_sport.get(sp, [])))
+                        total_quota += take
+                        add_from_bucket(by_sport.get(sp, []), take)
+                
+                # Fill remaining slots up to target_picks, prioritize extra MLB, then others
+                remaining = max(0, target_picks - len(selected))
+                if remaining > 0:
+                    # Extra MLB beyond quota
+                    mlb_extra = by_sport.get("MLB", [])[desired.get("MLB", 0):]
+                    remaining -= add_from_bucket(mlb_extra, remaining)
+                if remaining > 0:
+                    for sp in priority_order:
+                        if sp == "MLB":
+                            continue
+                        extras = by_sport.get(sp, [])[desired.get(sp, 0):]
+                        if remaining <= 0:
+                            break
+                        remaining -= add_from_bucket(extras, remaining)
+                
+                # If still remaining (not enough total), include whatever is left regardless of sport
+                if remaining > 0:
+                    for sp in priority_order:
+                        if remaining <= 0:
+                            break
+                        remaining -= add_from_bucket(by_sport.get(sp, []), remaining)
+                
+                final_picks = selected if selected else formatted_picks
+                # If we overshot, trim to target_picks while preserving priority order
+                if len(final_picks) > target_picks:
+                    final_picks = final_picks[:target_picks]
+            
+            # Log sport distribution AFTER enforcement
             sport_counts = {}
             for pick in final_picks:
                 sport = pick.get("sport", "Unknown")
                 sport_counts[sport] = sport_counts.get(sport, 0) + 1
-            
             sport_summary = " + ".join([f"{count} {sport}" for sport, count in sport_counts.items()])
-            logger.info(f"🎯 Final selection: {sport_summary} = {len(final_picks)} total picks")
+            logger.info(f"🎯 Final selection (enforced): {sport_summary} = {len(final_picks)} total picks")
             
             if final_picks:
                 prop_types = {}

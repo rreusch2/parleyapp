@@ -183,7 +183,7 @@ router.get('/welcome-bonus-status', async (req, res) => {
 
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, created_at')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, subscription_expires_at, subscription_status, created_at')
       .eq('id', userId)
       .single();
 
@@ -211,11 +211,39 @@ router.get('/welcome-bonus-status', async (req, res) => {
     let dailyPickLimit = 2; // Default free tier
     let bonusType = null;
     
-    if (profile.subscription_tier === 'pro') {
-      dailyPickLimit = 10; // Pro tier
-      bonusType = 'pro_unlimited';
+    // CRITICAL FIX: Check subscription tier FIRST, welcome bonus should not override paid subscriptions
+    if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite') {
+      // Check if subscription is still active (not expired)
+      const now = new Date();
+      const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+      const isSubscriptionActive = !expiresAt || now < expiresAt;
+      
+      if (isSubscriptionActive) {
+        if (profile.subscription_tier === 'pro') {
+          dailyPickLimit = 20; // Pro tier gets 20 picks
+          bonusType = 'pro_unlimited';
+        } else if (profile.subscription_tier === 'elite') {
+          dailyPickLimit = 30; // Elite tier gets 30 picks
+          bonusType = 'elite_unlimited';
+        }
+      } else {
+        // Subscription expired - downgrade to free and clear welcome bonus
+        await supabase
+          .from('profiles')
+          .update({ 
+            subscription_tier: 'free', 
+            subscription_status: 'inactive',
+            welcome_bonus_claimed: false,
+            welcome_bonus_expires_at: null 
+          })
+          .eq('id', userId);
+        
+        dailyPickLimit = 2; // Free tier
+        bonusType = null;
+        logger.info(`⚠️ Subscription expired for user ${userId}, downgraded to free tier`);
+      }
     } else if (isWelcomeBonusActive) {
-      dailyPickLimit = 5; // Welcome bonus
+      dailyPickLimit = 5; // Welcome bonus (only for free tier users)
       bonusType = 'welcome_bonus';
     }
 
