@@ -50,10 +50,11 @@ export default function TrendsScreen() {
 
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
-      if (searchQuery.length >= 2) {
-        console.log('Triggering search for:', searchQuery); // Debug log
-        searchPlayers(searchQuery);
-      } else if (searchQuery.length === 0) {
+      const q = searchQuery.trim();
+      if (q.length >= 2) {
+        console.log('Triggering search for:', q); // Debug log
+        searchPlayers(q);
+      } else if (q.length === 0) {
         setSearchResults([]);
       }
     }, 300); // Debounce search
@@ -157,7 +158,7 @@ export default function TrendsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0A0A0B' }}>
-      <View style={{ padding: 20, paddingTop: 10 }}>
+      <View style={{ flex: 1, padding: 20, paddingTop: 10 }}>
         {/* Header */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ 
@@ -240,8 +241,9 @@ export default function TrendsScreen() {
               }}
               returnKeyType="search"
               onSubmitEditing={() => {
-                if (searchQuery.length >= 2) {
-                  searchPlayers(searchQuery);
+                const q = searchQuery.trim();
+                if (q.length >= 2) {
+                  searchPlayers(q);
                 }
               }}
               autoCapitalize="words"
@@ -276,7 +278,7 @@ export default function TrendsScreen() {
         )}
 
         {/* Search Results */}
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {searchQuery.length >= 2 && searchResults.length > 0 && !isSearching && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{

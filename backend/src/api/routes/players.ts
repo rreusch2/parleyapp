@@ -14,15 +14,6 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    // Map short sport keys to canonical database sport names
-    const sportMap: Record<string, string> = {
-      MLB: 'Major League Baseball',
-      WNBA: "Women's National Basketball Association",
-      NBA: 'National Basketball Association',
-      NFL: 'National Football League',
-      UFC: 'Ultimate Fighting Championship',
-    };
-
     let supabaseQuery = supabaseAdmin
       .from('players')
       .select(`
@@ -39,9 +30,7 @@ router.get('/search', async (req, res) => {
       .order('name');
 
     if (sport && sport !== 'all') {
-      const sportStr = String(sport);
-      const dbSport = sportMap[sportStr] || sportStr; // default to provided value if not mapped
-      supabaseQuery = supabaseQuery.eq('sport', dbSport);
+      supabaseQuery = supabaseQuery.eq('sport', sport);
     }
 
     const { data, error } = await supabaseQuery.limit(Number(limit));

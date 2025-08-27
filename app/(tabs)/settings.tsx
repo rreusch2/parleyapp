@@ -53,6 +53,8 @@ import AboutModal from '../components/AboutModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
+import ReviewTestButton from '../components/ReviewTestButton';
+import ReviewDebugPanel from '../components/ReviewDebugPanel';
 import * as Clipboard from 'expo-clipboard';
 
 interface UserProfile {
@@ -1015,6 +1017,15 @@ export default function SettingsScreen() {
           </View>
         </TouchableOpacity>
       )}
+      
+      {/* Review Testing (Admin Only) */}
+      {(isAdmin || __DEV__) && (
+        <View style={styles.settingsGroup}>
+          <ReviewTestButton />
+          <ReviewDebugPanel />
+        </View>
+      )}
+      
       {/* Profile & Stats Section */}
       <View style={styles.profileSection}>
         <TouchableOpacity 

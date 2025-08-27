@@ -310,13 +310,15 @@ export default function PhoneVerification({
             <KeyboardAvoidingView 
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.keyboardAvoidingContainer}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 20}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
             >
               <ScrollView 
                 contentContainerStyle={styles.scrollContent}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
-                bounces={false}
+                bounces={true}
+                scrollEnabled={true}
+                automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
               >
                 <View style={styles.content}>
                   <Text style={styles.subtitle}>
@@ -389,9 +391,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    minHeight: Dimensions.get('window').height * 0.6,
-    justifyContent: 'center',
-    paddingBottom: normalize(50), // Extra padding for keyboard
+    minHeight: Dimensions.get('window').height * 0.7,
+    justifyContent: 'flex-start',
+    paddingBottom: normalize(100), // More padding for keyboard
+    paddingTop: normalize(40), // More top padding
   },
   header: {
     flexDirection: 'row',
@@ -418,9 +421,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: normalize(20),
-    justifyContent: 'center',
-    paddingBottom: normalize(60), // Increased bottom padding
-    paddingTop: normalize(20), // Add top padding for better spacing
+    justifyContent: 'flex-start',
+    paddingBottom: normalize(120), // Much more bottom padding for keyboard
+    paddingTop: normalize(40), // More top padding for better spacing
+    minHeight: normalize(400), // Ensure minimum height
   },
   subtitle: {
     fontSize: normalize(16),
