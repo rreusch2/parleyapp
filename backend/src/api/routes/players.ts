@@ -15,7 +15,7 @@ router.get('/search', async (req, res) => {
     }
 
     let supabaseQuery = supabaseAdmin
-      .from('players')
+      .from('players_with_headshots')
       .select(`
         id,
         name,
@@ -23,6 +23,8 @@ router.get('/search', async (req, res) => {
         sport,
         position,
         active,
+        headshot_url,
+        has_headshot,
         recent_stats_count:player_recent_stats(count)
       `)
       .ilike('name', `%${query}%`)

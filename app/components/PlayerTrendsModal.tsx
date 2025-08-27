@@ -7,7 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +30,8 @@ interface Player {
   team: string;
   sport: string;
   position?: string;
+  headshot_url?: string;
+  has_headshot?: boolean;
 }
 
 interface GameStat {
@@ -61,6 +64,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const [selectedPropType, setSelectedPropType] = useState<string>('hits');
   const [propTypes, setPropTypes] = useState<PropType[]>([]);
   const [currentPropLine, setCurrentPropLine] = useState<number | null>(null);
+  const [playerWithHeadshot, setPlayerWithHeadshot] = useState<Player | null>(null);
 
   // Sport-specific prop types
   const getAvailableProps = (sport: string): PropType[] => {
@@ -110,10 +114,43 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       if (props.length > 0) {
         setSelectedPropType(props[0].key);
       }
+      fetchPlayerWithHeadshot();
       fetchPlayerStats();
       fetchCurrentPropLine();
     }
   }, [visible, player, selectedPropType]);
+
+  const fetchPlayerWithHeadshot = async () => {
+    if (!player) return;
+
+    try {
+      // Fetch player with headshot data from players_with_headshots view
+      const { data: playerData, error } = await supabase
+        .from('players_with_headshots')
+        .select('id, name, team, sport, position, headshot_url, has_headshot, active')
+        .eq('id', player.id)
+        .single();
+
+      if (error) {
+        console.warn('Error fetching player headshot:', error);
+        setPlayerWithHeadshot(player); // Use original player data as fallback
+        return;
+      }
+
+      if (playerData) {
+        setPlayerWithHeadshot({
+          ...player,
+          headshot_url: playerData.headshot_url,
+          has_headshot: playerData.has_headshot
+        });
+      } else {
+        setPlayerWithHeadshot(player);
+      }
+    } catch (error) {
+      console.error('Error fetching player headshot:', error);
+      setPlayerWithHeadshot(player); // Use original player data as fallback
+    }
+  };
 
   const fetchPlayerStats = async () => {
     if (!player) return;
@@ -481,63 +518,181 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       onRequestClose={onClose}
     >
       <View style={{ flex: 1, backgroundColor: '#0A0A0B' }}>
-        {/* Header */}
+        {/* Enhanced Header with Headshot */}
         <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
           padding: 20,
           paddingTop: 50,
           borderBottomWidth: 1,
           borderBottomColor: '#374151'
         }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{
-              fontSize: 24,
-              fontWeight: 'bold',
-              color: '#FFFFFF',
-              marginBottom: 4
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 16
+          }}>
+            {/* Player Headshot */}
+            <View style={{
+              position: 'relative',
+              marginRight: 16
             }}>
-              {player.name}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{
-                backgroundColor: getSportColor(player.sport),
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: 6,
-                marginRight: 8
+              {playerWithHeadshot?.has_headshot && playerWithHeadshot?.headshot_url ? (
+                <View style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  borderWidth: 3,
+                  borderColor: getSportColor(player.sport),
+                  shadowColor: getSportColor(player.sport),
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8
+                }}>
+                  <Image
+                    source={{ uri: playerWithHeadshot.headshot_url }}
+                    style={{
+                      width: 74,
+                      height: 74,
+                      borderRadius: 37,
+                      backgroundColor: '#374151'
+                    }}
+                    onError={() => {
+                      console.log('Failed to load headshot for', player.name);
+                    }}
+                  />
+                  {/* Sport icon badge */}
+                  <View style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: -2,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: getSportColor(player.sport),
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: '#0A0A0B'
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 'bold'
+                    }}>
+                      {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                /* Fallback for players without headshots */
+                <View style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  borderWidth: 3,
+                  borderColor: getSportColor(player.sport),
+                  backgroundColor: '#374151',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: getSportColor(player.sport),
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8
+                }}>
+                  <Ionicons 
+                    name="person" 
+                    size={36} 
+                    color="#9CA3AF" 
+                  />
+                  {/* Sport icon badge */}
+                  <View style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: -2,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: getSportColor(player.sport),
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: '#0A0A0B'
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 'bold'
+                    }}>
+                      {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Player Info */}
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: 'bold',
+                color: '#FFFFFF',
+                marginBottom: 6
               }}>
+                {player.name}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View style={{
+                  backgroundColor: getSportColor(player.sport),
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  marginRight: 10
+                }}>
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontSize: 12,
+                    fontWeight: '700'
+                  }}>
+                    {player.sport}
+                  </Text>
+                </View>
                 <Text style={{
-                  color: '#FFFFFF',
-                  fontSize: 12,
+                  color: '#D1D5DB',
+                  fontSize: 16,
                   fontWeight: '600'
                 }}>
-                  {player.sport}
+                  {player.team}
                 </Text>
               </View>
-              <Text style={{
-                color: '#9CA3AF',
-                fontSize: 16
-              }}>
-                {player.team} • {player.position || 'Player'}
-              </Text>
+              {player.position && (
+                <Text style={{
+                  color: '#9CA3AF',
+                  fontSize: 14,
+                  fontWeight: '500'
+                }}>
+                  {player.position}
+                </Text>
+              )}
             </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              onPress={onClose}
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: '#1F2937',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: '#374151'
+              }}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity
-            onPress={onClose}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: '#1F2937',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Ionicons name="close" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
         </View>
 
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>

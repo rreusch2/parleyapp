@@ -12,11 +12,13 @@ import {
   Platform,
   Keyboard,
   Animated,
-  RefreshControl
+  RefreshControl,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import PlayerTrendsModal from '../components/PlayerTrendsModal';
+import TeamTrendsModal from '../components/TeamTrendsModal';
 
 interface Player {
   id: string;
@@ -24,6 +26,8 @@ interface Player {
   team: string;
   sport: string;
   position?: string;
+  headshot_url?: string;
+  has_headshot?: boolean;
 }
 
 interface PlayerSearchResult extends Player {
@@ -31,14 +35,35 @@ interface PlayerSearchResult extends Player {
   last_game_date: string;
 }
 
+interface Team {
+  id: string;
+  name: string;
+  abbreviation: string;
+  city: string;
+  sport: string;
+  logo_url?: string;
+}
+
+interface TeamSearchResult extends Team {
+  recent_games_count: number;
+  last_game_date: string;
+}
+
+type SearchMode = 'players' | 'teams';
+
 export default function TrendsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([]);
+  const [searchMode, setSearchMode] = useState<SearchMode>('players');
+  const [playerResults, setPlayerResults] = useState<PlayerSearchResult[]>([]);
+  const [teamResults, setTeamResults] = useState<TeamSearchResult[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [playerModalVisible, setPlayerModalVisible] = useState(false);
+  const [teamModalVisible, setTeamModalVisible] = useState(false);
   const [selectedSport, setSelectedSport] = useState<string>('all');
-  const [recentSearches, setRecentSearches] = useState<Player[]>([]);
+  const [recentPlayerSearches, setRecentPlayerSearches] = useState<Player[]>([]);
+  const [recentTeamSearches, setRecentTeamSearches] = useState<Team[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const searchRef = useRef<TextInput>(null);
@@ -86,15 +111,20 @@ export default function TrendsScreen() {
     const delayedSearch = setTimeout(() => {
       const q = searchQuery.trim();
       if (q.length >= 2) {
-        console.log('Triggering search for:', q); // Debug log
-        searchPlayers(q);
+        console.log('Triggering search for:', q, 'mode:', searchMode); // Debug log
+        if (searchMode === 'players') {
+          searchPlayers(q);
+        } else {
+          searchTeams(q);
+        }
       } else if (q.length === 0) {
-        setSearchResults([]);
+        setPlayerResults([]);
+        setTeamResults([]);
       }
     }, 300); // Debounce search
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery, selectedSport]);
+  }, [searchQuery, selectedSport, searchMode]);
 
   const loadRecentSearches = async () => {
     // Load from AsyncStorage or recent database queries
@@ -103,7 +133,7 @@ export default function TrendsScreen() {
 
   const searchPlayers = async (query: string) => {
     if (query.length < 2) {
-      setSearchResults([]);
+      setPlayerResults([]);
       return;
     }
 
@@ -154,15 +184,82 @@ export default function TrendsScreen() {
           return a.name.localeCompare(b.name);
         });
 
-        setSearchResults(sortedData);
+        setPlayerResults(sortedData);
       } else {
         console.warn('No players array in response:', data);
-        setSearchResults([]);
+        setPlayerResults([]);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('Player search error:', error);
       Alert.alert('Search Error', `Failed to search players: ${error instanceof Error ? error.message : 'Network error'}`);
-      setSearchResults([]);
+      setPlayerResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const searchTeams = async (query: string) => {
+    if (query.length < 2) {
+      setTeamResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      console.log('Searching teams with backend API:', query, selectedSport); // Debug log
+      
+      // Use backend API for team search
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      
+      const sportFilter = selectedSport === 'all' ? '' : `&sport=${encodeURIComponent(selectedSport)}`;
+      const apiUrl = `${backendUrl}/api/teams/search?query=${encodeURIComponent(query)}${sportFilter}&limit=20`;
+      console.log('Team API URL:', apiUrl); // Debug log
+      
+      // Create AbortController for mobile compatibility
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: abortController.signal,
+      });
+      
+      clearTimeout(timeoutId); // Clear timeout if request completes
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Backend team API response:', data); // Debug log
+      
+      if (data.teams) {
+        // Sort results to prioritize prefix matches
+        const sortedData = data.teams.sort((a: any, b: any) => {
+          const queryLower = query.toLowerCase();
+          const aStartsWith = a.name.toLowerCase().startsWith(queryLower) || a.city.toLowerCase().startsWith(queryLower);
+          const bStartsWith = b.name.toLowerCase().startsWith(queryLower) || b.city.toLowerCase().startsWith(queryLower);
+          
+          // Prioritize exact prefix matches first
+          if (aStartsWith && !bStartsWith) return -1;
+          if (!aStartsWith && bStartsWith) return 1;
+          
+          // Then sort alphabetically within each group
+          return a.name.localeCompare(b.name);
+        });
+
+        setTeamResults(sortedData);
+      } else {
+        console.warn('No teams array in response:', data);
+        setTeamResults([]);
+      }
+    } catch (error) {
+      console.error('Team search error:', error);
+      Alert.alert('Search Error', `Failed to search teams: ${error instanceof Error ? error.message : 'Network error'}`);
+      setTeamResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -171,27 +268,52 @@ export default function TrendsScreen() {
   const selectPlayer = (player: PlayerSearchResult) => {
     Keyboard.dismiss();
     setSelectedPlayer(player);
-    setModalVisible(true);
+    setPlayerModalVisible(true);
     
     // Add to recent searches
-    setRecentSearches(prev => {
+    setRecentPlayerSearches(prev => {
       const filtered = prev.filter(p => p.id !== player.id);
       return [player, ...filtered].slice(0, 5);
+    });
+  };
+
+  const selectTeam = (team: TeamSearchResult) => {
+    Keyboard.dismiss();
+    setSelectedTeam(team);
+    setTeamModalVisible(true);
+    
+    // Add to recent searches
+    setRecentTeamSearches(prev => {
+      const filtered = prev.filter(t => t.id !== team.id);
+      return [team, ...filtered].slice(0, 5);
     });
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
     if (searchQuery.trim().length >= 2) {
-      await searchPlayers(searchQuery.trim());
+      if (searchMode === 'players') {
+        await searchPlayers(searchQuery.trim());
+      } else {
+        await searchTeams(searchQuery.trim());
+      }
     }
     setRefreshing(false);
   };
 
   const clearSearch = () => {
     setSearchQuery('');
-    setSearchResults([]);
+    setPlayerResults([]);
+    setTeamResults([]);
     searchRef.current?.blur();
+  };
+
+  const getCurrentResults = () => {
+    return searchMode === 'players' ? playerResults : teamResults;
+  };
+
+  const getCurrentRecentSearches = () => {
+    return searchMode === 'players' ? recentPlayerSearches : recentTeamSearches;
   };
 
   const getSportColor = (sport: string) => {
@@ -221,15 +343,71 @@ export default function TrendsScreen() {
             color: '#FFFFFF', 
             marginBottom: 8 
           }}>
-            Player Trends
+            Trends Analysis
           </Text>
           <Text style={{ 
             fontSize: 16, 
             color: '#9CA3AF',
             lineHeight: 22
           }}>
-            Search any player to see their last 10 games performance with prop line analysis
+            Search players or teams to see their last 10 games performance with detailed analytics
           </Text>
+        </View>
+
+        {/* Search Mode Toggle */}
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: '#1F2937',
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 20,
+          borderWidth: 1,
+          borderColor: '#374151'
+        }}>
+          <TouchableOpacity
+            onPress={() => {
+              setSearchMode('players');
+              setSearchQuery('');
+            }}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              backgroundColor: searchMode === 'players' ? '#3B82F6' : 'transparent',
+              alignItems: 'center'
+            }}
+          >
+            <Text style={{
+              color: searchMode === 'players' ? '#FFFFFF' : '#9CA3AF',
+              fontWeight: searchMode === 'players' ? '600' : '500',
+              fontSize: 15
+            }}>
+              👤 Players
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              setSearchMode('teams');
+              setSearchQuery('');
+            }}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              backgroundColor: searchMode === 'teams' ? '#3B82F6' : 'transparent',
+              alignItems: 'center'
+            }}
+          >
+            <Text style={{
+              color: searchMode === 'teams' ? '#FFFFFF' : '#9CA3AF',
+              fontWeight: searchMode === 'teams' ? '600' : '500',
+              fontSize: 15
+            }}>
+              🏟️ Teams
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Sport Filter Chips - Animated and Compact */}
@@ -303,7 +481,10 @@ export default function TrendsScreen() {
                 fontSize: 16,
                 fontWeight: '500'
               }}
-              placeholder="Search any player (Aaron Judge, Caitlin Clark...)"
+              placeholder={searchMode === 'players' 
+                ? "Search any player (Aaron Judge, Caitlin Clark...)" 
+                : "Search any team (Yankees, Lakers, Chiefs...)"
+              }
               placeholderTextColor="#6B7280"
               value={searchQuery}
               onChangeText={(text) => {
@@ -314,7 +495,11 @@ export default function TrendsScreen() {
               onSubmitEditing={() => {
                 const q = searchQuery.trim();
                 if (q.length >= 2) {
-                  searchPlayers(q);
+                  if (searchMode === 'players') {
+                    searchPlayers(q);
+                  } else {
+                    searchTeams(q);
+                  }
                 }
               }}
               autoCapitalize="words"
@@ -368,7 +553,7 @@ export default function TrendsScreen() {
           }
           contentInsetAdjustmentBehavior="automatic"
         >
-          {searchQuery.length >= 2 && searchResults.length > 0 && !isSearching && (
+          {searchQuery.length >= 2 && getCurrentResults().length > 0 && !isSearching && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{
                 fontSize: 18,
@@ -376,9 +561,9 @@ export default function TrendsScreen() {
                 color: '#FFFFFF',
                 marginBottom: 12
               }}>
-                Search Results ({searchResults.length})
+                Search Results ({getCurrentResults().length})
               </Text>
-              {searchResults.map((player, index) => (
+              {searchMode === 'players' && playerResults.map((player, index) => (
                 <TouchableOpacity
                   key={player.id}
                   onPress={() => selectPlayer(player)}
@@ -396,7 +581,109 @@ export default function TrendsScreen() {
                     elevation: 2
                   }}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {/* Player Headshot */}
+                    <View style={{
+                      position: 'relative',
+                      marginRight: 14
+                    }}>
+                      {player.has_headshot && player.headshot_url ? (
+                        <View style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          borderWidth: 2,
+                          borderColor: getSportColor(player.sport),
+                          shadowColor: getSportColor(player.sport),
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4
+                        }}>
+                          <Image
+                            source={{ uri: player.headshot_url }}
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 26,
+                              backgroundColor: '#374151'
+                            }}
+                            onError={() => {
+                              console.log('Failed to load headshot for', player.name);
+                            }}
+                          />
+                          {/* Sport indicator */}
+                          <View style={{
+                            position: 'absolute',
+                            bottom: -1,
+                            right: -1,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: getSportColor(player.sport),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: '#1F2937'
+                          }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 8,
+                              fontWeight: 'bold'
+                            }}>
+                              {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                        /* Fallback for players without headshots */
+                        <View style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          borderWidth: 2,
+                          borderColor: getSportColor(player.sport),
+                          backgroundColor: '#374151',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: getSportColor(player.sport),
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4
+                        }}>
+                          <Ionicons 
+                            name="person" 
+                            size={24} 
+                            color="#9CA3AF" 
+                          />
+                          {/* Sport indicator */}
+                          <View style={{
+                            position: 'absolute',
+                            bottom: -1,
+                            right: -1,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: getSportColor(player.sport),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: '#1F2937'
+                          }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 8,
+                              fontWeight: 'bold'
+                            }}>
+                              {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Player Info */}
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                         <Text style={{
@@ -406,7 +693,7 @@ export default function TrendsScreen() {
                         }}>
                           {player.name}
                         </Text>
-                        {index === 0 && searchResults.length > 1 && (
+                        {index === 0 && playerResults.length > 1 && (
                           <View style={{
                             backgroundColor: '#059669',
                             paddingHorizontal: 6,
@@ -428,14 +715,14 @@ export default function TrendsScreen() {
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                         <View style={{
                           backgroundColor: getSportColor(player.sport),
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          borderRadius: 8,
-                          marginRight: 12
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 6,
+                          marginRight: 10
                         }}>
                           <Text style={{
                             color: '#FFFFFF',
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: '700'
                           }}>
                             {player.sport}
@@ -444,7 +731,7 @@ export default function TrendsScreen() {
                         <Text style={{
                           color: '#D1D5DB',
                           fontSize: 15,
-                          fontWeight: '500'
+                          fontWeight: '600'
                         }}>
                           {player.team}
                         </Text>
@@ -485,6 +772,8 @@ export default function TrendsScreen() {
                         </View>
                       )}
                     </View>
+
+                    {/* Chevron */}
                     <TouchableOpacity 
                       style={{
                         backgroundColor: '#374151',
@@ -499,11 +788,178 @@ export default function TrendsScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
+              {searchMode === 'teams' && teamResults.map((team, index) => (
+                <TouchableOpacity
+                  key={team.id}
+                  onPress={() => selectTeam(team)}
+                  style={{
+                    backgroundColor: '#1F2937',
+                    borderRadius: 16,
+                    padding: 18,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: '#374151',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 2
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {/* Team Logo Placeholder */}
+                    <View style={{
+                      position: 'relative',
+                      marginRight: 14
+                    }}>
+                      <View style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 28,
+                        borderWidth: 2,
+                        borderColor: getSportColor(team.sport),
+                        backgroundColor: '#374151',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        shadowColor: getSportColor(team.sport),
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 4,
+                        elevation: 4
+                      }}>
+                        <Text style={{
+                          color: '#FFFFFF',
+                          fontSize: 16,
+                          fontWeight: 'bold'
+                        }}>
+                          {team.abbreviation}
+                        </Text>
+                        {/* Sport indicator */}
+                        <View style={{
+                          position: 'absolute',
+                          bottom: -1,
+                          right: -1,
+                          width: 18,
+                          height: 18,
+                          borderRadius: 9,
+                          backgroundColor: getSportColor(team.sport),
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 2,
+                          borderColor: '#1F2937'
+                        }}>
+                          <Text style={{
+                            color: '#FFFFFF',
+                            fontSize: 8,
+                            fontWeight: 'bold'
+                          }}>
+                            {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Team Info */}
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{
+                          fontSize: 17,
+                          fontWeight: '700',
+                          color: '#FFFFFF'
+                        }}>
+                          {team.name}
+                        </Text>
+                        {index === 0 && teamResults.length > 1 && (
+                          <View style={{
+                            backgroundColor: '#059669',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 8,
+                            marginLeft: 8
+                          }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 10,
+                              fontWeight: '600'
+                            }}>
+                              TOP MATCH
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{
+                          backgroundColor: getSportColor(team.sport),
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 6,
+                          marginRight: 10
+                        }}>
+                          <Text style={{
+                            color: '#FFFFFF',
+                            fontSize: 11,
+                            fontWeight: '700'
+                          }}>
+                            {team.sport}
+                          </Text>
+                        </View>
+                        <Text style={{
+                          color: '#D1D5DB',
+                          fontSize: 15,
+                          fontWeight: '600'
+                        }}>
+                          {team.city}
+                        </Text>
+                      </View>
+                      
+                      {team.recent_games_count > 0 ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="stats-chart" size={14} color="#10B981" />
+                          <Text style={{
+                            color: '#10B981',
+                            fontSize: 13,
+                            marginLeft: 4,
+                            fontWeight: '600'
+                          }}>
+                            {team.recent_games_count} recent games with stats
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="information-circle" size={14} color="#F59E0B" />
+                          <Text style={{
+                            color: '#F59E0B',
+                            fontSize: 13,
+                            marginLeft: 4,
+                            fontWeight: '500'
+                          }}>
+                            Limited recent data available
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Chevron */}
+                    <TouchableOpacity 
+                      style={{
+                        backgroundColor: '#374151',
+                        borderRadius: 12,
+                        padding: 8,
+                        marginLeft: 12
+                      }}
+                      onPress={() => selectTeam(team)}
+                    >
+                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
 
           {/* No Results */}
-          {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+          {searchQuery.length >= 2 && getCurrentResults().length === 0 && !isSearching && (
             <View style={{
               backgroundColor: '#1F2937',
               borderRadius: 12,
@@ -521,7 +977,7 @@ export default function TrendsScreen() {
                 marginTop: 12,
                 textAlign: 'center'
               }}>
-                No players found
+                No {searchMode} found
               </Text>
               <Text style={{
                 color: '#9CA3AF',
@@ -529,13 +985,13 @@ export default function TrendsScreen() {
                 marginTop: 4,
                 textAlign: 'center'
               }}>
-                Try searching for a different player name
+                Try searching for a different {searchMode === 'players' ? 'player' : 'team'} name
               </Text>
             </View>
           )}
 
           {/* Recent Searches */}
-          {recentSearches.length > 0 && searchQuery.length < 2 && (
+          {getCurrentRecentSearches().length > 0 && searchQuery.length < 2 && (
             <View style={{ marginBottom: 24 }}>
               <Text style={{
                 fontSize: 18,
@@ -545,7 +1001,7 @@ export default function TrendsScreen() {
               }}>
                 Recent Searches
               </Text>
-              {recentSearches.map((player) => (
+              {searchMode === 'players' && recentPlayerSearches.map((player) => (
                 <TouchableOpacity
                   key={player.id}
                   onPress={() => selectPlayer(player as PlayerSearchResult)}
@@ -579,11 +1035,45 @@ export default function TrendsScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
+              {searchMode === 'teams' && recentTeamSearches.map((team) => (
+                <TouchableOpacity
+                  key={team.id}
+                  onPress={() => selectTeam(team as TeamSearchResult)}
+                  style={{
+                    backgroundColor: '#1F2937',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: '#374151'
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '600',
+                        color: '#FFFFFF',
+                        marginBottom: 4
+                      }}>
+                        {team.name}
+                      </Text>
+                      <Text style={{
+                        color: '#9CA3AF',
+                        fontSize: 14
+                      }}>
+                        {team.city} • {team.sport}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           )}
 
           {/* Empty State */}
-          {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+          {searchQuery.length >= 2 && getCurrentResults().length === 0 && !isSearching && (
             <View style={{
               backgroundColor: '#1F2937',
               borderRadius: 12,
@@ -599,7 +1089,7 @@ export default function TrendsScreen() {
                 marginBottom: 8,
                 textAlign: 'center'
               }}>
-                No Players Found
+                No {searchMode === 'players' ? 'Players' : 'Teams'} Found
               </Text>
               <Text style={{
                 fontSize: 14,
@@ -613,7 +1103,7 @@ export default function TrendsScreen() {
           )}
 
           {/* Instructions */}
-          {searchQuery.length < 2 && recentSearches.length === 0 && (
+          {searchQuery.length < 2 && getCurrentRecentSearches().length === 0 && (
             <View style={{
               backgroundColor: '#1F2937',
               borderRadius: 12,
@@ -640,7 +1130,7 @@ export default function TrendsScreen() {
                 marginBottom: 8,
                 textAlign: 'center'
               }}>
-                Discover Player Trends
+                Discover {searchMode === 'players' ? 'Player' : 'Team'} Trends
               </Text>
               <Text style={{
                 fontSize: 16,
@@ -649,7 +1139,7 @@ export default function TrendsScreen() {
                 lineHeight: 22,
                 marginBottom: 20
               }}>
-                Search for any player to see their last 10 games performance with detailed prop analysis and visual charts
+                Search for any {searchMode === 'players' ? 'player' : 'team'} to see their last 10 games performance with detailed analytics and visual charts
               </Text>
               <View style={{
                 backgroundColor: '#111827',
@@ -686,9 +1176,16 @@ export default function TrendsScreen() {
 
       {/* Player Trends Modal */}
       <PlayerTrendsModal
-        visible={modalVisible}
+        visible={playerModalVisible}
         player={selectedPlayer}
-        onClose={() => setModalVisible(false)}
+        onClose={() => setPlayerModalVisible(false)}
+      />
+      
+      {/* Team Trends Modal */}
+      <TeamTrendsModal
+        visible={teamModalVisible}
+        team={selectedTeam}
+        onClose={() => setTeamModalVisible(false)}
       />
     </SafeAreaView>
   );

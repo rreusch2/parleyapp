@@ -20,6 +20,7 @@ import automationRoutes from './routes/automation';
 import purchasesRouter from './routes/purchases';
 import webhooksRouter from './routes/webhooks';
 import playerRouter from './api/routes/players'; // Fixed: use players.ts not player.ts
+import teamsRouter from './api/routes/teams';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 
 const app = express();
@@ -113,7 +114,8 @@ app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/admin', adminRouter);
-app.use('/api/players', playerRouter); // Fixed: should be /api/players not /api/player
+app.use('/api/players', playerRouter);
+app.use('/api/teams', teamsRouter);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
