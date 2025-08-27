@@ -61,7 +61,7 @@ const chartHeight = 200;
 export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTrendsModalProps) {
   const [loading, setLoading] = useState(false);
   const [gameStats, setGameStats] = useState<GameStat[]>([]);
-  const [selectedPropType, setSelectedPropType] = useState<string>('hits');
+  const [selectedPropType, setSelectedPropType] = useState<string>('');
   const [propTypes, setPropTypes] = useState<PropType[]>([]);
   const [currentPropLine, setCurrentPropLine] = useState<number | null>(null);
   const [playerWithHeadshot, setPlayerWithHeadshot] = useState<Player | null>(null);
@@ -111,10 +111,15 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     if (visible && player) {
       const props = getAvailableProps(player.sport);
       setPropTypes(props);
-      if (props.length > 0) {
+      if (props.length > 0 && !selectedPropType) {
         setSelectedPropType(props[0].key);
       }
       fetchPlayerWithHeadshot();
+    }
+  }, [visible, player]);
+
+  useEffect(() => {
+    if (visible && player && selectedPropType) {
       fetchPlayerStats();
       fetchCurrentPropLine();
     }
@@ -715,20 +720,28 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
               {propTypes.map((prop) => (
                 <TouchableOpacity
                   key={prop.key}
-                  onPress={() => setSelectedPropType(prop.key)}
+                  onPress={() => {
+                    console.log('Prop button pressed:', prop.key);
+                    setSelectedPropType(prop.key);
+                  }}
                   style={{
                     paddingHorizontal: 16,
                     paddingVertical: 8,
                     marginRight: 12,
                     borderRadius: 20,
                     backgroundColor: selectedPropType === prop.key ? '#3B82F6' : '#1F2937',
-                    borderWidth: 1,
-                    borderColor: selectedPropType === prop.key ? '#3B82F6' : '#374151'
+                    borderWidth: 1.5,
+                    borderColor: selectedPropType === prop.key ? '#60A5FA' : '#374151',
+                    shadowColor: selectedPropType === prop.key ? '#3B82F6' : 'transparent',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: selectedPropType === prop.key ? 0.3 : 0,
+                    shadowRadius: 4,
+                    elevation: selectedPropType === prop.key ? 4 : 0
                   }}
                 >
                   <Text style={{
                     color: selectedPropType === prop.key ? '#FFFFFF' : '#9CA3AF',
-                    fontWeight: selectedPropType === prop.key ? '600' : 'normal',
+                    fontWeight: selectedPropType === prop.key ? '700' : '500',
                     fontSize: 14
                   }}>
                     {prop.name}

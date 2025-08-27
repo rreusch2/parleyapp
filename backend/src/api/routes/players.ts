@@ -25,10 +25,10 @@ router.get('/search', async (req, res) => {
         active,
         headshot_url,
         has_headshot,
-        recent_stats_count:player_recent_stats(count)
+        recent_games_count,
+        last_game_date
       `)
       .ilike('name', `%${query}%`)
-      .eq('active', true)
       .order('name');
 
     if (sport && sport !== 'all') {
@@ -41,8 +41,8 @@ router.get('/search', async (req, res) => {
 
     const playersWithStats = data?.map(player => ({
       ...player,
-      recent_games_count: player.recent_stats_count?.[0]?.count || 0,
-      last_game_date: new Date().toISOString() // Will be updated with real data
+      recent_games_count: player.recent_games_count || 0,
+      last_game_date: player.last_game_date || new Date().toISOString()
     })) || [];
 
     res.json({
@@ -95,16 +95,79 @@ router.get('/:playerId/stats', async (req, res) => {
       game_result: stat.game_result
     })).reverse() || []; // Reverse to show oldest to newest for chart
 
-    // Get current prop line if available
-    const { data: propLine } = await supabaseAdmin
-      .from('player_props_odds')
-      .select('line')
-      .eq('player_id', playerId)
-      .like('prop_type', `%${propType}%`)
-      .order('created_at', { ascending: false })
+    // Get current prop line from player_props_odds table with proper prop type matching
+    const sport = player.sport;
+    const aliasMap: Record<string, Record<string, string[]>> = {
+      MLB: {
+        hits: ['player_hits', 'batter_hits', 'hits', 'player_hits_o_u'],
+        home_runs: ['player_home_runs', 'batter_home_runs', 'home_runs'],
+        rbis: ['player_rbis', 'batter_rbis', 'rbi', 'rbis'],
+        runs_scored: ['batter_runs_scored', 'runs', 'player_runs_scored'],
+        total_bases: ['player_total_bases', 'batter_total_bases', 'total_bases'],
+        strikeouts: ['player_strikeouts', 'strikeouts'],
+        strikeouts_pitched: ['pitcher_strikeouts', 'strikeouts_pitched'],
+        hits_allowed: ['pitcher_hits_allowed', 'hits_allowed']
+      },
+      NBA: {
+        points: ['player_points', 'points'],
+        rebounds: ['player_rebounds', 'rebounds'],
+        assists: ['player_assists', 'assists'],
+        three_pointers: ['threes', 'three_pointers']
+      },
+      WNBA: {
+        points: ['player_points', 'points'],
+        rebounds: ['player_rebounds', 'rebounds'],
+        assists: ['player_assists', 'assists'],
+        three_pointers: ['threes', 'three_pointers']
+      },
+      NFL: {
+        passing_yards: ['player_pass_yds'],
+        rushing_yards: ['player_rush_yds'],
+        receiving_yards: ['player_reception_yds'],
+        receptions: ['player_receptions']
+      }
+    };
+    const aliases = aliasMap[sport]?.[propType as string] || [propType as string];
+
+    // Find prop_type_id for any alias
+    const { data: propTypeRows } = await supabaseAdmin
+      .from('player_prop_types')
+      .select('id, prop_key')
+      .in('prop_key', aliases)
       .limit(1);
 
-    const currentLine = propLine?.[0]?.line || null;
+    let currentLine: number | null = null;
+    if (propTypeRows && propTypeRows.length > 0) {
+      const propTypeId = propTypeRows[0].id;
+      const { data: oddsRows } = await supabaseAdmin
+        .from('player_props_odds')
+        .select('line, last_update')
+        .eq('player_id', playerId)
+        .eq('prop_type_id', propTypeId)
+        .order('last_update', { ascending: false })
+        .limit(1);
+      if (oddsRows && oddsRows.length > 0) {
+        currentLine = Number(oddsRows[0].line);
+      }
+    }
+
+    // Fallback to mock lines if no real data found
+    if (currentLine === null) {
+      const mockLines: Record<string, number> = {
+        hits: 1.5,
+        home_runs: 0.5,
+        rbis: 1.5,
+        runs_scored: 1.5,
+        points: 18.5,
+        rebounds: 8.5,
+        assists: 6.5,
+        passing_yards: 250.5,
+        rushing_yards: 75.5,
+        receiving_yards: 65.5,
+        receptions: 5.5
+      };
+      currentLine = mockLines[propType as string] ?? 1.5;
+    }
 
     res.json({
       player,
