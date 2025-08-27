@@ -1,6 +1,6 @@
 import * as StoreReview from 'expo-store-review';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 
 interface ReviewTriggerEvent {
   eventType: 'successful_subscription' | 'welcome_wheel_win' | 'ai_chat_positive' | 'daily_picks_viewed' | 'winning_streak' | 'app_usage_milestone' | 'referral_success' | 'giveaway_entry' | 'tier_upgrade';
@@ -34,6 +34,7 @@ class ReviewService {
   private readonly MIN_POSITIVE_INTERACTIONS = 1; // Reduced from 3 to 1
   private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews for testing
   private readonly MAX_REVIEWS_PER_VERSION = 3; // Allow up to 3 review requests per version
+  private readonly APP_STORE_REVIEW_URL = 'https://apps.apple.com/app/id6748275790?action=write-review';
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {
@@ -317,16 +318,8 @@ class ReviewService {
     try {
       console.log('⭐ Manual review requested by user');
       
-      // Check if review is available on this platform
-      if (!await StoreReview.hasAction()) {
-        console.log('📱 Store review not available on this platform');
-        return false;
-      }
-
-      // Always allow manual reviews (bypass most restrictions)
+      // Fetch state and enforce a short manual cooldown (7 days)
       const state = await this.getReviewState();
-      
-      // Only check if we haven't requested too recently (shorter window)
       if (state.lastReviewRequestDate) {
         const daysSinceLastRequest = this.getDaysSince(state.lastReviewRequestDate);
         if (daysSinceLastRequest < 7) { // Only 7 days wait for manual
@@ -335,9 +328,33 @@ class ReviewService {
         }
       }
 
-      // Show the review and update state
+      const hasAction = await StoreReview.hasAction();
+      // If native prompt isn't available (e.g., TestFlight), fall back to App Store write-review page
+      if (!hasAction) {
+        if (Platform.OS === 'ios') {
+          try {
+            await Linking.openURL(this.APP_STORE_REVIEW_URL);
+            const updatedState: ReviewState = {
+              ...state,
+              hasRequestedReview: true,
+              lastReviewRequestDate: new Date().toISOString(),
+              reviewTriggerCount: state.reviewTriggerCount + 1,
+              positiveInteractions: state.positiveInteractions + 1
+            };
+            await this.saveReviewState(updatedState);
+            console.log('✅ Opened App Store write-review page as fallback');
+            return true;
+          } catch (e) {
+            console.error('❌ Failed to open App Store review URL:', e);
+            return false;
+          }
+        }
+        console.log('📱 Store review not available on this platform');
+        return false;
+      }
+
+      // Native prompt is available - show it and update state
       await StoreReview.requestReview();
-      
       const updatedState: ReviewState = {
         ...state,
         hasRequestedReview: true,
@@ -345,9 +362,7 @@ class ReviewService {
         reviewTriggerCount: state.reviewTriggerCount + 1,
         positiveInteractions: state.positiveInteractions + 1
       };
-      
       await this.saveReviewState(updatedState);
-      
       console.log('✅ Manual App Store review shown successfully');
       return true;
       

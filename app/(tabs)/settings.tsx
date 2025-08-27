@@ -797,18 +797,25 @@ export default function SettingsScreen() {
       const success = await showManualReview();
       
       if (!success) {
+        const iosReviewUrl = 'https://apps.apple.com/app/id6748275790?action=write-review';
         Alert.alert(
-          'Review Not Available 📱',
-          'App Store reviews are not available right now. This could be because:\n\n• You recently left a review (wait 7 days)\n• Reviews aren\'t supported on this device\n• You\'re using a simulator\n\nThanks for wanting to support us!',
-          [{ text: 'Okay', style: 'default' }]
+          'Review Unavailable Right Now',
+          "Apple only shows the in‑app prompt occasionally (e.g., if you've recently reviewed or reached Apple's limit). You can still leave a review directly on the App Store.",
+          [
+            { text: 'OK', style: 'cancel' },
+            ...(Platform.OS === 'ios' ? [{ text: 'Open App Store', onPress: () => Linking.openURL(iosReviewUrl) }] : [])
+          ]
         );
       }
     } catch (error) {
       console.error('Manual review error:', error);
       Alert.alert(
         'Error',
-        'Unable to open App Store review. Please try again later or visit the App Store directly.',
-        [{ text: 'Okay', style: 'default' }]
+        'Unable to open the review prompt. You can leave a review directly on the App Store.',
+        [
+          { text: 'OK', style: 'cancel' },
+          ...(Platform.OS === 'ios' ? [{ text: 'Open App Store', onPress: () => Linking.openURL('https://apps.apple.com/app/id6748275790?action=write-review') }] : [])
+        ]
       );
     }
   };

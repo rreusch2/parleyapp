@@ -1,5 +1,6 @@
 import { createLogger } from '../utils/logger';
 import { supabase } from './supabase/client';
+import { sportsDbApi } from './sportsData/apiSportsClient';
 
 const logger = createLogger('predictionValidator');
 
@@ -399,12 +400,118 @@ export class PredictionValidatorService {
 
       logger.info(`Found ${predictions.length} predictions needing validation`);
 
-      // TODO: Integrate with sports data API to fetch actual game results
-      // For now, this is a placeholder for the batch update logic
-      for (const prediction of predictions) {
-        // Mock: In real implementation, fetch actual game result from sports API
-        // const gameResult = await fetchGameResult(prediction.game_id);
-        // await this.updatePredictionOutcome(prediction.id, gameResult.outcome);
+      let processed = 0;
+      for (const prediction of predictions as any[]) {
+        try {
+          const predictionId = prediction.id;
+          const betType = (prediction.bet_type || '').toString().toLowerCase();
+          const gameId = prediction.game_id || prediction.gameId; // support both naming styles
+
+          if (!gameId) {
+            logger.warn(`⏭️ Skipping prediction ${predictionId}: missing game_id`);
+            continue;
+          }
+
+          // Only handle moneyline for now
+          if (betType && !['moneyline', 'ml'].includes(betType)) {
+            logger.info(`⏭️ Skipping prediction ${predictionId}: unsupported bet_type '${prediction.bet_type}'`);
+            continue;
+          }
+
+          // Fetch event details from TheSportsDB
+          const event = await sportsDbApi.getFixtureDetails(String(gameId));
+          if (!event) {
+            logger.warn(`⚠️ No event details found for game_id=${gameId} (prediction ${predictionId})`);
+            continue;
+          }
+
+          const homeTeam: string = event.strHomeTeam || event.strHomeTeamShort || 'Home';
+          const awayTeam: string = event.strAwayTeam || event.strAwayTeamShort || 'Away';
+          const rawHomeScore = event.intHomeScore ?? event.intHomeResult ?? event.intHomeGoals;
+          const rawAwayScore = event.intAwayScore ?? event.intAwayResult ?? event.intAwayGoals;
+
+          const homeScore = rawHomeScore !== null && rawHomeScore !== undefined ? parseInt(String(rawHomeScore), 10) : NaN;
+          const awayScore = rawAwayScore !== null && rawAwayScore !== undefined ? parseInt(String(rawAwayScore), 10) : NaN;
+
+          const status = (event.strStatus || event.strProgress || event.strStatusShort || '').toString().toLowerCase();
+          const isFinished = (
+            // Common final states
+            status.includes('final') ||
+            status.includes('finished') ||
+            status.includes('ft') ||
+            // Or scores are present and unequal
+            (!Number.isNaN(homeScore) && !Number.isNaN(awayScore) && (homeScore !== awayScore))
+          );
+
+          if (!isFinished) {
+            logger.info(`⌛ Event for game_id=${gameId} not finished yet (status='${status || 'unknown'}'). Skipping.`);
+            continue;
+          }
+
+          if (Number.isNaN(homeScore) || Number.isNaN(awayScore)) {
+            logger.warn(`⚠️ Missing scores for game_id=${gameId} (prediction ${predictionId}). Skipping.`);
+            continue;
+          }
+
+          // Determine winner for moneyline
+          let winnerTeam: string | null = null;
+          if (homeScore > awayScore) winnerTeam = homeTeam;
+          else if (awayScore > homeScore) winnerTeam = awayTeam;
+          else winnerTeam = null; // tie/draw
+
+          if (!winnerTeam) {
+            // Rare in MLB but handle gracefully
+            logger.info(`🤝 Game ended in a tie for game_id=${gameId}. Marking actualOutcome='draw'.`);
+            await this.updatePredictionOutcome(predictionId, 'draw');
+            processed++;
+            continue;
+          }
+
+          // Try to align actualOutcome format to predictedOutcome, if present
+          const predictedOutcome: string | undefined = prediction.metadata?.predictedOutcome || undefined;
+          let actualOutcome = winnerTeam;
+
+          if (predictedOutcome) {
+            const po = predictedOutcome.toString();
+            const poLower = po.toLowerCase();
+
+            // If predicted was expressed as 'home'/'away'
+            if (poLower === 'home' || poLower === 'away') {
+              const winnerSide = homeScore > awayScore ? 'home' : 'away';
+              // Preserve the original case of the token in predictedOutcome
+              const token = po.match(/home|away/i)?.[0] || winnerSide;
+              // If the predicted token was 'Home' or 'AWAY', mirror that case
+              actualOutcome = token[0] === token[0].toUpperCase() && token.slice(1) === token.slice(1).toLowerCase()
+                ? winnerSide.charAt(0).toUpperCase() + winnerSide.slice(1)
+                : token.toUpperCase() === token
+                  ? winnerSide.toUpperCase()
+                  : winnerSide.toLowerCase();
+            } else if (poLower.includes('moneyline')) {
+              // Preserve the 'moneyline' token case as in prediction
+              const token = po.match(/moneyline/i)?.[0] || 'Moneyline';
+              // Attempt to match predicted team text to the winner team for equality
+              const predictedTeamText = po.replace(/moneyline/i, '').trim();
+              const predictedTeamLower = predictedTeamText.toLowerCase();
+              const winnerLower = winnerTeam.toLowerCase();
+              const teamMatches = predictedTeamText.length > 0 && (winnerLower.includes(predictedTeamLower) || predictedTeamLower.includes(winnerLower));
+              actualOutcome = teamMatches ? po : `${winnerTeam} ${token}`;
+            } else if (poLower.match(/\bml\b/)) {
+              // Common shorthand
+              const token = po.match(/\bML\b/)?.[0] || 'ML';
+              const predictedTeamText = po.replace(/\bML\b/i, '').trim();
+              const predictedTeamLower = predictedTeamText.toLowerCase();
+              const winnerLower = winnerTeam.toLowerCase();
+              const teamMatches = predictedTeamText.length > 0 && (winnerLower.includes(predictedTeamLower) || predictedTeamLower.includes(winnerLower));
+              actualOutcome = teamMatches ? po : `${winnerTeam} ${token}`;
+            }
+          }
+
+          await this.updatePredictionOutcome(predictionId, actualOutcome);
+          processed++;
+        } catch (perItemErr: any) {
+          logger.error(`❌ Failed processing prediction ${prediction?.id}: ${perItemErr?.message || perItemErr}`);
+          // continue with next prediction
+        }
       }
 
       logger.info('✅ Batch prediction validation complete');

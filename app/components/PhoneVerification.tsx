@@ -20,6 +20,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Phone, X, ArrowLeft } from 'lucide-react-native';
 import { supabase, supabaseConfig } from '../services/api/supabaseClient';
 import { normalize } from '../services/device';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import EnhancedFraudPreventionService from '../services/enhancedFraudPreventionService';
 
 interface PhoneVerificationProps {
   onVerificationComplete: (phoneNumber: string) => void;
@@ -36,6 +38,9 @@ export default function PhoneVerification({
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [wasLoggedInWhenCodeSent, setWasLoggedInWhenCodeSent] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardOffset = Platform.OS === 'ios' ? insets.top + normalize(80) : 20;
 
   // Format phone number as user types
   const formatPhoneNumber = (input: string) => {
@@ -91,6 +96,18 @@ export default function PhoneVerification({
       // Track whether the user was logged in when we initiated the code
       setWasLoggedInWhenCodeSent(!!sessionData.user);
       console.log('🔥 DEBUG: sessionData:', sessionData.user ? 'User logged in' : 'No user session');
+      
+      // Uniqueness check before sending OTP
+      const isUnique = await EnhancedFraudPreventionService.getInstance().validatePhoneNumberUnique(
+        e164Phone,
+        sessionData.user?.id || ''
+      );
+      if (!isUnique) {
+        console.log('❌ DEBUG: Phone number already used by another verified account');
+        Alert.alert('Phone number already used', 'This phone number is already associated with another account.');
+        setLoading(false);
+        return;
+      }
       
       let error: any = null;
       let response: any = null;
@@ -204,6 +221,22 @@ export default function PhoneVerification({
     }
   }, [resendTimer]);
 
+  // Track keyboard height to keep content above the keyboard (especially on iOS)
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   if (step === 'phone') {
     return (
       <View style={styles.container}>
@@ -227,13 +260,19 @@ export default function PhoneVerification({
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.keyboardAvoidingContainer}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 20}
+                keyboardVerticalOffset={keyboardOffset}
               >
                 <ScrollView 
-                  contentContainerStyle={styles.scrollContent}
+                  contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingBottom: normalize(50) + (Platform.OS === 'ios' ? keyboardHeight : 0) }
+                  ]}
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                   bounces={false}
+                  contentInset={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
+                  scrollIndicatorInsets={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 >
                   <View style={styles.content}>
                     <Text style={styles.subtitle}>
@@ -310,13 +349,19 @@ export default function PhoneVerification({
             <KeyboardAvoidingView 
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.keyboardAvoidingContainer}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 200 : 20}
+              keyboardVerticalOffset={keyboardOffset}
             >
               <ScrollView 
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[
+                  styles.scrollContent,
+                  { paddingBottom: normalize(50) + (Platform.OS === 'ios' ? keyboardHeight : 0) }
+                ]}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
                 bounces={false}
+                contentInset={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
+                scrollIndicatorInsets={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
+                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               >
                 <View style={styles.content}>
                   <Text style={styles.subtitle}>
