@@ -43,6 +43,7 @@ import NewsModal from '../components/NewsModal';
 import HomeTrendsPreview from '../components/HomeTrendsPreview';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
+import FootballSeasonCard from '../components/FootballSeasonCard';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -559,6 +560,15 @@ export default function HomeScreen() {
           ) : null}
         </LinearGradient>
 
+        {/* Football Season Announcement Card - For all tiers */}
+        <FootballSeasonCard 
+          tier={isElite ? 'elite' : (isPro ? 'pro' : 'free')}
+          onPress={() => {
+            // Navigate to predictions tab to see NFL/CFB picks
+            router.push('/(tabs)/predictions');
+          }}
+        />
+
         {/* Elite Lock of the Day - Only for Elite users */}
         {isElite && eliteFeatures?.hasLockOfTheDay && (
           <View style={styles.section}>
@@ -610,7 +620,7 @@ export default function HomeScreen() {
                   id: pick.id,
                   match: pick.match_teams || '',
                   sport: pick.league || '',
-                  eventTime: pick.eventTime || pick.event_time || pick.created_at || new Date().toISOString(),
+                  eventTime: pick.eventTime || pick.created_at || new Date().toISOString(),
                   pick: pick.pick,
                   odds: pick.odds,
                   confidence: pick.confidence,

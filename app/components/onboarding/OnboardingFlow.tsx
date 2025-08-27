@@ -29,10 +29,11 @@ interface OnboardingFlowProps {
 
 export interface UserPreferences {
   sportPreferences: {
+    nfl: boolean;
+    cfb: boolean;
     mlb: boolean;
     wnba: boolean;
     ufc: boolean;
-    nfl: boolean;
   };
   bettingStyle: 'conservative' | 'balanced' | 'aggressive';
   phoneNumber?: string;
@@ -45,7 +46,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [preferences, setPreferences] = useState<UserPreferences>({
-    sportPreferences: { mlb: true, wnba: false, ufc: false, nfl: true },
+    sportPreferences: { nfl: true, cfb: true, mlb: true, wnba: false, ufc: false },
     bettingStyle: 'balanced',
   });
 

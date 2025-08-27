@@ -22,7 +22,7 @@ interface SportsSelectionScreenProps {
 }
 
 interface SportOption {
-  key: 'mlb' | 'wnba' | 'ufc' | 'nfl';
+  key: 'nfl' | 'cfb' | 'mlb' | 'wnba' | 'ufc';
   name: string;
   fullName: string;
   icon: string;
@@ -33,12 +33,30 @@ interface SportOption {
 
 const sportOptions: SportOption[] = [
   {
+    key: 'nfl',
+    name: 'NFL',
+    fullName: 'National Football League',
+    icon: '🏈',
+    description: 'America\'s most popular sport with thrilling matchups',
+    gradient: ['#2c5aa0', '#1e3a8a'],
+    season: 'Sep - Feb',
+  },
+  {
+    key: 'cfb',
+    name: 'CFB',
+    fullName: 'College Football',
+    icon: '🎓',
+    description: 'College football with passionate fanbases and upsets',
+    gradient: ['#dc2626', '#b91c1c'],
+    season: 'Sep - Jan',
+  },
+  {
     key: 'mlb',
     name: 'MLB',
     fullName: 'Major League Baseball',
     icon: '⚾',
     description: 'America\'s pastime with daily games and player props',
-    gradient: ['#ff6b6b', '#ee5a24'],
+    gradient: ['#059669', '#047857'],
     season: 'Apr - Oct',
   },
   {
@@ -47,7 +65,7 @@ const sportOptions: SportOption[] = [
     fullName: 'Women\'s National Basketball Association',
     icon: '🏀',
     description: 'Elite women\'s basketball with exciting matchups',
-    gradient: ['#a55eea', '#8c7ae6'],
+    gradient: ['#7c3aed', '#6d28d9'],
     season: 'May - Sep',
   },
   {
@@ -56,17 +74,8 @@ const sportOptions: SportOption[] = [
     fullName: 'Ultimate Fighting Championship',
     icon: '🥊',
     description: 'Premier mixed martial arts fights every weekend',
-    gradient: ['#26de81', '#20bf6b'],
+    gradient: ['#ea580c', '#c2410c'],
     season: 'Year Round',
-  },
-  {
-    key: 'nfl',
-    name: 'NFL',
-    fullName: 'National Football League',
-    icon: '🏈',
-    description: 'America\'s most popular sport with thrilling matchups',
-    gradient: ['#fd79a8', '#e84393'],
-    season: 'Sep - Feb',
   },
 ];
 
@@ -76,7 +85,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
   isExistingUser,
 }) => {
   const [selectedSports, setSelectedSports] = useState(
-    currentPreferences?.sportPreferences || { mlb: true, wnba: false, ufc: false, nfl: true }
+    currentPreferences?.sportPreferences || { nfl: true, cfb: true, mlb: true, wnba: false, ufc: false }
   );
   const [animatedValues] = useState(
     sportOptions.reduce((acc, sport) => {
@@ -85,7 +94,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
     }, {} as Record<string, Animated.Value>)
   );
 
-  const toggleSport = (sportKey: 'mlb' | 'wnba' | 'ufc' | 'nfl') => {
+  const toggleSport = (sportKey: 'nfl' | 'cfb' | 'mlb' | 'wnba' | 'ufc') => {
     const newSelected = { ...selectedSports, [sportKey]: !selectedSports[sportKey] };
     setSelectedSports(newSelected);
 
@@ -102,8 +111,8 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
     const hasAtLeastOneSport = Object.values(selectedSports).some(Boolean);
     
     if (!hasAtLeastOneSport) {
-      // Could show an alert here, but for now just ensure MLB is selected
-      const defaultSelection = { ...selectedSports, mlb: true };
+      // Could show an alert here, but for now just ensure NFL is selected
+      const defaultSelection = { ...selectedSports, nfl: true };
       setSelectedSports(defaultSelection);
       onComplete({ sportPreferences: defaultSelection });
     } else {
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sportsContainer: {
-    gap: 16,
+    gap: isTablet ? 14 : 10,
     paddingHorizontal: 4,
   },
   sportCard: {
@@ -277,8 +286,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sportGradient: {
-    padding: 20,
-    minHeight: 120,
+    padding: isTablet ? 18 : 14,
+    minHeight: isTablet ? 110 : 95,
   },
   sportHeader: {
     flexDirection: 'row',
@@ -287,7 +296,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sportIcon: {
-    fontSize: 32,
+    fontSize: isTablet ? 28 : 24,
   },
   checkmark: {
     backgroundColor: 'rgba(0, 212, 255, 0.1)',
@@ -295,21 +304,21 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   sportName: {
-    fontSize: 24,
+    fontSize: isTablet ? 22 : 18,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   sportFullName: {
-    fontSize: 14,
+    fontSize: isTablet ? 13 : 11,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 8,
+    marginBottom: isTablet ? 6 : 4,
   },
   sportDescription: {
-    fontSize: 14,
+    fontSize: isTablet ? 13 : 11,
     color: 'rgba(255,255,255,0.8)',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: isTablet ? 18 : 16,
+    marginBottom: isTablet ? 10 : 6,
   },
   sportFooter: {
     flexDirection: 'row',

@@ -283,9 +283,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stylesContainer: {
-    gap: isTablet ? 16 : 12,
+    gap: isTablet ? 14 : 10,
     paddingHorizontal: isTablet ? 8 : 4,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   styleCard: {
     borderRadius: 16,
@@ -296,7 +296,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   styleGradient: {
-    padding: isTablet ? 20 : 16,
+    padding: isTablet ? 18 : 12,
+    minHeight: isTablet ? 140 : 120,
   },
   styleHeader: {
     flexDirection: 'row',
@@ -318,24 +319,24 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   styleTitle: {
-    fontSize: 20,
+    fontSize: isTablet ? 20 : 17,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 6,
+    marginBottom: isTablet ? 6 : 4,
   },
   styleDescription: {
-    fontSize: 14,
+    fontSize: isTablet ? 14 : 12,
     color: 'rgba(255,255,255,0.9)',
-    marginBottom: 12,
-    lineHeight: 20,
+    marginBottom: isTablet ? 10 : 8,
+    lineHeight: isTablet ? 20 : 18,
   },
   characteristicsContainer: {
-    marginBottom: 12,
+    marginBottom: isTablet ? 12 : 8,
   },
   characteristicRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: isTablet ? 6 : 4,
   },
   bullet: {
     width: 4,
@@ -345,15 +346,15 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   characteristicText: {
-    fontSize: 14,
+    fontSize: isTablet ? 13 : 11,
     color: 'rgba(255,255,255,0.8)',
     flex: 1,
-    lineHeight: 20,
+    lineHeight: isTablet ? 18 : 16,
   },
   styleFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 12,
+    paddingTop: isTablet ? 12 : 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
   },
@@ -361,12 +362,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: isTablet ? 12 : 10,
     color: 'rgba(255,255,255,0.6)',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: isTablet ? 14 : 12,
     fontWeight: '600',
     color: '#00d4ff',
   },
