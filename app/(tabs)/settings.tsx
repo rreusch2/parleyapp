@@ -36,7 +36,8 @@ import {
   Trash2,
   Share2,
   Gift,
-  Copy
+  Copy,
+  Star
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import { useSubscription } from '../services/subscriptionContext';
@@ -53,8 +54,6 @@ import AboutModal from '../components/AboutModal';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
-import ReviewTestButton from '../components/ReviewTestButton';
-import ReviewDebugPanel from '../components/ReviewDebugPanel';
 import * as Clipboard from 'expo-clipboard';
 
 interface UserProfile {
@@ -79,7 +78,8 @@ interface UserProfile {
 }
 
 export default function SettingsScreen() {
-  const { isPro, isElite, subscribeToPro, restorePurchases, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, restorePurchases, openSubscriptionModal } = useSubscription();
+  const { showManualReview } = useReview();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -791,6 +791,28 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleReviewApp = async () => {
+    try {
+      Vibration.vibrate(50);
+      const success = await showManualReview();
+      
+      if (!success) {
+        Alert.alert(
+          'Review Not Available 📱',
+          'App Store reviews are not available right now. This could be because:\n\n• You recently left a review (wait 7 days)\n• Reviews aren\'t supported on this device\n• You\'re using a simulator\n\nThanks for wanting to support us!',
+          [{ text: 'Okay', style: 'default' }]
+        );
+      }
+    } catch (error) {
+      console.error('Manual review error:', error);
+      Alert.alert(
+        'Error',
+        'Unable to open App Store review. Please try again later or visit the App Store directly.',
+        [{ text: 'Okay', style: 'default' }]
+      );
+    }
+  };
+
   // Toggle push alerts handler (single definition)
   const handleTogglePushAlerts = async (value: boolean) => {
     setPushAlertsEnabled(value);
@@ -926,6 +948,13 @@ export default function SettingsScreen() {
       icon: HelpCircle,
       iconColor: '#8B5CF6',
       items: [
+        { 
+          id: 'review_app', 
+          title: 'Review Our App ⭐', 
+          type: 'link',
+          subtitle: 'Help others discover Predictive Play',
+          action: handleReviewApp
+        },
         { id: 'help', title: 'Help Center', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
         { id: 'about', title: 'About Predictive Play', type: 'link' },
@@ -1017,15 +1046,6 @@ export default function SettingsScreen() {
           </View>
         </TouchableOpacity>
       )}
-      
-      {/* Review Testing (Admin Only) */}
-      {(isAdmin || __DEV__) && (
-        <View style={styles.settingsGroup}>
-          <ReviewTestButton />
-          <ReviewDebugPanel />
-        </View>
-      )}
-      
       {/* Profile & Stats Section */}
       <View style={styles.profileSection}>
         <TouchableOpacity 

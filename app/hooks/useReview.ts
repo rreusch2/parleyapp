@@ -67,6 +67,18 @@ export const useReview = () => {
   }, [reviewService]);
 
   /**
+   * Show manual review (production safe)
+   */
+  const showManualReview = useCallback(async () => {
+    try {
+      return await reviewService.showManualReview();
+    } catch (error) {
+      console.error('❌ Failed to show manual review:', error);
+      return false;
+    }
+  }, [reviewService]);
+
+  /**
    * Reset review state (dev only)
    */
   const resetReviewState = useCallback(async () => {
@@ -84,6 +96,7 @@ export const useReview = () => {
     initializeReview,
     getReviewStats,
     forceShowReview,
+    showManualReview,
     resetReviewState
   };
 };

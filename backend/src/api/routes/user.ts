@@ -167,6 +167,100 @@ router.get('/preferences', async (req, res) => {
 });
 
 /**
+ * @route GET /api/user/profile
+ * @desc Get user profile information
+ * @access Private
+ */
+router.get('/profile', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    logger.info(`👤 Fetching profile for user ${userId}`);
+
+    const { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select(`
+        id, username, subscription_tier, subscription_status, 
+        welcome_bonus_claimed, welcome_bonus_expires_at, 
+        created_at, updated_at, sport_preferences, 
+        betting_style, pick_distribution, trial_used
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      logger.error(`❌ Error fetching user profile: ${error.message}`);
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    // Calculate welcome bonus status
+    const now = new Date();
+    const expiresAt = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+    const isWelcomeBonusActive = profile.welcome_bonus_claimed && expiresAt && now < expiresAt;
+
+    res.json({
+      success: true,
+      profile: {
+        ...profile,
+        welcome_bonus_active: isWelcomeBonusActive
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user profile'
+    });
+  }
+});
+
+/**
+ * @route GET /api/coins/balance
+ * @desc Get user coin balance (placeholder for future implementation)
+ * @access Private
+ */
+router.get('/coins/balance', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    logger.info(`🪙 Fetching coin balance for user ${userId}`);
+
+    // Placeholder implementation - can be extended when coin system is implemented
+    const balance = {
+      coins: 0,
+      earned_today: 0,
+      lifetime_earned: 0,
+      last_earned: null
+    };
+
+    res.json({
+      success: true,
+      balance
+    });
+
+  } catch (error) {
+    logger.error('Error fetching coin balance:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch coin balance'
+    });
+  }
+});
+
+/**
  * @route GET /api/user/welcome-bonus-status
  * @desc Check if user has active welcome bonus
  * @access Private

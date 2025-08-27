@@ -773,7 +773,26 @@ export default function ProAIChat({
 
     // Enhanced regular message rendering with animations
     const isNewMessage = index === messages.length - 1 && !item.isUser;
+    const response = item.text;
+    const positiveIndicators = [
+      '🔥', '💰', '⭐', '🎯', '💎', '🚀', '🏆', '🎊',
+      'perfect', 'excellent', 'amazing', 'outstanding', 'fantastic', 'brilliant',
+      'love it', 'great picks', 'solid analysis', 'strong play', 'hot streak',
+      'winner', 'crushing it', 'on fire', 'money maker', 'bank it'
+    ];
     
+    const hasPositiveContent = positiveIndicators.some(indicator => 
+      response.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    if (hasPositiveContent || response.length > 200) { // Long detailed responses are also positive
+      console.log('🎉 Detected very positive AI chat interaction');
+      trackPositiveInteraction({ 
+        eventType: 'ai_chat_positive', 
+        metadata: { chatSatisfaction: 'very_positive' } 
+      });
+    }
+
     return (
       <Animated.View 
         style={[

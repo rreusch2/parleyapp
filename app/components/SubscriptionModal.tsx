@@ -57,6 +57,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [userTrialUsed, setUserTrialUsed] = useState(false);
   // Include restorePurchases so users (and Apple reviewers) can easily restore previous transactions
   const { subscribeToPro, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
@@ -65,11 +66,30 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      checkUserTrialStatus();
       // Force re-render to ensure bottom section appears
       setIsInitialized(false);
       setTimeout(() => setIsInitialized(true), 100);
     }
   }, [visible]);
+
+  // Check if user has already used their trial
+  const checkUserTrialStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('trial_used')
+          .eq('id', user.id)
+          .single();
+        
+        setUserTrialUsed(profile?.trial_used || false);
+      }
+    } catch (error) {
+      console.error('❌ Failed to check trial status:', error);
+    }
+  };
 
   const initializeIAP = async () => {
     try {
@@ -304,6 +324,20 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     }
                     style={styles.planGradient}
                   >
+                    {/* Free Trial Badge for Monthly - only show if user hasn't used trial */}
+                    {!userTrialUsed && (
+                      <View style={[
+                        styles.trialBadge,
+                        selectedPlan === 'monthly' && styles.trialBadgeSelected
+                      ]}>
+                        <Gift size={12} color={selectedPlan === 'monthly' ? '#0F172A' : '#F59E0B'} />
+                        <Text style={[
+                          styles.trialText,
+                          selectedPlan === 'monthly' && styles.trialTextSelected
+                        ]}>3-DAY FREE TRIAL</Text>
+                      </View>
+                    )}
+
                     <View style={styles.planHeader}>
                       <View style={styles.planInfo}>
                         <View style={styles.planNameContainer}>
@@ -318,8 +352,19 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           <Text style={styles.planPrice}>$24.99</Text>
                           <Text style={styles.planPeriod}>per month</Text>
                         </View>
-                        <Text style={styles.billingDetails}>$0.83 per day</Text>
-                        <Text style={styles.originalPriceText}>Regular price: $49.98 (Save 50%)</Text>
+                        {!userTrialUsed ? (
+                          <>
+                            <View style={styles.trialPriceContainer}>
+                              <Text style={styles.trialPriceText}>3-day FREE trial, then $24.99/month</Text>
+                            </View>
+                            <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={styles.billingDetails}>$0.83 per day</Text>
+                            <Text style={styles.originalPriceText}>Auto-renewable • Cancel anytime</Text>
+                          </>
+                        )}
                       </View>
                       
                     </View>
@@ -347,18 +392,6 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                       <Text style={styles.popularText}>MOST POPULAR</Text>
                     </View>
                     
-                    {/* Free Trial Badge */}
-                    <View style={[
-                      styles.trialBadge,
-                      selectedPlan === 'yearly' && styles.trialBadgeSelected
-                    ]}>
-                      <Gift size={12} color={selectedPlan === 'yearly' ? '#0F172A' : '#F59E0B'} />
-                      <Text style={[
-                        styles.trialText,
-                        selectedPlan === 'yearly' && styles.trialTextSelected
-                      ]}>7-DAY FREE TRIAL</Text>
-                    </View>
-                    
                     <View style={styles.planHeader}>
                       <View style={styles.planInfo}>
                         <View style={styles.planNameContainer}>
@@ -373,10 +406,8 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           <Text style={styles.planPrice}>$199.99</Text>
                           <Text style={styles.planPeriod}>per year</Text>
                         </View>
-                        <View style={styles.trialPriceContainer}>
-                          <Text style={styles.trialPriceText}>7-day FREE trial, then $199.99/year</Text>
-                        </View>
-                        <Text style={styles.originalPriceText}>Cancel anytime during trial • No refunds after</Text>
+                        <Text style={styles.billingDetails}>$16.67 per month</Text>
+                        <Text style={styles.originalPriceText}>Best value • Save 33% vs monthly</Text>
                       </View>
                     </View>
                   </LinearGradient>

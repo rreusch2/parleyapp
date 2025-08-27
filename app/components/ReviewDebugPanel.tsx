@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -19,14 +18,9 @@ import {
   Gift,
   MessageCircle,
   Crown,
-  Calendar,
-  Smartphone,
-  CheckCircle,
-  XCircle,
-  Zap
+  Calendar
 } from 'lucide-react-native';
 import { useReview } from '../hooks/useReview';
-import * as StoreReview from 'expo-store-review';
 
 /**
  * Debug panel for testing the review system (dev mode only)
@@ -42,26 +36,12 @@ export default function ReviewDebugPanel() {
   
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [hasAction, setHasAction] = useState<boolean | null>(null);
-  const [testInProgress, setTestInProgress] = useState(false);
 
   useEffect(() => {
     if (__DEV__) {
       loadStats();
-      checkStoreReviewAvailability();
     }
   }, []);
-
-  const checkStoreReviewAvailability = async () => {
-    try {
-      const available = await StoreReview.hasAction();
-      setHasAction(available);
-      console.log('📱 StoreReview availability check:', available);
-    } catch (error) {
-      console.error('❌ Failed to check StoreReview availability:', error);
-      setHasAction(false);
-    }
-  };
 
   const loadStats = async () => {
     try {
@@ -77,46 +57,19 @@ export default function ReviewDebugPanel() {
 
   const handleTestEvent = async (eventType: string, metadata?: any) => {
     try {
-      setTestInProgress(true);
-      console.log('🧪 Testing event:', eventType, 'with metadata:', metadata);
-      
       await trackPositiveInteraction({ eventType: eventType as any, metadata });
       await loadStats(); // Refresh stats
-      
-      Alert.alert(
-        '✅ Event Tracked', 
-        `Successfully tracked: ${eventType}\n\nCheck console logs for detailed flow.`,
-        [{ text: 'OK', onPress: () => setTestInProgress(false) }]
-      );
+      Alert.alert('✅ Event Tracked', `Successfully tracked: ${eventType}`);
     } catch (error) {
-      console.error('❌ Test event error:', error);
-      Alert.alert(
-        '❌ Error', 
-        `Failed to track event: ${error}`,
-        [{ text: 'OK', onPress: () => setTestInProgress(false) }]
-      );
+      Alert.alert('❌ Error', `Failed to track event: ${error}`);
     }
   };
 
   const handleForceReview = async () => {
     try {
-      setTestInProgress(true);
-      console.log('🧪 Force testing native review dialog...');
-      
       await forceShowReview();
-      
-      Alert.alert(
-        '🧪 Force Review Test', 
-        `Review dialog test completed.\n\nIf you're on a real iOS device, the native review dialog should have appeared.\n\nCheck console logs for detailed results.`,
-        [{ text: 'OK', onPress: () => setTestInProgress(false) }]
-      );
     } catch (error) {
-      console.error('❌ Force review error:', error);
-      Alert.alert(
-        '❌ Error', 
-        `Failed to show review: ${error}`,
-        [{ text: 'OK', onPress: () => setTestInProgress(false) }]
-      );
+      Alert.alert('❌ Error', `Failed to show review: ${error}`);
     }
   };
 
@@ -162,46 +115,10 @@ export default function ReviewDebugPanel() {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Platform & Availability Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Platform Status</Text>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Platform</Text>
-                <Text style={styles.statValue}>{Platform.OS}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>StoreReview Available</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {hasAction === true ? (
-                    <CheckCircle size={16} color="#10B981" />
-                  ) : hasAction === false ? (
-                    <XCircle size={16} color="#EF4444" />
-                  ) : null}
-                  <Text style={[styles.statValue, { marginLeft: 6 }]}>
-                    {hasAction === null ? 'Checking...' : hasAction ? 'Yes' : 'No'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Device Type</Text>
-                <Text style={styles.statValue}>
-                  {Platform.OS === 'ios' && Platform.isPad ? 'iPad' : 
-                   Platform.OS === 'ios' ? 'iPhone' : 
-                   Platform.OS === 'android' ? 'Android' : 'Unknown'}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Environment</Text>
-                <Text style={styles.statValue}>{__DEV__ ? 'Development' : 'Production'}</Text>
-              </View>
-            </View>
-          </View>
-
           {/* Stats Section */}
           {stats && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Review State</Text>
+              <Text style={styles.sectionTitle}>Current Stats</Text>
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
                   <Text style={styles.statLabel}>App Opens</Text>
@@ -212,10 +129,6 @@ export default function ReviewDebugPanel() {
                   <Text style={styles.statValue}>{stats.positiveInteractions}</Text>
                 </View>
                 <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Review Attempts</Text>
-                  <Text style={styles.statValue}>{stats.reviewTriggerCount || 0}</Text>
-                </View>
-                <View style={styles.statItem}>
                   <Text style={styles.statLabel}>Review Requested</Text>
                   <Text style={styles.statValue}>{stats.hasRequestedReview ? 'Yes' : 'No'}</Text>
                 </View>
@@ -223,14 +136,6 @@ export default function ReviewDebugPanel() {
                   <Text style={styles.statLabel}>Install Date</Text>
                   <Text style={styles.statValue}>
                     {new Date(stats.appInstallDate).toLocaleDateString()}
-                  </Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Last Request</Text>
-                  <Text style={styles.statValue}>
-                    {stats.lastReviewRequestDate ? 
-                      new Date(stats.lastReviewRequestDate).toLocaleDateString() : 'Never'
-                    }
                   </Text>
                 </View>
               </View>
@@ -290,51 +195,43 @@ export default function ReviewDebugPanel() {
             </TouchableOpacity>
           </View>
 
-          {/* Quick Test Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Quick Tests</Text>
-            
-            <TouchableOpacity 
-              style={[styles.testButton, styles.forceButton]}
-              onPress={handleForceReview}
-              disabled={testInProgress}
-            >
-              <Star size={20} color="#FFFFFF" />
-              <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
-                {testInProgress ? 'Testing...' : 'Force Show Native Review Dialog'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.testButton, styles.quickButton]}
-              onPress={() => handleTestEvent('successful_subscription')}
-              disabled={testInProgress}
-            >
-              <Zap size={20} color="#FFFFFF" />
-              <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
-                Quick Test: Subscription Event
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.testButton, styles.checkButton]}
-              onPress={checkStoreReviewAvailability}
-            >
-              <Smartphone size={20} color="#FFFFFF" />
-              <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
-                Re-check StoreReview Availability
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* Actions Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Actions</Text>
             
             <TouchableOpacity 
+              style={[styles.testButton, styles.forceButton]}
+              onPress={handleForceReview}
+            >
+              <Star size={20} color="#FFFFFF" />
+              <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
+                Force Show Review Dialog (Dev)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.testButton, styles.forceButton]}
+              onPress={async () => {
+                try {
+                  await trackPositiveInteraction({ 
+                    eventType: 'successful_subscription' as any 
+                  });
+                  await loadStats(); // Refresh stats
+                  Alert.alert('✅ Success', 'Production review flow tested! Check if review dialog appeared.');
+                } catch (error) {
+                  Alert.alert('❌ Error', `Failed: ${error}`);
+                }
+              }}
+            >
+              <Star size={20} color="#FFFFFF" />
+              <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
+                Test Production Review Flow
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
               style={[styles.testButton, styles.resetButton]}
               onPress={handleReset}
-              disabled={testInProgress}
             >
               <Trash2 size={20} color="#FFFFFF" />
               <Text style={[styles.testButtonText, { color: '#FFFFFF' }]}>
@@ -424,11 +321,5 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     backgroundColor: '#EF4444',
-  },
-  quickButton: {
-    backgroundColor: '#8B5CF6',
-  },
-  checkButton: {
-    backgroundColor: '#06B6D4',
   },
 });

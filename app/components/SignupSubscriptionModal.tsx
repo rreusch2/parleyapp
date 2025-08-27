@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
+import { supabase } from '../services/api/supabaseClient';
 import Colors from '../constants/Colors';
 
 
@@ -55,21 +56,41 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
   onContinueFree,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_yearly'); // Default to Pro yearly
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('monthly'); // Default to monthly with trial
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [userTrialUsed, setUserTrialUsed] = useState(false);
   const { subscribeToPro, restorePurchases } = useSubscription();
 
   // Initialize IAP service when modal becomes visible
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      checkUserTrialStatus();
       // Force re-render to ensure bottom section appears
       setIsInitialized(false);
       setTimeout(() => setIsInitialized(true), 100);
     }
   }, [visible]);
+
+  // Check if user has already used their trial
+  const checkUserTrialStatus = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('trial_used')
+          .eq('id', user.id)
+          .single();
+        
+        setUserTrialUsed(profile?.trial_used || false);
+      }
+    } catch (error) {
+      console.error('❌ Failed to check trial status:', error);
+    }
+  };
 
   const initializeIAP = async () => {
     try {
@@ -313,17 +334,6 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                     <Text style={styles.popularText}>MOST POPULAR</Text>
                   </View>
                   
-                  {/* Free Trial Badge */}
-                  <View style={[
-                    styles.trialBadge,
-                    selectedPlan === 'yearly' && styles.trialBadgeSelected
-                  ]}>
-                    <Gift size={12} color={selectedPlan === 'yearly' ? '#0F172A' : '#F59E0B'} />
-                    <Text style={[
-                      styles.trialText,
-                      selectedPlan === 'yearly' && styles.trialTextSelected
-                    ]}>7-DAY FREE TRIAL</Text>
-                  </View>
                   
                   <View style={styles.planHeader}>
                     <View style={styles.planInfo}>
@@ -400,6 +410,20 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                   }
                   style={styles.planGradient}
                 >
+                  {/* Free Trial Badge - Only show if user hasn't used trial */}
+                  {!userTrialUsed && (
+                    <View style={[
+                      styles.trialBadge,
+                      selectedPlan === 'monthly' && styles.trialBadgeSelected
+                    ]}>
+                      <Gift size={12} color={selectedPlan === 'monthly' ? '#0F172A' : '#F59E0B'} />
+                      <Text style={[
+                        styles.trialText,
+                        selectedPlan === 'monthly' && styles.trialTextSelected
+                      ]}>3-DAY FREE TRIAL</Text>
+                    </View>
+                  )}
+                  
                   <View style={styles.planHeader}>
                     <View style={styles.planInfo}>
                       <Text style={styles.planName}>Monthly Pro</Text>
@@ -407,7 +431,9 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
                         <Text style={styles.planPrice}>$24.99</Text>
                         <Text style={styles.planPeriod}>per month</Text>
                       </View>
-                      <Text style={styles.billingDetails}>$0.83 per day</Text>
+                      <Text style={styles.billingDetails}>
+                        {!userTrialUsed ? '3-day FREE trial, then $0.83 per day' : '$0.83 per day'}
+                      </Text>
                       <Text style={styles.originalPriceText}>Regular price: $49.98 (Save 50%)</Text>
                     </View>
                     {selectedPlan === 'monthly' && (

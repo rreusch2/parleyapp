@@ -25,16 +25,15 @@ interface ReviewState {
   lastPositiveInteraction: string | null;
   appInstallDate: string;
   totalAppOpens: number;
-  debugMode: boolean;
 }
 
 class ReviewService {
   private static instance: ReviewService;
   private readonly STORAGE_KEY = 'parley_review_state';
-  private readonly MIN_DAYS_BETWEEN_REQUESTS = 30; // Reduced from 90 days for better testing
-  private readonly MIN_POSITIVE_INTERACTIONS = 1; // Reduced from 3 for easier triggering
-  private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews
-  private readonly MAX_REVIEWS_PER_VERSION = 3; // Allow multiple attempts per version
+  private readonly MIN_DAYS_BETWEEN_REQUESTS = 60; // Reduced from 90 days
+  private readonly MIN_POSITIVE_INTERACTIONS = 1; // Reduced from 3 to 1
+  private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews for testing
+  private readonly MAX_REVIEWS_PER_VERSION = 3; // Allow up to 3 review requests per version
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {
@@ -104,33 +103,35 @@ class ReviewService {
    */
   private async checkAndShowReviewPrompt(event: ReviewTriggerEvent, state: ReviewState): Promise<void> {
     try {
-      console.log('🔍 Checking review prompt conditions for event:', event.eventType);
-      console.log('📊 Current state:', {
-        hasRequestedReview: state.hasRequestedReview,
-        positiveInteractions: state.positiveInteractions,
-        totalAppOpens: state.totalAppOpens,
-        daysSinceInstall: this.getDaysSinceInstall(state.appInstallDate)
-      });
-
       // Check if review is available on this platform
-      const hasAction = await StoreReview.hasAction();
-      console.log('📱 StoreReview.hasAction():', hasAction);
-      
-      if (!hasAction && !__DEV__) {
+      if (!await StoreReview.hasAction()) {
         console.log('📱 Store review not available on this platform');
         return;
       }
 
-      // Check minimum time since last request (if any) - but be more lenient
+      // Check if we've hit the maximum requests per version
+      if (state.reviewTriggerCount >= this.MAX_REVIEWS_PER_VERSION) {
+        console.log(`📱 Maximum review requests reached (${state.reviewTriggerCount}/${this.MAX_REVIEWS_PER_VERSION})`);
+        return;
+      }
+
+      // Check minimum time since last request (if any)
       if (state.lastReviewRequestDate) {
         const daysSinceLastRequest = this.getDaysSince(state.lastReviewRequestDate);
         if (daysSinceLastRequest < this.MIN_DAYS_BETWEEN_REQUESTS) {
-          console.log(`📱 Too soon since last review request (${daysSinceLastRequest}/${this.MIN_DAYS_BETWEEN_REQUESTS} days)`);
+          console.log(`📱 Too soon since last review request (${daysSinceLastRequest} days)`);
           return;
         }
       }
 
-      // Check minimum positive interactions - reduced requirement
+      // Check minimum days since app install
+      const daysSinceInstall = this.getDaysSinceInstall(state.appInstallDate);
+      if (daysSinceInstall < this.MIN_DAYS_SINCE_INSTALL) {
+        console.log(`📱 Too soon since app install (${daysSinceInstall} days)`);
+        return;
+      }
+
+      // Check minimum positive interactions
       if (state.positiveInteractions < this.MIN_POSITIVE_INTERACTIONS) {
         console.log(`📱 Not enough positive interactions (${state.positiveInteractions}/${this.MIN_POSITIVE_INTERACTIONS})`);
         return;
@@ -138,15 +139,12 @@ class ReviewService {
 
       // Check event-specific conditions for high-happiness moments
       const shouldShowForEvent = this.shouldShowReviewForEvent(event, state);
-      console.log('🎯 Should show for event:', shouldShowForEvent);
-      
       if (!shouldShowForEvent) {
         console.log('📱 Event conditions not met for review prompt');
         return;
       }
 
       // All conditions met - show review prompt!
-      console.log('🌟 All conditions met - showing review prompt!');
       await this.showReviewPrompt(event, state);
       
     } catch (error) {
@@ -156,64 +154,47 @@ class ReviewService {
 
   /**
    * Determine if this specific event should trigger a review prompt
-   * SIMPLIFIED LOGIC - More generous conditions for better trigger rates
    */
   private shouldShowReviewForEvent(event: ReviewTriggerEvent, state: ReviewState): boolean {
-    console.log('🎯 Checking event conditions for:', event.eventType, 'with metadata:', event.metadata);
-    
     switch (event.eventType) {
       case 'successful_subscription':
         // Perfect moment - user just paid for premium
-        console.log('💰 Subscription event - always show review');
         return true;
         
       case 'welcome_wheel_win':
-        // Great moment - user just won free picks (any amount)
-        const wheelPrize = event.metadata?.wheelPrize || 0;
-        console.log('🎡 Wheel win event - prize:', wheelPrize);
-        return wheelPrize >= 1; // Any win is good
+        // Great moment - user just won free picks (lowered threshold)
+        return event.metadata?.wheelPrize && event.metadata.wheelPrize >= 1;
         
       case 'ai_chat_positive':
-        // Good moment for any positive chat experience
-        console.log('💬 Chat positive event');
-        return true; // Any positive chat is good enough
+        // Good moment if user had positive chat experience (lowered requirements)
+        return event.metadata?.chatSatisfaction === 'very_positive' || state.totalAppOpens >= 2;
         
       case 'daily_picks_viewed':
-        // Good moment after user views picks (lowered threshold)
-        const picksViewed = event.metadata?.picksViewed || 0;
-        console.log('📊 Picks viewed event - count:', picksViewed);
-        return picksViewed >= 3; // Reduced from 10
+        // Good moment after user has engaged with picks (lowered threshold)
+        return (event.metadata?.picksViewed || 0) >= 3 && state.totalAppOpens >= 2;
         
       case 'winning_streak':
         // Excellent moment - user is on a winning streak (lowered threshold)
-        const streakCount = event.metadata?.streakCount || 0;
-        console.log('🏆 Winning streak event - count:', streakCount);
-        return streakCount >= 2; // Reduced from 3
+        return (event.metadata?.streakCount || 0) >= 2;
         
       case 'app_usage_milestone':
-        // Good moment for consistent users (lowered threshold)
-        const daysUsed = event.metadata?.daysUsed || 0;
-        console.log('📅 Usage milestone event - days:', daysUsed);
-        return daysUsed >= 3; // Reduced from 7
+        // Good moment for consistent users (lowered requirements)
+        return (event.metadata?.daysUsed || 0) >= 3 && state.positiveInteractions >= 1;
         
       case 'referral_success':
         // Excellent moment - user successfully referred someone
-        console.log('👥 Referral success event');
-        return true;
+        return (event.metadata?.referralCount || 0) >= 1;
         
       case 'giveaway_entry':
-        // Good moment - user just entered giveaway
-        console.log('🎁 Giveaway entry event');
-        return state.totalAppOpens >= 1; // Reduced from 3
+        // Good moment - user just entered giveaway (lowered threshold)
+        return state.totalAppOpens >= 1;
         
       case 'tier_upgrade':
         // Perfect moment - user just upgraded subscription tier
-        console.log('⬆️ Tier upgrade event');
         return event.metadata?.upgradeFrom !== event.metadata?.upgradeTo;
         
       default:
-        console.log('❓ Unknown event type');
-        return false;
+        return true; // Allow any other positive interactions to trigger review
     }
   }
 
@@ -222,43 +203,22 @@ class ReviewService {
    */
   private async showReviewPrompt(event: ReviewTriggerEvent, state: ReviewState): Promise<void> {
     try {
-      console.log('🌟 Attempting to show App Store review prompt for event:', event.eventType);
+      console.log('🌟 Showing App Store review prompt for event:', event.eventType);
       
-      // In development, always log but only show if forced
-      if (__DEV__) {
-        console.log('🧪 DEV MODE: Review prompt would show here for event:', event.eventType);
-        console.log('🧪 Use forceShowReview() to test the actual dialog');
-      }
-      
-      // Update state to mark review as requested (increment counter instead of blocking)
+      // Update state to track this review request
       const updatedState: ReviewState = {
         ...state,
-        reviewTriggerCount: state.reviewTriggerCount + 1,
+        hasRequestedReview: true,
         lastReviewRequestDate: new Date().toISOString(),
-        debugMode: state.debugMode || __DEV__
+        reviewTriggerCount: state.reviewTriggerCount + 1
       };
       
       await this.saveReviewState(updatedState);
       
       // Show native review prompt
-      try {
-        const hasAction = await StoreReview.hasAction();
-        console.log('📱 Final hasAction check:', hasAction);
-        
-        if (hasAction || __DEV__) {
-          await StoreReview.requestReview();
-          console.log('✅ StoreReview.requestReview() called successfully');
-          
-          // Only mark as fully requested after successful show
-          updatedState.hasRequestedReview = true;
-          await this.saveReviewState(updatedState);
-        } else {
-          console.log('📱 StoreReview not available - skipping');
-        }
-      } catch (reviewError) {
-        console.error('❌ StoreReview.requestReview() failed:', reviewError);
-        // Don't mark as requested if it failed
-      }
+      await StoreReview.requestReview();
+      
+      console.log('✅ App Store review prompt shown successfully');
       
     } catch (error) {
       console.error('❌ Failed to show review prompt:', error);
@@ -283,8 +243,7 @@ class ReviewService {
         positiveInteractions: 0,
         lastPositiveInteraction: null,
         appInstallDate: new Date().toISOString(),
-        totalAppOpens: 0,
-        debugMode: __DEV__
+        totalAppOpens: 0
       };
       
       await this.saveReviewState(defaultState);
@@ -300,8 +259,7 @@ class ReviewService {
         positiveInteractions: 0,
         lastPositiveInteraction: null,
         appInstallDate: new Date().toISOString(),
-        totalAppOpens: 0,
-        debugMode: __DEV__
+        totalAppOpens: 0
       };
     }
   }
@@ -335,25 +293,67 @@ class ReviewService {
   }
 
   /**
-   * Manual trigger for testing (dev and production)
+   * Manual trigger for testing (dev only)
    */
   async forceShowReview(): Promise<void> {
-    console.log('🧪 Force showing review prompt');
-    try {
-      const hasAction = await StoreReview.hasAction();
-      console.log('📱 StoreReview.hasAction():', hasAction);
-      
-      if (hasAction) {
-        console.log('📱 Calling StoreReview.requestReview()...');
-        await StoreReview.requestReview();
-        console.log('✅ StoreReview.requestReview() completed');
-      } else {
-        console.log('📱 Store review not available on this platform/device');
-        console.log('📱 Platform:', Platform.OS);
-        console.log('📱 This might happen in simulator or non-iOS devices');
+    if (__DEV__) {
+      console.log('🧪 Force showing review prompt (dev mode)');
+      try {
+        if (await StoreReview.hasAction()) {
+          await StoreReview.requestReview();
+        } else {
+          console.log('📱 Store review not available');
+        }
+      } catch (error) {
+        console.error('❌ Failed to force show review:', error);
       }
+    }
+  }
+
+  /**
+   * Manual review trigger for users (production safe)
+   */
+  async showManualReview(): Promise<boolean> {
+    try {
+      console.log('⭐ Manual review requested by user');
+      
+      // Check if review is available on this platform
+      if (!await StoreReview.hasAction()) {
+        console.log('📱 Store review not available on this platform');
+        return false;
+      }
+
+      // Always allow manual reviews (bypass most restrictions)
+      const state = await this.getReviewState();
+      
+      // Only check if we haven't requested too recently (shorter window)
+      if (state.lastReviewRequestDate) {
+        const daysSinceLastRequest = this.getDaysSince(state.lastReviewRequestDate);
+        if (daysSinceLastRequest < 7) { // Only 7 days wait for manual
+          console.log(`📱 Manual review blocked - too recent (${daysSinceLastRequest} days ago)`);
+          return false;
+        }
+      }
+
+      // Show the review and update state
+      await StoreReview.requestReview();
+      
+      const updatedState: ReviewState = {
+        ...state,
+        hasRequestedReview: true,
+        lastReviewRequestDate: new Date().toISOString(),
+        reviewTriggerCount: state.reviewTriggerCount + 1,
+        positiveInteractions: state.positiveInteractions + 1
+      };
+      
+      await this.saveReviewState(updatedState);
+      
+      console.log('✅ Manual App Store review shown successfully');
+      return true;
+      
     } catch (error) {
-      console.error('❌ Failed to force show review:', error);
+      console.error('❌ Failed to show manual review:', error);
+      return false;
     }
   }
 
