@@ -1203,7 +1203,7 @@ router.get('/daily-insights', async (req, res) => {
     const targetDate = (date as string) || new Date().toISOString().split('T')[0];
 
     // Get insights from Supabase
-    const insights = await dailyInsightsService.getDailyInsights(userId, targetDate);
+    const insights = await dailyInsightsService.getDailyInsights(userId as string, targetDate);
 
     res.json({
       success: true,
@@ -1239,7 +1239,7 @@ router.get('/daily-insights/status', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     // Check if we have insights for today in Supabase
-    const hasInsights = await dailyInsightsService.hasInsightsForDate(userId, today);
+    const hasInsights = await dailyInsightsService.hasInsightsForDate(userId as string, today);
     const needsRegeneration = !hasInsights;
 
     // In production, you might also check:
@@ -1718,7 +1718,13 @@ router.post('/generate-picks-all-users', async (req, res) => {
 
     logger.info(`👥 Found ${users.length} active users, generating picks for each...`);
     
-    const results = [];
+    const results: Array<{
+      userId: any;
+      success: boolean;
+      picksGenerated?: number;
+      predictions?: any[];
+      error?: string;
+    }> = [];
     
     // Generate picks for each user
     for (const user of users) {
@@ -1798,7 +1804,11 @@ async function generatePicksForUser(userId: string, tier: string = 'free') {
       
       try {
         // Get real games for this sport
-        let realGames = [];
+        let realGames: Array<{
+          id: string;
+          away: { name: string; };
+          home: { name: string; };
+        }> = [];
         
         if (sport === 'MLB') {
           const mlbSchedule = await sportRadarService.getMlbDailySchedule(year, monthStr, dayStr);
@@ -2041,14 +2051,13 @@ router.get('/starter-picks', async (req, res) => {
           roi_estimate: 16.5,
           status: 'pending',
           created_at: new Date().toISOString(),
+          game_id: 'sample_mlb_game_1',
+          bet_type: 'moneyline' as const,
           metadata: {
             sample: true,
-            orchestrator_data: {
-              factors: { welcome: 'Sample pick showcasing our analysis depth!' },
-              tools_used: ['welcome_sample'],
-              processing_time: 0
-            }
-          }
+            welcome: 'Sample pick showcasing our analysis depth!',
+            analysis_type: 'welcome_sample'
+          } as any
         },
         {
           id: 'sample_2',
@@ -2064,14 +2073,13 @@ router.get('/starter-picks', async (req, res) => {
           roi_estimate: 13.5,
           status: 'pending',
           created_at: new Date().toISOString(),
+          game_id: 'sample_nba_game_2',
+          bet_type: 'total' as const,
           metadata: {
             sample: true,
-            orchestrator_data: {
-              factors: { welcome: 'Sample showing our real-time analysis capabilities!' },
-              tools_used: ['welcome_sample'],
-              processing_time: 0
-            }
-          }
+            welcome: 'Sample showing our real-time analysis capabilities!',
+            analysis_type: 'welcome_sample'
+          } as any
         }
       ];
       logger.info(`🎭 Created ${starterPicks.length} realistic sample picks for new user`);
@@ -2082,7 +2090,7 @@ router.get('/starter-picks', async (req, res) => {
         user_id: userId,
         match_teams: 'Houston Astros vs Seattle Mariners',
         pick: 'Astros ML',
-        odds: '-125',
+        odds: '-120',
         confidence: 75,
         sport: 'MLB',
         event_time: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
@@ -2091,14 +2099,13 @@ router.get('/starter-picks', async (req, res) => {
         roi_estimate: 14.2,
         status: 'pending',
         created_at: new Date().toISOString(),
+        game_id: 'sample_mlb_game_3',
+        bet_type: 'moneyline' as const,
         metadata: {
           sample: true,
-          orchestrator_data: {
-            factors: { welcome: 'Filler pick to complete your starter set!' },
-            tools_used: ['welcome_sample'],
-            processing_time: 0
-          }
-        }
+          welcome: 'Filler pick to complete your starter set!',
+          analysis_type: 'welcome_sample'
+        } as any
       });
       logger.info(`🎯 Added 1 sample pick to complete starter set (total: ${starterPicks.length})`);
     }
