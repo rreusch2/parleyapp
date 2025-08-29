@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AIPrediction } from './api/aiService';
+import { chatService, ChatValidationResponse } from './api/chatService';
 
 interface ChatMessage {
   id: string;
@@ -37,9 +37,11 @@ interface AIChatContextType {
   
   // Free user tracking
   freeUserMessageCount: number;
-  incrementFreeUserMessages: () => void;
+  incrementFreeUserMessages: () => Promise<void>;
   canSendMessage: (isPro: boolean) => boolean;
   isLoadingMessageCount: boolean;
+  chatStatus: ChatValidationResponse | null;
+  refreshChatStatus: () => Promise<void>;
   
   // Helper functions
   openChatWithContext: (context: ChatContext, pick?: AIPrediction) => void;
@@ -58,31 +60,38 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
   const [chatContext, setChatContext] = useState<ChatContext>({});
   const [freeUserMessageCount, setFreeUserMessageCount] = useState(0);
   const [isLoadingMessageCount, setIsLoadingMessageCount] = useState(true);
+  const [chatStatus, setChatStatus] = useState<ChatValidationResponse | null>(null);
 
-  // Load saved message count on mount
+  // Load chat status from server on mount
   useEffect(() => {
-    const loadMessageCount = async () => {
+    const loadChatStatus = async () => {
       try {
         setIsLoadingMessageCount(true);
+        console.log('🔄 Loading chat status from server...');
         
-        // Force clear any existing count for debugging
-        console.log('📱 Clearing existing message count for fresh start');
-        await AsyncStorage.removeItem('freeUserMessageCount');
+        const status = await chatService.validateMessage();
+        setChatStatus(status);
+        setFreeUserMessageCount(status.currentMessages);
         
-        // Always start new users with 0 messages
-        console.log('📱 Setting fresh user message count to 0');
-        setFreeUserMessageCount(0);
-        await AsyncStorage.setItem('freeUserMessageCount', '0');
-        
+        console.log(`✅ Chat status loaded: ${status.remainingMessages} messages remaining`);
       } catch (error) {
-        console.warn('Failed to initialize free user message count:', error);
-        // Fallback to 0 if there's an error
+        console.warn('Failed to load chat status:', error);
+        // Graceful fallback - assume user can send messages
+        const fallbackStatus: ChatValidationResponse = {
+          canSendMessage: true,
+          remainingMessages: 3,
+          dailyLimit: 3,
+          currentMessages: 0,
+          isProUser: false,
+          nextResetHours: 24
+        };
+        setChatStatus(fallbackStatus);
         setFreeUserMessageCount(0);
       } finally {
         setIsLoadingMessageCount(false);
       }
     };
-    loadMessageCount();
+    loadChatStatus();
   }, []);
   
   // Initialize with welcome message
@@ -104,14 +113,40 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
   };
 
   const incrementFreeUserMessages = async () => {
-    const newCount = freeUserMessageCount + 1;
-    console.log(`📈 Incrementing free user message count: ${freeUserMessageCount} -> ${newCount}`);
-    setFreeUserMessageCount(newCount);
     try {
-      await AsyncStorage.setItem('freeUserMessageCount', newCount.toString());
-      console.log('💾 Saved new message count to storage');
+      console.log(`📈 Incrementing server-side message count...`);
+      
+      const result = await chatService.incrementMessage();
+      if (result.success) {
+        setFreeUserMessageCount(result.newCount);
+        
+        // Update chat status to reflect new count
+        if (chatStatus) {
+          setChatStatus({
+            ...chatStatus,
+            currentMessages: result.newCount,
+            remainingMessages: result.remainingMessages,
+            canSendMessage: result.remainingMessages > 0
+          });
+        }
+        
+        console.log(`✅ Message count incremented: ${result.newCount}/3`);
+      }
     } catch (error) {
-      console.warn('Failed to save free user message count:', error);
+      console.warn('Failed to increment message count:', error);
+      // Don't throw - graceful degradation
+    }
+  };
+
+  const refreshChatStatus = async () => {
+    try {
+      console.log('🔄 Refreshing chat status...');
+      const status = await chatService.validateMessage();
+      setChatStatus(status);
+      setFreeUserMessageCount(status.currentMessages);
+      console.log(`✅ Chat status refreshed: ${status.remainingMessages} messages remaining`);
+    } catch (error) {
+      console.warn('Failed to refresh chat status:', error);
     }
   };
 
@@ -121,12 +156,15 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
     // Don't restrict while loading to prevent confusion
     if (isLoadingMessageCount) return true;
     
-    // Free users can send 3 messages (when count is 0, 1, or 2)
-    // After 3rd message, count becomes 3 and they're blocked
+    // Use server-side validation if available
+    if (chatStatus) {
+      return chatStatus.canSendMessage;
+    }
+    
+    // Fallback to local count (should rarely be used)
     const canSend = freeUserMessageCount < 3;
     
-    // More verbose logging to debug the issue
-    console.log(`🔍 canSendMessage check: isPro=${isPro}, messageCount=${freeUserMessageCount}, canSend=${canSend}, isLoading=${isLoadingMessageCount}`);
+    console.log(`🔍 canSendMessage check: isPro=${isPro}, serverStatus=${chatStatus?.canSendMessage}, localCount=${freeUserMessageCount}, canSend=${canSend}`);
     
     return canSend;
   };
@@ -156,6 +194,8 @@ export function AIChatProvider({ children }: AIChatProviderProps) {
     incrementFreeUserMessages,
     canSendMessage,
     isLoadingMessageCount,
+    chatStatus,
+    refreshChatStatus,
     openChatWithContext,
     resetChat
   };

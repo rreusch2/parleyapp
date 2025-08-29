@@ -13,6 +13,7 @@ import trendsRouter from './api/routes/trends';
 import insightsRouter from './api/routes/insights';
 import adminRouter from './api/routes/admin';
 import authRouter from './api/routes/auth';
+import referralsRouter from './api/routes/referrals';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
@@ -23,6 +24,7 @@ import playerRouter from './api/routes/players'; // Fixed: use players.ts not pl
 import teamsRouter from './api/routes/teams';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
+import { tierExpirationService } from './services/tierExpirationService';
 
 const app = express();
 
@@ -121,6 +123,7 @@ app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
 app.use('/api/auth', authRouter);
+app.use('/api/referrals', referralsRouter);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
@@ -153,6 +156,10 @@ app.get('/api/auth-test', (req, res) => {
 
 // Initialize sports data scheduler
 // initScheduler(); // Removed - using TheOdds API manually now
+
+// Initialize tier expiration service
+tierExpirationService.startExpirationScheduler();
+console.log('✅ Tier expiration service initialized');
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

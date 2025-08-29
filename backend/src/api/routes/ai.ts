@@ -6,6 +6,9 @@ import { createLogger } from '../../utils/logger';
 import sportRadarService from '../../services/sportsData/sportRadarService';
 import { dailyInsightsService, DailyInsight } from '../../services/supabase/dailyInsightsService';
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
+import { Request, Response } from 'express';
+import { AuthenticatedRequest } from '../../types/auth';
+import { authenticateUser } from '../middleware/auth';
 
 // Utility function to determine current sports seasons
 const getSportsInSeason = (): string[] => {
@@ -78,9 +81,142 @@ function generatePlayerPropData(sport: string, homeTeam: string, awayTeam: strin
   };
 }
 
+const logger = createLogger('aiRoutes');
 const router = express.Router();
 
-const logger = createLogger('aiRoutes');
+// Daily chat message tracking endpoint
+router.post('/chat/validate-message', authenticateUser, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const userId = authReq.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get user profile with chat tracking data
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('subscription_tier, daily_chat_messages, last_chat_reset, chat_timezone')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    // Pro users have unlimited messages
+    if (profile.subscription_tier === 'pro') {
+      return res.json({ 
+        canSendMessage: true, 
+        remainingMessages: -1, // Unlimited
+        isProUser: true
+      });
+    }
+
+    // Check if daily reset is needed
+    const now = new Date();
+    const lastReset = new Date(profile.last_chat_reset || now);
+    const timezone = profile.chat_timezone || 'America/New_York';
+    
+    // Check if it's a new day (24 hours have passed)
+    const hoursSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+    const needsReset = hoursSinceReset >= 24;
+
+    let currentMessages = profile.daily_chat_messages || 0;
+
+    // Reset daily count if needed
+    if (needsReset) {
+      currentMessages = 0;
+      await supabaseAdmin
+        .from('profiles')
+        .update({ 
+          daily_chat_messages: 0, 
+          last_chat_reset: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .eq('id', userId);
+    }
+
+    const DAILY_LIMIT = 3;
+    const canSend = currentMessages < DAILY_LIMIT;
+    const remainingMessages = Math.max(0, DAILY_LIMIT - currentMessages);
+
+    res.json({
+      canSendMessage: canSend,
+      remainingMessages,
+      dailyLimit: DAILY_LIMIT,
+      currentMessages,
+      isProUser: false,
+      nextResetHours: needsReset ? 0 : Math.ceil(24 - hoursSinceReset)
+    });
+
+  } catch (error) {
+    console.error('Error validating chat message:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Increment daily chat message count
+router.post('/chat/increment-message', authenticateUser, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const userId = authReq.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Get current count and validate user can send message
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('subscription_tier, daily_chat_messages, last_chat_reset')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    // Pro users don't have limits
+    if (profile.subscription_tier === 'pro') {
+      return res.json({ success: true, remainingMessages: -1 });
+    }
+
+    const currentMessages = profile.daily_chat_messages || 0;
+    const DAILY_LIMIT = 3;
+
+    if (currentMessages >= DAILY_LIMIT) {
+      return res.status(429).json({ 
+        error: 'Daily message limit reached',
+        remainingMessages: 0
+      });
+    }
+
+    // Increment message count
+    const newCount = currentMessages + 1;
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ 
+        daily_chat_messages: newCount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating message count:', updateError);
+      return res.status(500).json({ error: 'Failed to update message count' });
+    }
+
+    res.json({
+      success: true,
+      newCount,
+      remainingMessages: DAILY_LIMIT - newCount
+    });
+
+  } catch (error) {
+    console.error('Error incrementing chat message:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // DailyInsight interface is now imported from the service
 

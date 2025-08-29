@@ -44,7 +44,7 @@ import { useSubscription } from '../services/subscriptionContext';
 import { useReview } from '../hooks/useReview';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
 import PointsService from '../services/pointsService';
-import PointsRedemptionModal from '../components/PointsRedemptionModal';
+import TimeBasedRewardsModal from '../components/TimeBasedRewardsModal';
 import { aiService } from '../services/api/aiService';
 import { userApi } from '../services/api/client';
 import { router } from 'expo-router';
@@ -121,8 +121,8 @@ export default function SettingsScreen() {
   // Referral state
   const [userReferralCode, setUserReferralCode] = useState('');
   const [referralStats, setReferralStats] = useState({ totalReferrals: 0, pendingRewards: 0 });
-  const [pointsBalance, setPointsBalance] = useState(0);
-  const [showPointsModal, setShowPointsModal] = useState(false);
+  const [referralPoints, setReferralPoints] = useState(0);
+  const [showRewardsModal, setShowRewardsModal] = useState(false);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -282,8 +282,8 @@ export default function SettingsScreen() {
             fetchReferralStats(profile.referral_code, user.id);
           }
 
-          // Load points balance
-          loadPointsBalance(user.id);
+          // Load referral points
+          loadReferralPoints(user.id);
         }
       }
     } catch (error) {
@@ -310,13 +310,23 @@ export default function SettingsScreen() {
     }
   };
 
-  const loadPointsBalance = async (userId: string) => {
+  const loadReferralPoints = async (userId: string) => {
     try {
-      const pointsService = PointsService.getInstance();
-      const balance = await pointsService.getPointsBalance(userId);
-      setPointsBalance(balance.availablePoints);
+      // Load referral points from new referrals API
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('referral_points')
+          .eq('id', user.id)
+          .single();
+        
+        if (!error && data) {
+          setReferralPoints(data.referral_points || 0);
+        }
+      }
     } catch (error) {
-      console.error('Error loading points balance:', error);
+      console.error('Error loading referral points:', error);
     }
   };
 
@@ -879,13 +889,13 @@ export default function SettingsScreen() {
       iconColor: '#10B981',
       items: [
         {
-          id: 'points_balance',
-          title: 'Points Balance',
+          id: 'referral_rewards',
+          title: 'Referral Rewards',
           type: 'link',
-          subtitle: `${pointsBalance.toLocaleString()} points ($${(pointsBalance / 100).toFixed(2)} value)`,
-          badge: pointsBalance > 0 ? 'Redeem' : undefined,
+          subtitle: `${referralPoints.toLocaleString()} points available`,
+          badge: referralPoints > 0 ? 'Claim' : undefined,
           badgeColor: '#3B82F6',
-          action: () => setShowPointsModal(true)
+          action: () => setShowRewardsModal(true)
         },
         {
           id: 'share_referral',
@@ -1528,9 +1538,9 @@ export default function SettingsScreen() {
         onPreferencesUpdated={fetchUserProfile}
       />
 
-      <PointsRedemptionModal
-        visible={showPointsModal}
-        onClose={() => setShowPointsModal(false)}
+      <TimeBasedRewardsModal
+        visible={showRewardsModal}
+        onClose={() => setShowRewardsModal(false)}
         userId={userProfile?.id || ''}
       />
     </ScrollView>

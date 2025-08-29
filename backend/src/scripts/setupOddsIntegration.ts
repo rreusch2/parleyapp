@@ -154,9 +154,10 @@ async function checkReferenceData(): Promise<boolean> {
 }
 
 async function ensurePlayerPropTypes(): Promise<void> {
-  console.log('🎯 Ensuring player prop types exist...');
+  console.log('🎯 Ensuring player prop types exist for all sports...');
   
   const propTypes = [
+    // MLB Baseball Props
     { prop_key: 'batter_hits', prop_name: 'Batter Hits O/U', sport_key: 'baseball_mlb', stat_category: 'batting' },
     { prop_key: 'batter_home_runs', prop_name: 'Batter Home Runs O/U', sport_key: 'baseball_mlb', stat_category: 'power' },
     { prop_key: 'batter_rbis', prop_name: 'Batter RBIs O/U', sport_key: 'baseball_mlb', stat_category: 'batting' },
@@ -164,8 +165,54 @@ async function ensurePlayerPropTypes(): Promise<void> {
     { prop_key: 'batter_runs_scored', prop_name: 'Batter Runs Scored O/U', sport_key: 'baseball_mlb', stat_category: 'batting' },
     { prop_key: 'pitcher_strikeouts', prop_name: 'Pitcher Strikeouts O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
     { prop_key: 'pitcher_earned_runs', prop_name: 'Pitcher Earned Runs O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
-    { prop_key: 'pitcher_hits_allowed', prop_name: 'Pitcher Hits Allowed O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' }
+    { prop_key: 'pitcher_hits_allowed', prop_name: 'Pitcher Hits Allowed O/U', sport_key: 'baseball_mlb', stat_category: 'pitching' },
+    
+    // WNBA Basketball Props
+    { prop_key: 'player_points', prop_name: 'Player Points O/U', sport_key: 'basketball_wnba', stat_category: 'scoring' },
+    { prop_key: 'player_rebounds', prop_name: 'Player Rebounds O/U', sport_key: 'basketball_wnba', stat_category: 'rebounding' },
+    { prop_key: 'player_assists', prop_name: 'Player Assists O/U', sport_key: 'basketball_wnba', stat_category: 'assists' },
+    
+    // College Football (CFB) Props
+    { prop_key: 'player_pass_yds', prop_name: 'Passing Yards O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'passing' },
+    { prop_key: 'player_pass_tds', prop_name: 'Passing Touchdowns O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'passing' },
+    { prop_key: 'player_pass_completions', prop_name: 'Pass Completions O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'passing' },
+    { prop_key: 'player_pass_attempts', prop_name: 'Pass Attempts O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'passing' },
+    { prop_key: 'player_pass_interceptions', prop_name: 'Interceptions O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'passing' },
+    { prop_key: 'player_rush_yds', prop_name: 'Rushing Yards O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'rushing' },
+    { prop_key: 'player_rush_attempts', prop_name: 'Rush Attempts O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'rushing' },
+    { prop_key: 'player_rush_tds', prop_name: 'Rushing Touchdowns O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'rushing' },
+    { prop_key: 'player_receptions', prop_name: 'Receptions O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'receiving' },
+    { prop_key: 'player_reception_yds', prop_name: 'Receiving Yards O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'receiving' },
+    { prop_key: 'player_reception_tds', prop_name: 'Receiving Touchdowns O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'receiving' },
+    { prop_key: 'player_kicking_points', prop_name: 'Kicking Points O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'kicking' },
+    { prop_key: 'player_field_goals', prop_name: 'Field Goals Made O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'kicking' },
+    { prop_key: 'player_tackles_assists', prop_name: 'Tackles + Assists O/U', sport_key: 'americanfootball_ncaaf', stat_category: 'defense' },
+    { prop_key: 'player_1st_td', prop_name: 'First Touchdown Scorer', sport_key: 'americanfootball_ncaaf', stat_category: 'scoring' },
+    { prop_key: 'player_last_td', prop_name: 'Last Touchdown Scorer', sport_key: 'americanfootball_ncaaf', stat_category: 'scoring' },
+    { prop_key: 'player_anytime_td', prop_name: 'Anytime Touchdown Scorer', sport_key: 'americanfootball_ncaaf', stat_category: 'scoring' },
+    
+    // NFL Props (using different keys to avoid conflicts)
+    { prop_key: 'player_pass_yds_nfl', prop_name: 'Passing Yards O/U', sport_key: 'americanfootball_nfl', stat_category: 'passing' },
+    { prop_key: 'player_pass_tds_nfl', prop_name: 'Passing Touchdowns O/U', sport_key: 'americanfootball_nfl', stat_category: 'passing' },
+    { prop_key: 'player_pass_completions_nfl', prop_name: 'Pass Completions O/U', sport_key: 'americanfootball_nfl', stat_category: 'passing' },
+    { prop_key: 'player_pass_attempts_nfl', prop_name: 'Pass Attempts O/U', sport_key: 'americanfootball_nfl', stat_category: 'passing' },
+    { prop_key: 'player_pass_interceptions_nfl', prop_name: 'Interceptions O/U', sport_key: 'americanfootball_nfl', stat_category: 'passing' },
+    { prop_key: 'player_rush_yds_nfl', prop_name: 'Rushing Yards O/U', sport_key: 'americanfootball_nfl', stat_category: 'rushing' },
+    { prop_key: 'player_rush_attempts_nfl', prop_name: 'Rush Attempts O/U', sport_key: 'americanfootball_nfl', stat_category: 'rushing' },
+    { prop_key: 'player_rush_tds_nfl', prop_name: 'Rushing Touchdowns O/U', sport_key: 'americanfootball_nfl', stat_category: 'rushing' },
+    { prop_key: 'player_receptions_nfl', prop_name: 'Receptions O/U', sport_key: 'americanfootball_nfl', stat_category: 'receiving' },
+    { prop_key: 'player_reception_yds_nfl', prop_name: 'Receiving Yards O/U', sport_key: 'americanfootball_nfl', stat_category: 'receiving' },
+    { prop_key: 'player_reception_tds_nfl', prop_name: 'Receiving Touchdowns O/U', sport_key: 'americanfootball_nfl', stat_category: 'receiving' },
+    { prop_key: 'player_kicking_points_nfl', prop_name: 'Kicking Points O/U', sport_key: 'americanfootball_nfl', stat_category: 'kicking' },
+    { prop_key: 'player_field_goals_nfl', prop_name: 'Field Goals Made O/U', sport_key: 'americanfootball_nfl', stat_category: 'kicking' },
+    { prop_key: 'player_tackles_assists_nfl', prop_name: 'Tackles + Assists O/U', sport_key: 'americanfootball_nfl', stat_category: 'defense' },
+    { prop_key: 'player_1st_td_nfl', prop_name: 'First Touchdown Scorer', sport_key: 'americanfootball_nfl', stat_category: 'scoring' },
+    { prop_key: 'player_last_td_nfl', prop_name: 'Last Touchdown Scorer', sport_key: 'americanfootball_nfl', stat_category: 'scoring' },
+    { prop_key: 'player_anytime_td_nfl', prop_name: 'Anytime Touchdown Scorer', sport_key: 'americanfootball_nfl', stat_category: 'scoring' }
   ];
+  
+  let successCount = 0;
+  let errorCount = 0;
   
   for (const propType of propTypes) {
     const { error } = await supabaseAdmin
@@ -174,10 +221,14 @@ async function ensurePlayerPropTypes(): Promise<void> {
     
     if (error) {
       console.error(`❌ Error upserting prop type ${propType.prop_key}:`, error.message);
+      errorCount++;
+    } else {
+      successCount++;
     }
   }
   
-  console.log(`✅ Ensured ${propTypes.length} player prop types exist`);
+  console.log(`✅ Successfully ensured ${successCount} player prop types exist (${errorCount} errors)`);
+  console.log(`   📊 MLB: 8 props | WNBA: 3 props | CFB: 17 props | NFL: 17 props`);
 }
 
 async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promise<PlayerPropsData | null> {

@@ -193,21 +193,37 @@ router.post('/verify', async (req, res) => {
       subscription_tier: subscriptionTier,
       subscription_status: 'active',
       updated_at: new Date().toISOString(),
-      // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
-      welcome_bonus_claimed: false,
-      welcome_bonus_expires_at: null,
-      // CRITICAL FIX: Mark trial as used when user subscribes (for any subscription with trial)
-      trial_used: productId.includes('yearly') || productId.includes('monthly') ? true : undefined,
     };
+    
+    updateData.welcome_bonus_claimed = false;
+    updateData.welcome_bonus_expires_at = null;
+    
+    // Set subscription_plan_type based on product
+    let subscriptionPlanType: string;
     
     // Handle day pass expiration (24 hours)
     if (productId.includes('daypass') || productId === 'com.parleyapp.prodaypass') {
       const dayPassExpiration = new Date();
       dayPassExpiration.setHours(dayPassExpiration.getHours() + 24);
       updateData.subscription_expires_at = dayPassExpiration.toISOString();
-      updateData.subscription_plan_type = 'daypass';
+      subscriptionPlanType = 'daypass';
       updateData.subscription_product_id = productId;
       console.log(`📅 Day pass (${productId}) expires at: ${dayPassExpiration.toISOString()}`);
+    } else if (productId.includes('monthly')) {
+      subscriptionPlanType = 'monthly';
+    } else if (productId.includes('yearly')) {
+      subscriptionPlanType = 'yearly';
+    } else if (productId.includes('lifetime')) {
+      subscriptionPlanType = 'lifetime';
+    } else {
+      subscriptionPlanType = 'unknown';
+    }
+    
+    updateData.subscription_plan_type = subscriptionPlanType;
+    
+    // Only mark trial as used for monthly subscription plan (free trial)
+    if (subscriptionPlanType === 'monthly') {
+      updateData.trial_used = true;
     }
     // Only set expiration for non-lifetime subscriptions  
     else if (subscriptionTier !== 'pro_lifetime') {

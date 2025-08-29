@@ -198,7 +198,7 @@ export default function SignupScreen() {
             subscription_tier: 'free',  // EXPLICITLY set to free (critical!)
             welcome_bonus_claimed: true,
             welcome_bonus_expires_at: expiration.toISOString(),
-            trial_used: true,
+            // Do NOT set trial_used here - welcome bonus is separate from trial eligibility
             updated_at: new Date().toISOString()
           })
           .eq('id', userData.user.id);
