@@ -160,29 +160,65 @@ class EnhancedFraudPreventionService {
    */
   async validatePhoneNumberUnique(phoneNumber: string, userId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone_number', phoneNumber)
-        .eq('phone_verified', true)
-        .neq('id', userId);
+      console.log('🔍 DEBUG: validatePhoneNumberUnique called with:', {
+        phoneNumber: phoneNumber.slice(-4), // Only log last 4 digits
+        userId: userId || 'EMPTY/NULL',
+        userIdLength: userId ? userId.length : 0
+      });
 
-      if (error) throw error;
+      // Build query - only exclude userId if it's a valid UUID (not empty/null)
+      let query = supabase
+        .from('profiles')
+        .select('id, phone_number, phone_verified')
+        .eq('phone_number', phoneNumber)
+        .eq('phone_verified', true);
+
+      // Only exclude current user if userId is valid (not empty/null/placeholder)
+      if (userId && userId.length > 10 && userId.includes('-')) {
+        query = query.neq('id', userId);
+        console.log('🔍 DEBUG: Excluding current user from phone check:', userId);
+      } else {
+        console.log('🔍 DEBUG: No valid userId provided, checking all accounts');
+      }
+
+      const { data, error } = await query;
+
+      console.log('🔍 DEBUG: Phone uniqueness query result:', {
+        error: error?.message,
+        dataCount: data?.length || 0,
+        foundAccounts: data?.map(account => ({
+          id: account.id,
+          phoneVerified: account.phone_verified,
+          phoneEnd: account.phone_number?.slice(-4)
+        })) || []
+      });
+
+      if (error) {
+        console.error('❌ DEBUG: Supabase error in phone validation:', error);
+        throw error;
+      }
       
       const isUnique = !data || data.length === 0;
+      
+      console.log('🔍 DEBUG: Phone validation result:', {
+        phoneNumber: phoneNumber.slice(-4),
+        isUnique,
+        conflictingAccounts: data?.length || 0
+      });
       
       if (!isUnique) {
         await this.logFraudAttempt('duplicate_phone_number', {
           phoneNumber: phoneNumber.slice(-4), // Only log last 4 digits for privacy
-          userId,
-          existingAccounts: data?.length || 0
+          userId: userId || 'no_user_id',
+          existingAccounts: data?.length || 0,
+          conflictingAccountIds: data?.map(account => account.id) || []
         });
       }
 
       return isUnique;
     } catch (error) {
-      console.error('Error checking phone number uniqueness:', error);
-      return false;
+      console.error('❌ DEBUG: Exception in validatePhoneNumberUnique:', error);
+      return false; // Fail safely - block the phone number on error
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  ScrollView,
   Keyboard,
   TouchableWithoutFeedback,
-  Dimensions,
+  Modal,
+  Animated,
+  Easing,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Phone, X, ArrowLeft } from 'lucide-react-native';
+import { Phone, X, ArrowLeft, Shield, CheckCircle } from 'lucide-react-native';
 import { supabase, supabaseConfig } from '../services/api/supabaseClient';
 import { normalize } from '../services/device';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -237,372 +237,396 @@ export default function PhoneVerification({
     };
   }, []);
 
+  const handleClose = () => {
+    onClose();
+  };
+
+  const renderPhoneStep = () => {
+    return (
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <View style={styles.placeholder} />
+          <Text style={styles.heroTitle}>Secure Your Account</Text>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <X size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.heroSection}>
+          <View style={styles.iconContainer}>
+            <LinearGradient
+              colors={['#00E5FF', '#0091EA']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.iconGradient}
+            >
+              <Shield size={32} color="#FFFFFF" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.heroSubtitle}>
+            We'll send a verification code to prevent duplicate accounts and enhance security
+          </Text>
+        </View>
+
+        <View style={styles.inputSection}>
+          <View style={styles.inputContainer}>
+            <View style={styles.inputIconWrapper}>
+              <Phone size={20} color="#00E5FF" />
+            </View>
+            <TextInput
+              style={styles.phoneInput}
+              placeholder="(555) 123-4567"
+              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              value={phoneNumber}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+              maxLength={14}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (validatePhoneNumber(phoneNumber)) {
+                  sendVerificationCode();
+                }
+              }}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.primaryButton, !validatePhoneNumber(phoneNumber) && styles.primaryButtonDisabled]}
+          onPress={sendVerificationCode}
+          disabled={!validatePhoneNumber(phoneNumber) || loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#000000" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Send Verification Code</Text>
+          )}
+        </TouchableOpacity>
+
+        <Text style={styles.footerText}>
+          By continuing, you agree that this phone number hasn't been used for a free trial before. 
+          Standard message rates may apply.
+        </Text>
+      </View>
+    );
+  };
+
+  const renderCodeStep = () => {
+    return (
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setStep('phone')} style={styles.backButton}>
+            <ArrowLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.heroTitle}>Enter Code</Text>
+          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            <X size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.heroSection}>
+          <View style={styles.iconContainer}>
+            <LinearGradient
+              colors={['#4CAF50', '#2E7D32']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.iconGradient}
+            >
+              <CheckCircle size={32} color="#FFFFFF" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.heroSubtitle}>
+            Enter the 6-digit code sent to{' '}
+            <Text style={styles.phoneHighlight}>{phoneNumber}</Text>
+          </Text>
+        </View>
+
+        <View style={styles.codeContainer}>
+          <TextInput
+            style={styles.codeInput}
+            placeholder="123456"
+            placeholderTextColor="rgba(255, 255, 255, 0.5)"
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoFocus
+            textAlign="center"
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              if (verificationCode.length === 6) {
+                verifyCode();
+              }
+            }}
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.primaryButton, verificationCode.length !== 6 && styles.primaryButtonDisabled]}
+          onPress={verifyCode}
+          disabled={verificationCode.length !== 6 || loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#000000" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Verify Code</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.secondaryButton, resendTimer > 0 && styles.secondaryButtonDisabled]}
+          onPress={resendCode}
+          disabled={resendTimer > 0 || loading}
+        >
+          <Text style={[styles.secondaryButtonText, resendTimer > 0 && styles.secondaryButtonTextDisabled]}>
+            {resendTimer > 0 ? `Resend code in ${resendTimer}s` : 'Resend code'}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footerText}>
+          By continuing, you agree that this phone number hasn't been used for a free trial before. 
+          Standard message rates may apply.
+        </Text>
+      </View>
+    );
+  };
+
   if (step === 'phone') {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <LinearGradient
-          colors={['#1a1a2e', '#16213e', '#0f3460']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradient}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.innerContainer}>
-              <View style={styles.header}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <X size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-                <Text style={styles.title}>Verify Phone Number</Text>
-                <View style={styles.placeholder} />
-              </View>
-
+      <Modal
+        visible={true}
+        transparent={true}
+        animationType="none"
+        onRequestClose={handleClose}
+        statusBarTranslucent
+      >
+        <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.8)" translucent />
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <LinearGradient
+              colors={['rgba(26,26,46,0.95)', 'rgba(22,33,62,0.95)', 'rgba(15,52,96,0.95)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.modalBackground}
+            >
               <KeyboardAvoidingView 
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardAvoidingContainer}
-                keyboardVerticalOffset={keyboardOffset}
+                style={styles.keyboardContainer}
               >
-                <ScrollView 
-                  contentContainerStyle={[
-                    styles.scrollContent,
-                    { paddingBottom: normalize(50) + (Platform.OS === 'ios' ? keyboardHeight : 0) }
-                  ]}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                  contentInset={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
-                  scrollIndicatorInsets={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
-                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-                >
-                  <View style={styles.content}>
-                    <Text style={styles.subtitle}>
-                      We'll send you a verification code to prevent multiple accounts
-                    </Text>
-
-                    <View style={styles.inputWrapper}>
-                      <Phone size={20} color="#00E5FF" style={styles.inputIcon} />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="(555) 123-4567"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={phoneNumber}
-                        onChangeText={handlePhoneChange}
-                        keyboardType="phone-pad"
-                        maxLength={14}
-                        autoFocus
-                        returnKeyType="done"
-                        onSubmitEditing={() => {
-                          if (validatePhoneNumber(phoneNumber)) {
-                            sendVerificationCode();
-                          }
-                        }}
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      style={[styles.sendButton, !validatePhoneNumber(phoneNumber) && styles.sendButtonDisabled]}
-                      onPress={sendVerificationCode}
-                      disabled={!validatePhoneNumber(phoneNumber) || loading}
-                    >
-                      {loading ? (
-                        <ActivityIndicator color="#000000" />
-                      ) : (
-                        <Text style={styles.sendButtonText}>Send Verification Code</Text>
-                      )}
-                    </TouchableOpacity>
-
-                    <Text style={styles.disclaimer}>
-                      By continuing, you agree that this phone number hasn't been used for a free trial before. 
-                      Standard message rates may apply.
-                    </Text>
-                  </View>
-                </ScrollView>
+                {renderPhoneStep()}
               </KeyboardAvoidingView>
-            </View>
-          </TouchableWithoutFeedback>
-        </LinearGradient>
-      </View>
+            </LinearGradient>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['#1a1a2e', '#16213e', '#0f3460']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.innerContainer}>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => setStep('phone')} style={styles.backButton}>
-                <ArrowLeft size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.title}>Enter Verification Code</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
+    <Modal
+      visible={true}
+      transparent={true}
+      animationType="none"
+      onRequestClose={handleClose}
+      statusBarTranslucent
+    >
+      <StatusBar barStyle="light-content" backgroundColor="rgba(0,0,0,0.8)" translucent />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={['rgba(26,26,46,0.95)', 'rgba(22,33,62,0.95)', 'rgba(15,52,96,0.95)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.modalBackground}
+          >
             <KeyboardAvoidingView 
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.keyboardAvoidingContainer}
-              keyboardVerticalOffset={keyboardOffset}
+              style={styles.keyboardContainer}
             >
-              <ScrollView 
-                contentContainerStyle={[
-                  styles.scrollContent,
-                  { paddingBottom: normalize(50) + (Platform.OS === 'ios' ? keyboardHeight : 0) }
-                ]}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-                contentInset={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
-                scrollIndicatorInsets={{ bottom: Platform.OS === 'ios' ? keyboardHeight : 0 }}
-                keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-              >
-                <View style={styles.content}>
-                  <Text style={styles.subtitle}>
-                    Enter the 6-digit code sent to{'\n'}{phoneNumber}
-                  </Text>
-
-                  <View style={styles.codeInputWrapper}>
-                    <TextInput
-                      style={styles.codeInput}
-                      placeholder="123456"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={verificationCode}
-                      onChangeText={setVerificationCode}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      autoFocus
-                      textAlign="center"
-                      returnKeyType="done"
-                      onSubmitEditing={() => {
-                        if (verificationCode.length === 6) {
-                          verifyCode();
-                        }
-                      }}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.verifyButton, verificationCode.length !== 6 && styles.verifyButtonDisabled]}
-                    onPress={verifyCode}
-                    disabled={verificationCode.length !== 6 || loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#000000" />
-                    ) : (
-                      <Text style={styles.verifyButtonText}>Verify Code</Text>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.resendButton, resendTimer > 0 && styles.resendButtonDisabled]}
-                    onPress={resendCode}
-                    disabled={resendTimer > 0 || loading}
-                  >
-                    <Text style={[styles.resendButtonText, resendTimer > 0 && styles.resendButtonTextDisabled]}>
-                      {resendTimer > 0 ? `Resend code in ${resendTimer}s` : 'Resend code'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
+              {renderCodeStep()}
             </KeyboardAvoidingView>
-          </View>
-        </TouchableWithoutFeedback>
-      </LinearGradient>
-    </View>
+          </LinearGradient>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // Modern Modal Styles
+  modalOverlay: {
     flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
-  innerContainer: {
-    flex: 1,
-  },
-  keyboardAvoidingContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    minHeight: Dimensions.get('window').height * 0.6,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
-    paddingBottom: normalize(50), // Extra padding for keyboard
-  },
-  header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+  },
+  modalBackground: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
     paddingHorizontal: normalize(20),
-    paddingTop: normalize(60),
-    paddingBottom: normalize(20),
+  },
+  modalContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: normalize(24),
+    width: '100%',
+    maxWidth: normalize(400),
+    paddingHorizontal: normalize(24),
+    paddingVertical: normalize(32),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: normalize(24),
   },
   backButton: {
-    padding: normalize(5),
+    padding: normalize(8),
+    borderRadius: normalize(12),
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   closeButton: {
-    padding: normalize(5),
+    padding: normalize(8),
+    borderRadius: normalize(12),
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   placeholder: {
     width: normalize(34), // Same width as close button for centering
   },
-  title: {
-    fontSize: normalize(20),
-    fontWeight: '600',
+  
+  // Hero Section
+  heroSection: {
+    alignItems: 'center',
+    marginBottom: normalize(32),
+  },
+  iconContainer: {
+    marginBottom: normalize(16),
+  },
+  iconGradient: {
+    width: normalize(72),
+    height: normalize(72),
+    borderRadius: normalize(36),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroTitle: {
+    fontSize: normalize(24),
+    fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
+    marginBottom: normalize(8),
   },
-  content: {
-    paddingHorizontal: normalize(20),
-    justifyContent: 'center',
-    paddingBottom: normalize(60), // Increased bottom padding
-    paddingTop: normalize(20), // Add top padding for better spacing
-  },
-  subtitle: {
+  heroSubtitle: {
     fontSize: normalize(16),
-    color: '#e0e0e0',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    marginBottom: normalize(40),
     lineHeight: normalize(24),
   },
-  inputWrapper: {
+  phoneHighlight: {
+    fontWeight: '600',
+    color: '#00E5FF',
+  },
+  
+  // Input Section
+  inputSection: {
+    marginBottom: normalize(24),
+  },
+  inputSectionKeyboard: {
+    marginBottom: normalize(16),
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: normalize(15),
-    paddingHorizontal: normalize(20),
-    paddingVertical: normalize(18),
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: normalize(30),
-    minHeight: normalize(60),
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: normalize(16),
+    marginBottom: normalize(20),
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
-  inputIcon: {
-    marginRight: normalize(15),
+  inputIconWrapper: {
+    padding: normalize(16),
   },
-  input: {
+  phoneInput: {
     flex: 1,
     color: '#FFFFFF',
     fontSize: normalize(16),
-    paddingVertical: 0,
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    paddingVertical: normalize(16),
+    paddingRight: normalize(16),
+    fontWeight: '500',
   },
-  sendButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: normalize(30),
-    height: normalize(50),
-    alignItems: 'center',
-    justifyContent: 'center',
+  codeContainer: {
     marginBottom: normalize(20),
-    shadowColor: '#ffffff',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    transform: [{ scale: 1 }],
-  },
-  sendButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  sendButtonText: {
-    color: '#000000',
-    fontSize: normalize(16),
-    fontWeight: '600',
-  },
-  disclaimer: {
-    fontSize: normalize(12),
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    lineHeight: normalize(18),
-    paddingHorizontal: normalize(10),
-  },
-  codeInputWrapper: {
-    marginBottom: normalize(30),
   },
   codeInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: normalize(15),
-    height: normalize(70),
-    fontSize: normalize(24),
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: normalize(16),
+    height: normalize(64),
+    fontSize: normalize(20),
     fontWeight: '600',
     color: '#FFFFFF',
-    letterSpacing: 8,
+    letterSpacing: 6,
     paddingHorizontal: normalize(20),
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  verifyButton: {
+  
+  // Buttons
+  primaryButton: {
     backgroundColor: '#00E5FF',
-    borderRadius: normalize(30),
-    height: normalize(50),
+    borderRadius: normalize(16),
+    height: normalize(56),
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: normalize(20),
-    shadowColor: '#00E5FF',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    transform: [{ scale: 1 }],
+    marginBottom: normalize(12),
   },
-  verifyButtonDisabled: {
+  primaryButtonDisabled: {
     backgroundColor: 'rgba(0, 229, 255, 0.3)',
-    shadowOpacity: 0,
-    elevation: 0,
   },
-  verifyButtonText: {
-    color: '#000000',
+  primaryButtonText: {
+    color: '#FFFFFF',
     fontSize: normalize(16),
     fontWeight: '600',
+    marginRight: normalize(8),
   },
-  resendButton: {
+  secondaryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: normalize(16),
+    height: normalize(48),
     alignItems: 'center',
     justifyContent: 'center',
-    height: normalize(40),
-    paddingHorizontal: normalize(20),
   },
-  resendButtonDisabled: {
+  secondaryButtonDisabled: {
     opacity: 0.5,
   },
-  resendButtonText: {
+  secondaryButtonText: {
     color: '#00E5FF',
     fontSize: normalize(14),
     fontWeight: '500',
   },
-  resendButtonTextDisabled: {
-    color: 'rgba(255, 255, 255, 0.5)',
+  secondaryButtonTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.4)',
+  },
+  
+  // Footer
+  modalFooter: {
+    marginTop: normalize(16),
+  },
+  footerText: {
+    fontSize: normalize(12),
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    lineHeight: normalize(18),
+    marginTop: normalize(16),
   },
 });
