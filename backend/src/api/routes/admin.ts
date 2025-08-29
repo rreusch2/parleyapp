@@ -440,10 +440,6 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
             subscription_status: 'active',
             subscription_tier: 'pro', 
             subscription_expires_at: new Date(decodedTransaction.expiresDate).toISOString(),
-            // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
-            welcome_bonus_claimed: false,
-            welcome_bonus_expires_at: null,
-            updated_at: new Date().toISOString(),
           };
           break;
         case 'DID_RENEW':
@@ -510,10 +506,6 @@ router.post('/revenuecat-webhook', async (req: express.Request, res: express.Res
               subscription_status: 'active',
               subscription_tier: 'pro', // Or determine from event data
               subscription_expires_at: event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null,
-              // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
-              welcome_bonus_claimed: false,
-              welcome_bonus_expires_at: null,
-              updated_at: new Date().toISOString(),
             })
             .eq('id', profile.id);
         }

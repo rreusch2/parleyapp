@@ -509,24 +509,31 @@ router.get('/status', async (req, res) => {
     const tier = profile.subscription_tier || 'free';
     const status = profile.subscription_status || 'inactive';
     const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
-    
-    const isLifetime = tier === 'pro_lifetime';
     const now = new Date();
-    
+
+    // Consider paid tiers broadly (covers mappings returning just 'pro'/'elite' and variants like 'pro_*')
+    const isPaidTier = tier === 'pro' || tier === 'elite' || tier.startsWith('pro_') || tier.startsWith('elite_');
+    const isLifetime = tier === 'pro_lifetime' || tier === 'elite_lifetime';
+
     let isActive = false;
-    let isPro = false;
+    let isPro = false; // denotes paid access in current API contract
     let daysRemaining: number | null = null;
 
     if (isLifetime) {
       // Lifetime subscriptions never expire
       isActive = status === 'active';
-      isPro = true;
+      isPro = isPaidTier && isActive;
       daysRemaining = null;
-    } else if (tier.startsWith('pro_') && expiresAt) {
-      // Time-based subscriptions
-      isActive = status === 'active' && expiresAt > now;
-      isPro = isActive;
-      daysRemaining = isActive ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+    } else if (isPaidTier) {
+      // For paid, time-based subscriptions: if we have an expiration, respect it; otherwise fall back to status flag
+      if (expiresAt) {
+        isActive = status === 'active' && expiresAt > now;
+        daysRemaining = isActive ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      } else {
+        isActive = status === 'active';
+        daysRemaining = null;
+      }
+      isPro = isPaidTier && isActive;
     } else {
       // Free tier or invalid subscription
       isActive = false;
