@@ -196,8 +196,8 @@ router.post('/verify', async (req, res) => {
       // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
       welcome_bonus_claimed: false,
       welcome_bonus_expires_at: null,
-      // CRITICAL FIX: Mark trial as used when user subscribes (for any subscription with trial)
-      trial_used: productId.includes('yearly') || productId.includes('monthly') ? true : undefined,
+      // CRITICAL FIX: Mark trial as used when user subscribes (for monthly subscription with trial)
+      trial_used: productId.includes('monthly') ? true : undefined,
     };
     
     // Handle day pass expiration (24 hours)
