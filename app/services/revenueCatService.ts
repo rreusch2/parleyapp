@@ -43,7 +43,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_weekly: 'com.parleyapp.pro_weekly:weekly-pro2025',
     pro_monthly: 'com.parleyapp.pro_monthly:monthly-pro2025',
     pro_yearly: 'com.parleyapp.pro_yearly:yearly-pro2025',
-    pro_daypass: 'com.parleyapp.pro_daypass',
+    pro_daypass: 'com.parleyapp.prodaypass',
     pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect base IDs)
     elite_weekly: 'com.parleyapp.allstarweekly:weekly-elite2025',

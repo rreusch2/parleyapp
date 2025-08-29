@@ -22,6 +22,7 @@ import webhooksRouter from './routes/webhooks';
 import playerRouter from './api/routes/players'; // Fixed: use players.ts not player.ts
 import teamsRouter from './api/routes/teams';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
+import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 
 const app = express();
 

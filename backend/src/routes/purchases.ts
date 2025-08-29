@@ -201,12 +201,13 @@ router.post('/verify', async (req, res) => {
     };
     
     // Handle day pass expiration (24 hours)
-    if (productId.includes('daypass')) {
+    if (productId.includes('daypass') || productId === 'com.parleyapp.prodaypass') {
       const dayPassExpiration = new Date();
       dayPassExpiration.setHours(dayPassExpiration.getHours() + 24);
       updateData.subscription_expires_at = dayPassExpiration.toISOString();
       updateData.subscription_plan_type = 'daypass';
-      console.log(`📅 Day pass expires at: ${dayPassExpiration.toISOString()}`);
+      updateData.subscription_product_id = productId;
+      console.log(`📅 Day pass (${productId}) expires at: ${dayPassExpiration.toISOString()}`);
     }
     // Only set expiration for non-lifetime subscriptions  
     else if (subscriptionTier !== 'pro_lifetime') {
@@ -385,6 +386,7 @@ function getSubscriptionTier(productId: string): string {
     'com.parleyapp.pro_monthly': 'pro',
     'com.parleyapp.pro_yearly': 'pro',
     'com.parleyapp.pro_daypass': 'pro',
+    'com.parleyapp.prodaypass': 'pro', // Correct day pass product ID
     'pro_weekly': 'pro', // Android
     'pro_monthly': 'pro', // Android
     'pro_yearly': 'pro', // Android
