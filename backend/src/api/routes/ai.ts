@@ -11,7 +11,7 @@ import { supabase, supabaseAdmin } from '../../services/supabase/client';
 const getSportsInSeason = (): string[] => {
   const now = new Date();
   const month = now.getMonth() + 1; // 1-12
-  const seasonsInProgress = [];
+  const seasonsInProgress: string[] = [];
   
   // MLB (April to October)
   if (month >= 4 && month <= 10) {
@@ -269,7 +269,7 @@ router.post('/generate-picks', async (req, res) => {
     
     logger.info(`🎯 Processing ${gamesToProcess.length} games: ${gamesToProcess.map(g => g.teams.away + ' vs ' + g.teams.home).join(', ')}`);
     
-    const orchestratedPicks = [];
+    const orchestratedPicks: any[] = [];
     
     // Use the Gemini orchestrator for each game
     for (const game of gamesToProcess) {
@@ -427,7 +427,7 @@ router.post('/generate-picks', async (req, res) => {
     
     // 🔥 NEW: Save predictions to database for persistence
     logger.info(`💾 Saving ${orchestratedPicks.length} predictions to database...`);
-    const savedPredictions = [];
+    const savedPredictions: any[] = [];
     
     for (const pick of orchestratedPicks) {
       try {
@@ -482,7 +482,7 @@ router.post('/generate-picks', async (req, res) => {
       await dailyInsightsService.deleteInsightsForDate(userId, today);
       
       // Create insights based on the generated picks
-      const insights = [];
+      const insights: any[] = [];
       
       // Multi-tool analysis insight
       const toolsUsed = [...new Set(orchestratedPicks.flatMap(p => p.orchestrator_data?.tools_used || []))];
@@ -710,7 +710,7 @@ router.get('/picks', async (req, res) => {
     let actualPickLimit = 2; // Default free tier
     let isNewUser = false;
     let welcomeBonusActive = false;
-    let bonusType = null;
+    let bonusType: string | null = null;
 
     if (profile) {
       const now = new Date();
@@ -802,7 +802,7 @@ router.get('/picks', async (req, res) => {
     const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true };
     
     if (userSportPrefs && Object.keys(userSportPrefs).length > 0) {
-      const preferredSports = [];
+      const preferredSports: string[] = [];
       if (userSportPrefs.mlb) preferredSports.push('MLB');
       if (userSportPrefs.wnba) preferredSports.push('WNBA'); 
       if (userSportPrefs.ufc) preferredSports.push('UFC');
@@ -829,27 +829,38 @@ router.get('/picks', async (req, res) => {
     // Apply tier-based limiting after sport filtering
     const limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
 
-    // Transform database format to frontend format
-    const formattedPredictions = limitedPredictions.map(prediction => ({
-      id: prediction.id,
-      match: prediction.match_teams,
-      pick: prediction.pick,
-      odds: prediction.odds,
-      confidence: prediction.confidence,
-      sport: prediction.sport,
-      eventTime: new Date(prediction.event_time).toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone: 'America/New_York',
-        timeZoneName: 'short'
-      }),
-      reasoning: prediction.reasoning,
-      value: prediction.value_percentage,
-      roi_estimate: prediction.roi_estimate,
-      status: prediction.status,
-      created_at: prediction.created_at,
-      orchestrator_data: prediction.metadata?.orchestrator_data
-    }));
+    // Transform database format to frontend format with robust error handling
+    const formattedPredictions = limitedPredictions.map(prediction => {
+      let eventTime = 'TBD';
+      try {
+        if (prediction.event_time) {
+          eventTime = new Date(prediction.event_time).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'America/New_York',
+            timeZoneName: 'short'
+          });
+        }
+      } catch (e) {
+        logger.warn(`Failed to format event_time for prediction ${prediction.id}: ${e}`);
+      }
+
+      return {
+        id: prediction.id || '',
+        match: prediction.match_teams || 'TBD vs TBD',
+        pick: prediction.pick || 'TBD',
+        odds: prediction.odds || 'EVEN',
+        confidence: prediction.confidence || 50,
+        sport: prediction.sport || 'MLB',
+        eventTime,
+        reasoning: prediction.reasoning || 'AI-generated prediction',
+        value: prediction.value_percentage || '0.00',
+        roi_estimate: prediction.roi_estimate || '0.00',
+        status: prediction.status || 'pending',
+        created_at: prediction.created_at || new Date().toISOString(),
+        orchestrator_data: (prediction.metadata && typeof prediction.metadata === 'object') ? prediction.metadata.orchestrator_data : null
+      };
+    });
 
     return res.json({
       success: true,

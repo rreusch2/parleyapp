@@ -307,6 +307,10 @@ router.put('/users/subscription', async (req: Request, res: Response) => {
       .from('profiles')
       .update({
         subscription_tier: subscriptionTier,
+        subscription_status: 'active',
+        // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
+        welcome_bonus_claimed: false,
+        welcome_bonus_expires_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);

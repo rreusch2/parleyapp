@@ -31,6 +31,9 @@ const handleSubscriptionRenewal = async (userId: string, productId: string, expi
       subscription_plan_type: planType,
       subscription_product_id: productId,
       subscription_renewed_at: new Date().toISOString(),
+      // CRITICAL FIX: Clear welcome bonus when user upgrades to paid subscription
+      welcome_bonus_claimed: false,
+      welcome_bonus_expires_at: null,
       updated_at: new Date().toISOString()
     })
     .eq('id', userId);
