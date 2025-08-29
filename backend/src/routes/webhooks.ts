@@ -234,7 +234,7 @@ async function processAppleNotification(signedPayload: string) {
       .from('webhook_events')
       .update({
         processed: false,
-        error_message: error instanceof Error ? error.message : String(error),
+        error_message: error.message,
         retry_count: 1 // Simple increment instead of raw SQL
       })
       .eq('notification_data->signedPayload', signedPayload);
@@ -252,10 +252,7 @@ const handleSubscriptionRenewal = async (userId: string, productId: string, expi
     .update({
       subscription_status: 'active',
       subscription_expires_at: newExpiryDate.toISOString(),
-      updated_at: new Date().toISOString(),
-      // Clear welcome bonus when subscription becomes active
-      welcome_bonus_claimed: false,
-      welcome_bonus_expires_at: null
+      updated_at: new Date().toISOString()
     })
     .eq('id', userId);
     
@@ -409,20 +406,12 @@ async function processGoogleNotification(notificationData: any) {
         .eq('purchase_token', purchaseToken);
       
       // Update user profile subscription status
-      const updateData: any = {
-        subscription_status: newStatus,
-        updated_at: new Date().toISOString()
-      };
-      
-      // Clear welcome bonus when subscription becomes active
-      if (newStatus === 'active') {
-        updateData.welcome_bonus_claimed = false;
-        updateData.welcome_bonus_expires_at = null;
-      }
-      
       await supabaseAdmin
         .from('profiles')
-        .update(updateData)
+        .update({
+          subscription_status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', purchase.user_id);
         
       console.log(`✅ Updated subscription ${subscriptionId} to ${newStatus}`);

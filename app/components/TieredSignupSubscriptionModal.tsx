@@ -39,7 +39,6 @@ import {
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
 import Colors from '../constants/Colors';
-import { supabase } from '../services/api/supabaseClient';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -61,8 +60,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
+  const { subscribeToPro, restorePurchases } = useSubscription();
 
   // Function to calculate original price (double current price for 50% off promo)
   const getOriginalPrice = (currentPrice: string): string => {
@@ -71,28 +69,10 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     return `$${originalPrice.toFixed(2)}`;
   };
 
-  // Fetch user profile to check trial usage
-  const fetchUserProfile = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('trial_used, subscription_tier')
-          .eq('id', user.id)
-          .single();
-        setUserProfile(profile);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
-  // Initialize IAP service and fetch user profile when modal becomes visible
+  // Initialize IAP service when modal becomes visible
   useEffect(() => {
     if (visible) {
       initializeIAP();
-      fetchUserProfile();
       setIsInitialized(false);
       setTimeout(() => setIsInitialized(true), 100);
     }
@@ -336,9 +316,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
           let savings = '';
           let isTrialEligible = false;
           
-          // Check if user has already used their trial
-          const hasUsedTrial = userProfile?.trial_used || false;
-          
           if (plan.includes('weekly')) {
             planName = 'Weekly';
             price = `$${pricing.weekly}`;
@@ -348,12 +325,12 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             price = `$${pricing.monthly}`;
             period = 'per month';
             savings = 'Save 17%';
-            isTrialEligible = !hasUsedTrial;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
             price = `$${pricing.yearly}`;
             period = 'per year';
             savings = 'Save 50%';
+            isTrialEligible = true;
           } else if (plan.includes('daypass')) {
             planName = 'Day Pass';
             price = '$4.99';
@@ -528,9 +505,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
-                    {!(userProfile?.trial_used) && <Text style={styles.trialInfoText}>3-day free trial included</Text>}
+                    <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
+                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
+                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -551,9 +528,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   </View>
                   
                   <View style={styles.subscriptionOption}>
-                    <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$39.99 per month, auto-renewable</Text>
-                    {!(userProfile?.trial_used) && <Text style={styles.trialInfoText}>3-day free trial included</Text>}
+                    <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
+                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                 </>
               )}
