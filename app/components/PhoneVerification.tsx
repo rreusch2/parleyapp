@@ -489,19 +489,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: normalize(24),
+    width: '100%',
   },
   backButton: {
     padding: normalize(8),
     borderRadius: normalize(12),
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: normalize(40),
+    height: normalize(40),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   closeButton: {
     padding: normalize(8),
     borderRadius: normalize(12),
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: normalize(40),
+    height: normalize(40),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   placeholder: {
-    width: normalize(34), // Same width as close button for centering
+    width: normalize(40), // Same width as close button for centering
   },
   
   // Hero Section
@@ -520,11 +529,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTitle: {
-    fontSize: normalize(24),
+    fontSize: normalize(20),
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: normalize(8),
+    flex: 1,
+    paddingHorizontal: normalize(8),
   },
   heroSubtitle: {
     fontSize: normalize(16),
