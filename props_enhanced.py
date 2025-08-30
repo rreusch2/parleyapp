@@ -199,9 +199,9 @@ class DatabaseClient:
             
             logger.info(f"Fetching games from UTC range ({start_iso}) to ({end_iso}) and filtering for local date {target_date}")
             
-            # Fetch games from MLB and WNBA only - as per requirements (only these have player props)
+            # Fetch games from all sports with player props support
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "National Football League"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "National Football League", "College Football"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -395,6 +395,8 @@ class IntelligentPlayerPropsAgent:
         # Add session for StatMuse context scraping
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
+        # WNBA-only mode flag
+        self.wnba_only_mode = False
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         return self.db.get_upcoming_games()  # Get today's games
@@ -407,54 +409,77 @@ class IntelligentPlayerPropsAgent:
         game_ids = [game["id"] for game in games]
         return self.db.get_player_props_for_games(game_ids)
         
-    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 40) -> Dict[str, int]:
-        """Generate abundant player props across all available sports for frontend filtering"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "NFL": 0}
+    def _distribute_props_by_sport(self, games: List[Dict], target_picks: int = 25) -> Dict[str, int]:
+        """Generate abundant props across all available sports for frontend filtering"""
+        sport_counts = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
-            sport = game.get("sport", "")
+            sport = game.get("sport", "MLB")
             if sport == "Major League Baseball":
                 sport_counts["MLB"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "National Football League":
                 sport_counts["NFL"] += 1
+            elif sport == "College Football":
+                sport_counts["CFB"] += 1
         
         logger.info(f"Available games by sport for props: {sport_counts}")
         
-        # PRIORITIZE NFL DURING SEASON, THEN MLB, THEN WNBA
+        # WNBA-ONLY MODE: Override all logic
+        if self.wnba_only_mode:
+            wnba_games = sport_counts.get("WNBA", 0)
+            if wnba_games > 0:
+                logger.info(f"🏀 WNBA-only mode: targeting {target_picks} WNBA picks from {wnba_games} games")
+                return {"WNBA": target_picks, "MLB": 0, "NFL": 0, "CFB": 0}
+            else:
+                logger.warning("🏀 WNBA-only mode requested but no WNBA games found!")
+                return {"WNBA": 0, "MLB": 0, "NFL": 0, "CFB": 0}
+        
+        # PRIORITIZE FOOTBALL (NFL/CFB) DURING SEASON, THEN MLB, THEN WNBA
         distribution = {}
         
         mlb_games = sport_counts.get("MLB", 0)
         wnba_games = sport_counts.get("WNBA", 0)
         nfl_games = sport_counts.get("NFL", 0)
+        cfb_games = sport_counts.get("CFB", 0)
         
-        total_sports_with_games = sum(1 for count in [mlb_games, wnba_games, nfl_games] if count > 0)
+        total_football_games = nfl_games + cfb_games
+        total_sports_with_games = sum(1 for count in [mlb_games, wnba_games, total_football_games] if count > 0)
         
-        if nfl_games > 0 and mlb_games > 0 and wnba_games > 0:
-            # All three sports available - NFL priority (50%), MLB (30%), WNBA (20%)
-            distribution["NFL"] = min(20, max(12, int(target_picks * 0.50)))   # 50% NFL
-            distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))    # 30% MLB
-            distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))   # 20% WNBA
-        elif nfl_games > 0 and mlb_games > 0:
-            # NFL + MLB available - NFL priority (60%), MLB (40%)
-            distribution["NFL"] = min(25, max(15, int(target_picks * 0.60)))   # 60% NFL
-            distribution["MLB"] = min(20, max(10, int(target_picks * 0.40)))   # 40% MLB
+        # Football season priority (NFL + CFB combined get highest priority)
+        if total_football_games > 0 and mlb_games > 0 and wnba_games > 0:
+            # All sports available - Football priority (60%), MLB (25%), WNBA (15%)
+            football_allocation = int(target_picks * 0.60)
+            distribution["NFL"] = min(15, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+            distribution["CFB"] = min(15, max(0, football_allocation - distribution["NFL"]))
+            distribution["MLB"] = min(12, max(5, int(target_picks * 0.25)))
+            distribution["WNBA"] = min(8, max(3, int(target_picks * 0.15)))
+        elif total_football_games > 0 and mlb_games > 0:
+            # Football + MLB - Football priority (70%), MLB (30%)
+            football_allocation = int(target_picks * 0.70)
+            distribution["NFL"] = min(20, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+            distribution["CFB"] = min(20, max(0, football_allocation - distribution["NFL"]))
+            distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))
             distribution["WNBA"] = 0
-        elif nfl_games > 0 and wnba_games > 0:
-            # NFL + WNBA available - NFL priority (70%), WNBA (30%)
-            distribution["NFL"] = min(25, max(15, int(target_picks * 0.70)))   # 70% NFL
-            distribution["WNBA"] = min(15, max(8, int(target_picks * 0.30)))   # 30% WNBA
+        elif total_football_games > 0 and wnba_games > 0:
+            # Football + WNBA - Football priority (80%), WNBA (20%)
+            football_allocation = int(target_picks * 0.80)
+            distribution["NFL"] = min(22, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+            distribution["CFB"] = min(22, max(0, football_allocation - distribution["NFL"]))
+            distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))
             distribution["MLB"] = 0
         elif mlb_games > 0 and wnba_games > 0:
-            # MLB + WNBA available (no NFL) - heavily favor MLB (80%), cap WNBA
-            distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))   # 80% MLB
-            distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))    # 20% WNBA (cap at 8)
+            # MLB + WNBA (no football) - heavily favor MLB (80%), cap WNBA
+            distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))
+            distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))
             distribution["NFL"] = 0
-        elif nfl_games > 0:
-            # Only NFL available
-            distribution["NFL"] = min(30, max(20, target_picks))
+            distribution["CFB"] = 0
+        elif total_football_games > 0:
+            # Only football available - split between NFL/CFB based on games available
+            distribution["NFL"] = min(25, max(0, int(target_picks * (nfl_games / max(total_football_games, 1)))))
+            distribution["CFB"] = min(25, max(0, target_picks - distribution["NFL"]))
             distribution["MLB"] = 0
             distribution["WNBA"] = 0
         elif mlb_games > 0:
@@ -462,15 +487,18 @@ class IntelligentPlayerPropsAgent:
             distribution["MLB"] = min(30, max(20, target_picks))
             distribution["WNBA"] = 0
             distribution["NFL"] = 0
+            distribution["CFB"] = 0
         elif wnba_games > 0:
             # Only WNBA available
             distribution["WNBA"] = min(20, max(15, target_picks))
             distribution["MLB"] = 0
             distribution["NFL"] = 0
+            distribution["CFB"] = 0
         else:
             distribution["MLB"] = 0
             distribution["WNBA"] = 0
             distribution["NFL"] = 0
+            distribution["CFB"] = 0
         
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
@@ -589,23 +617,35 @@ class IntelligentPlayerPropsAgent:
         if unknown_props:
             logger.info(f"  Unknown teams: {list(set(p.team for p in unknown_props[:5]))}")
         
-        # PRIORITIZE MLB - we want more MLB picks than WNBA picks
-        if len(mlb_props) > 0 and len(wnba_props) > 0:
-            # Both sports available - heavily favor MLB research (75% MLB, 25% WNBA)  
-            target_mlb_queries = min(18, max(10, int(len(mlb_props) * 0.8)))
-            target_wnba_queries = min(8, max(3, int(len(wnba_props) * 0.6)))
-        elif len(mlb_props) > 0:
-            # Only MLB available
-            target_mlb_queries = min(20, max(12, len(mlb_props)))
-            target_wnba_queries = 0
-        elif len(wnba_props) > 0:
-            # Only WNBA available  
-            target_mlb_queries = 0
-            target_wnba_queries = min(15, max(8, len(wnba_props)))
+        # WNBA-ONLY MODE: Override all research allocation
+        if self.wnba_only_mode:
+            if len(wnba_props) > 0:
+                # WNBA-only mode: max research focus on WNBA
+                target_mlb_queries = 0
+                target_wnba_queries = min(20, max(15, len(wnba_props)))
+                logger.info(f"🏀 WNBA-only mode: focusing ALL research on {len(wnba_props)} WNBA props")
+            else:
+                logger.warning("🏀 WNBA-only mode but no WNBA props found!")
+                target_mlb_queries = 0
+                target_wnba_queries = 0
         else:
-            # No props available
-            target_mlb_queries = 0
-            target_wnba_queries = 0
+            # NORMAL MODE: PRIORITIZE MLB - we want more MLB picks than WNBA picks
+            if len(mlb_props) > 0 and len(wnba_props) > 0:
+                # Both sports available - heavily favor MLB research (75% MLB, 25% WNBA)  
+                target_mlb_queries = min(18, max(10, int(len(mlb_props) * 0.8)))
+                target_wnba_queries = min(8, max(3, int(len(wnba_props) * 0.6)))
+            elif len(mlb_props) > 0:
+                # Only MLB available
+                target_mlb_queries = min(20, max(12, len(mlb_props)))
+                target_wnba_queries = 0
+            elif len(wnba_props) > 0:
+                # Only WNBA available  
+                target_mlb_queries = 0
+                target_wnba_queries = min(15, max(8, len(wnba_props)))
+            else:
+                # No props available
+                target_mlb_queries = 0
+                target_wnba_queries = 0
         
         logger.info(f"🎯 Dynamic research allocation: MLB={target_mlb_queries}, WNBA={target_wnba_queries}, Total={target_mlb_queries + target_wnba_queries}")
         
@@ -1886,6 +1926,8 @@ def parse_arguments():
                       help='Specific date to generate picks for (YYYY-MM-DD)')
     parser.add_argument('--picks', type=int, default=40,
                       help='Target number of total props to generate (default: 40)')
+    parser.add_argument('--wnba', action='store_true',
+                      help='Generate 5 best WNBA picks only (overrides --picks)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1908,20 +1950,27 @@ async def main():
     else:
         target_date = datetime.now().date()
     
-    logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
+    if args.wnba:
+        logger.info(f"🏀 Starting WNBA-Only Player Props Agent for {target_date}")
+        target_picks = 5
+    else:
+        logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
+        target_picks = args.picks
     
     agent = IntelligentPlayerPropsAgent()
     
+    # Set WNBA-only mode if flag is provided
+    agent.wnba_only_mode = args.wnba
+    
     # Calculate dynamic target picks based on available games and sport distribution
-    # This ensures we generate enough props for frontend filtering
-    games = agent.db.get_upcoming_games(target_date)
-    if games:
-        sport_distribution = agent._distribute_props_by_sport(games, args.picks)
-        dynamic_target = sum(sport_distribution.values())
-        logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
-        target_picks = max(args.picks, dynamic_target)  # Use the higher of default or calculated
-    else:
-        target_picks = args.picks
+    if not args.wnba:
+        # Normal multi-sport mode
+        games = agent.db.get_upcoming_games(target_date)
+        if games:
+            sport_distribution = agent._distribute_props_by_sport(games, target_picks)
+            dynamic_target = sum(sport_distribution.values())
+            logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
+            target_picks = max(target_picks, dynamic_target)  # Use the higher of default or calculated
     
     picks = await agent.generate_daily_picks(
         target_picks=target_picks,

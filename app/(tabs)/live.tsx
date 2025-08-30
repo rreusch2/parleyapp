@@ -151,6 +151,8 @@ export default function GamesScreen() {
       if (selectedSport !== 'all') {
         if (selectedSport === 'UFC') {
           leagueFilter = 'MMA'; // UFC fights are stored as MMA in backend
+        } else if (selectedSport === 'CFB') {
+          leagueFilter = 'NCAAF'; // College Football is stored as NCAAF in backend
         } else {
           leagueFilter = selectedSport.toUpperCase();
         }
@@ -464,9 +466,6 @@ export default function GamesScreen() {
       } else if (selectedSport === 'MMA') {
         // MMA tab should show MMA games
         filtered = filtered.filter(game => game.league.toLowerCase() === 'mma');
-      } else if (selectedSport === 'CFB') {
-        // CFB tab should show NCAAF games (since College Football is stored as NCAAF)
-        filtered = filtered.filter(game => game.league.toLowerCase() === 'ncaaf');
       } else {
         // All other sports filter normally
         filtered = filtered.filter(game => game.league.toLowerCase() === selectedSport.toLowerCase());

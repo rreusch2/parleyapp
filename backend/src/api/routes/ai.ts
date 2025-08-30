@@ -935,13 +935,18 @@ router.get('/picks', async (req, res) => {
 
     // Apply sport preference filtering
     let filteredPredictions = predictions;
-    const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true };
+    const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true, nfl: true }; // Include NFL by default to show CFB
     
     if (userSportPrefs && Object.keys(userSportPrefs).length > 0) {
       const preferredSports: string[] = [];
       if (userSportPrefs.mlb) preferredSports.push('MLB');
       if (userSportPrefs.wnba) preferredSports.push('WNBA'); 
       if (userSportPrefs.ufc) preferredSports.push('UFC');
+      // Include CFB picks for users who have NFL preferences (backend-only for now)
+      if (userSportPrefs.nfl) {
+        preferredSports.push('NFL');
+        preferredSports.push('CFB'); // Include college football with NFL
+      }
       
       logger.info(`🎯 User preferred sports: ${preferredSports.join(', ')}`);
       

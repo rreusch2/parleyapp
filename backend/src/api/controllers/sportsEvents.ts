@@ -36,6 +36,9 @@ export const getSportsEvents = async (req: Request, res: Response) => {
       } else if (leagueFilter === 'MLB') {
         // Handle MLB games with inconsistent naming
         query = query.in('sport', ['MLB', 'Major League Baseball']);
+      } else if (leagueFilter === 'NFL') {
+        // Include College Football games in NFL tab for now (backend-only change)
+        query = query.in('sport', ['NFL', 'National Football League', 'College Football']);
       } else {
         // Standard filtering for other leagues - try both sport and league fields
         query = query.or(`sport.eq.${leagueFilter},league.eq.${leagueFilter}`);

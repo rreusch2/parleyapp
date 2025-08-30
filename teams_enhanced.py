@@ -187,7 +187,7 @@ class DatabaseClient:
             
             # Fetch games from all supported sports - using correct sport names from database
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League"]
+            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League", "College Football"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -469,7 +469,7 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
         """Generate abundant picks across all available sports for frontend filtering"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0}
+        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
@@ -482,6 +482,8 @@ class IntelligentTeamsAgent:
                 sport_counts["MMA"] += 1
             elif sport == "National Football League":
                 sport_counts["NFL"] += 1
+            elif sport == "College Football":
+                sport_counts["CFB"] += 1
         
         logger.info(f"Available games by sport: {sport_counts}")
         
@@ -1323,6 +1325,10 @@ REMEMBER:
                             display_sport = "MMA"
                         elif game_sport == "Major League Baseball":
                             display_sport = "MLB"
+                        elif game_sport == "College Football":
+                            display_sport = "CFB"
+                        elif game_sport == "National Football League":
+                            display_sport = "NFL"
                         else:
                             display_sport = "MLB"  # Default to MLB for unknown games
                         
