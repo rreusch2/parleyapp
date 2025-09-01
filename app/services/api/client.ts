@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getStorageItem } from '../storage';
+import { supabase } from './supabaseClient';
 
 const API_URL = 'https://zooming-rebirth-production-a305.up.railway.app/api';
 
@@ -12,9 +12,13 @@ const apiClient = axios.create({
 
 // Add auth token to requests
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getStorageItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`;
+    }
+  } catch (error) {
+    console.error('Error getting auth session:', error);
   }
   return config;
 });
