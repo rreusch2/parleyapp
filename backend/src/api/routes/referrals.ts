@@ -12,6 +12,81 @@ const router = Router();
 // Apply authentication middleware to all routes
 router.use(authenticateUser);
 
+// Get user's referral status (points, active claims, etc.)
+router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Get user profile with referral points
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('referral_points, referral_code, subscription_tier, temporary_upgrade_expires_at')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) throw profileError;
+
+    // Get active reward claims
+    const { data: activeClaims, error: claimsError } = await supabaseAdmin
+      .from('user_reward_claims')
+      .select(`
+        id,
+        reward_id,
+        points_spent,
+        claimed_at,
+        expires_at,
+        is_active,
+        original_tier,
+        metadata,
+        referral_rewards:reward_id (
+          reward_name,
+          reward_description,
+          upgrade_tier,
+          duration_hours
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('claimed_at', { ascending: false });
+
+    if (claimsError) throw claimsError;
+
+    // Check for temporary upgrades
+    const now = new Date();
+    const hasTemporaryUpgrade = profile.temporary_upgrade_expires_at && 
+      new Date(profile.temporary_upgrade_expires_at) > now;
+
+    res.json({
+      success: true,
+      referralCode: profile.referral_code || '',
+      points: {
+        available: profile.referral_points || 0,
+        pending: 0, // TODO: Add pending points logic if needed
+        lifetime: profile.referral_points || 0 // TODO: Add lifetime tracking
+      },
+      subscription: {
+        baseTier: hasTemporaryUpgrade ? 'free' : profile.subscription_tier,
+        effectiveTier: profile.subscription_tier,
+        temporaryUpgrade: hasTemporaryUpgrade ? {
+          tier: profile.subscription_tier,
+          expiresAt: profile.temporary_upgrade_expires_at
+        } : undefined
+      },
+      activeClaims: activeClaims || []
+    });
+
+  } catch (error) {
+    console.error('Error getting referral status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get referral status'
+    });
+  }
+});
+
 // Get available rewards catalog
 router.get('/rewards', async (req: AuthenticatedRequest, res: Response) => {
   try {
