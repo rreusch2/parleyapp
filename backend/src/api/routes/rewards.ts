@@ -1,18 +1,20 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { createLogger } from '../../utils/logger';
 import { supabaseAdmin } from '../../services/supabase/client';
 import { authenticateUser } from '../middleware/auth';
+import { AuthenticatedRequest } from '../../types/auth';
 
 const router = express.Router();
 const logger = createLogger('rewardRoutes');
 
 /**
  * @route GET /api/rewards/catalog
- * @desc Get available rewards catalog
- * @access Private
+ * @desc Get available rewards from catalog with optimized pricing
+ * @access Private (authenticated users only)
  */
-router.get('/catalog', authenticateUser, async (req, res) => {
+router.get('/catalog', authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // Get rewards and apply optimal pricing
     const { data: rewards, error } = await supabaseAdmin
       .from('reward_catalog')
       .select('*')
@@ -24,9 +26,27 @@ router.get('/catalog', authenticateUser, async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch rewards' });
     }
 
-    return res.json({ rewards });
+    // Apply optimal pricing override
+    const optimizedRewards = (rewards || []).map(reward => {
+      const optimalPricing: Record<string, number> = {
+        '1 Day Pro Access': 50,
+        '3 Day Pro Access': 125,
+        '1 Day Elite Access': 100,
+        'Weekend Elite Pass': 200
+      };
+
+      return {
+        ...reward,
+        points_cost: optimalPricing[reward.reward_name] || reward.points_cost
+      };
+    });
+
+    return res.json({
+      success: true,
+      rewards: optimizedRewards
+    });
   } catch (error: any) {
-    logger.error('Error in /catalog:', error);
+    logger.error('Rewards catalog error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
