@@ -10,11 +10,13 @@ interface PointsBalance {
 
 interface PointsRedemption {
   id: string;
-  type: 'percent_discount' | 'free_month' | 'tier_upgrade';
-  pointsCost: number;
-  percentValue?: number; // for percent_discount
-  description: string;
-  tierRequired?: 'free' | 'pro' | 'elite';
+  reward_name: string;
+  reward_description: string;
+  points_cost: number;
+  reward_type: string;
+  upgrade_tier?: string;
+  duration_hours?: number;
+  is_active: boolean;
 }
 
 interface PointsTransaction {
@@ -38,46 +40,35 @@ class PointsService {
   }
 
   /**
-   * Get available redemption options
+   * Get available redemption options from Railway backend
    */
-  getRedemptionOptions(): PointsRedemption[] {
-    return [
-      {
-        id: 'percent_25_next_billing',
-        type: 'percent_discount',
-        pointsCost: 1000,
-        percentValue: 25,
-        description: '25% off next subscription (one-time)',
-      },
-      {
-        id: 'percent_50_next_billing',
-        type: 'percent_discount',
-        pointsCost: 2500,
-        percentValue: 50,
-        description: '50% off next subscription (one-time)',
-      },
-      {
-        id: 'free_pro_month',
-        type: 'free_month',
-        pointsCost: 2000,
-        description: '1 month Pro free',
-        tierRequired: 'free',
-      },
-      {
-        id: 'free_elite_month',
-        type: 'free_month',
-        pointsCost: 3000,
-        description: '1 month Elite free',
-        tierRequired: 'free',
-      },
-      {
-        id: 'pro_to_elite_upgrade',
-        type: 'tier_upgrade',
-        pointsCost: 1000,
-        description: 'Upgrade Pro to Elite for 1 month',
-        tierRequired: 'pro',
-      },
-    ];
+  async getRedemptionOptions(): Promise<PointsRedemption[]> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No auth token available');
+        return [];
+      }
+
+      const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${BACKEND_URL}/api/rewards/catalog`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      if (data.success && data.rewards) {
+        return data.rewards;
+      }
+      
+      console.error('Failed to fetch rewards:', data.error);
+      return [];
+    } catch (error) {
+      console.error('Error fetching redemption options:', error);
+      return [];
+    }
   }
 
   /**
@@ -137,51 +128,32 @@ class PointsService {
   }
 
   /**
-   * Redeem points for reward
+   * Redeem points for a reward using Railway backend
    */
   async redeemPoints(userId: string, redemptionId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const redemption = this.getRedemptionOptions().find(r => r.id === redemptionId);
-      if (!redemption) {
-        return { success: false, message: 'Invalid redemption option' };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        return { success: false, message: 'Authentication required' };
       }
 
-      const balance = await this.getPointsBalance(userId);
-      if (balance.availablePoints < redemption.pointsCost) {
-        return { success: false, message: `Insufficient points. Need ${redemption.pointsCost}, have ${balance.availablePoints}` };
+      const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${BACKEND_URL}/api/rewards/claim`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rewardId: redemptionId })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        return { success: true, message: data.message || 'Reward claimed successfully!' };
+      } else {
+        return { success: false, message: data.error || 'Failed to claim reward' };
       }
-
-      // Check tier requirements
-      if (redemption.tierRequired) {
-        const { data: user, error } = await supabase
-          .from('profiles')
-          .select('subscription_tier')
-          .eq('id', userId)
-          .single();
-
-        if (error || user.subscription_tier !== redemption.tierRequired) {
-          return { success: false, message: `This reward requires ${redemption.tierRequired} tier` };
-        }
-      }
-
-      // Deduct points
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          referral_points: balance.availablePoints - redemption.pointsCost,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      // Apply the reward
-      await this.applyReward(userId, redemption);
-
-      // Log the redemption
-      await this.logPointsTransaction(userId, -redemption.pointsCost, 'redeemed', redemption.description);
-
-      return { success: true, message: `Successfully redeemed: ${redemption.description}` };
     } catch (error) {
       console.error('Error redeeming points:', error);
       return { success: false, message: 'Failed to redeem points. Please try again.' };

@@ -55,7 +55,7 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
     try {
       setLoading(true);
       const balance = await pointsService.getPointsBalance(userId);
-      const options = pointsService.getRedemptionOptions();
+      const options = await pointsService.getRedemptionOptions();
       
       setPointsBalance(balance);
       setRedemptions(options);
@@ -73,7 +73,7 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
 
     Alert.alert(
       'Confirm Redemption',
-      `Redeem ${redemption.pointsCost} points for ${redemption.description}?`,
+      `Redeem ${redemption.points_cost} points for ${redemption.reward_description}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -100,30 +100,16 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
     );
   };
 
-  const getRedemptionIcon = (type: string) => {
-    switch (type) {
-      case 'discount':
-        return DollarSign;
-      case 'free_month':
-        return Gift;
-      case 'tier_upgrade':
-        return Crown;
-      default:
-        return Star;
-    }
+  const getRedemptionIcon = (reward: PointsRedemption) => {
+    if (reward.upgrade_tier === 'pro') return Crown;
+    if (reward.upgrade_tier === 'elite') return Star;
+    return Gift;
   };
 
-  const getRedemptionColor = (type: string) => {
-    switch (type) {
-      case 'discount':
-        return '#10B981';
-      case 'free_month':
-        return '#F59E0B';
-      case 'tier_upgrade':
-        return '#8B5CF6';
-      default:
-        return '#3B82F6';
-    }
+  const getRedemptionColor = (reward: PointsRedemption) => {
+    if (reward.upgrade_tier === 'pro') return '#3B82F6';
+    if (reward.upgrade_tier === 'elite') return '#8B5CF6';
+    return '#10B981';
   };
 
   const renderPointsBalance = () => (
@@ -152,9 +138,17 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
   );
 
   const renderRedemptionOption = (redemption: PointsRedemption) => {
-    const Icon = getRedemptionIcon(redemption.type);
-    const color = getRedemptionColor(redemption.type);
-    const canAfford = pointsBalance.availablePoints >= redemption.pointsCost;
+    const Icon = getRedemptionIcon(redemption);
+    const color = getRedemptionColor(redemption);
+    const canAfford = pointsBalance.availablePoints >= redemption.points_cost;
+
+    const formatDuration = (hours: number) => {
+      if (hours === 24) return '1 Day';
+      if (hours === 48) return '2 Days'; 
+      if (hours === 72) return '3 Days';
+      if (hours === 168) return '1 Week';
+      return `${hours}h`;
+    };
 
     return (
       <TouchableOpacity
@@ -169,23 +163,25 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
           </View>
           
           <View style={styles.redemptionDetails}>
-            <Text style={styles.redemptionTitle}>{redemption.description}</Text>
+            <Text style={styles.redemptionTitle}>{redemption.reward_name}</Text>
+            {redemption.duration_hours && (
+              <Text style={styles.redemptionDuration}>
+                {formatDuration(redemption.duration_hours)} Access
+              </Text>
+            )}
             <Text style={styles.redemptionCost}>
-              {redemption.pointsCost.toLocaleString()} points
-            </Text>
-            <Text style={styles.redemptionValue}>
-              ${redemption.dollarValue} value
+              {redemption.points_cost.toLocaleString()} points
             </Text>
           </View>
 
           <View style={styles.redemptionAction}>
             {canAfford ? (
               <View style={[styles.redeemButton, { backgroundColor: color }]}>
-                <Text style={styles.redeemButtonText}>Redeem</Text>
+                <Text style={styles.redeemButtonText}>Claim</Text>
               </View>
             ) : (
               <Text style={styles.insufficientText}>
-                Need {(redemption.pointsCost - pointsBalance.availablePoints).toLocaleString()} more
+                Need {(redemption.points_cost - pointsBalance.availablePoints).toLocaleString()} more
               </Text>
             )}
           </View>
@@ -382,6 +378,11 @@ const styles = StyleSheet.create({
   redemptionValue: {
     fontSize: 12,
     color: '#10B981',
+    marginTop: 2,
+  },
+  redemptionDuration: {
+    fontSize: 12,
+    color: '#94A3B8',
     marginTop: 2,
   },
   redemptionAction: {
