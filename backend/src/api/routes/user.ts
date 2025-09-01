@@ -303,7 +303,7 @@ router.get('/welcome-bonus-status', async (req, res) => {
 
     // Determine pick allowance
     let dailyPickLimit = 2; // Default free tier
-    let bonusType = null;
+    let bonusType: string | null = null;
     
     // CRITICAL FIX: Check subscription tier FIRST, welcome bonus should not override paid subscriptions
     if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite') {
@@ -395,7 +395,7 @@ router.delete('/delete-account', async (req, res) => {
     logger.info(`Starting account deletion process for user: ${userId}`);
     
     // Start a transaction-like process by deleting data in dependency order
-    const deletionSteps = [];
+    const deletionSteps: string[] = [];
     
     try {
       // 1. Delete AI insights

@@ -1,5 +1,6 @@
 import { Router, Response, Request } from 'express';
 import { supabaseAdmin } from '../../services/supabaseClient';
+import { authenticateUser } from '../middleware/auth';
 
 // Define AuthenticatedRequest interface
 interface AuthenticatedRequest extends Request {
@@ -7,6 +8,9 @@ interface AuthenticatedRequest extends Request {
 }
 
 const router = Router();
+
+// Apply authentication middleware to all routes
+router.use(authenticateUser);
 
 // Get available rewards catalog
 router.get('/rewards', async (req: AuthenticatedRequest, res: Response) => {
@@ -131,8 +135,14 @@ router.post('/claim-reward', async (req: AuthenticatedRequest, res: Response) =>
     const expiresAt = reward.duration_hours ? 
       new Date(Date.now() + reward.duration_hours * 60 * 60 * 1000) : null;
 
-    // Handle different reward types
+    // Check if user is already Pro/Elite and restrict accordingly
     if (reward.reward_type === 'temporary_upgrade') {
+      if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite') {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Temporary upgrades can only be used by Free tier users'
+        });
+      }
       await handleTemporaryUpgrade(userId, profile, reward, expiresAt);
     }
 
@@ -145,7 +155,11 @@ router.post('/claim-reward', async (req: AuthenticatedRequest, res: Response) =>
         points_spent: reward.points_cost,
         expires_at: expiresAt,
         original_tier: profile.subscription_tier,
-        metadata: { claimedAt: new Date().toISOString() }
+        metadata: { 
+          claimedAt: new Date().toISOString(),
+          originalTier: profile.subscription_tier,
+          upgradeTier: reward.upgrade_tier
+        }
       })
       .select()
       .single();
@@ -186,29 +200,29 @@ async function handleTemporaryUpgrade(
   const currentTier = profile.subscription_tier || 'free';
   const upgradeTier = reward.upgrade_tier;
   
-  // Store the base tier if not already set
-  const baseTier = profile.base_subscription_tier || currentTier;
+  console.log(`🎯 Applying temporary upgrade: ${currentTier} -> ${upgradeTier} for ${reward.duration_hours}h`);
   
-  // Only apply upgrade if it's actually an upgrade
-  const tierHierarchy = { 'free': 0, 'pro': 1, 'elite': 2 };
-  const currentLevel = tierHierarchy[currentTier] || 0;
-  const upgradeLevel = tierHierarchy[upgradeTier] || 0;
-  
-  if (upgradeLevel > currentLevel) {
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        base_subscription_tier: baseTier,
-        subscription_tier: upgradeTier,
-        temporary_tier_active: true,
-        temporary_tier: upgradeTier,
-        temporary_tier_expires_at: expiresAt?.toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
-    
-    if (error) throw error;
+  // Only free users can get temporary upgrades
+  if (currentTier !== 'free') {
+    throw new Error('Temporary upgrades only available for free users');
   }
+  
+  // Upgrade user to the new tier temporarily
+  const { error } = await supabaseAdmin
+    .from('profiles')
+    .update({
+      subscription_tier: upgradeTier,
+      temporary_upgrade_expires_at: expiresAt?.toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+  
+  if (error) {
+    console.error('❌ Failed to apply temporary upgrade:', error);
+    throw error;
+  }
+  
+  console.log(`✅ Temporary upgrade applied: user ${userId} is now ${upgradeTier} until ${expiresAt?.toISOString()}`);
 }
 
 // Helper function to get effective user tier

@@ -286,8 +286,8 @@ class PointsService {
 
       console.log(`✅ Found referrer: ${referrer.username} (${referrer.id})`);
 
-      // Award 1,500 points to new user (referred signup bonus)
-      const pointsAwarded = await this.awardPoints(newUserId, 1500, 'Referral signup bonus');
+      // Award 50 points to new user (referred signup bonus)
+      const pointsAwarded = await this.awardPoints(newUserId, 50, 'Referral signup bonus');
       if (!pointsAwarded) {
         console.error('❌ Failed to award signup bonus points');
       }
@@ -355,8 +355,8 @@ class PointsService {
           .eq('id', referredUserId)
           .single();
 
-        if (userTier?.subscription_tier === 'elite') refPoints = 2500;
-        else if (userTier?.subscription_tier === 'pro') refPoints = 1500;
+        if (userTier?.subscription_tier === 'elite') refPoints = 200;
+        else if (userTier?.subscription_tier === 'pro') refPoints = 100;
       }
 
       if (refPoints > 0) {
