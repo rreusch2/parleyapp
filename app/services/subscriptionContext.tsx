@@ -281,6 +281,18 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         await checkSubscriptionStatus();
         console.log('✅ DEBUG: Full subscription check completed post-purchase.');
         
+        // CRITICAL: Process referral conversion for successful subscription
+        try {
+          console.log('🎯 Processing referral conversion for user subscription...');
+          const PointsService = (await import('./pointsService')).default;
+          const pointsService = PointsService.getInstance();
+          await pointsService.processReferralConversion(user.id);
+          console.log('✅ Referral conversion processing completed');
+        } catch (referralError) {
+          console.error('❌ Failed to process referral conversion:', referralError);
+          // Don't block the subscription success for referral errors
+        }
+        
         return true;
       } else {
         console.error('❌ DEBUG: Purchase failed:', result.error);

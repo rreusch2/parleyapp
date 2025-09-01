@@ -270,23 +270,32 @@ class PointsService {
    */
   async processReferralSignup(newUserId: string, referralCode: string): Promise<boolean> {
     try {
+      console.log(`🎯 Processing referral signup for user ${newUserId} with code ${referralCode}`);
+      
       // Find referrer
       const { data: referrer, error: referrerError } = await supabase
         .from('profiles')
-        .select('id, referral_code')
+        .select('id, referral_code, username')
         .eq('referral_code', referralCode)
         .single();
 
       if (referrerError || !referrer) {
-        console.log('Invalid referral code:', referralCode);
+        console.log('❌ Invalid referral code:', referralCode, referrerError);
         return false;
       }
 
-      // Award 1,500 points to new user (referred signup bonus)
-      await this.awardPoints(newUserId, 1500, 'Referral signup bonus');
+      console.log(`✅ Found referrer: ${referrer.username} (${referrer.id})`);
 
+      // Award 1,500 points to new user (referred signup bonus)
+      const pointsAwarded = await this.awardPoints(newUserId, 1500, 'Referral signup bonus');
+      if (!pointsAwarded) {
+        console.error('❌ Failed to award signup bonus points');
+      }
+
+      console.log('🎯 Creating referral tracking record...');
+      
       // Create referral tracking record
-      await supabase
+      const { data: referralRecord, error: referralError } = await supabase
         .from('referrals')
         .insert({
           referrer_id: referrer.id,
@@ -295,13 +304,22 @@ class PointsService {
           status: 'pending',
           reward_type: 'points',
           reward_value: 0, // Will be determined on conversion based on plan
-          created_at: new Date().toISOString()
-        });
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
+      if (referralError) {
+        console.error('❌ Failed to create referral record:', referralError);
+        return false;
+      }
+
+      console.log('✅ Referral record created:', referralRecord.id);
       console.log('✅ Referral signup processed - 1,500 points awarded to new user');
       return true;
     } catch (error) {
-      console.error('Error processing referral signup:', error);
+      console.error('❌ Error processing referral signup:', error);
       return false;
     }
   }

@@ -40,13 +40,7 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
       .select(`
         referral_code, 
         referral_points, 
-        referral_points_pending,
-        referral_points_lifetime,
-        subscription_tier,
-        base_subscription_tier,
-        temporary_tier_active,
-        temporary_tier,
-        temporary_tier_expires_at
+        subscription_tier
       `)
       .eq('id', userId)
       .single();
@@ -56,15 +50,7 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
     // Get active reward claims
     const { data: activeClaims, error: claimsError } = await supabaseAdmin
       .from('user_reward_claims')
-      .select(`
-        *,
-        reward_catalog (
-          reward_name,
-          reward_description,
-          upgrade_tier,
-          duration_hours
-        )
-      `)
+      .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('expires_at', { ascending: true });
@@ -79,16 +65,13 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
       referralCode: profile.referral_code,
       points: {
         available: profile.referral_points || 0,
-        pending: profile.referral_points_pending || 0,
-        lifetime: profile.referral_points_lifetime || 0
+        pending: 0, // TODO: Add pending points tracking
+        lifetime: 0 // TODO: Add lifetime points tracking
       },
       subscription: {
-        baseTier: profile.base_subscription_tier || 'free',
-        effectiveTier,
-        temporaryUpgrade: profile.temporary_tier_active ? {
-          tier: profile.temporary_tier,
-          expiresAt: profile.temporary_tier_expires_at
-        } : null
+        baseTier: profile.subscription_tier || 'free',
+        effectiveTier: profile.subscription_tier || 'free',
+        temporaryUpgrade: null // TODO: Add temporary upgrade tracking
       },
       activeClaims: activeClaims || []
     });
@@ -269,7 +252,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       .from('user_reward_claims')
       .select(`
         *,
-        reward_catalog (reward_name, points_cost)
+        referral_rewards (reward_name, points_cost)
       `)
       .eq('user_id', userId)
       .order('claimed_at', { ascending: false })
