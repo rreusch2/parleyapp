@@ -1,365 +1,230 @@
-import { Router, Response, Request } from 'express';
-import { supabaseAdmin } from '../../services/supabaseClient';
+import express, { Request, Response } from 'express';
+import { createLogger } from '../../utils/logger';
+import { supabaseAdmin } from '../../services/supabase/client';
 import { authenticateUser } from '../middleware/auth';
+import { v4 as uuidv4 } from 'uuid';
 
-// Define AuthenticatedRequest interface
-interface AuthenticatedRequest extends Request {
-  user?: any; // Using any to avoid type conflicts with Express Request.user
+const router = express.Router();
+const logger = createLogger('referralRoutes');
+
+// Generate unique referral code
+function generateReferralCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-const router = Router();
-
-// Apply authentication middleware to all routes
-router.use(authenticateUser);
-
-// Get user's referral status (points, active claims, etc.)
-router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
+/**
+ * @route GET /api/referrals/me
+ * @desc Get user's referral info
+ * @access Private
+ */
+router.get('/me', authenticateUser, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get user profile with referral points
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('referral_points, referral_code, subscription_tier, temporary_upgrade_expires_at')
+      .select('referral_code, referral_points, referral_points_pending, referral_points_lifetime')
       .eq('id', userId)
       .single();
 
-    if (profileError) throw profileError;
+    if (error) {
+      logger.error('Error fetching referral info:', error);
+      return res.status(500).json({ error: 'Failed to fetch referral info' });
+    }
 
-    // Get active reward claims
-    const { data: activeClaims, error: claimsError } = await supabaseAdmin
-      .from('user_reward_claims')
-      .select(`
-        id,
-        reward_id,
-        points_spent,
-        claimed_at,
-        expires_at,
-        is_active,
-        original_tier,
-        metadata,
-        referral_rewards:reward_id (
-          reward_name,
-          reward_description,
-          upgrade_tier,
-          duration_hours
-        )
-      `)
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('claimed_at', { ascending: false });
-
-    if (claimsError) throw claimsError;
-
-    // Check for temporary upgrades
-    const now = new Date();
-    const hasTemporaryUpgrade = profile.temporary_upgrade_expires_at && 
-      new Date(profile.temporary_upgrade_expires_at) > now;
-
-    res.json({
-      success: true,
-      referralCode: profile.referral_code || '',
-      points: {
-        available: profile.referral_points || 0,
-        pending: 0, // TODO: Add pending points logic if needed
-        lifetime: profile.referral_points || 0 // TODO: Add lifetime tracking
-      },
-      subscription: {
-        baseTier: hasTemporaryUpgrade ? 'free' : profile.subscription_tier,
-        effectiveTier: profile.subscription_tier,
-        temporaryUpgrade: hasTemporaryUpgrade ? {
-          tier: profile.subscription_tier,
-          expiresAt: profile.temporary_upgrade_expires_at
-        } : undefined
-      },
-      activeClaims: activeClaims || []
+    return res.json({
+      referral_code: profile.referral_code,
+      referral_points: profile.referral_points || 0,
+      referral_points_pending: profile.referral_points_pending || 0,
+      referral_points_lifetime: profile.referral_points_lifetime || 0
     });
-
-  } catch (error) {
-    console.error('Error getting referral status:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get referral status'
-    });
+  } catch (error: any) {
+    logger.error('Error in /me:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get available rewards catalog
-router.get('/rewards', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { data: rewards, error: rewardsError } = await supabaseAdmin
-      .from('reward_catalog')
-      .select('*')
-      .eq('is_active', true)
-      .order('points_cost', { ascending: true });
-
-    if (rewardsError) throw rewardsError;
-
-    res.json({ success: true, rewards });
-  } catch (error) {
-    console.error('Error fetching rewards:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch rewards' });
-  }
-});
-
-// Get user's current referral status and points
-router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
+/**
+ * @route POST /api/referrals/generate
+ * @desc Generate new referral code
+ * @access Private
+ */
+router.post('/generate', authenticateUser, async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ success: false, error: 'User not authenticated' });
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Get user's profile with referral data
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select(`
-        referral_code, 
-        referral_points, 
-        subscription_tier
-      `)
-      .eq('id', userId)
-      .single();
+    // Generate unique code
+    let referralCode: string;
+    let isUnique = false;
+    let attempts = 0;
 
-    if (profileError) throw profileError;
-
-    // Get active reward claims
-    const { data: activeClaims, error: claimsError } = await supabaseAdmin
-      .from('user_reward_claims')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('expires_at', { ascending: true });
-
-    if (claimsError) throw claimsError;
-
-    // Calculate effective tier
-    const effectiveTier = getEffectiveUserTier(profile);
-
-    res.json({
-      success: true,
-      referralCode: profile.referral_code,
-      points: {
-        available: profile.referral_points || 0,
-        pending: 0, // TODO: Add pending points tracking
-        lifetime: 0 // TODO: Add lifetime points tracking
-      },
-      subscription: {
-        baseTier: profile.subscription_tier || 'free',
-        effectiveTier: profile.subscription_tier || 'free',
-        temporaryUpgrade: null // TODO: Add temporary upgrade tracking
-      },
-      activeClaims: activeClaims || []
-    });
-  } catch (error) {
-    console.error('Error fetching referral status:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch referral status' });
-  }
-});
-
-// Claim a reward
-router.post('/claim-reward', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const userId = req.user?.id;
-    const { rewardId } = req.body;
-
-    if (!userId) {
-      return res.status(401).json({ success: false, error: 'User not authenticated' });
-    }
-
-    if (!rewardId) {
-      return res.status(400).json({ success: false, error: 'Reward ID is required' });
-    }
-
-    // Get reward details
-    const { data: reward, error: rewardError } = await supabaseAdmin
-      .from('reward_catalog')
-      .select('*')
-      .eq('id', rewardId)
-      .eq('is_active', true)
-      .single();
-
-    if (rewardError) throw rewardError;
-    if (!reward) {
-      return res.status(404).json({ success: false, error: 'Reward not found' });
-    }
-
-    // Get user's current data
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (profileError) throw profileError;
-
-    // Check if user has enough points
-    if (profile.referral_points < reward.points_cost) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Insufficient points',
-        required: reward.points_cost,
-        available: profile.referral_points
-      });
-    }
-
-    // Calculate expiration time
-    const expiresAt = reward.duration_hours ? 
-      new Date(Date.now() + reward.duration_hours * 60 * 60 * 1000) : null;
-
-    // Check if user is already Pro/Elite and restrict accordingly
-    if (reward.reward_type === 'temporary_upgrade') {
-      if (profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite') {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Temporary upgrades can only be used by Free tier users'
-        });
+    while (!isUnique && attempts < 10) {
+      referralCode = generateReferralCode();
+      
+      const { data: existing } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('referral_code', referralCode)
+        .single();
+      
+      if (!existing) {
+        isUnique = true;
       }
-      await handleTemporaryUpgrade(userId, profile, reward, expiresAt);
+      attempts++;
     }
 
-    // Create reward claim record
-    const { data: claim, error: claimError } = await supabaseAdmin
-      .from('user_reward_claims')
-      .insert({
-        user_id: userId,
-        reward_id: rewardId,
-        points_spent: reward.points_cost,
-        expires_at: expiresAt,
-        original_tier: profile.subscription_tier,
-        metadata: { 
-          claimedAt: new Date().toISOString(),
-          originalTier: profile.subscription_tier,
-          upgradeTier: reward.upgrade_tier
-        }
-      })
-      .select()
-      .single();
+    if (!isUnique) {
+      return res.status(500).json({ error: 'Failed to generate unique code' });
+    }
 
-    if (claimError) throw claimError;
-
-    // Deduct points from user
-    const { error: pointsError } = await supabaseAdmin
+    // Update user profile
+    const { error } = await supabaseAdmin
       .from('profiles')
-      .update({
-        referral_points: profile.referral_points - reward.points_cost,
-        updated_at: new Date().toISOString()
-      })
+      .update({ referral_code: referralCode! })
       .eq('id', userId);
 
-    if (pointsError) throw pointsError;
+    if (error) {
+      logger.error('Error updating referral code:', error);
+      return res.status(500).json({ error: 'Failed to save referral code' });
+    }
 
-    res.json({
-      success: true,
-      message: `Successfully claimed ${reward.reward_name}!`,
-      claim,
-      newPointsBalance: profile.referral_points - reward.points_cost
-    });
-
-  } catch (error) {
-    console.error('Error claiming reward:', error);
-    res.status(500).json({ success: false, error: 'Failed to claim reward' });
+    return res.json({ referral_code: referralCode! });
+  } catch (error: any) {
+    logger.error('Error in /generate:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Helper function to handle temporary tier upgrades
-async function handleTemporaryUpgrade(
-  userId: string, 
-  profile: any, 
-  reward: any, 
-  expiresAt: Date | null
-) {
-  const currentTier = profile.subscription_tier || 'free';
-  const upgradeTier = reward.upgrade_tier;
-  
-  console.log(`🎯 Applying temporary upgrade: ${currentTier} -> ${upgradeTier} for ${reward.duration_hours}h`);
-  
-  // Only free users can get temporary upgrades
-  if (currentTier !== 'free') {
-    throw new Error('Temporary upgrades only available for free users');
-  }
-  
-  // Upgrade user to the new tier temporarily
-  const { error } = await supabaseAdmin
-    .from('profiles')
-    .update({
-      subscription_tier: upgradeTier,
-      temporary_upgrade_expires_at: expiresAt?.toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', userId);
-  
-  if (error) {
-    console.error('❌ Failed to apply temporary upgrade:', error);
-    throw error;
-  }
-  
-  console.log(`✅ Temporary upgrade applied: user ${userId} is now ${upgradeTier} until ${expiresAt?.toISOString()}`);
-}
-
-// Helper function to get effective user tier
-function getEffectiveUserTier(profile: any): string {
-  // If temporary upgrade is active and not expired
-  if (profile.temporary_tier_active && profile.temporary_tier_expires_at) {
-    const expiresAt = new Date(profile.temporary_tier_expires_at);
-    if (expiresAt > new Date()) {
-      return profile.temporary_tier;
-    }
-  }
-  
-  return profile.subscription_tier || 'free';
-}
-
-// Get referral statistics
-router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
+/**
+ * @route POST /api/referrals/claim
+ * @desc Claim referral code on signup
+ * @access Private
+ */
+router.post('/claim', authenticateUser, async (req, res) => {
   try {
     const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    const { code } = req.body;
+
+    if (!userId || !code) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // Find referrer
+    const { data: referrer, error: referrerError } = await supabaseAdmin
       .from('profiles')
-      .select('referral_code')
+      .select('id, referral_points')
+      .eq('referral_code', code.toUpperCase())
+      .single();
+
+    if (referrerError || !referrer) {
+      return res.status(400).json({ error: 'Invalid referral code' });
+    }
+
+    if (referrer.id === userId) {
+      return res.status(400).json({ error: 'Cannot use your own referral code' });
+    }
+
+    // Check if user already used a referral
+    const { data: existingUser } = await supabaseAdmin
+      .from('profiles')
+      .select('referred_by')
       .eq('id', userId)
       .single();
 
-    if (profileError) throw profileError;
+    if (existingUser?.referred_by) {
+      return res.status(400).json({ error: 'Referral code already used' });
+    }
 
-    // Count successful referrals
-    const { count: referralCount } = await supabaseAdmin
+    // Award signup bonus (25 points to referrer)
+    const signupBonus = 25;
+    
+    const { error: updateError } = await supabaseAdmin
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('referred_by', profile.referral_code)
-      .eq('phone_verified', true); // Only count verified users
+      .update({
+        referred_by: referrer.id,
+        referral_points_pending: (referrer.referral_points || 0) + signupBonus,
+        referral_points_lifetime: (referrer.referral_points || 0) + signupBonus
+      })
+      .eq('id', referrer.id);
 
-    // Get recent claims
-    const { data: recentClaims, error: claimsError } = await supabaseAdmin
-      .from('user_reward_claims')
-      .select(`
-        *,
-        referral_rewards (reward_name, points_cost)
-      `)
-      .eq('user_id', userId)
-      .order('claimed_at', { ascending: false })
-      .limit(5);
+    if (updateError) {
+      logger.error('Error updating referrer points:', updateError);
+      return res.status(500).json({ error: 'Failed to process referral' });
+    }
 
-    if (claimsError) throw claimsError;
+    // Update referee
+    await supabaseAdmin
+      .from('profiles')
+      .update({ referred_by: referrer.id })
+      .eq('id', userId);
 
-    res.json({
-      success: true,
-      stats: {
-        totalReferrals: referralCount || 0,
-        recentClaims: recentClaims || []
-      }
+    return res.json({ 
+      success: true, 
+      message: `Referral claimed! ${signupBonus} points pending for referrer.` 
     });
+  } catch (error: any) {
+    logger.error('Error in /claim:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
-  } catch (error) {
-    console.error('Error fetching referral stats:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch referral stats' });
+/**
+ * @route POST /api/referrals/subscription-bonus
+ * @desc Award referral bonus when referred user subscribes
+ * @access Private (called internally)
+ */
+router.post('/subscription-bonus', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    // Get user's referrer
+    const { data: user, error } = await supabaseAdmin
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', userId)
+      .single();
+
+    if (error || !user?.referred_by) {
+      return res.json({ success: true, message: 'No referrer to reward' });
+    }
+
+    // Award subscription bonus (100 points)
+    const subscriptionBonus = 100;
+
+    const { data: referrer } = await supabaseAdmin
+      .from('profiles')
+      .select('referral_points_pending, referral_points, referral_points_lifetime')
+      .eq('id', user.referred_by)
+      .single();
+
+    if (referrer) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          referral_points: (referrer.referral_points || 0) + subscriptionBonus,
+          referral_points_pending: Math.max(0, (referrer.referral_points_pending || 0) - 25), // Convert pending to active
+          referral_points_lifetime: (referrer.referral_points_lifetime || 0) + subscriptionBonus
+        })
+        .eq('id', user.referred_by);
+    }
+
+    return res.json({ 
+      success: true, 
+      message: `${subscriptionBonus} points awarded to referrer` 
+    });
+  } catch (error: any) {
+    logger.error('Error in /subscription-bonus:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

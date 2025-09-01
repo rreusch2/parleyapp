@@ -15,47 +15,58 @@ router.get('/search', async (req, res) => {
     }
 
     let supabaseQuery = supabaseAdmin
-      .from('team_trends_data')
+      .from('teams')
       .select(`
-        team_id,
+        id,
         team_name,
         team_abbreviation,
         city,
         sport_key,
-        games_played,
-        wins,
-        losses,
-        win_percentage,
-        avg_points_for,
-        avg_points_against,
-        avg_margin,
-        trend_indicator
+        logo_url,
+        metadata
       `)
       .or(`team_name.ilike.%${query}%,team_abbreviation.ilike.%${query}%,city.ilike.%${query}%`)
       .order('team_name');
 
     if (sport && sport !== 'all') {
-      supabaseQuery = supabaseQuery.eq('sport_key', sport);
+      // Handle sport filtering - map frontend sport names to database sport_key values
+      let sportKey = sport;
+      if (sport === 'Major League Baseball') sportKey = 'MLB';
+      if (sport === 'National Football League') sportKey = 'NFL';
+      if (sport === 'National Hockey League') sportKey = 'NHL';
+      if (sport === 'National Basketball Association') sportKey = 'NBA';
+      if (sport === "Women's National Basketball Association") sportKey = 'WNBA';
+      
+      supabaseQuery = supabaseQuery.eq('sport_key', sportKey);
     }
 
     const { data, error } = await supabaseQuery.limit(Number(limit));
 
     if (error) throw error;
 
+    // Get recent games count for each team from team_recent_stats
+    const teamIds = data?.map(t => t.id) || [];
+    const { data: recentGamesData } = await supabaseAdmin
+      .from('team_recent_stats')
+      .select('team_id, game_date')
+      .in('team_id', teamIds)
+      .gte('game_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
+      .order('game_date', { ascending: false });
+
+    const gamesCounts = recentGamesData?.reduce((acc, game) => {
+      acc[game.team_id] = (acc[game.team_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>) || {};
+
     const teamsWithStats = data?.map(team => ({
-      id: team.team_id,
+      id: team.id,
       name: team.team_name,
       abbreviation: team.team_abbreviation,
       city: team.city,
       sport: team.sport_key,
-      games_played: team.games_played,
-      wins: team.wins,
-      losses: team.losses,
-      win_percentage: parseFloat(team.win_percentage || '0'),
-      avg_points_for: parseFloat(team.avg_points_for || '0'),
-      avg_points_against: parseFloat(team.avg_points_against || '0'),
-      avg_margin: parseFloat(team.avg_margin || '0'),
-      trend_indicator: team.trend_indicator
+      logo_url: team.logo_url,
+      recent_games_count: gamesCounts[team.id] || 0,
+      last_game_date: recentGamesData?.find(g => g.team_id === team.id)?.game_date || null
     })) || [];
 
     res.json({

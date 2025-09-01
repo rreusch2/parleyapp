@@ -336,21 +336,14 @@ export default function TrendsScreen() {
       >
       <View style={{ flex: 1, padding: 20, paddingTop: 10 }}>
         {/* Header */}
-        <View style={{ marginBottom: 24 }}>
+        <View style={{ marginBottom: 16 }}>
           <Text style={{ 
             fontSize: 28, 
             fontWeight: 'bold', 
             color: '#FFFFFF', 
-            marginBottom: 8 
+            marginBottom: 4 
           }}>
             Trends Analysis
-          </Text>
-          <Text style={{ 
-            fontSize: 16, 
-            color: '#9CA3AF',
-            lineHeight: 22
-          }}>
-            Search players or teams to see their last 10 games performance with detailed analytics
           </Text>
         </View>
 

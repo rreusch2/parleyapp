@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { BestPick } from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
 import { generateBettingRecommendationDeepSeek } from '../../ai/orchestrator/deepseekOrchestrator';
 import enhancedDeepseekOrchestrator from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
@@ -6,7 +6,6 @@ import { createLogger } from '../../utils/logger';
 import sportRadarService from '../../services/sportsData/sportRadarService';
 import { dailyInsightsService, DailyInsight } from '../../services/supabase/dailyInsightsService';
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
-import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../../types/auth';
 import { authenticateUser } from '../middleware/auth';
 

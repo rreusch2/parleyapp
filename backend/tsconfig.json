@@ -29,17 +29,12 @@
       ]
     },
     "typeRoots": [
-      "./node_modules/@types",
-      "./src/types"
+      "./node_modules/@types"
     ]
   },
-  "files": [
-    "src/types/express.d.ts"
-  ],
 
   "include": [
-    "src/**/*",
-    "src/types/**/*.d.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",

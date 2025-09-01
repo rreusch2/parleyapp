@@ -1,19 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import userPreferencesRouter from './api/routes/userPreferences';
-import userRouter from './api/routes/user';
+import userRoutes from './api/routes/user';
 import predictionsRouter from './api/routes/predictions';
 import sportsEventsRouter from './api/routes/sportsEvents';
 import betHistoryRouter from './api/routes/betHistory';
 import sportsDataAdminRouter from './api/routes/sportsDataAdmin';
 import sportsDataRouter from './api/routes/sportsData';
-import aiRouter from './api/routes/ai';
+import aiRoutes from './api/routes/ai';
 import newsRouter from './api/routes/news';
 import trendsRouter from './api/routes/trends';
 import insightsRouter from './api/routes/insights';
 import adminRouter from './api/routes/admin';
-import authRouter from './api/routes/auth';
-import referralsRouter from './api/routes/referrals';
+import authRoutes from './api/routes/auth';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
@@ -22,9 +21,13 @@ import purchasesRouter from './routes/purchases';
 import webhooksRouter from './routes/webhooks';
 import playerRouter from './api/routes/players'; // Fixed: use players.ts not player.ts
 import teamsRouter from './api/routes/teams';
+import referralsRouter from './api/routes/referrals';
+import rewardsRouter from './api/routes/rewards';
+import webhooksRewardsRoutes from './api/routes/webhooks-rewards';
+import coinsRouter from './api/routes/coins';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
-import { tierExpirationService } from './services/tierExpirationService';
+import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 
 const app = express();
 
@@ -106,24 +109,27 @@ const automationLimiter = rateLimit({
 
 // API Routes
 app.use('/api/user-preferences', userPreferencesRouter);
-app.use('/api/user', userRouter);
+app.use('/api/user', userRoutes);
 app.use('/api/predictions', predictionsRouter);
 app.use('/api/sports-events', sportsEventsRouter);
 app.use('/api/bets', betHistoryRouter);
 app.use('/api/sports-data-admin', sportsDataAdminRouter);
 app.use('/api/sports-data', sportsDataRouter);
-app.use('/api/ai', aiRouter);
+app.use('/api/ai', aiRoutes);
 app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/players', playerRouter);
 app.use('/api/teams', teamsRouter);
+app.use('/api/referrals', referralsRouter);
+app.use('/api/rewards', rewardsRouter);
+app.use('/api/coins', coinsRouter);
+app.use('/api/webhooks-rewards', webhooksRewardsRoutes);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
-app.use('/api/auth', authRouter);
-app.use('/api/referrals', referralsRouter);
+app.use('/api/auth', authRoutes);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
@@ -157,10 +163,6 @@ app.get('/api/auth-test', (req, res) => {
 // Initialize sports data scheduler
 // initScheduler(); // Removed - using TheOdds API manually now
 
-// Initialize tier expiration service
-tierExpirationService.startExpirationScheduler();
-console.log('✅ Tier expiration service initialized');
-
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
@@ -169,6 +171,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
+
+// Initialize cron jobs
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
+  initRewardExpiryCron();
+  logger.info('🚀 Cron jobs initialized');
+}
 
 // 404 handler
 app.use('*', (req, res) => {
