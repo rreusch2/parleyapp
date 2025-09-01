@@ -58,7 +58,7 @@ router.get('/status', async (req: AuthenticatedRequest, res: Response) => {
       .from('user_reward_claims')
       .select(`
         *,
-        referral_rewards (
+        reward_catalog (
           reward_name,
           reward_description,
           upgrade_tier,
@@ -269,7 +269,7 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
       .from('user_reward_claims')
       .select(`
         *,
-        referral_rewards (reward_name, points_cost)
+        reward_catalog (reward_name, points_cost)
       `)
       .eq('user_id', userId)
       .order('claimed_at', { ascending: false })
