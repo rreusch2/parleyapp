@@ -470,6 +470,19 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
 
         if (updateError) {
           logger.error('Error updating profile from notification:', updateError);
+        } else if (notification.notificationType === 'SUBSCRIBed') {
+          // Award referral bonus for new subscriptions
+          try {
+            const { awardReferralBonus } = await import('../../jobs/rewardExpiry');
+            const result = await awardReferralBonus(profile.id);
+            if (result.success) {
+              logger.info(`✅ Referral bonus awarded: ${result.message}`);
+            } else {
+              logger.error(`❌ Referral bonus failed: ${result.error}`);
+            }
+          } catch (error) {
+            logger.error('Error processing referral bonus:', error);
+          }
         }
       }
     }
