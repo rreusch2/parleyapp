@@ -175,6 +175,8 @@ router.post('/claim', authenticateUser, async (req, res) => {
       updates.subscription_tier = newTier;
       updates.subscription_expires_at = expiresAt?.toISOString();
       updates.referral_upgrade_expires_at = expiresAt?.toISOString();
+      updates.welcome_bonus_claimed = false;
+      updates.welcome_bonus_expires_at = null;
     }
 
     const { error: updateError } = await supabaseAdmin
