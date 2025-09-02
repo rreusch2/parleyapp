@@ -88,11 +88,21 @@ router.post('/claim', authenticateUser, async (req, res) => {
       return res.status(404).json({ error: 'Reward not found' });
     }
 
-    // Check if user has enough points
-    if ((user.referral_points || 0) < reward.points_cost) {
+    // Apply optimal pricing override (same as catalog API)
+    const optimalPricing: Record<string, number> = {
+      '1 Day Pro Access': 50,
+      '3 Day Pro Access': 125,
+      '1 Day Elite Access': 100,
+      'Weekend Elite Pass': 200
+    };
+
+    const actualPointsCost = optimalPricing[reward.reward_name] || reward.points_cost;
+
+    // Check if user has enough points (using optimal pricing)
+    if ((user.referral_points || 0) < actualPointsCost) {
       return res.status(400).json({ 
         error: 'Insufficient points',
-        required: reward.points_cost,
+        required: actualPointsCost,
         available: user.referral_points || 0
       });
     }
@@ -141,7 +151,7 @@ router.post('/claim', authenticateUser, async (req, res) => {
       .insert({
         user_id: userId,
         reward_id: rewardId,
-        points_spent: reward.points_cost,
+        points_spent: actualPointsCost,
         expires_at: expiresAt?.toISOString(),
         original_tier: originalTier,
         metadata: {
@@ -158,7 +168,7 @@ router.post('/claim', authenticateUser, async (req, res) => {
 
     // Update user points and subscription if temporary upgrade
     const updates: any = {
-      referral_points: (user.referral_points || 0) - reward.points_cost
+      referral_points: (user.referral_points || 0) - actualPointsCost
     };
 
     if (reward.reward_type === 'temporary_upgrade') {
