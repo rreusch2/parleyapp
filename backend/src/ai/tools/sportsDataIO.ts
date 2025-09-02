@@ -722,7 +722,7 @@ class SportsDataIOService {
     probabilities: { home: number; away: number },
     odds: { homeOdds: number; awayOdds: number }
   ): Array<any> {
-    const bets = [];
+    const bets: any[] = [];
     
     // Analyze moneyline value
     const homeValue = ValueBettingAnalyzer.findValueBets(probabilities.home, odds.homeOdds);
@@ -785,7 +785,7 @@ class SportsDataIOService {
    * @param sport - Sport name
    */
   private generateBestBets(gameData: any, betType: string, sport: string): Array<any> {
-    const bestBets = [];
+    const bestBets: any[] = [];
 
     if (betType === 'moneyline') {
       bestBets.push({
@@ -809,7 +809,7 @@ class SportsDataIOService {
    */
   private extractBestBets(data: any, betType: string): Array<any> {
     // This is a simplified extraction. Adjust based on actual API response structure.
-    const bestBets = [];
+    const bestBets: any[] = [];
 
     if (betType === 'moneyline' && data.MoneylineBestBet) {
       bestBets.push({

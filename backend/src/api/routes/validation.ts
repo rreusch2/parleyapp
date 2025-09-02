@@ -207,7 +207,7 @@ router.get('/performance-report', async (req, res) => {
  * Generate insights from validation metrics
  */
 function generateInsights(metrics: any): string[] {
-  const insights = [];
+  const insights: string[] = [];
   
   if (metrics.accuracy > 0.58) {
     insights.push("🎯 Excellent prediction accuracy! The model is performing very well.");

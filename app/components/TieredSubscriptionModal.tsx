@@ -336,12 +336,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             price = `$${pricing.monthly}`;
             period = 'per month';
             savings = 'Save 17%';
+            isTrialEligible = true;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
             price = `$${pricing.yearly}`;
             period = 'per year';
             savings = 'Save 50%';
-            isTrialEligible = true;
           } else if (plan.includes('daypass')) {
             planName = 'Day Pass';
             price = `$${pricing.daypass}`;
@@ -497,12 +497,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
+                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -520,12 +520,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
+                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                 </>
               )}

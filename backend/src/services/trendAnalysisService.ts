@@ -372,7 +372,7 @@ export class TrendAnalysisService {
     
     logger.info(`🔧 Running manual prop streak analysis for ${sport}`);
 
-    // Get players with both stats and betting data
+    // Get players with stats data (betting_results optional)
     const { data: players, error } = await supabase
       .from('player_game_stats')
       .select(`
@@ -385,10 +385,8 @@ export class TrendAnalysisService {
           sport
         )
       `)
-      .eq('players.sport', sport === 'NBA' ? 'NBA' : 'MLB')
+      .eq('players.sport', sport)
       .not('stats', 'is', null)
-      .not('betting_results', 'is', null)
-      .neq('betting_results', '{}')
       .order('stats->game_date', { ascending: true });
 
     if (error || !players) {
@@ -601,7 +599,12 @@ export class TrendAnalysisService {
   /**
    * Get live betting opportunities based on trends
    */
-  async getLiveTrendOpportunities(sport: string = 'NBA'): Promise<any[]> {
+  async getLiveTrendOpportunities(sport: string = 'NBA'): Promise<{
+    game: any;
+    player_trends: TrendData[];
+    team_trends: TeamTrend[];
+    total_trends: number;
+  }[]> {
     try {
       // Get today's games
       const { data: todayGames, error } = await supabase
@@ -614,7 +617,12 @@ export class TrendAnalysisService {
 
       if (error) throw error;
 
-      const opportunities = [];
+      const opportunities: {
+        game: any;
+        player_trends: TrendData[];
+        team_trends: TeamTrend[];
+        total_trends: number;
+      }[] = [];
       
       // Get current trends
       const [playerTrends, teamTrends] = await Promise.all([
@@ -681,7 +689,7 @@ export class TrendAnalysisService {
   private analyzePlayerPropStreaks(games: any[], minStreak: number): any[] {
     // MLB prop types - hits, home_runs, walks, strikeouts, at_bats
     const propTypes = ['hits', 'home_runs', 'walks', 'strikeouts', 'at_bats'];
-    const trends = [];
+    const trends: any[] = [];
 
     for (const propType of propTypes) {
       const streak = this.findCurrentStreak(games, propType);
@@ -703,7 +711,7 @@ export class TrendAnalysisService {
   }
 
   private analyzeTeamStreaks(games: any[], minStreak: number): any[] {
-    const trends = [];
+    const trends: any[] = [];
     
     // Analyze different betting markets
     const spreadStreak = this.findTeamSpreadStreak(games);
@@ -737,7 +745,7 @@ export class TrendAnalysisService {
       new Date(b.stats.game_date).getTime() - new Date(a.stats.game_date).getTime()
     );
 
-    let streak = [];
+    let streak: any[] = [];
     let currentStreakType: 'over' | 'under' | null = null;
 
     for (const game of sortedGames) {

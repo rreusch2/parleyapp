@@ -115,7 +115,7 @@ export class PersonalizedChatbotOrchestrator {
   private async getPersonalizedPredictions(userId: string, userPreferences: UserPreferences): Promise<any[]> {
     try {
       // Get user's preferred sports
-      const preferredSports = [];
+      const preferredSports: string[] = [];
       if (userPreferences.sport_preferences.mlb) preferredSports.push('Major League Baseball', 'MLB');
       if (userPreferences.sport_preferences.wnba) preferredSports.push('Women\'s National Basketball Association', 'WNBA');
       if (userPreferences.sport_preferences.ufc) preferredSports.push('Ultimate Fighting Championship', 'UFC', 'MMA');
@@ -152,7 +152,7 @@ export class PersonalizedChatbotOrchestrator {
   private async getPersonalizedInsights(userPreferences: UserPreferences): Promise<any[]> {
     try {
       // Get user's preferred sports
-      const preferredSports = [];
+      const preferredSports: string[] = [];
       if (userPreferences.sport_preferences.mlb) preferredSports.push('Major League Baseball', 'MLB');
       if (userPreferences.sport_preferences.wnba) preferredSports.push('Women\'s National Basketball Association', 'WNBA');
       if (userPreferences.sport_preferences.ufc) preferredSports.push('Ultimate Fighting Championship', 'UFC', 'MMA');
@@ -187,7 +187,7 @@ export class PersonalizedChatbotOrchestrator {
    * Build personalized system prompt based on user preferences
    */
   private buildPersonalizedSystemPrompt(userPreferences: UserPreferences, predictions: any[], insights: any[]): string {
-    const preferredSports = [];
+    const preferredSports: string[] = [];
     if (userPreferences.sport_preferences.mlb) preferredSports.push('MLB');
     if (userPreferences.sport_preferences.wnba) preferredSports.push('WNBA');
     if (userPreferences.sport_preferences.ufc) preferredSports.push('UFC/MMA');
@@ -288,7 +288,7 @@ Remember: You're their PERSONALIZED betting assistant. Everything should be tail
         pick_distribution: { auto: true }
       });
 
-      const insights = await getPersonalizedInsights(userPreferences || {
+      const insights = await this.getPersonalizedInsights(userPreferences || {
         sport_preferences: { mlb: true, wnba: false, ufc: false },
         betting_style: 'balanced',
         pick_distribution: { auto: true }

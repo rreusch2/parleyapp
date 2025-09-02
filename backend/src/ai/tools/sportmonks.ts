@@ -144,7 +144,7 @@ class SportmonksService {
   async getValueBets(fixtureId: string, threshold: number = 0.1): Promise<Array<{market: string, selection: string, value: number}>> {
     try {
       const markets = await this.getPredictionMarkets(fixtureId);
-      const valueBets = [];
+      const valueBets: { market: string; selection: string; value: number; }[] = [];
       
       for (const market of markets) {
         for (const value of market.values) {
