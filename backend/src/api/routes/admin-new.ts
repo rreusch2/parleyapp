@@ -440,6 +440,8 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
             subscription_status: 'active',
             subscription_tier: 'pro', 
             subscription_expires_at: new Date(decodedTransaction.expiresDate).toISOString(),
+            welcome_bonus_claimed: false,
+            welcome_bonus_expires_at: null,
           };
           break;
         case 'DID_RENEW':
