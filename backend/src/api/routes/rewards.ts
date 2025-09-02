@@ -29,10 +29,10 @@ router.get('/catalog', authenticateUser, async (req: AuthenticatedRequest, res: 
     // Apply optimal pricing override
     const optimizedRewards = (rewards || []).map(reward => {
       const optimalPricing: Record<string, number> = {
-        '1 Day Pro Access': 50,
-        '3 Day Pro Access': 125,
-        '1 Day Elite Access': 100,
-        'Weekend Elite Pass': 200
+        '1 Day Pro Access': 100,
+        '3 Day Pro Access': 250,
+        '1 Day Elite Access': 200,
+        'Weekend Elite Pass': 400
       };
 
       return {
@@ -90,10 +90,10 @@ router.post('/claim', authenticateUser, async (req, res) => {
 
     // Apply optimal pricing override (same as catalog API)
     const optimalPricing: Record<string, number> = {
-      '1 Day Pro Access': 50,
-      '3 Day Pro Access': 125,
-      '1 Day Elite Access': 100,
-      'Weekend Elite Pass': 200
+      '1 Day Pro Access': 100,
+      '3 Day Pro Access': 250,
+      '1 Day Elite Access': 200,
+      'Weekend Elite Pass': 400
     };
 
     const actualPointsCost = optimalPricing[reward.reward_name] || reward.points_cost;

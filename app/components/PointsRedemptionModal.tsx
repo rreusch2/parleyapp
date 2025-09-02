@@ -235,13 +235,13 @@ const PointsRedemptionModal: React.FC<PointsRedemptionModalProps> = ({
                 <View style={styles.earnMoreItem}>
                   <TrendingUp size={16} color="#10B981" />
                   <Text style={styles.earnMoreText}>
-                    Refer friends: 5,000 points when they subscribe
+                    Refer friends: 100 points (Pro) / 200 points (Elite)
                   </Text>
                 </View>
                 <View style={styles.earnMoreItem}>
                   <Gift size={16} color="#F59E0B" />
                   <Text style={styles.earnMoreText}>
-                    New referrals get: 2,500 points instantly
+                    New referrals get: 25 points instantly
                   </Text>
                 </View>
               </View>

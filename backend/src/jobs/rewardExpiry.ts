@@ -74,10 +74,10 @@ export async function awardReferralBonus(userId: string) {
   try {
     logger.info(`💰 Checking referral bonus for user: ${userId}`);
 
-    // Get user's referrer
+    // Get user's referrer and subscription tier
     const { data: user, error } = await supabaseAdmin
       .from('profiles')
-      .select('referred_by')
+      .select('referred_by, subscription_tier')
       .eq('id', userId)
       .single();
 
@@ -86,8 +86,13 @@ export async function awardReferralBonus(userId: string) {
       return { success: true, message: 'No referrer to reward' };
     }
 
-    // Award subscription bonus (100 points)
-    const subscriptionBonus = 100;
+    // Award subscription bonus based on tier
+    let subscriptionBonus = 100; // Default Pro bonus
+    if (user.subscription_tier === 'elite') {
+      subscriptionBonus = 200; // Elite bonus
+    }
+
+    logger.info(`💎 Awarding ${subscriptionBonus} points for ${user.subscription_tier} subscription`);
 
     const { data: referrer } = await supabaseAdmin
       .from('profiles')
