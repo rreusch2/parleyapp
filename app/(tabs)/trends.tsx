@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import PlayerTrendsModal from '../components/PlayerTrendsModal';
 import TeamTrendsModal from '../components/TeamTrendsModal';
+import AIReportModal from '../components/AIReportModal';
 
 interface Player {
   id: string;
@@ -66,6 +67,7 @@ export default function TrendsScreen() {
   const [recentTeamSearches, setRecentTeamSearches] = useState<Team[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [aiReportModalVisible, setAiReportModalVisible] = useState(false);
   const searchRef = useRef<TextInput>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -237,18 +239,25 @@ export default function TrendsScreen() {
       console.log('Backend team API response:', data); // Debug log
       
       if (data.teams) {
-        // Sort results to prioritize prefix matches
+        // Sort results to prioritize prefix matches (with null safety)
         const sortedData = data.teams.sort((a: any, b: any) => {
           const queryLower = query.toLowerCase();
-          const aStartsWith = a.name.toLowerCase().startsWith(queryLower) || a.city.toLowerCase().startsWith(queryLower);
-          const bStartsWith = b.name.toLowerCase().startsWith(queryLower) || b.city.toLowerCase().startsWith(queryLower);
+          
+          // Safe lowercase with null checks
+          const aName = (a.name || '').toLowerCase();
+          const aCity = (a.city || '').toLowerCase();
+          const bName = (b.name || '').toLowerCase();
+          const bCity = (b.city || '').toLowerCase();
+          
+          const aStartsWith = aName.startsWith(queryLower) || aCity.startsWith(queryLower);
+          const bStartsWith = bName.startsWith(queryLower) || bCity.startsWith(queryLower);
           
           // Prioritize exact prefix matches first
           if (aStartsWith && !bStartsWith) return -1;
           if (!aStartsWith && bStartsWith) return 1;
           
-          // Then sort alphabetically within each group
-          return a.name.localeCompare(b.name);
+          // Then sort alphabetically within each group (with null safety)
+          return (a.name || '').localeCompare(b.name || '');
         });
 
         setTeamResults(sortedData);
@@ -336,16 +345,46 @@ export default function TrendsScreen() {
       >
       <View style={{ flex: 1, padding: 20, paddingTop: 10 }}>
         {/* Header */}
-        <View style={{ marginBottom: 16 }}>
-          <Text style={{ 
-            fontSize: 28, 
-            fontWeight: 'bold', 
-            color: '#FFFFFF', 
-            marginBottom: 4 
+        <Text style={{ 
+          fontSize: 28, 
+          fontWeight: 'bold', 
+          color: '#FFFFFF',
+          marginBottom: 16
+        }}>
+          Trends Analysis
+        </Text>
+
+        {/* AI Report Button - Prominent Standalone */}
+        <TouchableOpacity
+          onPress={() => setAiReportModalVisible(true)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            borderWidth: 1,
+            borderColor: '#3B82F6',
+            paddingHorizontal: 20,
+            paddingVertical: 14,
+            borderRadius: 16,
+            marginBottom: 20,
+            shadowColor: '#3B82F6',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 3
+          }}
+        >
+          <Ionicons name="sparkles" size={20} color="#3B82F6" style={{ marginRight: 8 }} />
+          <Text style={{
+            color: '#3B82F6',
+            fontSize: 16,
+            fontWeight: '600'
           }}>
-            Trends Analysis
+            Daily AI Sports Report
           </Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color="#3B82F6" style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
 
         {/* Search Mode Toggle */}
         <View style={{
@@ -1179,6 +1218,12 @@ export default function TrendsScreen() {
         visible={teamModalVisible}
         team={selectedTeam}
         onClose={() => setTeamModalVisible(false)}
+      />
+      
+      {/* AI Report Modal */}
+      <AIReportModal
+        visible={aiReportModalVisible}
+        onClose={() => setAiReportModalVisible(false)}
       />
     </SafeAreaView>
   );

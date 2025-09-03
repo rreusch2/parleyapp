@@ -1193,37 +1193,38 @@ router.post('/daily-insights/generate', async (req, res) => {
   }
 });
 
-/**
- * Get daily insights for a user
- */
-router.get('/daily-insights', async (req, res) => {
+// Get daily AI report (public endpoint - no auth required)
+router.get('/daily-report', async (req, res) => {
   try {
-    const { userId, date } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
+    // Get the most recent report (within last 24 hours or latest available)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: existingReport, error: fetchError } = await supabaseAdmin
+      .from('ai_reports')
+      .select('*')
+      .eq('report_type', 'daily_ai_analysis')
+      .order('generated_at', { ascending: false })
+      .limit(1);
+    
+    if (existingReport && existingReport.length > 0) {
+      return res.json({
+        success: true,
+        report: existingReport[0].content,
+        metadata: existingReport[0].metadata,
+        generated_at: existingReport[0].generated_at,
+        cached: true
+      });
     }
-
-    const targetDate = (date as string) || new Date().toISOString().split('T')[0];
-
-    // Get insights from Supabase
-    const insights = await dailyInsightsService.getDailyInsights(userId as string, targetDate);
-
-    res.json({
-      success: true,
-      insights,
-      metadata: {
-        userId,
-        date: targetDate,
-        count: insights.length,
-        fromDatabase: true
-      }
+    
+    // If no recent report exists, return error for now (reports should be generated via cron)
+    return res.status(404).json({
+      success: false,
+      error: 'No recent AI report available. Please try again later.'
     });
-
   } catch (error: any) {
-    logger.error(`💥 Error fetching daily insights: ${error instanceof Error ? error.message : String(error)}`);
+    console.error('Error fetching AI report:', error);
     res.status(500).json({
-      error: 'Failed to fetch daily insights',
+      error: 'Failed to fetch AI report',
       details: error instanceof Error ? error.message : String(error)
     });
   }

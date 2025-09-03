@@ -450,9 +450,10 @@ Focus on games with the highest betting interest and trend potential."""
     def get_mlb_game_data_fixed(self, mlb_id: int, candidate: TrendCandidate) -> List[GameData]:
         """Get MLB game data using pybaseball with fixed DataFrame handling"""
         try:
-            # Calculate date range (last 30 days to get 10+ games)
-            end_date = datetime.now()
-            start_date = end_date - timedelta(days=30)
+            # Use realistic historical dates from 2024 MLB season
+            # MLB 2024 season ended in October, so use August-October 2024
+            end_date = datetime(2024, 10, 15)  # End of 2024 regular season
+            start_date = datetime(2024, 8, 15)  # 2 months of recent games
             
             logger.info(f"Fetching Statcast data for {candidate.player_name} (ID: {mlb_id}) from {start_date.date()} to {end_date.date()}")
             
