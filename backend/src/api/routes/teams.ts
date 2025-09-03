@@ -3,17 +3,102 @@ import { supabaseAdmin } from '../../services/supabaseClient';
 
 const router = Router();
 
-// Search teams across all sports
+// Helper function to get popular team suggestions
+async function getPopularTeamSuggestions(sport?: string): Promise<string[]> {
+  const suggestions = {
+    'all': ['Yankees', 'Lakers', 'Patriots', 'Cowboys', 'Warriors', 'Chiefs'],
+    'MLB': ['Yankees', 'Dodgers', 'Red Sox', 'Giants', 'Cubs', 'Astros'],
+    'Major League Baseball': ['Yankees', 'Dodgers', 'Red Sox', 'Giants', 'Cubs', 'Astros'],
+    'NFL': ['Patriots', 'Cowboys', 'Packers', 'Steelers', 'Chiefs', '49ers'],
+    'National Football League': ['Patriots', 'Cowboys', 'Packers', 'Steelers', 'Chiefs', '49ers'],
+    'basketball_wnba': ['Aces', 'Storm', 'Sun', 'Liberty', 'Sky', 'Lynx'],
+    "Women's National Basketball Association": ['Aces', 'Storm', 'Sun', 'Liberty', 'Sky', 'Lynx'],
+    'americanfootball_ncaaf': ['Alabama', 'Georgia', 'Ohio State', 'Michigan', 'Texas', 'USC']
+  };
+  
+  return suggestions[sport as keyof typeof suggestions] || suggestions.all;
+}
+
+// Helper function to generate search suggestions based on partial matches
+async function generateSearchSuggestions(searchTerm: string, sport?: string): Promise<string[]> {
+  try {
+    let query = supabaseAdmin
+      .from('teams')
+      .select('team_name, team_abbreviation, city, metadata')
+      .limit(50);
+      
+    if (sport && sport !== 'all') {
+      let sportKey = sport;
+      if (sport === 'Major League Baseball') sportKey = 'MLB';
+      if (sport === 'National Football League') sportKey = 'NFL';
+      if (sport === 'National Hockey League') sportKey = 'NHL';
+      if (sport === 'National Basketball Association') sportKey = 'NBA';
+      if (sport === "Women's National Basketball Association") sportKey = 'basketball_wnba';
+      if (sport === 'Ultimate Fighting Championship') sportKey = 'UFC';
+      
+      query = query.eq('sport_key', sportKey);
+    }
+    
+    const { data: teams } = await query;
+    
+    if (!teams) return [];
+    
+    const suggestions = new Set<string>();
+    const searchLower = searchTerm.toLowerCase();
+    
+    teams.forEach(team => {
+      // Check team name for partial matches
+      const teamName = team.team_name?.toLowerCase() || '';
+      if (teamName.includes(searchLower)) {
+        suggestions.add(team.team_name);
+      }
+      
+      // Check abbreviation for partial matches
+      const abbr = team.team_abbreviation?.toLowerCase() || '';
+      if (abbr.includes(searchLower)) {
+        suggestions.add(team.team_name);
+      }
+      
+      // Check city for partial matches
+      const city = team.city?.toLowerCase() || '';
+      if (city.includes(searchLower)) {
+        suggestions.add(team.team_name);
+      }
+      
+      // Check keywords for partial matches
+      const keywords = team.metadata?.search_keywords || [];
+      keywords.forEach((keyword: string) => {
+        if (keyword.toLowerCase().includes(searchLower)) {
+          suggestions.add(team.team_name);
+        }
+      });
+    });
+    
+    return Array.from(suggestions).slice(0, 6);
+  } catch (error) {
+    console.error('Error generating suggestions:', error);
+    return [];
+  }
+}
+
+// Search teams across all sports with enhanced functionality
 router.get('/search', async (req, res) => {
   try {
     const { query, sport, limit = 20 } = req.query;
 
     if (!query || typeof query !== 'string' || query.length < 2) {
-      return res.status(400).json({ 
-        error: 'Query parameter is required and must be at least 2 characters' 
+      // Provide popular team suggestions when no query
+      const suggestions = await getPopularTeamSuggestions(sport as string);
+      return res.json({
+        teams: [],
+        total: 0,
+        suggestions,
+        message: 'Enter at least 2 characters to search teams'
       });
     }
 
+    const searchTerm = query.toLowerCase().trim();
+    
     let supabaseQuery = supabaseAdmin
       .from('teams')
       .select(`
@@ -35,7 +120,8 @@ router.get('/search', async (req, res) => {
       if (sport === 'National Football League') sportKey = 'NFL';
       if (sport === 'National Hockey League') sportKey = 'NHL';
       if (sport === 'National Basketball Association') sportKey = 'NBA';
-      if (sport === "Women's National Basketball Association") sportKey = 'WNBA';
+      if (sport === "Women's National Basketball Association") sportKey = 'basketball_wnba';
+      if (sport === 'Ultimate Fighting Championship') sportKey = 'UFC';
       
       supabaseQuery = supabaseQuery.eq('sport_key', sportKey);
     }
@@ -43,6 +129,46 @@ router.get('/search', async (req, res) => {
     const { data, error } = await supabaseQuery.limit(Number(limit));
 
     if (error) throw error;
+
+    // Enhanced search with metadata keywords
+    let teams = data || [];
+    
+    // If no direct matches, search in metadata keywords
+    if (teams.length === 0) {
+      const allTeamsQuery = supabaseAdmin
+        .from('teams')
+        .select(`
+          id,
+          team_name,
+          team_abbreviation,
+          city,
+          sport_key,
+          logo_url,
+          metadata
+        `);
+        
+      if (sport && sport !== 'all') {
+        let sportKey = sport;
+        if (sport === 'Major League Baseball') sportKey = 'MLB';
+        if (sport === 'National Football League') sportKey = 'NFL';
+        if (sport === 'National Hockey League') sportKey = 'NHL';
+        if (sport === 'National Basketball Association') sportKey = 'NBA';
+        if (sport === "Women's National Basketball Association") sportKey = 'basketball_wnba';
+        if (sport === 'Ultimate Fighting Championship') sportKey = 'UFC';
+        
+        allTeamsQuery.eq('sport_key', sportKey);
+      }
+      
+      const { data: allTeams } = await allTeamsQuery;
+      
+      // Manual keyword filtering
+      teams = (allTeams || []).filter(team => {
+        const keywords = team.metadata?.search_keywords || [];
+        return keywords.some((keyword: string) => 
+          keyword.toLowerCase().includes(searchTerm)
+        );
+      }).slice(0, Number(limit));
+    }
 
     // Get recent games count for each team from team_recent_stats
     const teamIds = data?.map(t => t.id) || [];
@@ -58,7 +184,7 @@ router.get('/search', async (req, res) => {
       return acc;
     }, {} as Record<string, number>) || {};
 
-    const teamsWithStats = data?.map(team => ({
+    const teamsWithStats = teams?.map(team => ({
       id: team.id,
       name: team.team_name,
       abbreviation: team.team_abbreviation,
@@ -66,12 +192,54 @@ router.get('/search', async (req, res) => {
       sport: team.sport_key,
       logo_url: team.logo_url,
       recent_games_count: gamesCounts[team.id] || 0,
-      last_game_date: recentGamesData?.find(g => g.team_id === team.id)?.game_date || null
+      last_game_date: recentGamesData?.find(g => g.team_id === team.id)?.game_date || null,
+      search_keywords: team.metadata?.search_keywords || []
     })) || [];
+
+    // Sort results by relevance (exact matches first, then partial matches)
+    teamsWithStats.sort((a, b) => {
+      const queryLower = searchTerm;
+      
+      // Exact name matches first
+      const aExactName = a.name.toLowerCase() === queryLower;
+      const bExactName = b.name.toLowerCase() === queryLower;
+      if (aExactName && !bExactName) return -1;
+      if (!aExactName && bExactName) return 1;
+      
+      // Exact abbreviation matches second
+      const aExactAbbr = a.abbreviation?.toLowerCase() === queryLower;
+      const bExactAbbr = b.abbreviation?.toLowerCase() === queryLower;
+      if (aExactAbbr && !bExactAbbr) return -1;
+      if (!aExactAbbr && bExactAbbr) return 1;
+      
+      // Name starts with query third
+      const aStartsName = a.name.toLowerCase().startsWith(queryLower);
+      const bStartsName = b.name.toLowerCase().startsWith(queryLower);
+      if (aStartsName && !bStartsName) return -1;
+      if (!aStartsName && bStartsName) return 1;
+      
+      // City starts with query fourth
+      const aStartsCity = a.city?.toLowerCase().startsWith(queryLower);
+      const bStartsCity = b.city?.toLowerCase().startsWith(queryLower);
+      if (aStartsCity && !bStartsCity) return -1;
+      if (!aStartsCity && bStartsCity) return 1;
+      
+      // Then alphabetical by name
+      return a.name.localeCompare(b.name);
+    });
+
+    // Generate suggestions if no results found
+    let suggestions: string[] = [];
+    if (teamsWithStats.length === 0) {
+      suggestions = await generateSearchSuggestions(searchTerm, sport as string);
+    }
 
     res.json({
       teams: teamsWithStats,
-      total: teamsWithStats.length
+      total: teamsWithStats.length,
+      suggestions,
+      query: searchTerm,
+      sport_filter: sport || 'all'
     });
 
   } catch (error) {
