@@ -48,10 +48,10 @@ import { supabase } from '../services/api/supabaseClient';
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PredictionsScreen() {
-  const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   // Reward ads functionality for extra picks
-  const [extraPicksAvailable, setExtraPicksAvailable] = useState(0);
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [predictions, setPredictions] = useState<AIPrediction[]>([]);
@@ -1174,7 +1174,17 @@ const styles = StyleSheet.create({
   },
   
   // Welcome Bonus Styles
-  // (bonusBadge and bonusText defined above)
+  bonusBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    borderRadius: normalize(12),
+    padding: normalize(4),
+  },
+  bonusText: {
+    fontSize: normalize(12),
+  },
   bonusTimer: {
     marginTop: normalize(12),
     backgroundColor: 'rgba(0, 229, 255, 0.1)',
