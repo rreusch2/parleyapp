@@ -968,10 +968,20 @@ router.get('/picks', async (req, res) => {
 
     // Apply tier-based limiting after sport filtering
     const limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
+    logger.info(`🔢 Limited to ${limitedPredictions.length} predictions for ${profile?.subscription_tier || 'free'} tier (limit: ${actualPickLimit})`);
+
+    // Additional safety check for free users with 2 picks
+    if (actualPickLimit === 2 && limitedPredictions.length === 0) {
+      logger.warn(`⚠️ No predictions available for free user ${userId} with 2-pick limit. Checking total available...`);
+      logger.warn(`Total predictions in DB: ${predictions.length}, After filtering: ${filteredPredictions.length}`);
+    }
 
     // Transform database format to frontend format with robust error handling
-    const formattedPredictions = limitedPredictions.map(prediction => {
+    const formattedPredictions = limitedPredictions.map((prediction, index) => {
       let eventTime = 'TBD';
+      let formattedValue = '0.00';
+      let formattedROI = '0.00';
+      
       try {
         if (prediction.event_time) {
           eventTime = new Date(prediction.event_time).toLocaleTimeString('en-US', {
@@ -983,22 +993,57 @@ router.get('/picks', async (req, res) => {
         }
       } catch (e) {
         logger.warn(`Failed to format event_time for prediction ${prediction.id}: ${e}`);
+        eventTime = 'TBD';
+      }
+
+      // Safely handle value_percentage conversion
+      try {
+        if (prediction.value_percentage !== null && prediction.value_percentage !== undefined) {
+          const valueNum = typeof prediction.value_percentage === 'string' ? 
+            parseFloat(prediction.value_percentage) : prediction.value_percentage;
+          formattedValue = !isNaN(valueNum) ? valueNum.toFixed(2) : '0.00';
+        }
+      } catch (e) {
+        logger.warn(`Failed to format value_percentage for prediction ${prediction.id}: ${e}`);
+        formattedValue = '0.00';
+      }
+
+      // Safely handle roi_estimate conversion  
+      try {
+        if (prediction.roi_estimate !== null && prediction.roi_estimate !== undefined) {
+          const roiNum = typeof prediction.roi_estimate === 'string' ? 
+            parseFloat(prediction.roi_estimate) : prediction.roi_estimate;
+          formattedROI = !isNaN(roiNum) ? roiNum.toFixed(2) : '0.00';
+        }
+      } catch (e) {
+        logger.warn(`Failed to format roi_estimate for prediction ${prediction.id}: ${e}`);
+        formattedROI = '0.00';
+      }
+
+      // Safely handle metadata
+      let orchestratorData = null;
+      try {
+        if (prediction.metadata && typeof prediction.metadata === 'object') {
+          orchestratorData = prediction.metadata.orchestrator_data || null;
+        }
+      } catch (e) {
+        logger.warn(`Failed to process metadata for prediction ${prediction.id}: ${e}`);
       }
 
       return {
-        id: prediction.id || '',
+        id: prediction.id || `prediction_${index}_${Date.now()}`,
         match: prediction.match_teams || 'TBD vs TBD',
         pick: prediction.pick || 'TBD',
         odds: prediction.odds || 'EVEN',
-        confidence: prediction.confidence || 50,
+        confidence: typeof prediction.confidence === 'number' ? prediction.confidence : 50,
         sport: prediction.sport || 'MLB',
         eventTime,
         reasoning: prediction.reasoning || 'AI-generated prediction',
-        value: prediction.value_percentage || '0.00',
-        roi_estimate: prediction.roi_estimate || '0.00',
+        value: formattedValue,
+        roi_estimate: formattedROI,
         status: prediction.status || 'pending',
         created_at: prediction.created_at || new Date().toISOString(),
-        orchestrator_data: (prediction.metadata && typeof prediction.metadata === 'object') ? prediction.metadata.orchestrator_data : null
+        orchestrator_data: orchestratorData
       };
     });
 
