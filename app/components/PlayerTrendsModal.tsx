@@ -198,6 +198,32 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             case 'three_pointers':
               value = statsData.three_pointers_made || 0;
               break;
+            // MLB stats
+            case 'hits':
+              value = statsData.hits || 0;
+              break;
+            case 'home_runs':
+              value = statsData.home_runs || 0;
+              break;
+            case 'rbis':
+              value = statsData.rbis || 0;
+              break;
+            case 'runs_scored':
+            case 'runs':
+              value = statsData.runs || 0;
+              break;
+            case 'stolen_bases':
+              value = statsData.stolen_bases || 0;
+              break;
+            case 'strikeouts':
+              value = statsData.strikeouts || 0;
+              break;
+            case 'walks':
+              value = statsData.walks || 0;
+              break;
+            case 'total_bases':
+              value = statsData.total_bases || 0;
+              break;
             default:
               value = statsData[selectedPropType] || 0;
           }

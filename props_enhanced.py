@@ -397,13 +397,40 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
         # WNBA-only mode flag
         self.wnba_only_mode = False
+        # NFL week mode flag
+        self.nfl_week_mode = False
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
+        if self.nfl_week_mode:
+            return self.get_nfl_week_games()
         return self.db.get_upcoming_games()  # Get today's games
     
+    def get_nfl_week_games(self) -> List[Dict[str, Any]]:
+        """Get all NFL games for the current week (Thu-Sun)"""
+        try:
+            current_date = datetime.now().date()
+            
+            # Get games for the next 7 days to capture the full NFL week
+            all_nfl_games = []
+            for days_ahead in range(8):  # Today + next 7 days
+                target_date = current_date + timedelta(days=days_ahead)
+                games = self.db.get_games_for_date(target_date)
+                # Filter for NFL only
+                nfl_games = [g for g in games if g.get('sport') == 'National Football League']
+                all_nfl_games.extend(nfl_games)
+            
+            logger.info(f"🏈 Found {len(all_nfl_games)} NFL games for the week ahead")
+            return all_nfl_games
+        except Exception as e:
+            logger.error(f"Failed to fetch NFL week games: {e}")
+            return []
+    
     async def fetch_player_props(self) -> List[PlayerProp]:
-        # Get today's games
-        games = self.db.get_upcoming_games()  # Only today's games
+        if self.nfl_week_mode:
+            games = self.get_nfl_week_games()
+        else:
+            games = self.db.get_upcoming_games()  # Only today's games
+        
         if not games:
             return []
         game_ids = [game["id"] for game in games]
@@ -1928,6 +1955,8 @@ def parse_arguments():
                       help='Target number of total props to generate (default: 40)')
     parser.add_argument('--wnba', action='store_true',
                       help='Generate 5 best WNBA picks only (overrides --picks)')
+    parser.add_argument('--nfl-week', action='store_true',
+                      help='Generate 5 best NFL picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1953,6 +1982,9 @@ async def main():
     if args.wnba:
         logger.info(f"🏀 Starting WNBA-Only Player Props Agent for {target_date}")
         target_picks = 5
+    elif args.nfl_week:
+        logger.info(f"🏈 Starting NFL Week Player Props Agent for full week ahead")
+        target_picks = 5
     else:
         logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
         target_picks = args.picks
@@ -1962,8 +1994,11 @@ async def main():
     # Set WNBA-only mode if flag is provided
     agent.wnba_only_mode = args.wnba
     
+    # Set NFL week mode if flag is provided
+    agent.nfl_week_mode = args.nfl_week
+    
     # Calculate dynamic target picks based on available games and sport distribution
-    if not args.wnba:
+    if not args.wnba and not args.nfl_week:
         # Normal multi-sport mode
         games = agent.db.get_upcoming_games(target_date)
         if games:

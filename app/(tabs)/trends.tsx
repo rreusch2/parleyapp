@@ -73,11 +73,12 @@ export default function TrendsScreen() {
 
   const sports = [
     { key: 'all', name: 'All', icon: '🏆' },
-    { key: 'Major League Baseball', name: 'MLB', icon: '⚾' },
-    { key: "Women's National Basketball Association", name: 'WNBA', icon: '🏀' },
-    { key: 'National Basketball Association', name: 'NBA', icon: '🏀' },
-    { key: 'National Football League', name: 'NFL', icon: '🏈' },
-    { key: 'Ultimate Fighting Championship', name: 'UFC', icon: '🥊' }
+    { key: 'MLB', name: 'MLB', icon: '⚾' },
+    { key: 'WNBA', name: 'WNBA', icon: '🏀' },
+    { key: 'NBA', name: 'NBA', icon: '🏀' },
+    { key: 'NFL', name: 'NFL', icon: '🏈' },
+    { key: 'College Football', name: 'CFB', icon: '🏈' },
+    { key: 'UFC', name: 'UFC', icon: '🥊' }
   ];
 
   useEffect(() => {
@@ -349,12 +350,11 @@ export default function TrendsScreen() {
           fontSize: 28, 
           fontWeight: 'bold', 
           color: '#FFFFFF',
-          marginBottom: 16
+          marginBottom: 32
         }}>
           Trends Analysis
         </Text>
 
-        {/* AI Report Button - Prominent Standalone */}
         <TouchableOpacity
           onPress={() => setAiReportModalVisible(true)}
           style={{
@@ -990,38 +990,6 @@ export default function TrendsScreen() {
             </View>
           )}
 
-          {/* No Results */}
-          {searchQuery.length >= 2 && getCurrentResults().length === 0 && !isSearching && (
-            <View style={{
-              backgroundColor: '#1F2937',
-              borderRadius: 12,
-              padding: 20,
-              marginBottom: 20,
-              borderWidth: 1,
-              borderColor: '#374151',
-              alignItems: 'center'
-            }}>
-              <Ionicons name="search-outline" size={48} color="#6B7280" />
-              <Text style={{
-                color: '#FFFFFF',
-                fontSize: 16,
-                fontWeight: '600',
-                marginTop: 12,
-                textAlign: 'center'
-              }}>
-                No {searchMode} found
-              </Text>
-              <Text style={{
-                color: '#9CA3AF',
-                fontSize: 14,
-                marginTop: 4,
-                textAlign: 'center'
-              }}>
-                Try searching for a different {searchMode === 'players' ? 'player' : 'team'} name
-              </Text>
-            </View>
-          )}
-
           {/* Recent Searches */}
           {getCurrentRecentSearches().length > 0 && searchQuery.length < 2 && (
             <View style={{ marginBottom: 24 }}>
@@ -1224,6 +1192,17 @@ export default function TrendsScreen() {
       <AIReportModal
         visible={aiReportModalVisible}
         onClose={() => setAiReportModalVisible(false)}
+        onUpgrade={() => {
+          setAiReportModalVisible(false);
+          // Open subscription modal here if you have one in trends
+          Alert.alert('Upgrade to Pro', 'Get access to full AI reports and advanced features!', [
+            { text: 'Maybe Later', style: 'cancel' },
+            { text: 'Upgrade Now', onPress: () => {
+              // Navigate to subscription page or open subscription modal
+              console.log('Opening subscription modal...');
+            }}
+          ]);
+        }}
       />
     </SafeAreaView>
   );

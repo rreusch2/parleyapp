@@ -65,18 +65,27 @@ const ACTIVE_LEAGUES = [
 ];
 
 // Function to fetch games for a specific sport
-async function fetchGamesWithOdds(sportInfo: {key: string, name: string}): Promise<number> {
+async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extendedRange = false): Promise<number> {
   try {
     console.log(`📊 Fetching ${sportInfo.name} games with odds from TheOdds API...`);
     
-    // Calculate date range for today and tomorrow only
+    // Calculate date range 
     const now = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(now.getDate() + 1);
+    let endDate = new Date();
+    
+    // Check if we should extend range for NFL week (Thu-Sun)
+    if (extendedRange && sportInfo.key === 'americanfootball_nfl') {
+      // Extend to Sunday Sept 8, 2025 for NFL games (Week 1)
+      endDate = new Date('2025-09-08T23:59:59Z');
+      console.log(`🏈 NFL Week Mode: Extended range through Sunday Sept 8th, 2025`);
+    } else {
+      // Default: today and tomorrow only
+      endDate.setDate(now.getDate() + 1);
+    }
     
     // Format dates in the required format YYYY-MM-DDTHH:MM:SSZ using UTC consistently
     const commenceTimeFrom = now.toISOString().split('.')[0] + 'Z';
-    const commenceTimeTo = tomorrow.toISOString().split('T')[0] + 'T23:59:59Z';
+    const commenceTimeTo = endDate.toISOString().split('T')[0] + 'T23:59:59Z';
     
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);
     
@@ -268,8 +277,11 @@ async function processOddsData(game: GameData, eventId: string): Promise<void> {
 }
 
 // Main function to run the script
-export async function fetchAllGameData(): Promise<number> {
+export async function fetchAllGameData(extendedNflWeek = false): Promise<number> {
   console.log('🚀 Starting TheOdds API data fetch...');
+  if (extendedNflWeek) {
+    console.log('🏈 NFL Week Mode: Will fetch NFL games through Sunday Sept 8th');
+  }
   
   let totalGames = 0;
   
@@ -280,7 +292,7 @@ export async function fetchAllGameData(): Promise<number> {
   // Fetch games for each active sport from centralized config
   for (const sportConfig of activeSports) {
     const sportInfo = { key: sportConfig.theoddsKey, name: sportConfig.sportName };
-    const count = await fetchGamesWithOdds(sportInfo);
+    const count = await fetchGamesWithOdds(sportInfo, extendedNflWeek);
     totalGames += count;
   }
   
@@ -290,7 +302,10 @@ export async function fetchAllGameData(): Promise<number> {
 
 // Run if called directly
 if (require.main === module) {
-  fetchAllGameData()
+  const args = process.argv.slice(2);
+  const extendedNflWeek = args.includes('--nfl-week');
+  
+  fetchAllGameData(extendedNflWeek)
     .then(() => console.log('Done!'))
     .catch((error: Error) => console.error('Error:', error.message));
 }

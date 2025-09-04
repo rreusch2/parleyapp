@@ -806,9 +806,16 @@ async function main(): Promise<void> {
   // Check current games before fetch
   await checkCurrentGames();
   
+  // Check for NFL week flag
+  const args = process.argv.slice(2);
+  const extendedNflWeek = args.includes('--nfl-week');
+  
   // Fetch new games and basic odds
   console.log('\n📊 Fetching games and basic odds from TheOdds API...');
-  const gameCount = await fetchAllGameData();
+  if (extendedNflWeek) {
+    console.log('🏈 NFL Week Mode: Extended fetch through Sunday Sept 8th for NFL games');
+  }
+  const gameCount = await fetchAllGameData(extendedNflWeek);
   
   // Fetch player props for those games
   await fetchPlayerPropsForAllGames();

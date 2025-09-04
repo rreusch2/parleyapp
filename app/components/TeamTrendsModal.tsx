@@ -68,22 +68,37 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
       'MLB': [
         { key: 'points_scored', name: 'Runs Scored' },
         { key: 'points_allowed', name: 'Runs Allowed' },
-        { key: 'run_differential', name: 'Run Differential' }
+        { key: 'run_differential', name: 'Run Differential' },
+        { key: 'total_score', name: 'Total Runs' },
+        { key: 'win_margin', name: 'Win Margin' }
       ],
       'NBA': [
         { key: 'points_scored', name: 'Points Scored' },
         { key: 'points_allowed', name: 'Points Allowed' },
-        { key: 'point_differential', name: 'Point Differential' }
+        { key: 'point_differential', name: 'Point Differential' },
+        { key: 'total_score', name: 'Total Points' },
+        { key: 'win_margin', name: 'Win Margin' }
       ],
       'WNBA': [
         { key: 'points_scored', name: 'Points Scored' },
         { key: 'points_allowed', name: 'Points Allowed' },
-        { key: 'point_differential', name: 'Point Differential' }
+        { key: 'point_differential', name: 'Point Differential' },
+        { key: 'total_score', name: 'Total Points' },
+        { key: 'win_margin', name: 'Win Margin' }
       ],
       'NFL': [
         { key: 'points_scored', name: 'Points Scored' },
         { key: 'points_allowed', name: 'Points Allowed' },
-        { key: 'point_differential', name: 'Point Differential' }
+        { key: 'point_differential', name: 'Point Differential' },
+        { key: 'total_score', name: 'Total Points' },
+        { key: 'win_margin', name: 'Win Margin' }
+      ],
+      'College Football': [
+        { key: 'points_scored', name: 'Points Scored' },
+        { key: 'points_allowed', name: 'Points Allowed' },
+        { key: 'point_differential', name: 'Point Differential' },
+        { key: 'total_score', name: 'Total Points' },
+        { key: 'win_margin', name: 'Win Margin' }
       ]
     };
 
@@ -94,9 +109,14 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
     if (visible && team) {
       const props = getAvailableProps(team.sport);
       setPropTypes(props);
-      if (props.length > 0) {
+      if (props.length > 0 && !selectedPropType) {
         setSelectedPropType(props[0].key);
       }
+    }
+  }, [visible, team]);
+
+  useEffect(() => {
+    if (visible && team && selectedPropType) {
       fetchTeamTrends();
     }
   }, [visible, team, selectedPropType]);
@@ -120,7 +140,7 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
       
       const data = await response.json();
       
-      if (data.success) {
+      if (data.recent_games) {
         const recentGames = data.recent_games || [];
         const formattedStats: TeamGameStat[] = recentGames.map((game: any) => {
           let value = 0;
@@ -136,13 +156,19 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
             case 'run_differential':
               value = (game.team_score || 0) - (game.opponent_score || 0);
               break;
+            case 'total_score':
+              value = (game.team_score || 0) + (game.opponent_score || 0);
+              break;
+            case 'win_margin':
+              value = game.game_result === 'W' ? Math.abs((game.team_score || 0) - (game.opponent_score || 0)) : 0;
+              break;
             default:
               value = game[selectedPropType] || 0;
           }
 
           return {
             game_date: game.game_date,
-            opponent: game.opponent,
+            opponent: game.opponent_team || game.opponent,
             is_home: game.is_home,
             value,
             game_result: game.game_result,
@@ -154,7 +180,7 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
         setGameStats(formattedStats.reverse());
         
         // Set sportsbook line from API data
-        const lines = data.sportsbook_lines || [];
+        const lines = data.betting_lines || [];
         const relevantLine = findRelevantLine(lines);
         setCurrentSportsbookLine(relevantLine);
         
@@ -580,93 +606,215 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
             </ScrollView>
           </View>
 
-          {/* Stats Summary */}
+          {/* Performance Cards Grid */}
           <View style={{
             marginHorizontal: 20,
             marginTop: 20,
-            padding: 16,
-            backgroundColor: '#1F2937',
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#374151'
+            gap: 12
           }}>
             <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
+              fontSize: 18,
+              fontWeight: '700',
               color: '#FFFFFF',
-              marginBottom: 12,
+              marginBottom: 8,
               textAlign: 'center'
             }}>
-              Performance Summary
+              Last 10 Games Performance
             </Text>
             
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-              <View style={{ alignItems: 'center' }}>
+            {/* Top Row - Win/Loss Stats */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{
+                flex: 1,
+                padding: 16,
+                backgroundColor: '#1F2937',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#10B981',
+                alignItems: 'center'
+              }}>
+                <View style={{ 
+                  backgroundColor: '#10B981', 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginBottom: 8
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>W</Text>
+                </View>
                 <Text style={{
                   fontSize: 24,
                   fontWeight: 'bold',
-                  color: '#10B981'
+                  color: '#10B981',
+                  marginBottom: 4
                 }}>
                   {stats.wins}
                 </Text>
                 <Text style={{
                   fontSize: 12,
-                  color: '#9CA3AF'
+                  color: '#9CA3AF',
+                  textAlign: 'center'
                 }}>
                   Wins
                 </Text>
               </View>
               
-              <View style={{ alignItems: 'center' }}>
+              <View style={{
+                flex: 1,
+                padding: 16,
+                backgroundColor: '#1F2937',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#DC2626',
+                alignItems: 'center'
+              }}>
+                <View style={{ 
+                  backgroundColor: '#DC2626', 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginBottom: 8
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }}>L</Text>
+                </View>
                 <Text style={{
                   fontSize: 24,
                   fontWeight: 'bold',
-                  color: '#DC2626'
+                  color: '#DC2626',
+                  marginBottom: 4
                 }}>
                   {stats.losses}
                 </Text>
                 <Text style={{
                   fontSize: 12,
-                  color: '#9CA3AF'
+                  color: '#9CA3AF',
+                  textAlign: 'center'
                 }}>
                   Losses
                 </Text>
               </View>
-              
-              <View style={{ alignItems: 'center' }}>
+            </View>
+
+            {/* Second Row - Performance Metrics */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{
+                flex: 1,
+                padding: 16,
+                backgroundColor: '#1F2937',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#F59E0B',
+                alignItems: 'center'
+              }}>
+                <View style={{ 
+                  backgroundColor: '#F59E0B', 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginBottom: 8
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>%</Text>
+                </View>
                 <Text style={{
                   fontSize: 24,
                   fontWeight: 'bold',
-                  color: '#F59E0B'
+                  color: '#F59E0B',
+                  marginBottom: 4
                 }}>
                   {stats.winRate}%
                 </Text>
                 <Text style={{
                   fontSize: 12,
-                  color: '#9CA3AF'
+                  color: '#9CA3AF',
+                  textAlign: 'center'
                 }}>
                   Win Rate
                 </Text>
               </View>
 
-              {currentSportsbookLine !== null && (
-                <View style={{ alignItems: 'center' }}>
-                  <Text style={{
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    color: '#3B82F6'
+              {gameStats.length > 0 && (
+                <View style={{
+                  flex: 1,
+                  padding: 16,
+                  backgroundColor: '#1F2937',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#3B82F6',
+                  alignItems: 'center'
+                }}>
+                  <View style={{ 
+                    backgroundColor: '#3B82F6', 
+                    width: 40, 
+                    height: 40, 
+                    borderRadius: 20, 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    marginBottom: 8
                   }}>
-                    {stats.overRate}%
+                    <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>📊</Text>
+                  </View>
+                  <Text style={{
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                    color: '#3B82F6',
+                    marginBottom: 4
+                  }}>
+                    {(gameStats.reduce((sum, stat) => sum + stat.value, 0) / gameStats.length).toFixed(1)}
                   </Text>
                   <Text style={{
                     fontSize: 12,
-                    color: '#9CA3AF'
+                    color: '#9CA3AF',
+                    textAlign: 'center'
                   }}>
-                    Over Line
+                    Avg {propTypes.find(p => p.key === selectedPropType)?.name}
                   </Text>
                 </View>
               )}
             </View>
+
+            {currentSportsbookLine !== null && (
+              <View style={{
+                padding: 16,
+                backgroundColor: '#1F2937',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#8B5CF6',
+                alignItems: 'center'
+              }}>
+                <View style={{ 
+                  backgroundColor: '#8B5CF6', 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginBottom: 8
+                }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' }}>📈</Text>
+                </View>
+                <Text style={{
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  color: '#8B5CF6',
+                  marginBottom: 4
+                }}>
+                  {stats.overRate}%
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: '#9CA3AF',
+                  textAlign: 'center'
+                }}>
+                  Over Sportsbook Line ({currentSportsbookLine})
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Chart */}

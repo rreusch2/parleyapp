@@ -466,6 +466,8 @@ class IntelligentTeamsAgent:
         # Add session for StatMuse context scraping
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
+        # NFL week mode flag
+        self.nfl_week_mode = False
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
         """Generate abundant picks across all available sports for frontend filtering"""
@@ -534,13 +536,36 @@ class IntelligentTeamsAgent:
         
         return "\n".join(requirements)
     
+    def get_nfl_week_games(self) -> List[Dict[str, Any]]:
+        """Get all NFL games for the current week (Thu-Sun)"""
+        try:
+            current_date = datetime.now().date()
+            
+            # Get games for the next 7 days to capture the full NFL week
+            all_nfl_games = []
+            for days_ahead in range(8):  # Today + next 7 days
+                target_date = current_date + timedelta(days=days_ahead)
+                games = self.db.get_games_for_date(target_date)
+                # Filter for NFL only
+                nfl_games = [g for g in games if g.get('sport') == 'National Football League']
+                all_nfl_games.extend(nfl_games)
+            
+            logger.info(f"🏈 Found {len(all_nfl_games)} NFL games for the week ahead")
+            return all_nfl_games
+        except Exception as e:
+            logger.error(f"Failed to fetch NFL week games: {e}")
+            return []
+    
     async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 50) -> List[Dict[str, Any]]:
         if target_date is None:
             target_date = datetime.now().date()
             
-        logger.info(f"🚀 Starting intelligent multi-sport team analysis for {target_date}...")
-        
-        games = self.db.get_upcoming_games(target_date)
+        if self.nfl_week_mode:
+            logger.info(f"🚀 Starting intelligent NFL week team analysis...")
+            games = self.get_nfl_week_games()
+        else:
+            logger.info(f"🚀 Starting intelligent multi-sport team analysis for {target_date}...")
+            games = self.db.get_upcoming_games(target_date)
         logger.info(f"📅 Found {len(games)} games for {target_date} across all sports")
         
         if not games:
@@ -1585,6 +1610,8 @@ def parse_arguments():
                       help='Specific date to generate picks for (YYYY-MM-DD)')
     parser.add_argument('--picks', type=int, default=50,
                       help='Target number of total picks to generate (default: 50)')
+    parser.add_argument('--nfl-week', action='store_true',
+                      help='Generate 5 best NFL team picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1607,20 +1634,29 @@ async def main():
     else:
         target_date = datetime.now().date()
     
-    logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
+    if args.nfl_week:
+        logger.info(f"🏈 Starting NFL Week Teams Agent for full week ahead")
+        target_picks = 5
+    else:
+        logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
+        target_picks = args.picks
     
     agent = IntelligentTeamsAgent()
     
+    # Set NFL week mode if flag is provided
+    agent.nfl_week_mode = args.nfl_week
+    
     # Calculate dynamic target picks based on available games and sport distribution
     # This ensures we generate enough picks for frontend filtering
-    games = agent.db.get_upcoming_games(target_date)
-    if games:
-        sport_distribution = agent._distribute_picks_by_sport(games, args.picks)
-        dynamic_target = sum(sport_distribution.values())
-        logger.info(f"📊 Calculated dynamic target: {dynamic_target} picks across sports")
-        target_picks = max(args.picks, dynamic_target)  # Use the higher of user-specified or calculated
-    else:
-        target_picks = args.picks
+    if not args.nfl_week:
+        games = agent.db.get_upcoming_games(target_date)
+        if games:
+            sport_distribution = agent._distribute_picks_by_sport(games, args.picks)
+            dynamic_target = sum(sport_distribution.values())
+            logger.info(f"📊 Calculated dynamic target: {dynamic_target} picks across sports")
+            target_picks = max(args.picks, dynamic_target)  # Use the higher of user-specified or calculated
+        else:
+            target_picks = args.picks
     
     picks = await agent.generate_daily_picks(target_date=target_date, target_picks=target_picks)
     

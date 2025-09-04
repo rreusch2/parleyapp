@@ -900,6 +900,7 @@ router.get('/picks', async (req, res) => {
     const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);  // Increased to 100 to support Elite tier (30 picks) + sport filtering
 

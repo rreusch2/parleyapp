@@ -18,40 +18,36 @@ import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { useSubscription } from '../services/subscriptionContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface AIReportModalProps {
   visible: boolean;
   onClose: () => void;
+  onUpgrade?: () => void;
 }
 
-export default function AIReportModal({ visible, onClose }: AIReportModalProps) {
+export default function AIReportModal({ visible, onClose, onUpgrade }: AIReportModalProps) {
   const [report, setReport] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<any>(null);
   const [generatedAt, setGeneratedAt] = useState<string>('');
+  const { subscriptionTier, openSubscriptionModal } = useSubscription();
 
-  const backendUrl = Constants.expoConfig?.extra?.backendUrl || 'http://localhost:3001';
+  const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
 
   const fetchReport = async (forceRefresh = false) => {
     try {
       setError(null);
-      const userToken = await AsyncStorage.getItem('userToken');
       
-      if (!userToken) {
-        throw new Error('Authentication required');
-      }
-
-      const endpoint = forceRefresh 
-        ? `${backendUrl}/api/ai/daily-report?refresh=true`
-        : `${backendUrl}/api/ai/daily-report`;
+      // No authentication required - reports are now public
+      const endpoint = `${backendUrl}/api/ai/daily-report`;
 
       const response = await fetch(endpoint, {
         headers: {
-          'Authorization': `Bearer ${userToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -276,9 +272,89 @@ export default function AIReportModal({ visible, onClose }: AIReportModalProps) 
               </View>
             ) : (
               <View style={styles.reportContainer}>
-                <Markdown style={markdownStyles}>
-                  {report}
-                </Markdown>
+                {subscriptionTier === 'free' ? (
+                  <>
+                    {/* Free User - Partial Report with Upgrade Prompt */}
+                    <View style={styles.freePreviewContainer}>
+                      <Markdown style={markdownStyles}>
+                        {report.split('\n').slice(0, 8).join('\n')}
+                      </Markdown>
+                    </View>
+                    
+                    {/* Gradient Overlay */}
+                    <LinearGradient
+                      colors={['rgba(26, 26, 46, 0)', 'rgba(26, 26, 46, 0.8)', 'rgba(26, 26, 46, 1)']}
+                      style={styles.gradientOverlay}
+                    />
+                    
+                    {/* Lock Section */}
+                    <View style={styles.lockSection}>
+                      <View style={styles.lockIcon}>
+                        <Ionicons name="lock-closed" size={32} color="#F59E0B" />
+                      </View>
+                      
+                      <Text style={styles.lockTitle}>
+                        Unlock Full AI Reports
+                      </Text>
+                      
+                      <Text style={styles.lockSubtitle}>
+                        Get complete daily analysis, advanced insights, and betting trends with Pro or Elite membership
+                      </Text>
+                      
+                      {/* Feature List */}
+                      <View style={styles.featureList}>
+                        <View style={styles.featureRow}>
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          <Text style={styles.featureText}>Complete market analysis</Text>
+                        </View>
+                        <View style={styles.featureRow}>
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          <Text style={styles.featureText}>AI betting recommendations</Text>
+                        </View>
+                        <View style={styles.featureRow}>
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          <Text style={styles.featureText}>Advanced trend insights</Text>
+                        </View>
+                        <View style={styles.featureRow}>
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          <Text style={styles.featureText}>Daily value picks</Text>
+                        </View>
+                      </View>
+                      
+                      {/* Upgrade Button */}
+                      <TouchableOpacity 
+                        style={styles.upgradeButton}
+                        onPress={() => {
+                          if (onUpgrade) {
+                            onUpgrade();
+                          } else {
+                            openSubscriptionModal();
+                          }
+                        }}
+                      >
+                        <LinearGradient
+                          colors={['#F59E0B', '#D97706']}
+                          style={styles.upgradeGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Ionicons name="star" size={20} color="#FFFFFF" />
+                          <Text style={styles.upgradeText}>Upgrade Now</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      
+                      <Text style={styles.disclaimerText}>
+                        Starting at $4.99/month • Cancel anytime
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  /* Pro/Elite Users - Full Report */
+                  <Markdown style={markdownStyles}>
+                    {report}
+                  </Markdown>
+                )}
               </View>
             )}
 
@@ -386,6 +462,85 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 30,
+  },
+  freePreviewContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 300,
+    zIndex: 1,
+  },
+  lockSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  lockIcon: {
+    width: 64,
+    height: 64,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  lockTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  lockSubtitle: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  featureList: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featureText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    marginLeft: 12,
+  },
+  upgradeButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  upgradeGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  upgradeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  disclaimerText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
