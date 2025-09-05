@@ -630,48 +630,77 @@ class IntelligentTeamsAgent:
         sports_in_data = set(game.get('sport', 'Unknown') for game in games)
         sports_summary = ", ".join(sports_in_data)
         
-        # STEP 3: Calculate balanced research allocation for team bets
-        mlb_games = len([g for g in games if g.get('sport') == 'Major League Baseball'])
-        wnba_games = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])
-        total_games = mlb_games + wnba_games
-        
-        # Default research ratios
-        wnba_research_ratio = 0.0
-        mlb_research_ratio = 1.0
-        
-        if sport_distribution["WNBA"] > 0 and sport_distribution["MLB"] > 0:
-            # Both sports available - focus heavily on MLB since we need 7 picks vs 3 WNBA
-            wnba_research_ratio = 0.25  # Reduced WNBA research
-            mlb_research_ratio = 0.75   # Increased MLB research
-        elif sport_distribution["MLB"] > 0:
-            # Only MLB available
+        # STEP 3: Calculate research allocation based on mode
+        if self.nfl_week_mode:
+            # NFL Week Mode - Focus exclusively on NFL
+            nfl_games = len([g for g in games if g.get('sport') == 'National Football League'])
+            target_nfl_queries = min(22, max(15, nfl_games))  # 15-22 NFL team queries for 5 picks
+            target_wnba_queries = 0
+            target_mlb_queries = 0
+            target_web_searches = 6  # NFL injury/lineup/weather searches
+            
+            research_focus = "NFL"
+            sport_queries_text = f"**NFL Team Research**: {target_nfl_queries} different NFL teams/matchups (for 5 final picks)"
+            web_searches_text = "**Web Searches**: 6 total (NFL injury/lineup/weather)"
+        else:
+            # Multi-sport mode - Calculate balanced research allocation
+            mlb_games = len([g for g in games if g.get('sport') == 'Major League Baseball'])
+            wnba_games = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])
+            
+            # Default research ratios
             wnba_research_ratio = 0.0
             mlb_research_ratio = 1.0
+            
+            if sport_distribution["WNBA"] > 0 and sport_distribution["MLB"] > 0:
+                # Both sports available - focus heavily on MLB since we need 7 picks vs 3 WNBA
+                wnba_research_ratio = 0.25  # Reduced WNBA research
+                mlb_research_ratio = 0.75   # Increased MLB research
+            elif sport_distribution["MLB"] > 0:
+                # Only MLB available
+                wnba_research_ratio = 0.0
+                mlb_research_ratio = 1.0
+            
+            # Target: 6-8 WNBA teams for 3 picks, 16-20 MLB teams for 7 picks  
+            target_wnba_queries = min(8, max(6, int(15 * wnba_research_ratio)))
+            target_mlb_queries = min(20, max(16, int(15 * mlb_research_ratio)))
+            target_nfl_queries = 0
+            target_web_searches = 6
+            
+            research_focus = "MLB/WNBA"
+            sport_queries_text = f"""- **WNBA Team Research**: {target_wnba_queries} different teams/matchups (for 3 final picks)
+- **MLB Team Research**: {target_mlb_queries} different teams/matchups (for 7 final picks)"""
+            web_searches_text = "**Web Searches**: 6 total (4 MLB injury/lineup/weather, 2 WNBA injury/lineup)"
         
-        # Target: 6-8 WNBA teams for 3 picks, 16-20 MLB teams for 7 picks  
-        target_wnba_queries = min(8, max(6, int(15 * wnba_research_ratio)))
-        target_mlb_queries = min(20, max(16, int(15 * mlb_research_ratio)))
-        
-        prompt = f"""You are an elite sports betting analyst creating a BALANCED DIVERSE team research strategy.
+        # Calculate sport-specific info for prompt
+        if self.nfl_week_mode:
+            nfl_game_count = len([g for g in games if g.get('sport') == 'National Football League'])
+            sport_info = f"NFL Games: {nfl_game_count}"
+            task_focus = f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups (mix of favorites, underdogs, different conferences)"
+        else:
+            mlb_game_count = len([g for g in games if g.get('sport') == 'Major League Baseball'])
+            wnba_game_count = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])
+            sport_info = f"MLB Games: {mlb_game_count}, WNBA Games: {wnba_game_count}"
+            task_focus = f"**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups (mix of contenders, underdogs, pace plays)\n**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups (variety of divisions, ballparks, situations)"
 
-# CRITICAL REQUIREMENTS - BALANCED TEAM RESEARCH STRATEGY:
+        prompt = f"""You are an elite sports betting analyst creating a FOCUSED {research_focus} team research strategy.
+
+# CRITICAL REQUIREMENTS - {research_focus} RESEARCH STRATEGY:
 
 ## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
-- **WNBA Team Research**: {target_wnba_queries} different teams/matchups (for 3 final picks)
-- **MLB Team Research**: {target_mlb_queries} different teams/matchups (for 7 final picks)
-- **Total StatMuse Queries**: {target_wnba_queries + target_mlb_queries}
-- **Web Searches**: 6 total (4 MLB injury/lineup/weather, 2 WNBA injury/lineup)
+{sport_queries_text}
+- **Total StatMuse Queries**: {target_nfl_queries + target_wnba_queries + target_mlb_queries}
+{web_searches_text}
 
 ## DIVERSITY REQUIREMENTS FOR TEAMS:
-- **NO REPETITIVE POPULAR TEAMS**: Avoid Yankees, Dodgers, Lakers-style teams every time
+- **NO REPETITIVE POPULAR TEAMS**: Avoid Cowboys, Chiefs, Patriots-style teams every time
 - **RESEARCH DIFFERENT TEAMS**: Mix contenders, underdogs, value plays, different divisions
 - **VARIED BET TYPES**: Don't just research moneyline - include spreads, totals, team props
-- **MATCHUP VARIETY**: Research different types of matchups (pitcher vs hitter friendly, pace, etc.)
+- **MATCHUP VARIETY**: Research different types of matchups (offensive vs defensive, pace, etc.)
 - **AVOID BIAS**: Don't just research "sexy" teams - find value in overlooked matchups
 
 # AVAILABLE DATA:
 Games: {len(games)} across {sports_summary}
-MLB Games: {mlb_games}, WNBA Games: {wnba_games}
+{sport_info}
 Total Team Bets: {len(bets)}
 
 # CURRENT STATMUSE CONTEXT:
@@ -694,26 +723,30 @@ AVAILABLE TEAM BETS SAMPLE:
 # YOUR TASK:
 Generate a research plan that follows the EXACT allocation above and focuses on DIVERSE teams from the actual games data.
 
-**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups (mix of contenders, underdogs, pace plays)
-**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups (variety of divisions, ballparks, situations)"
+{task_focus}"
 
 # YOUR TOOLS
 
 ## StatMuse Tool
-You have access to a powerful StatMuse API that can answer baseball questions with real data.
+{'You have access to a powerful StatMuse API that can answer NFL questions with real data.' if self.nfl_week_mode else 'You have access to a powerful StatMuse API that can answer baseball questions with real data.'}
 
 **SUCCESSFUL QUERY EXAMPLES** (these work well but dont feel limited to just these):
-- "New York Yankees record vs Boston Red Sox this season" 
+{'''- "Kansas City Chiefs record vs Los Angeles Chargers this season"
+- "Buffalo Bills home record last 10 games"  
+- "Tampa Bay Buccaneers points per game last 5 games"
+- "Baltimore Ravens defensive rating this season"
+- "New Orleans Saints passing yards per game last 10 games"
+- "Pittsburgh Steelers rushing defense this season"''' if self.nfl_week_mode else '''- "New York Yankees record vs Boston Red Sox this season" 
 - "Los Angeles Dodgers home record last 10 games"
 - "Atlanta Braves runs scored per game last 5 games"
 - "Houston Astros bullpen ERA last 30 days"
 - "Team batting average vs left handed pitching for Philadelphia Phillies"
 - "Coors Field home runs allowed this season"
-- "Yankee Stadium runs scored in day games"
+- "Yankee Stadium runs scored in day games"'''}
 
 **QUERIES THAT MAY FAIL** (avoid these patterns):
-- Very specific situational stats ("with runners in scoring position")
-- Complex multi-condition queries ("vs left-handed pitchers in day games")
+- Very specific situational stats {"(with specific personnel)" if self.nfl_week_mode else "(with runners in scoring position)"}
+- Complex multi-condition queries {"(vs specific formations in primetime)" if self.nfl_week_mode else "(vs left-handed pitchers in day games)"}
 - Obscure historical comparisons
 - Real-time injury/lineup status
 - Weather-dependent statistics
@@ -721,9 +754,9 @@ You have access to a powerful StatMuse API that can answer baseball questions wi
 **BEST PRACTICES**:
 - Keep queries simple and direct
 - Focus on season totals, averages, recent games (last 5-15)
-- Use team names exactly as they appear in MLB
-- Ask about standard team stats: record, runs scored/allowed, ERA, bullpen stats
-- Venue-specific queries work well for major stadiums
+- Use team names exactly as they appear in {'NFL' if self.nfl_week_mode else 'MLB'}
+- Ask about standard team stats: {'record, points scored/allowed, offensive/defensive ratings' if self.nfl_week_mode else 'record, runs scored/allowed, ERA, bullpen stats'}
+- {'Stadium-specific queries work for major venues' if self.nfl_week_mode else 'Venue-specific queries work well for major stadiums'}
 
 ## Web Search Tool
 You can search the web for:
@@ -745,27 +778,26 @@ You can search the web for:
 Return ONLY a valid JSON object with this structure:
 
 {{
-    "research_strategy": "Balanced diverse research strategy focusing on team diversity",
+    "research_strategy": "{'NFL-focused research strategy for week ahead' if self.nfl_week_mode else 'Balanced diverse research strategy focusing on team diversity'}",
     "statmuse_queries": [
-        // {target_wnba_queries} WNBA team queries (different teams, varied bet types)
-        // {target_mlb_queries} MLB team queries (different teams, varied bet types)
+        {'// NFL team queries (different teams, varied bet types)' if self.nfl_week_mode else f'// {target_wnba_queries} WNBA team queries (different teams, varied bet types) // {target_mlb_queries} MLB team queries (different teams, varied bet types)'}
         {{
             "query": "[Diverse Team Name] [varied stat/matchup] this season",
             "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "sport": "{'NFL' if self.nfl_week_mode else 'WNBA/MLB'}"
         }}
     ],
     "web_searches": [
-        // 3 MLB injury/lineup/weather searches, 2 WNBA injury/lineup searches
+        {'// NFL injury/lineup/weather searches' if self.nfl_week_mode else '// 3 MLB injury/lineup/weather searches, 2 WNBA injury/lineup searches'}
         {{
             "query": "[Team Name] injury status lineup news weather",
             "priority": "high/medium/low",
-            "sport": "WNBA/MLB"
+            "sport": "{'NFL' if self.nfl_week_mode else 'WNBA/MLB'}"
         }}
     ]
 }}
 
-**CRITICAL**: Use REAL diverse teams from the games data above. NO repetitive Yankees/Dodgers/popular teams pattern!"""
+**CRITICAL**: Use REAL diverse teams from the games data above. {'NO repetitive Cowboys/Chiefs/popular teams pattern!' if self.nfl_week_mode else 'NO repetitive Yankees/Dodgers/popular teams pattern!'}"""
         
         try:
             response = await self.grok_client.chat.completions.create(

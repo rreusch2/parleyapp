@@ -3,6 +3,27 @@ import { supabaseAdmin } from '../../services/supabaseClient';
 
 const router = Router();
 
+// Helper function to map sport_key to display name
+function getSportDisplayName(sportKey: string): string {
+  const sportMap: Record<string, string> = {
+    'americanfootball_nfl': 'NFL',
+    'americanfootball_ncaaf': 'CFB', 
+    'baseball_mlb': 'MLB',
+    'basketball_wnba': 'WNBA',
+    'basketball_nba': 'NBA',
+    'icehockey_nhl': 'NHL',
+    'mma_mixed_martial_arts': 'UFC',
+    'MLB': 'MLB',
+    'NFL': 'NFL',
+    'WNBA': 'WNBA',
+    'NBA': 'NBA',
+    'CFB': 'CFB',
+    'UFC': 'UFC'
+  };
+  
+  return sportMap[sportKey] || sportKey;
+}
+
 // Helper function to get popular team suggestions
 async function getPopularTeamSuggestions(sport?: string): Promise<string[]> {
   const suggestions = {
@@ -189,7 +210,7 @@ router.get('/search', async (req, res) => {
       name: team.team_name,
       abbreviation: team.team_abbreviation,
       city: team.city,
-      sport: team.sport_key,
+      sport: getSportDisplayName(team.sport_key),
       logo_url: team.logo_url,
       recent_games_count: gamesCounts[team.id] || 0,
       last_game_date: recentGamesData?.find(g => g.team_id === team.id)?.game_date || null,
@@ -331,7 +352,7 @@ router.get('/:teamId/trends', async (req, res) => {
         name: teamData.team_name,
         abbreviation: teamData.team_abbreviation,
         city: teamData.city,
-        sport: teamData.sport_key,
+        sport: getSportDisplayName(teamData.sport_key),
         games_played: teamData.games_played,
         wins: teamData.wins,
         losses: teamData.losses,

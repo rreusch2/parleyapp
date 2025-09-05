@@ -50,7 +50,6 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function PredictionsScreen() {
   const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
-  // Reward ads functionality for extra picks
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -367,7 +366,7 @@ export default function PredictionsScreen() {
       }
     } else {
       // NEW: For free users, show all picks if they're new users OR have welcome bonus active
-      // Otherwise limit to 2 picks + any extra picks from reward ads
+      // Otherwise limit to 2 picks
       const hasExtendedAccess = isNewUser || welcomeBonusActive;
       
       if (!hasExtendedAccess) {
@@ -699,11 +698,8 @@ What are your thoughts on this prediction?`;
                 />
               ))}
 
-              {/* Watch Ad for Extra Pick - Free Users Only */}
-              
-
               {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}
-              {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > (2 + extraPicksAvailable) && (
+              {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > 2 && (
                 <View style={styles.proUpgradeCard}>
                   <LinearGradient
                     colors={['#1a1a2e', '#16213e']}

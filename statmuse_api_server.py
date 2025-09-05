@@ -83,6 +83,29 @@ class StatMuseAPI:
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in wnba_keywords)
     
+    def is_nfl_query(self, query: str) -> bool:
+        """Check if query is likely about NFL"""
+        nfl_keywords = [
+            "joe burrow", "josh allen", "patrick mahomes", "lamar jackson",
+            "aaron rodgers", "tom brady", "dak prescott", "russell wilson",
+            "justin herbert", "tua tagovailoa", "kyler murray", "jalen hurts",
+            "derrick henry", "jonathan taylor", "nick chubb", "dalvin cook",
+            "christian mccaffrey", "alvin kamara", "ezekiel elliott", "saquon barkley",
+            "davante adams", "tyreek hill", "stefon diggs", "deandre hopkins",
+            "calvin ridley", "mike evans", "chris godwin", "keenan allen",
+            "travis kelce", "george kittle", "mark andrews", "darren waller",
+            "nfl", "steelers", "patriots", "cowboys", "packers", "49ers",
+            "chiefs", "bills", "ravens", "bengals", "broncos", "colts",
+            "titans", "texans", "jaguars", "chargers", "raiders", "dolphins",
+            "jets", "browns", "eagles", "giants", "washington", "lions",
+            "vikings", "bears", "saints", "falcons", "panthers", "buccaneers",
+            "cardinals", "rams", "seahawks", "week 1", "week 2", "week 18",
+            "playoff", "super bowl", "rushing yards", "passing yards", "touchdowns",
+            "interceptions", "receptions", "receiving yards", "sacks", "fumbles"
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in nfl_keywords)
+    
     def scrape_main_sports_pages(self) -> dict:
         """Scrape main StatMuse sports pages to gather current context and insights"""
         logger.info("🔍 Scraping main StatMuse sports pages for current context...")
@@ -323,6 +346,9 @@ class StatMuseAPI:
             if self.is_wnba_query(query):
                 base_url = "https://www.statmuse.com/wnba/ask"
                 sport_context = "WNBA"
+            elif self.is_nfl_query(query):
+                base_url = "https://www.statmuse.com/nfl/ask"
+                sport_context = "NFL"
             else:
                 base_url = "https://www.statmuse.com/mlb/ask"
                 sport_context = "MLB"

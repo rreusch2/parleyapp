@@ -12,7 +12,7 @@ export interface ChartPoint {
 
 const { width: screenWidth } = Dimensions.get('window');
 const CHART_WIDTH = screenWidth - 40;
-const CHART_HEIGHT = 200;
+const CHART_HEIGHT = 250; // Increased height to prevent cutoff
 
 interface GameStat {
   gameNumber: number;
@@ -40,13 +40,18 @@ export const PlayerStatsChart: React.FC<PlayerStatsChartProps> = ({
 }) => {
   const { colors } = useTheme();
   
-  // Calculate chart dimensions and scaling
-  const maxValue = Math.max(...last10Games.map(g => g.value), currentLine * 1.2);
-  const barWidth = (CHART_WIDTH - 80) / 10; // 10 games with spacing
+  // Calculate chart dimensions and scaling with better handling of edge cases
+  const gameValues = last10Games.map(g => g.value).filter(v => v !== undefined && v !== null);
+  const maxValue = Math.max(
+    ...gameValues,
+    currentLine * 1.2,
+    10 // Minimum scale to prevent division by zero
+  );
+  const barWidth = Math.max((CHART_WIDTH - 100) / 10, 20); // Ensure minimum bar width
   const barSpacing = 4;
   
   const getBarHeight = (value: number) => {
-    return (value / maxValue) * (CHART_HEIGHT - 60); // Leave space for labels
+    return (value / maxValue) * (CHART_HEIGHT - 80); // More space for labels and prevent cutoff
   };
   
   const getLineY = () => {

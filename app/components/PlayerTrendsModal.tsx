@@ -12,16 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { 
-  Rect, 
-  Line, 
-  Text as SvgText, 
-  G,
-  Circle,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop
-} from 'react-native-svg';
+import { Svg, G, Rect, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
+import { useTheme } from '@react-navigation/native';
 import { supabase } from '../services/api/supabaseClient';
 
 interface Player {
@@ -40,6 +32,14 @@ interface GameStat {
   is_home: boolean;
   value: number;
   game_result?: string;
+  // NFL specific fields
+  season?: number;
+  week?: number;
+  season_type?: string;
+  fantasy_points?: number;
+  passing_epa?: number;
+  rushing_epa?: number;
+  receiving_epa?: number;
 }
 
 interface PropType {
@@ -56,7 +56,7 @@ interface PlayerTrendsModalProps {
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const chartWidth = screenWidth - 80;
-const chartHeight = 200;
+const chartHeight = 250; // Increased height to prevent cutoff of high values
 
 export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTrendsModalProps) {
   const [loading, setLoading] = useState(false);
@@ -65,9 +65,117 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const [propTypes, setPropTypes] = useState<PropType[]>([]);
   const [currentPropLine, setCurrentPropLine] = useState<number | null>(null);
   const [playerWithHeadshot, setPlayerWithHeadshot] = useState<Player | null>(null);
+  const [computedPosition, setComputedPosition] = useState<string | undefined>(undefined);
 
-  // Sport-specific prop types
-  const getAvailableProps = (sport: string): PropType[] => {
+  const { colors } = useTheme();
+  
+  // Helper function to format game identifier (Football uses season/week, others use dates)
+  const formatGameIdentifier = (stat: any): string => {
+    if ((player?.sport === 'NFL' || player?.sport === 'College Football') && stat.season && stat.week) {
+      const seasonType = stat.season_type === 'POST' ? 'Playoffs' : 'Week';
+      return `${stat.season} ${seasonType} ${stat.week}`;
+    }
+    
+    try {
+      const date = new Date(stat.created_at || stat.game_date);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch {
+      return 'Recent';
+    }
+  };
+
+  // Normalize common/variant position codes
+  const normalizePosition = (pos?: string): string | undefined => {
+    if (!pos) return undefined;
+    const p = pos.toUpperCase().trim();
+    const map: Record<string, string> = {
+      HB: 'RB',
+      FB: 'FB', // handled with RB bucket
+      TB: 'RB',
+      PK: 'K',
+      P: 'P',
+      LS: 'DEF',
+      EDGE: 'EDGE',
+      NT: 'NT',
+      DL: 'DL'
+    };
+    return map[p] || p;
+  };
+
+  // Infer a player's position from recent stats when missing/blank
+  const inferPositionIfMissing = async (playerId: string, sport: string): Promise<string | undefined> => {
+    try {
+      if (!(sport === 'NFL' || sport === 'College Football')) return undefined;
+      const { data, error } = await supabase
+        .from('player_game_stats')
+        .select('stats')
+        .eq('player_id', playerId)
+        .order('created_at', { ascending: false })
+        .limit(8);
+      if (error || !data || data.length === 0) return undefined;
+
+      let scoreQB = 0, scoreRB = 0, scoreWR = 0, scoreK = 0, scoreDEF = 0;
+      data.forEach(r => {
+        const s: any = r.stats || {};
+        const pa = Number(s.passing_attempts || 0);
+        const py = Number(s.passing_yards || 0);
+        const pc = Number(s.passing_completions || 0);
+        const ptd = Number(s.passing_touchdowns || 0);
+        const ra = Number(s.rushing_attempts || 0);
+        const ry = Number(s.rushing_yards || 0);
+        const rtd = Number(s.rushing_touchdowns || 0);
+        const rec = Number(s.receptions || 0);
+        const ryy = Number(s.receiving_yards || 0);
+        const rctd = Number(s.receiving_touchdowns || 0);
+        const fga = Number(s.field_goals_attempted || 0);
+        const xpm = Number(s.extra_points_made || 0);
+        const tkl = Number(s.tackles_total || s.tackles || 0);
+        const sk = Number(s.sacks || 0);
+        const ints = Number(s.interceptions || s.passing_interceptions || 0);
+
+        // QB signals
+        if (pa > 5) scoreQB += 2;
+        if (py > 100) scoreQB += 2;
+        if (pc > 5) scoreQB += 1;
+        if (ptd > 0) scoreQB += 2;
+        // RB signals
+        if (ra > 5) scoreRB += 2;
+        if (ry > 40) scoreRB += 2;
+        if (rtd > 0) scoreRB += 2;
+        // WR/TE signals (we’ll map to WR)
+        if (rec > 2) scoreWR += 2;
+        if (ryy > 30) scoreWR += 2;
+        if (rctd > 0) scoreWR += 2;
+        // K signals
+        if (fga > 0) scoreK += 2;
+        if (xpm > 0) scoreK += 1;
+        // DEF signals
+        if (tkl >= 5) scoreDEF += 2;
+        if (sk > 0) scoreDEF += 2;
+        if (ints > 0) scoreDEF += 2;
+      });
+
+      const scores: Array<[string, number]> = [
+        ['QB', scoreQB],
+        ['RB', scoreRB],
+        ['WR', scoreWR], // TE handled with WR bucket in filtering
+        ['K', scoreK],
+        ['DEF', scoreDEF],
+      ];
+      scores.sort((a, b) => b[1] - a[1]);
+      const best = scores[0];
+      if (!best || best[1] === 0) return undefined;
+      return best[0];
+    } catch {
+      return undefined;
+    }
+  };
+
+  // Position-based prop types for better UX
+  const getAvailableProps = (sport: string, position?: string): PropType[] => {
     const propMappings = {
       'MLB': [
         { key: 'hits', name: 'Hits' },
@@ -97,24 +205,98 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       ],
       'NFL': [
         { key: 'passing_yards', name: 'Passing Yards' },
+        { key: 'passing_tds', name: 'Passing TDs' },
+        { key: 'completions', name: 'Completions' },
+        { key: 'attempts', name: 'Passing Attempts' },
+        { key: 'interceptions', name: 'Interceptions' },
         { key: 'rushing_yards', name: 'Rushing Yards' },
+        { key: 'rushing_tds', name: 'Rushing TDs' },
+        { key: 'rushing_attempts', name: 'Rushing Attempts' },
         { key: 'receiving_yards', name: 'Receiving Yards' },
-        { key: 'touchdowns', name: 'Touchdowns' },
-        { key: 'receptions', name: 'Receptions' }
+        { key: 'receiving_tds', name: 'Receiving TDs' },
+        { key: 'receptions', name: 'Receptions' },
+        { key: 'targets', name: 'Targets' },
+        { key: 'field_goals_made', name: 'Field Goals Made' },
+        { key: 'field_goals_attempted', name: 'Field Goals Attempted' },
+        { key: 'extra_points_made', name: 'Extra Points Made' },
+        { key: 'sacks', name: 'Sacks' },
+        { key: 'tackles', name: 'Tackles' },
+        { key: 'tackles_for_loss', name: 'Tackles for Loss' },
+        { key: 'fumbles_recovered', name: 'Fumbles Recovered' },
+        { key: 'fantasy_points', name: 'Fantasy Points' }
+      ],
+      'College Football': [
+        { key: 'passing_yards', name: 'Passing Yards' },
+        { key: 'passing_tds', name: 'Passing TDs' },
+        { key: 'completions', name: 'Completions' },
+        { key: 'attempts', name: 'Passing Attempts' },
+        { key: 'interceptions', name: 'Interceptions' },
+        { key: 'rushing_yards', name: 'Rushing Yards' },
+        { key: 'rushing_tds', name: 'Rushing TDs' },
+        { key: 'rushing_attempts', name: 'Rushing Attempts' },
+        { key: 'receiving_yards', name: 'Receiving Yards' },
+        { key: 'receiving_tds', name: 'Receiving TDs' },
+        { key: 'receptions', name: 'Receptions' },
+        { key: 'targets', name: 'Targets' },
+        { key: 'field_goals_made', name: 'Field Goals Made' },
+        { key: 'field_goals_attempted', name: 'Field Goals Attempted' },
+        { key: 'extra_points_made', name: 'Extra Points Made' },
+        { key: 'sacks', name: 'Sacks' },
+        { key: 'tackles', name: 'Tackles' },
+        { key: 'tackles_for_loss', name: 'Tackles for Loss' },
+        { key: 'fumbles_recovered', name: 'Fumbles Recovered' },
+        { key: 'fantasy_points', name: 'Fantasy Points' }
       ]
     };
 
-    return propMappings[sport as keyof typeof propMappings] || [];
+    let availableProps = propMappings[sport as keyof typeof propMappings] || [];
+    
+    // Filter Football props by position for better UX
+    if ((sport === 'NFL' || sport === 'College Football') && position) {
+      const pos = position.toUpperCase();
+      
+      if (pos === 'QB') {
+        availableProps = availableProps.filter(prop => 
+          ['passing_yards', 'passing_tds', 'completions', 'attempts', 'interceptions', 'rushing_yards', 'rushing_tds', 'rushing_attempts', 'fantasy_points'].includes(prop.key)
+        );
+      } else if (['WR', 'TE'].includes(pos)) {
+        availableProps = availableProps.filter(prop => 
+          ['receiving_yards', 'receiving_tds', 'receptions', 'targets', 'rushing_yards', 'rushing_tds', 'fantasy_points'].includes(prop.key)
+        );
+      } else if (['RB', 'FB'].includes(pos)) {
+        availableProps = availableProps.filter(prop => 
+          ['rushing_yards', 'rushing_tds', 'rushing_attempts', 'receiving_yards', 'receiving_tds', 'receptions', 'targets', 'fantasy_points'].includes(prop.key)
+        );
+      } else if (['K', 'PK', 'P'].includes(pos)) {
+        availableProps = availableProps.filter(prop => 
+          ['field_goals_made', 'field_goals_attempted', 'extra_points_made', 'fantasy_points'].includes(prop.key)
+        );
+      } else if (['DE', 'DT', 'DL', 'EDGE', 'NT', 'LB', 'ILB', 'OLB', 'CB', 'S', 'FS', 'SS', 'DB', 'DEF'].includes(pos)) {
+        availableProps = availableProps.filter(prop => 
+          ['sacks', 'tackles', 'tackles_for_loss', 'interceptions', 'fumbles_recovered', 'fantasy_points'].includes(prop.key)
+        );
+      }
+    }
+    
+    return availableProps;
   };
 
   useEffect(() => {
     if (visible && player) {
-      const props = getAvailableProps(player.sport);
-      setPropTypes(props);
-      if (props.length > 0 && !selectedPropType) {
-        setSelectedPropType(props[0].key);
-      }
-      fetchPlayerWithHeadshot();
+      (async () => {
+        const normalized = normalizePosition(player.position);
+        let posToUse = normalized;
+        if (!posToUse) {
+          posToUse = await inferPositionIfMissing(player.id, player.sport);
+        }
+        setComputedPosition(posToUse);
+        const props = getAvailableProps(player.sport, posToUse);
+        setPropTypes(props);
+        if (props.length > 0 && (!selectedPropType || !props.find(p => p.key === selectedPropType))) {
+          setSelectedPropType(props[0].key);
+        }
+        fetchPlayerWithHeadshot();
+      })();
     }
   }, [visible, player]);
 
@@ -224,16 +406,94 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             case 'total_bases':
               value = statsData.total_bases || 0;
               break;
+            // NFL mappings (use integrator keys)
+            case 'passing_yards':
+              value = statsData.passing_yards || 0;
+              break;
+            case 'passing_tds':
+              value = statsData.passing_touchdowns || statsData.passing_tds || 0;
+              break;
+            case 'completions':
+              value = statsData.passing_completions || statsData.completions || 0;
+              break;
+            case 'attempts':
+              value = statsData.passing_attempts || statsData.attempts || 0;
+              break;
+            case 'interceptions':
+              value = statsData.passing_interceptions || statsData.interceptions || 0;
+              break;
+            case 'rushing_yards':
+              value = statsData.rushing_yards || 0;
+              break;
+            case 'rushing_tds':
+              value = statsData.rushing_touchdowns || statsData.rushing_tds || 0;
+              break;
+            case 'rushing_attempts':
+              value = statsData.rushing_attempts || 0;
+              break;
+            case 'receiving_yards':
+              value = statsData.receiving_yards || 0;
+              break;
+            case 'receiving_tds':
+              value = statsData.receiving_touchdowns || statsData.receiving_tds || 0;
+              break;
+            case 'receptions':
+              value = statsData.receptions || 0;
+              break;
+            case 'targets':
+              value = statsData.targets || statsData.receiving_targets || 0;
+              break;
+            case 'field_goals_made':
+              value = statsData.field_goals_made || 0;
+              break;
+            case 'field_goals_attempted':
+              value = statsData.field_goals_attempted || 0;
+              break;
+            case 'extra_points_made':
+              value = statsData.extra_points_made || 0;
+              break;
+            case 'sacks':
+              value = statsData.sacks || 0;
+              break;
+            case 'tackles':
+              value = (statsData.tackles || statsData.tackles_total || 0) +
+                      (statsData.solo_tackles || 0) + (statsData.assisted_tackles || 0) -
+                      (statsData.tackles_total ? (statsData.solo_tackles || 0) + (statsData.assisted_tackles || 0) : 0);
+              break;
+            case 'tackles_for_loss':
+              value = statsData.tackles_for_loss || 0;
+              break;
+            case 'fumbles_recovered':
+              value = statsData.fumbles_recovered || 0;
+              break;
+            case 'fantasy_points':
+              value = statsData.fantasy_points || 0;
+              break;
             default:
               value = statsData[selectedPropType] || 0;
           }
 
+          // Extract game data with Football-specific handling
+          const gameDate = (player?.sport === 'NFL' || player?.sport === 'College Football') 
+            ? `${statsData.season || 2024} Week ${statsData.week || 1}`
+            : statsData.game_date || formatGameIdentifier(stat);
+          const opponent = statsData.opponent_team || statsData.opponent || 'OPP';
+          const isHome = (typeof statsData.is_home === 'boolean' ? statsData.is_home : undefined) || statsData.home_or_away === 'home';
+          
           return {
-            game_date: statsData.game_date || stat.created_at,
-            opponent: 'VS OPP', // Placeholder as this data isn't in the stats
-            is_home: Math.random() > 0.5, // Placeholder
+            game_date: gameDate,
+            opponent: opponent,
+            is_home: isHome,
             value,
-            game_result: statsData.plus_minus && statsData.plus_minus > 0 ? 'W' : 'L'
+            game_result: statsData.plus_minus && statsData.plus_minus > 0 ? 'W' : 'L',
+            // NFL specific data
+            season: statsData.season,
+            week: statsData.week,
+            season_type: statsData.season_type,
+            fantasy_points: statsData.fantasy_points,
+            passing_epa: statsData.passing_epa,
+            rushing_epa: statsData.rushing_epa,
+            receiving_epa: statsData.receiving_epa
           };
         }).filter(stat => stat.value !== undefined);
       }
@@ -303,10 +563,48 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
           three_pointers: ['threes', 'three_pointers']
         },
         NFL: {
-          passing_yards: ['player_pass_yds'],
-          rushing_yards: ['player_rush_yds'],
-          receiving_yards: ['player_reception_yds'],
-          receptions: ['player_receptions']
+          passing_yards: ['player_pass_yds', 'passing_yards'],
+          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+          completions: ['player_completions', 'passing_completions', 'completions'],
+          attempts: ['player_pass_att', 'passing_attempts', 'attempts'],
+          interceptions: ['player_interceptions', 'passing_interceptions', 'interceptions'],
+          rushing_yards: ['player_rush_yds', 'rushing_yards'],
+          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
+          rushing_attempts: ['player_rush_att', 'rushing_attempts'],
+          receiving_yards: ['player_reception_yds', 'receiving_yards'],
+          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
+          receptions: ['player_receptions', 'receptions'],
+          targets: ['player_targets', 'targets'],
+          field_goals_made: ['player_fg_made', 'field_goals_made'],
+          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
+          extra_points_made: ['player_xp_made', 'extra_points_made'],
+          sacks: ['player_sacks', 'sacks'],
+          tackles: ['player_tackles', 'tackles'],
+          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
+          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
+          fantasy_points: ['player_fantasy_points', 'fantasy_points']
+        },
+        'College Football': {
+          passing_yards: ['player_pass_yds', 'passing_yards'],
+          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+          completions: ['player_pass_completions', 'passing_completions', 'completions'],
+          attempts: ['player_pass_attempts', 'passing_attempts', 'attempts'],
+          interceptions: ['player_pass_interceptions', 'passing_interceptions', 'interceptions'],
+          rushing_yards: ['player_rush_yds', 'rushing_yards'],
+          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
+          rushing_attempts: ['player_rush_attempts', 'rushing_attempts'],
+          receiving_yards: ['player_reception_yds', 'receiving_yards'],
+          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
+          receptions: ['player_receptions', 'receptions'],
+          targets: ['player_targets', 'targets'],
+          field_goals_made: ['player_fg_made', 'field_goals_made'],
+          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
+          extra_points_made: ['player_xp_made', 'extra_points_made'],
+          sacks: ['player_sacks', 'sacks'],
+          tackles: ['player_tackles', 'tackles'],
+          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
+          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
+          fantasy_points: ['player_fantasy_points', 'fantasy_points']
         }
       };
       const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
@@ -415,27 +713,27 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                   {stat.value}
                 </SvgText>
                 
-                {/* Game date at bottom */}
+                {/* Game identifier and opponent at bottom */}
                 <SvgText
                   x={x + barSpacing / 2}
                   y={chartHeight + 15}
-                  fontSize="10"
-                  fill="#9CA3AF"
-                  textAnchor="middle"
-                  transform={`rotate(-45, ${x + barSpacing / 2}, ${chartHeight + 15})`}
-                >
-                  {new Date(stat.game_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </SvgText>
-                
-                {/* Opponent */}
-                <SvgText
-                  x={x + barSpacing / 2}
-                  y={chartHeight + 30}
                   fontSize="9"
                   fill="#6B7280"
                   textAnchor="middle"
                 >
-                  {stat.is_home ? 'vs' : '@'} {stat.opponent}
+                  {(player?.sport === 'NFL' || player?.sport === 'College Football') && stat.week ? 
+                    `W${stat.week}` : 
+                    new Date(stat.game_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).replace(/\s/, '')
+                  }
+                </SvgText>
+                <SvgText
+                  x={x + barSpacing / 2}
+                  y={chartHeight + 28}
+                  fontSize="8"
+                  fill="#9CA3AF"
+                  textAnchor="middle"
+                >
+                  {stat.is_home ? 'vs' : '@'} {stat.opponent.length > 3 ? stat.opponent.substring(0, 3) : stat.opponent}
                 </SvgText>
               </G>
             );
@@ -517,14 +815,15 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   };
 
   const getSportColor = (sport: string) => {
-    const colors = {
+    const sportColors = {
       'MLB': '#1E40AF',
       'WNBA': '#DC2626', 
       'NBA': '#DC2626',
       'NFL': '#16A34A',
+      'College Football': '#2563EB',
       'UFC': '#EA580C'
     };
-    return colors[sport as keyof typeof colors] || '#6B7280';
+    return sportColors[sport as keyof typeof sportColors] || '#6B7280';
   };
 
   const getOverUnderStats = () => {
@@ -846,6 +1145,87 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                 </Text>
               </View>
             </View>
+
+            {/* NFL Advanced Analytics */}
+            {player?.sport === 'NFL' && gameStats.length > 0 && (
+              <View style={{
+                marginTop: 16,
+                paddingTop: 16,
+                borderTopWidth: 1,
+                borderTopColor: '#374151'
+              }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#FFFFFF',
+                  marginBottom: 8,
+                  textAlign: 'center'
+                }}>
+                  🏈 NFL Advanced Metrics
+                </Text>
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                  {(() => {
+                    const avgFantasy = gameStats.reduce((sum, stat) => sum + (stat.fantasy_points || 0), 0) / gameStats.length;
+                    const recentGames = gameStats.slice(-5);
+                    const recentFantasy = recentGames.reduce((sum, stat) => sum + (stat.fantasy_points || 0), 0) / recentGames.length;
+                    const trend = recentFantasy > avgFantasy ? '📈' : recentFantasy < avgFantasy ? '📉' : '➡️';
+                    
+                    return (
+                      <>
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: '#8B5CF6'
+                          }}>
+                            {avgFantasy.toFixed(1)}
+                          </Text>
+                          <Text style={{
+                            fontSize: 10,
+                            color: '#9CA3AF'
+                          }}>
+                            Avg Fantasy
+                          </Text>
+                        </View>
+                        
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: '#06B6D4'
+                          }}>
+                            {trend}
+                          </Text>
+                          <Text style={{
+                            fontSize: 10,
+                            color: '#9CA3AF'
+                          }}>
+                            L5 Trend
+                          </Text>
+                        </View>
+                        
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: '#F97316'
+                          }}>
+                            {gameStats.filter(s => s.season_type === 'POST').length}
+                          </Text>
+                          <Text style={{
+                            fontSize: 10,
+                            color: '#9CA3AF'
+                          }}>
+                            Playoff Games
+                          </Text>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Chart */}
@@ -929,11 +1309,18 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                     fontSize: 14,
                     fontWeight: '500'
                   }}>
-                    {new Date(stat.game_date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })} {stat.is_home ? 'vs' : '@'} {stat.opponent}
+                    {stat.game_date} {stat.is_home ? 'vs' : '@'} {stat.opponent}
                   </Text>
+                  {/* NFL-specific enhancements */}
+                  {player?.sport === 'NFL' && stat.fantasy_points !== undefined && (
+                    <Text style={{
+                      color: '#9CA3AF',
+                      fontSize: 12,
+                      marginTop: 2
+                    }}>
+                      {stat.fantasy_points.toFixed(1)} fantasy pts
+                    </Text>
+                  )}
                 </View>
                 
                 <View style={{
