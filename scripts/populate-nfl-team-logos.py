@@ -18,6 +18,10 @@ import requests
 import json
 from supabase import create_client, Client
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Supabase configuration
 SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://iriaegoipkjtktitpary.supabase.co')
@@ -93,7 +97,7 @@ def get_existing_nfl_teams(supabase: Client) -> List[Dict]:
     print("🔍 Fetching existing NFL teams from database...")
     
     try:
-        response = supabase.table('teams').select('*').eq('sport_key', 'NFL').execute()
+        response = supabase.table('teams').select('*').eq('sport_key', 'americanfootball_nfl').execute()
         teams = response.data
         
         print(f"📊 Found {len(teams)} NFL teams in database")

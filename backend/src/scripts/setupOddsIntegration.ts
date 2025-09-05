@@ -85,18 +85,20 @@ async function checkReferenceData(): Promise<boolean> {
   console.log('🔍 Checking reference data...');
   
   try {
-    // Check sports_config
+    // Check sports_config for all ACTIVE sports from config using the TheOdds sport keys
+    const activeSports = getActiveSportConfigs();
+    const activeTheOddsKeys = activeSports.map(s => s.theoddsKey);
     const { data: sportsData, error: sportsError } = await supabaseAdmin
       .from('sports_config')
       .select('sport_key, sport_name')
-      .in('sport_key', ['MLB', 'NBA']);
+      .in('sport_key', activeTheOddsKeys);
     
     if (sportsError) {
       console.error('❌ Error checking sports_config:', sportsError.message);
       return false;
     }
     
-    console.log(`✅ Found ${sportsData?.length || 0} sports in sports_config`);
+    console.log(`✅ Found ${sportsData?.length || 0} active sports in sports_config`);
     if (sportsData) {
       sportsData.forEach(sport => console.log(`  - ${sport.sport_key}: ${sport.sport_name}`));
     }
@@ -136,7 +138,7 @@ async function checkReferenceData(): Promise<boolean> {
     
     // Check if we have minimum required data
     const hasMinimumData = 
-      (sportsData?.length || 0) >= 2 && // MLB and NBA
+      (sportsData?.length || 0) >= activeTheOddsKeys.length &&
       (marketData?.length || 0) >= 3 && // h2h, spreads, totals
       (bookmakerData?.length || 0) >= 1; // At least one bookmaker
     
@@ -254,7 +256,8 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
       regions: 'us',
       markets: propMarkets.join(','),
       oddsFormat: 'american',
-      bookmakers: PLAYER_PROPS_BOOKMAKER  // Just get FanDuel for player props
+      // Request multiple bookmakers to increase chance of available prop markets
+      bookmakers: [PLAYER_PROPS_BOOKMAKER, 'draftkings', 'betmgm', 'caesars'].join(',')
     };
     
     console.log(`  🎯 Fetching player props for event ${eventId}...`);
@@ -309,6 +312,19 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
   return null;
 }
 
+
+/**
+ * Maps internal sport keys to the values used in the players.sport column
+ */
+function mapPlayerSportKey(s: string): string {
+  const key = s.toUpperCase();
+  if (key === 'CFB') return 'College Football';
+  if (key === 'NFL') return 'NFL';
+  if (key === 'MLB') return 'MLB';
+  if (key === 'WNBA') return 'WNBA';
+  return s;
+}
+
 async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string, sportKey: string): Promise<void> {
   console.log(`  💾 Storing player props for event ${eventId}...`);
   
@@ -335,11 +351,12 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
     playerTeam: string;
   }>();
   
-  // Filter for only DraftKings bookmaker
-  const draftkingsBookmaker = propsData.bookmakers?.find(b => b.key.toLowerCase() === PLAYER_PROPS_BOOKMAKER);
+  // Prefer configured bookmaker, but allow fallbacks if it's not available on this event
+  const preferredBookmaker = propsData.bookmakers?.find(b => b.key.toLowerCase() === PLAYER_PROPS_BOOKMAKER)
+    || propsData.bookmakers?.find(b => ['draftkings', 'betmgm', 'caesars'].includes(b.key.toLowerCase()));
   
-  if (!draftkingsBookmaker) {
-    console.log(`⚠️ ${PLAYER_PROPS_BOOKMAKER.toUpperCase()} bookmaker data not found`);
+  if (!preferredBookmaker) {
+    console.log(`⚠️ No supported bookmaker data found (tried: ${PLAYER_PROPS_BOOKMAKER}, draftkings, betmgm, caesars)`);
     return;
   }
   
@@ -353,8 +370,11 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
   const validPropMarkets = sportConfig.propMarkets;
   console.log(`  🎯 Valid prop markets for ${sportKey}: ${validPropMarkets.join(', ')}`);
   
-  // Process markets from DraftKings only
-  for (const market of draftkingsBookmaker.markets || []) {
+  // Map to the sport label used in players.sport (e.g., CFB -> College Football)
+  const playerSportName = mapPlayerSportKey(sportKey);
+  
+  // Process markets from the preferred bookmaker only (to avoid duplicates)
+  for (const market of preferredBookmaker.markets || []) {
     if (!validPropMarkets.includes(market.key)) {
       console.log(`  ⚠️ Skipping unsupported market: ${market.key} for sport ${sportKey}`);
       continue;
@@ -369,7 +389,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
       let playerTeam = '';
       
       // Create unique key for grouping using FULL name
-      const groupKey = `${fullPlayerName}-${market.key}-${line}-${PLAYER_PROPS_BOOKMAKER}`;
+      const groupKey = `${fullPlayerName}-${market.key}-${line}-${preferredBookmaker.key.toLowerCase()}`;
       
       // Get or create grouped prop entry
       if (!groupedProps.has(groupKey)) {
@@ -377,7 +397,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
           playerName: fullPlayerName,
           propType: market.key,
           line,
-          bookmaker: PLAYER_PROPS_BOOKMAKER,
+          bookmaker: preferredBookmaker.key.toLowerCase(),
           overOdds: null,
           underOdds: null,
           playerTeam
@@ -457,7 +477,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
         .from('players')
         .select('id, name, team')
         .eq('name', prop.playerName)
-        .eq('sport', sportKey.toUpperCase())
+        .eq('sport', playerSportName)
         .not('team', 'is', null)
         .not('team', 'eq', '')
         .single();
@@ -470,7 +490,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
         const { data: allPlayers, error: allPlayersError } = await supabaseAdmin
           .from('players')
           .select('id, name, team')
-          .eq('sport', sportKey.toUpperCase())
+          .eq('sport', playerSportName)
           .not('team', 'is', null)
           .not('team', 'eq', '');
         
@@ -556,15 +576,34 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
         console.log(`✅ Exact match: ${prop.playerName} (${playerData.team})`);
       }
       
-      // Get prop type
-      const { data: propTypeData, error: propTypeError } = await supabaseAdmin
-        .from('player_prop_types')
-        .select('id')
-        .eq('prop_key', prop.propType)
-        .single();
+      // Get prop type with intelligent fallback for NFL-specific keys
+      let propTypeId: string | null = null;
+      // Try base key first (e.g., player_pass_yds)
+      {
+        const { data, error } = await supabaseAdmin
+          .from('player_prop_types')
+          .select('id')
+          .eq('prop_key', prop.propType)
+          .maybeSingle();
+        if (data && !error) {
+          propTypeId = data.id;
+        }
+      }
+      // If not found and NFL, try the _nfl suffixed key which exists in ensurePlayerPropTypes()
+      if (!propTypeId && sportKey.toUpperCase() === 'NFL') {
+        const nflKey = `${prop.propType}_nfl`;
+        const { data } = await supabaseAdmin
+          .from('player_prop_types')
+          .select('id')
+          .eq('prop_key', nflKey)
+          .maybeSingle();
+        if (data) {
+          propTypeId = data.id;
+        }
+      }
       
-      if (propTypeError || !propTypeData) {
-        console.log(`⚠️ Error finding prop type ${prop.propType}: ${propTypeError.message}`);
+      if (!propTypeId) {
+        console.log(`⚠️ Prop type not found for key '${prop.propType}' (sport=${sportKey}). Tried base and sport-specific variants.`);
         continue;
       }
       
@@ -586,7 +625,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
         .select('id')
         .eq('event_id', eventId)
         .eq('player_id', playerId)
-        .eq('prop_type_id', propTypeData.id)
+        .eq('prop_type_id', propTypeId)
         .eq('bookmaker_id', bookmakerInfo.id)
         .eq('line', prop.line)
         .maybeSingle();
@@ -620,7 +659,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
           .insert({
             event_id: eventId,
             player_id: playerId,
-            prop_type_id: propTypeData.id,
+            prop_type_id: propTypeId,
             bookmaker_id: bookmakerInfo.id,
             line: prop.line,
             over_odds: prop.overOdds !== null ? String(prop.overOdds) : null,

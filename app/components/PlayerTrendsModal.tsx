@@ -26,6 +26,15 @@ interface Player {
   has_headshot?: boolean;
 }
 
+interface TeamData {
+  id: string;
+  name: string;
+  abbreviation: string;
+  city: string;
+  sport: string;
+  logo_url?: string;
+}
+
 interface GameStat {
   game_date: string;
   opponent: string;
@@ -66,6 +75,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const [currentPropLine, setCurrentPropLine] = useState<number | null>(null);
   const [playerWithHeadshot, setPlayerWithHeadshot] = useState<Player | null>(null);
   const [computedPosition, setComputedPosition] = useState<string | undefined>(undefined);
+  const [teamData, setTeamData] = useState<TeamData | null>(null);
 
   const { colors } = useTheme();
   
@@ -296,6 +306,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
           setSelectedPropType(props[0].key);
         }
         fetchPlayerWithHeadshot();
+        fetchTeamData();
       })();
     }
   }, [visible, player]);
@@ -336,6 +347,36 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     } catch (error) {
       console.error('Error fetching player headshot:', error);
       setPlayerWithHeadshot(player); // Use original player data as fallback
+    }
+  };
+
+  const fetchTeamData = async () => {
+    if (!player) return;
+
+    try {
+      // Fetch team data with logo based on player's team name and sport
+      const { data: teamInfo, error } = await supabase
+        .from('teams')
+        .select('id, name, abbreviation, city, sport, logo_url')
+        .eq('sport_key', player.sport)
+        .or(`team_name.ilike.%${player.team}%,city.ilike.%${player.team}%,team_abbreviation.ilike.%${player.team}%`)
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.warn('Error fetching team data:', error);
+        setTeamData(null);
+        return;
+      }
+
+      if (teamInfo) {
+        setTeamData(teamInfo);
+      } else {
+        setTeamData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+      setTeamData(null);
     }
   };
 
@@ -987,13 +1028,41 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                     {player.sport}
                   </Text>
                 </View>
-                <Text style={{
-                  color: '#D1D5DB',
-                  fontSize: 16,
-                  fontWeight: '600'
-                }}>
-                  {player.team}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {/* Team Logo */}
+                  {teamData?.logo_url ? (
+                    <View style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      marginRight: 8,
+                      backgroundColor: '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 1,
+                      borderColor: '#374151'
+                    }}>
+                      <Image
+                        source={{ uri: teamData.logo_url }}
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 11
+                        }}
+                        onError={() => {
+                          console.log('Failed to load team logo for', teamData.name);
+                        }}
+                      />
+                    </View>
+                  ) : null}
+                  <Text style={{
+                    color: '#D1D5DB',
+                    fontSize: 16,
+                    fontWeight: '600'
+                  }}>
+                    {player.team}
+                  </Text>
+                </View>
               </View>
               {player.position && (
                 <Text style={{

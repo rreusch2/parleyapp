@@ -86,6 +86,7 @@ class StatMuseAPI:
     def is_nfl_query(self, query: str) -> bool:
         """Check if query is likely about NFL"""
         nfl_keywords = [
+            # NFL players
             "joe burrow", "josh allen", "patrick mahomes", "lamar jackson",
             "aaron rodgers", "tom brady", "dak prescott", "russell wilson",
             "justin herbert", "tua tagovailoa", "kyler murray", "jalen hurts",
@@ -94,14 +95,27 @@ class StatMuseAPI:
             "davante adams", "tyreek hill", "stefon diggs", "deandre hopkins",
             "calvin ridley", "mike evans", "chris godwin", "keenan allen",
             "travis kelce", "george kittle", "mark andrews", "darren waller",
-            "nfl", "steelers", "patriots", "cowboys", "packers", "49ers",
-            "chiefs", "bills", "ravens", "bengals", "broncos", "colts",
-            "titans", "texans", "jaguars", "chargers", "raiders", "dolphins",
-            "jets", "browns", "eagles", "giants", "washington", "lions",
-            "vikings", "bears", "saints", "falcons", "panthers", "buccaneers",
-            "cardinals", "rams", "seahawks", "week 1", "week 2", "week 18",
+            
+            # NFL league and season terms
+            "nfl", "national football league", "week 1", "week 2", "week 18",
             "playoff", "super bowl", "rushing yards", "passing yards", "touchdowns",
-            "interceptions", "receptions", "receiving yards", "sacks", "fumbles"
+            "interceptions", "receptions", "receiving yards", "sacks", "fumbles",
+            
+            # NFL teams with full names to avoid conflicts
+            "arizona cardinals", "atlanta falcons", "baltimore ravens", "buffalo bills",
+            "carolina panthers", "chicago bears", "cincinnati bengals", "cleveland browns",
+            "dallas cowboys", "denver broncos", "detroit lions", "green bay packers",
+            "houston texans", "indianapolis colts", "jacksonville jaguars", "kansas city chiefs",
+            "las vegas raiders", "los angeles chargers", "los angeles rams", "miami dolphins",
+            "minnesota vikings", "new england patriots", "new orleans saints", "new york giants",
+            "new york jets", "philadelphia eagles", "pittsburgh steelers", "san francisco 49ers",
+            "seattle seahawks", "tampa bay buccaneers", "tennessee titans", "washington commanders",
+            
+            # Common NFL team nicknames that don't conflict with MLB
+            "steelers", "patriots", "cowboys", "packers", "49ers", "chiefs", "bills", 
+            "ravens", "bengals", "broncos", "colts", "titans", "texans", "jaguars", 
+            "chargers", "raiders", "dolphins", "jets", "browns", "eagles", "lions",
+            "vikings", "bears", "saints", "falcons", "panthers", "buccaneers", "seahawks"
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in nfl_keywords)

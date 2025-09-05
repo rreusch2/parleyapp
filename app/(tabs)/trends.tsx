@@ -839,56 +839,108 @@ export default function TrendsScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {/* Team Logo Placeholder */}
+                    {/* Team Logo */}
                     <View style={{
                       position: 'relative',
                       marginRight: 14
                     }}>
-                      <View style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 28,
-                        borderWidth: 2,
-                        borderColor: getSportColor(team.sport),
-                        backgroundColor: '#374151',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        shadowColor: getSportColor(team.sport),
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 4,
-                        elevation: 4
-                      }}>
-                        <Text style={{
-                          color: '#FFFFFF',
-                          fontSize: 16,
-                          fontWeight: 'bold'
-                        }}>
-                          {team.abbreviation}
-                        </Text>
-                        {/* Sport indicator */}
+                      {team.logo_url ? (
                         <View style={{
-                          position: 'absolute',
-                          bottom: -1,
-                          right: -1,
-                          width: 18,
-                          height: 18,
-                          borderRadius: 9,
-                          backgroundColor: getSportColor(team.sport),
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          borderWidth: 2,
+                          borderColor: getSportColor(team.sport),
+                          shadowColor: getSportColor(team.sport),
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4,
+                          backgroundColor: '#FFFFFF'
+                        }}>
+                          <Image
+                            source={{ uri: team.logo_url }}
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: 26,
+                              backgroundColor: '#FFFFFF'
+                            }}
+                            onError={() => {
+                              console.log('Failed to load logo for', team.name);
+                            }}
+                          />
+                          {/* Sport indicator */}
+                          <View style={{
+                            position: 'absolute',
+                            bottom: -1,
+                            right: -1,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: getSportColor(team.sport),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: '#1F2937'
+                          }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 8,
+                              fontWeight: 'bold'
+                            }}>
+                              {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                        /* Fallback for teams without logos */
+                        <View style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 28,
+                          borderWidth: 2,
+                          borderColor: getSportColor(team.sport),
+                          backgroundColor: '#374151',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          borderWidth: 2,
-                          borderColor: '#1F2937'
+                          shadowColor: getSportColor(team.sport),
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4
                         }}>
                           <Text style={{
                             color: '#FFFFFF',
-                            fontSize: 8,
+                            fontSize: 16,
                             fontWeight: 'bold'
                           }}>
-                            {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
+                            {team.abbreviation}
                           </Text>
+                          {/* Sport indicator */}
+                          <View style={{
+                            position: 'absolute',
+                            bottom: -1,
+                            right: -1,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 9,
+                            backgroundColor: getSportColor(team.sport),
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: '#1F2937'
+                          }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 8,
+                              fontWeight: 'bold'
+                            }}>
+                              {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
+                      )}
                     </View>
 
                     {/* Team Info */}

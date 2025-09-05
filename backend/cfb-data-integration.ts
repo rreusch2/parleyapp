@@ -166,21 +166,53 @@ class CFBDataIntegrator {
   }
 
   /**
+   * Get player stats for specific games
+   */
+  async getPlayerSeasonStats2024(gameIds: number[]): Promise<any[]> {
+    const year = 2024;
+    console.log('👥 Fetching player game stats...');
+    
+    const allPlayerStats: any[] = [];
+    
+    for (const gameId of gameIds) {
+      try {
+        const gameStats: CFBDPlayerGameStats = await this.makeRequest('/games/players', {
+          id: gameId
+        });
+        
+        if (gameStats && gameStats.teams) {
+          allPlayerStats.push({
+            gameId,
+            stats: gameStats
+          });
+        }
+      } catch (error) {
+        console.log(`⚠️ No player stats for game ${gameId}`);
+      }
+    }
+    
+    return allPlayerStats;
+  }
+
+  /**
    * Get 2024 season stats for historical data
    */
   async get2024PlayerStats(): Promise<any[]> {
-    console.log('📊 Fetching 2024 season player stats...');
+    const year = 2024;
+    console.log(`📊 Fetching ${year} season player stats...`);
     
     try {
-      const seasonStats = await this.makeRequest('/stats/player/season', {
-        year: 2024,
+      const playerStats = await this.makeRequest('/stats/player/season', {
+        year: year,
         seasonType: 'regular'
       });
       
-      console.log(`📈 Found ${seasonStats.length} player season stats for 2024`);
-      return seasonStats;
+      console.log(`📈 Found ${playerStats.length} player season stats for ${year}`);
+      console.log(`📊 Retrieved ${playerStats.length} ${year} player season stats (ready for future processing)`);
+      
+      return playerStats;
     } catch (error) {
-      console.error('Error fetching 2024 season stats:', error);
+      console.error(`Error fetching ${year} player season stats:`, error);
       return [];
     }
   }
@@ -211,6 +243,22 @@ class CFBDataIntegrator {
   }
 
   /**
+   * Get team records for 2024 only
+   */
+  async getTeamRecords2024(): Promise<CFBDTeamRecord[]> {
+    try {
+      const yearRecords = await this.makeRequest('/records', {
+        year: 2024
+      });
+      
+      return yearRecords;
+    } catch (error) {
+      console.error('Error fetching 2024 team records:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get team season stats for trends analysis
    */
   async getTeamSeasonStats(): Promise<CFBDTeamStat[]> {
@@ -234,6 +282,22 @@ class CFBDataIntegrator {
     }
     
     return stats;
+  }
+
+  /**
+   * Get team season stats for 2024 only
+   */
+  async getTeamSeasonStats2024(): Promise<CFBDTeamStat[]> {
+    try {
+      const yearStats = await this.makeRequest('/stats/season', {
+        year: 2024
+      });
+      
+      return yearStats;
+    } catch (error) {
+      console.error('Error fetching 2024 team stats:', error);
+      return [];
+    }
   }
 
   /**
@@ -428,6 +492,54 @@ class CFBDataIntegrator {
   }
 
   /**
+   * Setup CFB teams in teams table first
+   */
+  async setupCFBTeams(): Promise<void> {
+    try {
+      const teamsResponse = await axios.get(
+        'https://api.collegefootballdata.com/teams/fbs',
+        {
+          headers: {
+            'Authorization': `Bearer ${CFBD_API_KEY}`,
+            'Accept': 'application/json'
+          }
+        }
+      );
+      
+      const teams = teamsResponse.data;
+      console.log(`📋 Found ${teams.length} CFB teams`);
+      
+      const teamInserts = teams.map((team: any) => ({
+        sport_key: 'americanfootball_ncaaf',
+        team_key: team.school?.toLowerCase().replace(/\s+/g, '-') || 'unknown',
+        team_name: team.school || 'Unknown',
+        team_abbreviation: team.abbreviation || team.school?.substring(0, 3).toUpperCase() || 'UNK',
+        city: team.school || 'Unknown',
+        conference: team.conference || null,
+        division: team.division || null,
+        logo_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      
+      const { error } = await supabase
+        .from('teams')
+        .upsert(teamInserts, { 
+          onConflict: 'team_key',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('Error setting up CFB teams:', error);
+      } else {
+        console.log(`✅ Setup ${teamInserts.length} CFB teams`);
+      }
+    } catch (error) {
+      console.error('Failed to setup CFB teams:', error);
+    }
+  }
+
+  /**
    * Store team records in team_recent_stats table
    */
   async storeTeamRecords(records: CFBDTeamRecord[]): Promise<void> {
@@ -440,8 +552,8 @@ class CFBDataIntegrator {
       const { data: teamData } = await supabase
         .from('teams')
         .select('id')
-        .eq('name', record.team)
-        .eq('sport', 'College Football')
+        .eq('team_name', record.team)
+        .eq('sport_key', 'americanfootball_ncaaf')
         .single();
 
       if (teamData) {
@@ -449,9 +561,10 @@ class CFBDataIntegrator {
           team_id: teamData.id,
           team_name: record.team,
           sport: 'College Football',
-          sport_key: 'cfb',
+          sport_key: 'americanfootball_ncaaf',
           game_date: `${record.year}-12-31`, // End of season date
           opponent_team: 'Season Total',
+          opponent_team_id: teamData.id, // Use same team as placeholder
           is_home: true,
           team_score: record.total.wins,
           opponent_score: record.total.losses,
@@ -468,7 +581,7 @@ class CFBDataIntegrator {
       const { error } = await supabase
         .from('team_recent_stats')
         .upsert(teamStats, { 
-          onConflict: 'external_game_id',
+          onConflict: 'team_id,game_date,opponent_team_id',
           ignoreDuplicates: false 
         });
       
@@ -499,8 +612,8 @@ class CFBDataIntegrator {
         const { data: teamData } = await supabase
           .from('teams')
           .select('id')
-          .eq('name', stat.team)
-          .eq('sport', 'College Football')
+          .eq('team_name', stat.team)
+          .eq('sport_key', 'americanfootball_ncaaf')
           .single();
 
         if (teamData) {
@@ -509,7 +622,7 @@ class CFBDataIntegrator {
             team_name: stat.team,
             team_abbreviation: stat.team.substring(0, 3).toUpperCase(),
             city: stat.team,
-            sport_key: 'cfb',
+            sport_key: 'americanfootball_ncaaf',
             games_played: 0,
             wins: 0,
             losses: 0,
@@ -571,7 +684,7 @@ class CFBDataIntegrator {
   /**
    * Main integration function
    */
-  async runIntegration(): Promise<void> {
+  async run(): Promise<void> {
     console.log('🚀 Starting College Football Data Integration...\n');
     
     try {
@@ -587,43 +700,48 @@ class CFBDataIntegrator {
         // Transform and store player stats
         let allPlayerStats: any[] = [];
         for (const gameData of playerGameStats) {
-          const game = games2025.find(g => g.id === gameData.gameId);
-          if (game) {
-            const transformed = this.transformPlayerStats(gameData, game);
-            allPlayerStats.push(...transformed);
+          if (gameData.teams && Array.isArray(gameData.teams)) {
+            for (const teamData of gameData.teams) {
+              if (teamData.players && Array.isArray(teamData.players)) {
+                for (const player of teamData.players) {
+                  allPlayerStats.push({
+                    ...player,
+                    team: teamData.school,
+                    opponent: gameData.teams.find((t: any) => t.school !== teamData.school)?.school,
+                    game_date: gameData.game?.start_date?.split('T')[0] || null,
+                    sport: 'College Football'
+                  });
+                }
+              }
+            }
           }
         }
         
         console.log(`🔄 Transformed ${allPlayerStats.length} player stat records\n`);
-        
-        if (allPlayerStats.length > 0) {
-          await this.storePlayerGameStats(allPlayerStats);
-          console.log('');
-        }
       }
       
-      // 3. Get historical team data
-      const teamRecords = await this.getTeamRecords();
-      if (teamRecords.length > 0) {
-        await this.storeTeamRecords(teamRecords);
-        console.log('');
-      }
+      // First, ensure CFB teams exist in teams table
+      console.log('🏫 Setting up CFB teams...');
+      await this.setupCFBTeams();
       
-      const teamSeasonStats = await this.getTeamSeasonStats();
-      if (teamSeasonStats.length > 0) {
-        await this.storeTeamTrends(teamSeasonStats);
-        console.log('');
-      }
+      // Fetch and store 2024 team data only (as requested - no 2023)
+      console.log('🏆 Fetching 2024 team historical records...');
+      const teamRecords2024 = await this.getTeamRecords2024();
+      console.log(`📋 Found ${teamRecords2024.length} team records for 2024`);
+      await this.storeTeamRecords(teamRecords2024);
       
-      // 4. Optional: Get some 2024 player season stats for context
-      const playerSeasonStats2024 = await this.get2024PlayerStats();
-      console.log(`📊 Retrieved ${playerSeasonStats2024.length} 2024 player season stats (ready for future processing)\n`);
+      // team_trends_data is a VIEW that auto-populates from team_recent_stats
+      console.log('📊 Team trends will auto-populate from team_recent_stats view');
+      
+      // Fetch historical player stats for analysis
+      const playerSeasonStats = await this.get2024PlayerStats();
       
       console.log('🎉 College Football Data Integration completed successfully!');
       
     } catch (error) {
-      console.error('❌ Integration failed:', error);
-      throw error;
+      console.error('❌ CFB Data Integration failed:', error);
+      console.error('Error details:', error);
+      process.exit(1);
     }
   }
 }
@@ -636,7 +754,7 @@ async function main() {
   }
   
   const integrator = new CFBDataIntegrator(CFBD_API_KEY);
-  await integrator.runIntegration();
+  await integrator.run();
 }
 
 if (require.main === module) {

@@ -459,17 +459,21 @@ export default function GamesScreen() {
     let filtered = upcomingGames;
 
     if (selectedSport !== 'all') {
-      // Fix UFC/MMA filtering issue
+      // Map frontend sport filters to backend league values (same as fetchGames)
+      let leagueToMatch = selectedSport.toLowerCase();
+      
       if (selectedSport === 'UFC') {
         // UFC tab should show MMA games (since UFC fights are stored as MMA)
-        filtered = filtered.filter(game => game.league.toLowerCase() === 'mma');
+        leagueToMatch = 'mma';
       } else if (selectedSport === 'MMA') {
         // MMA tab should show MMA games
-        filtered = filtered.filter(game => game.league.toLowerCase() === 'mma');
-      } else {
-        // All other sports filter normally
-        filtered = filtered.filter(game => game.league.toLowerCase() === selectedSport.toLowerCase());
+        leagueToMatch = 'mma';
+      } else if (selectedSport === 'CFB') {
+        // CFB tab should show NCAAF games (since College Football is stored as NCAAF)
+        leagueToMatch = 'ncaaf';
       }
+      
+      filtered = filtered.filter(game => game.league.toLowerCase() === leagueToMatch);
     }
 
     if (searchQuery.trim()) {

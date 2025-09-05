@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { 
@@ -476,15 +477,28 @@ export default function TeamTrendsModal({ visible, team, onClose }: TeamTrendsMo
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.3,
                 shadowRadius: 8,
-                elevation: 8
+                elevation: 8,
+                overflow: 'hidden'
               }}>
-                <Text style={{
-                  color: '#FFFFFF',
-                  fontSize: 18,
-                  fontWeight: 'bold'
-                }}>
-                  {team.abbreviation}
-                </Text>
+                {team.logo_url ? (
+                  <Image
+                    source={{ uri: team.logo_url }}
+                    style={{
+                      width: 60,
+                      height: 60,
+                      borderRadius: 30
+                    }}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontSize: 18,
+                    fontWeight: 'bold'
+                  }}>
+                    {team.abbreviation}
+                  </Text>
+                )}
                 <View style={{
                   position: 'absolute',
                   bottom: -2,
