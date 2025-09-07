@@ -397,8 +397,10 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
         # WNBA-only mode flag
         self.wnba_only_mode = False
-        # NFL week mode flag
-        self.nfl_week_mode = False
+        # NFL week mode flag - detect if it's NFL Sunday
+        today = datetime.now().date()
+        is_sunday = today.weekday() == 6  # Sunday = 6
+        self.nfl_week_mode = is_sunday
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         if self.nfl_week_mode:
@@ -464,25 +466,36 @@ class IntelligentPlayerPropsAgent:
                 logger.warning("🏀 WNBA-only mode requested but no WNBA games found!")
                 return {"WNBA": 0, "MLB": 0, "NFL": 0, "CFB": 0}
         
-        # PRIORITIZE FOOTBALL (NFL/CFB) DURING SEASON, THEN MLB, THEN WNBA
-        distribution = {}
-        
-        mlb_games = sport_counts.get("MLB", 0)
-        wnba_games = sport_counts.get("WNBA", 0)
-        nfl_games = sport_counts.get("NFL", 0)
-        cfb_games = sport_counts.get("CFB", 0)
-        
-        total_football_games = nfl_games + cfb_games
-        total_sports_with_games = sum(1 for count in [mlb_games, wnba_games, total_football_games] if count > 0)
-        
-        # Football season priority (NFL + CFB combined get highest priority)
-        if total_football_games > 0 and mlb_games > 0 and wnba_games > 0:
-            # All sports available - Football priority (60%), MLB (25%), WNBA (15%)
-            football_allocation = int(target_picks * 0.60)
-            distribution["NFL"] = min(15, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(15, max(0, football_allocation - distribution["NFL"]))
-            distribution["MLB"] = min(12, max(5, int(target_picks * 0.25)))
-            distribution["WNBA"] = min(8, max(3, int(target_picks * 0.15)))
+        # NFL SUNDAY PRIORITY DISTRIBUTION
+        if self.nfl_week_mode and sport_counts["NFL"] > 0:
+            logger.info("🏈 NFL Sunday detected - prioritizing NFL player props")
+            # NFL Sunday gets majority of props picks
+            distribution = {
+                "NFL": min(sport_counts["NFL"] * 6, 20),  # 6 props per NFL game, max 20
+                "MLB": min(sport_counts["MLB"] * 2, 8) if sport_counts["MLB"] > 0 else 0,
+                "CFB": min(sport_counts["CFB"] * 2, 5) if sport_counts["CFB"] > 0 else 0,
+                "WNBA": min(sport_counts["WNBA"] * 1, 2) if sport_counts["WNBA"] > 0 else 0
+            }
+        else:
+            # REGULAR DISTRIBUTION - PRIORITIZE FOOTBALL (NFL/CFB) DURING SEASON, THEN MLB, THEN WNBA
+            distribution = {}
+            
+            mlb_games = sport_counts.get("MLB", 0)
+            wnba_games = sport_counts.get("WNBA", 0)
+            nfl_games = sport_counts.get("NFL", 0)
+            cfb_games = sport_counts.get("CFB", 0)
+            
+            total_football_games = nfl_games + cfb_games
+            total_sports_with_games = sum(1 for count in [mlb_games, wnba_games, total_football_games] if count > 0)
+            
+            # Football season priority (NFL + CFB combined get highest priority)
+            if total_football_games > 0 and mlb_games > 0 and wnba_games > 0:
+                # All sports available - Football priority (60%), MLB (25%), WNBA (15%)
+                football_allocation = int(target_picks * 0.60)
+                distribution["NFL"] = min(15, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(15, max(0, football_allocation - distribution["NFL"]))
+                distribution["MLB"] = min(12, max(5, int(target_picks * 0.25)))
+                distribution["WNBA"] = min(8, max(3, int(target_picks * 0.15)))
         elif total_football_games > 0 and mlb_games > 0:
             # Football + MLB - Football priority (70%), MLB (30%)
             football_allocation = int(target_picks * 0.70)
@@ -631,54 +644,99 @@ class IntelligentPlayerPropsAgent:
         # STEP 1: Scrape StatMuse main pages for current context
         statmuse_context = self.scrape_statmuse_context()
         
-        # STEP 2: PROPERLY analyze props by sport using enhanced detection
+        # STEP 2: Separate props by detected sport using enhanced detection  
         mlb_props = [p for p in props if self._get_prop_sport(p, games) == 'MLB']
         wnba_props = [p for p in props if self._get_prop_sport(p, games) == 'WNBA']
+        nfl_props = [p for p in props if self._get_prop_sport(p, games) == 'NFL']
+        cfb_props = [p for p in props if self._get_prop_sport(p, games) == 'CFB']
         unknown_props = [p for p in props if self._get_prop_sport(p, games) == 'Unknown']
         
         logger.info(f"🔍 Enhanced prop detection results:")
         logger.info(f"  MLB: {len(mlb_props)} props")
-        logger.info(f"  WNBA: {len(wnba_props)} props") 
+        logger.info(f"  WNBA: {len(wnba_props)} props")
+        logger.info(f"  NFL: {len(nfl_props)} props") 
+        logger.info(f"  CFB: {len(cfb_props)} props")
         logger.info(f"  Unknown: {len(unknown_props)} props")
         
         if unknown_props:
             logger.info(f"  Unknown teams: {list(set(p.team for p in unknown_props[:5]))}")
         
-        # WNBA-ONLY MODE: Override all research allocation
-        if self.wnba_only_mode:
+        # NFL SUNDAY PRIORITY: Override all research allocation for NFL Sunday
+        if self.nfl_week_mode and len(nfl_props) > 0:
+            logger.info(f"🏈 NFL Sunday mode: prioritizing research on {len(nfl_props)} NFL props")
+            target_nfl_queries = min(15, max(8, int(len(nfl_props) * 0.6)))
+            target_mlb_queries = min(8, max(3, int(len(mlb_props) * 0.4))) if len(mlb_props) > 0 else 0
+            target_wnba_queries = min(4, max(2, int(len(wnba_props) * 0.3))) if len(wnba_props) > 0 else 0
+            target_cfb_queries = min(6, max(2, int(len(cfb_props) * 0.4))) if len(cfb_props) > 0 else 0
+        elif self.wnba_only_mode:
             if len(wnba_props) > 0:
                 # WNBA-only mode: max research focus on WNBA
                 target_mlb_queries = 0
                 target_wnba_queries = min(20, max(15, len(wnba_props)))
+                target_nfl_queries = 0
+                target_cfb_queries = 0
                 logger.info(f"🏀 WNBA-only mode: focusing ALL research on {len(wnba_props)} WNBA props")
             else:
                 logger.warning("🏀 WNBA-only mode but no WNBA props found!")
                 target_mlb_queries = 0
                 target_wnba_queries = 0
+                target_nfl_queries = 0
+                target_cfb_queries = 0
         else:
-            # NORMAL MODE: PRIORITIZE MLB - we want more MLB picks than WNBA picks
-            if len(mlb_props) > 0 and len(wnba_props) > 0:
-                # Both sports available - heavily favor MLB research (75% MLB, 25% WNBA)  
+            # NORMAL MODE: Multi-sport allocation
+            total_football_props = len(nfl_props) + len(cfb_props)
+            
+            if total_football_props > 0 and len(mlb_props) > 0 and len(wnba_props) > 0:
+                # All sports available - Football priority (50%), MLB (30%), WNBA (20%)
+                target_nfl_queries = min(12, max(0, int(len(nfl_props) * 0.6)))
+                target_cfb_queries = min(8, max(0, int(len(cfb_props) * 0.6)))
+                target_mlb_queries = min(10, max(5, int(len(mlb_props) * 0.6)))
+                target_wnba_queries = min(6, max(2, int(len(wnba_props) * 0.4)))
+            elif total_football_props > 0 and len(mlb_props) > 0:
+                # Football + MLB - Football priority (60%), MLB (40%)
+                target_nfl_queries = min(15, max(0, int(len(nfl_props) * 0.7)))
+                target_cfb_queries = min(10, max(0, int(len(cfb_props) * 0.7)))
+                target_mlb_queries = min(12, max(6, int(len(mlb_props) * 0.7)))
+                target_wnba_queries = 0
+            elif len(mlb_props) > 0 and len(wnba_props) > 0:
+                # MLB + WNBA - heavily favor MLB research (75% MLB, 25% WNBA)  
+                target_nfl_queries = 0
+                target_cfb_queries = 0
                 target_mlb_queries = min(18, max(10, int(len(mlb_props) * 0.8)))
                 target_wnba_queries = min(8, max(3, int(len(wnba_props) * 0.6)))
             elif len(mlb_props) > 0:
                 # Only MLB available
+                target_nfl_queries = 0
+                target_cfb_queries = 0
                 target_mlb_queries = min(20, max(12, len(mlb_props)))
                 target_wnba_queries = 0
             elif len(wnba_props) > 0:
                 # Only WNBA available  
+                target_nfl_queries = 0
+                target_cfb_queries = 0
                 target_mlb_queries = 0
                 target_wnba_queries = min(15, max(8, len(wnba_props)))
+            elif total_football_props > 0:
+                # Only Football available
+                target_nfl_queries = min(15, max(0, int(len(nfl_props) * 0.7)))
+                target_cfb_queries = min(12, max(0, int(len(cfb_props) * 0.7)))
+                target_mlb_queries = 0
+                target_wnba_queries = 0
             else:
                 # No props available
+                target_nfl_queries = 0
+                target_cfb_queries = 0
                 target_mlb_queries = 0
                 target_wnba_queries = 0
         
-        logger.info(f"🎯 Dynamic research allocation: MLB={target_mlb_queries}, WNBA={target_wnba_queries}, Total={target_mlb_queries + target_wnba_queries}")
+        total_queries = target_mlb_queries + target_wnba_queries + target_nfl_queries + target_cfb_queries
+        logger.info(f"🎯 Dynamic research allocation: NFL={target_nfl_queries}, MLB={target_mlb_queries}, CFB={target_cfb_queries}, WNBA={target_wnba_queries}, Total={total_queries}")
         
         # STEP 3: Create dynamic analysis using Grok AI (like teams_enhanced.py)
         mlb_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in mlb_props[:20]]
         wnba_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in wnba_props[:15]]
+        nfl_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in nfl_props[:15]]
+        cfb_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in cfb_props[:10]]
         
         prompt = f"""You are an elite sports betting analyst. Analyze the available player props and create an INTELLIGENT, DYNAMIC research strategy.
 
@@ -686,6 +744,12 @@ class IntelligentPlayerPropsAgent:
 Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research queries.
 
 ## AVAILABLE PROPS DATA:
+
+**NFL PROPS ({len(nfl_props)} total):**
+{json.dumps(nfl_sample, indent=2)}
+
+**CFB PROPS ({len(cfb_props)} total):**
+{json.dumps(cfb_sample, indent=2)}
 
 **MLB PROPS ({len(mlb_props)} total):**
 {json.dumps(mlb_sample, indent=2)}
@@ -697,9 +761,11 @@ Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research q
 {json.dumps([{"sport": g.get("sport"), "home": g.get("home_team"), "away": g.get("away_team")} for g in games[:10]], indent=2)}
 
 # DYNAMIC RESEARCH ALLOCATION:
-- **MLB Queries**: {target_mlb_queries} (PRIORITY - we need more MLB picks)
-- **WNBA Queries**: {target_wnba_queries} (Secondary)
-- **Web Searches**: 5-7 total (injury/lineup news)
+- **NFL Queries**: {target_nfl_queries} {"(🏈 NFL SUNDAY PRIORITY)" if self.nfl_week_mode else ""}
+- **CFB Queries**: {target_cfb_queries}
+- **MLB Queries**: {target_mlb_queries}
+- **WNBA Queries**: {target_wnba_queries}
+- **Web Searches**: 5-8 total (injury/lineup news)
 
 # YOUR INTELLIGENCE TASK:
 1. **ANALYZE THE ACTUAL PROPS**: What players have props? What prop types? What lines look interesting?
@@ -708,22 +774,29 @@ Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research q
 4. **FOCUS ON ACTIONABLE DATA**: Research recent form, matchups, injuries that could affect these specific props
 
 ## RESEARCH STRATEGY REQUIREMENTS:
+- **NFL PRIORITY** (Sunday): Research diverse NFL players from the props list (QBs, RBs, WRs, TEs)
+- **CFB ANALYSIS**: College football key players and prop opportunities  
 - **MLB FOCUS**: Research diverse MLB players from the props list (batters AND pitchers)
-- **VARIED PROP TYPES**: Research different prop types (hits, HRs, strikeouts, etc.)
-- **DIFFERENT TEAMS**: Spread research across multiple teams
+- **VARIED PROP TYPES**: Research different prop types (passing yards, rushing yards, hits, HRs, etc.)
+- **DIFFERENT TEAMS**: Spread research across multiple teams and games
 - **AVOID REPETITION**: Don't use the same players/queries every single time
-- **VALUE HUNTING**: Look for mispriced lines based on recent trends
+- **VALUE HUNTING**: Look for mispriced lines based on recent trends and matchups
 
 **StatMuse Works Best For:**
-- "[Player Name] hits this season" 
-- "[Player Name] home runs last 10 games"
-- "[Player Name] strikeouts this season"
+- "[Player Name] passing yards this season" (NFL)
+- "[Player Name] rushing yards last 5 games" (NFL/CFB) 
+- "[Player Name] receiving yards this season" (NFL)
+- "[Player Name] touchdowns this season" (NFL/CFB)
+- "[Player Name] hits this season" (MLB)
+- "[Player Name] home runs last 10 games" (MLB)
+- "[Player Name] strikeouts this season" (MLB)
 - "[Player Name] points this season" (WNBA)
 - "[Player Name] rebounds last 5 games" (WNBA)
 
 **Web Search For:**
 - "[Player Name] injury status lineup news"
 - "[Team Name] starting lineup injury report"
+- "[NFL Team] Week [X] injury report"
 
 Generate intelligent research plan as JSON:
 {{
@@ -732,7 +805,7 @@ Generate intelligent research plan as JSON:
         {{
             "query": "Specific player stat query based on available props",
             "priority": "high/medium/low", 
-            "sport": "MLB/WNBA",
+            "sport": "NFL/CFB/MLB/WNBA",
             "reasoning": "Why this player/stat is worth researching"
         }}
     ],
@@ -740,7 +813,7 @@ Generate intelligent research plan as JSON:
         {{
             "query": "Injury/lineup search query",
             "priority": "high/medium/low",
-            "sport": "MLB/WNBA"
+            "sport": "NFL/CFB/MLB/WNBA"
         }}
     ]
 }}

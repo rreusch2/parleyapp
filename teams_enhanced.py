@@ -466,8 +466,10 @@ class IntelligentTeamsAgent:
         # Add session for StatMuse context scraping
         self.session = requests.Session()
         self.statmuse_base_url = "http://localhost:5001"
-        # NFL week mode flag
-        self.nfl_week_mode = False
+        # NFL week mode flag - detect if it's NFL Sunday
+        today = datetime.now().date()
+        is_sunday = today.weekday() == 6  # Sunday = 6
+        self.nfl_week_mode = is_sunday
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
         """Generate abundant picks across all available sports for frontend filtering"""
@@ -489,18 +491,28 @@ class IntelligentTeamsAgent:
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # Generate abundant picks per sport (frontend will filter based on user preferences and tier)
-        # Target: 15-20 picks per available sport to ensure enough for all tiers
-        distribution = {}
-        
-        for sport, game_count in sport_counts.items():
-            if game_count > 0:
-                # Generate 15-20 picks per sport if games are available
-                # This ensures we have enough for Elite (30), Pro (20), and various sport preferences
-                max_picks_for_sport = min(20, game_count * 4)  # Up to 4 picks per game
-                distribution[sport] = max_picks_for_sport
-            else:
-                distribution[sport] = 0
+        # NFL Sunday priority distribution
+        if self.nfl_week_mode and sport_counts["NFL"] > 0:
+            logger.info("🏈 NFL Sunday detected - prioritizing NFL picks")
+            # NFL Sunday gets majority of picks
+            distribution = {
+                "NFL": min(sport_counts["NFL"] * 8, 35),  # 8 picks per NFL game, max 35
+                "MLB": min(sport_counts["MLB"] * 2, 10) if sport_counts["MLB"] > 0 else 0,
+                "CFB": min(sport_counts["CFB"] * 3, 15) if sport_counts["CFB"] > 0 else 0,
+                "WNBA": min(sport_counts["WNBA"] * 2, 5) if sport_counts["WNBA"] > 0 else 0,
+                "MMA": min(sport_counts["MMA"] * 2, 5) if sport_counts["MMA"] > 0 else 0
+            }
+        else:
+            # Regular multi-sport distribution
+            distribution = {}
+            for sport, game_count in sport_counts.items():
+                if game_count > 0:
+                    # Generate 15-20 picks per sport if games are available
+                    # This ensures we have enough for Elite (30), Pro (20), and various sport preferences
+                    max_picks_for_sport = min(20, game_count * 4)  # Up to 4 picks per game
+                    distribution[sport] = max_picks_for_sport
+                else:
+                    distribution[sport] = 0
         
         logger.info(f"Generous pick distribution for frontend filtering: {distribution}")
         return distribution

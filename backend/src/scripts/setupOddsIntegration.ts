@@ -495,7 +495,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
           .not('team', 'eq', '');
         
         if (!allPlayersError && allPlayers) {
-          // Find the best match
+          // Find the best match with enhanced NFL name matching
           const matchedPlayer = allPlayers.find(player => {
             // Try exact match first
             if (player.name === prop.playerName) return true;
@@ -505,6 +505,34 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
             
             // Try reverse - player name contains prop name (less likely but possible)
             if (player.name.includes(prop.playerName)) return true;
+            
+            // NFL-specific name matching for abbreviated names
+            if (sportKey.toUpperCase() === 'NFL') {
+              const playerParts = player.name.split(/[.\s]+/).filter(p => p.length > 0);
+              const propParts = prop.playerName.split(/\s+/).filter(p => p.length > 0);
+              
+              // Check if abbreviated name matches full name
+              // e.g., "S.Rattler" matches "Spencer Rattler"
+              if (playerParts.length >= 2 && propParts.length >= 2) {
+                const lastNameMatch = playerParts[playerParts.length - 1].toLowerCase() === propParts[propParts.length - 1].toLowerCase();
+                const firstInitialMatch = playerParts[0].charAt(0).toLowerCase() === propParts[0].charAt(0).toLowerCase();
+                
+                if (lastNameMatch && firstInitialMatch) {
+                  console.log(`  🔍 NFL name match: "${player.name}" matches "${prop.playerName}"`);
+                  return true;
+                }
+              }
+              
+              // Try middle name/initial matching for complex names
+              // e.g., "Marvin Harrison Jr." vs "M.Harrison"
+              if (propParts.some(part => part.toLowerCase().includes('jr'))) {
+                const baseName = prop.playerName.replace(/\s+Jr\.?/i, '').trim();
+                if (player.name.toLowerCase().includes(baseName.toLowerCase().split(' ')[1])) {
+                  console.log(`  🔍 NFL Jr. name match: "${player.name}" matches "${prop.playerName}"`);
+                  return true;
+                }
+              }
+            }
             
             return false;
           });
