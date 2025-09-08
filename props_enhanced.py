@@ -496,49 +496,49 @@ class IntelligentPlayerPropsAgent:
                 distribution["CFB"] = min(15, max(0, football_allocation - distribution["NFL"]))
                 distribution["MLB"] = min(12, max(5, int(target_picks * 0.25)))
                 distribution["WNBA"] = min(8, max(3, int(target_picks * 0.15)))
-        elif total_football_games > 0 and mlb_games > 0:
-            # Football + MLB - Football priority (70%), MLB (30%)
-            football_allocation = int(target_picks * 0.70)
-            distribution["NFL"] = min(20, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(20, max(0, football_allocation - distribution["NFL"]))
-            distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))
-            distribution["WNBA"] = 0
-        elif total_football_games > 0 and wnba_games > 0:
-            # Football + WNBA - Football priority (80%), WNBA (20%)
-            football_allocation = int(target_picks * 0.80)
-            distribution["NFL"] = min(22, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(22, max(0, football_allocation - distribution["NFL"]))
-            distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))
-            distribution["MLB"] = 0
-        elif mlb_games > 0 and wnba_games > 0:
-            # MLB + WNBA (no football) - heavily favor MLB (80%), cap WNBA
-            distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))
-            distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        elif total_football_games > 0:
-            # Only football available - split between NFL/CFB based on games available
-            distribution["NFL"] = min(25, max(0, int(target_picks * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(25, max(0, target_picks - distribution["NFL"]))
-            distribution["MLB"] = 0
-            distribution["WNBA"] = 0
-        elif mlb_games > 0:
-            # Only MLB available
-            distribution["MLB"] = min(30, max(20, target_picks))
-            distribution["WNBA"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        elif wnba_games > 0:
-            # Only WNBA available
-            distribution["WNBA"] = min(20, max(15, target_picks))
-            distribution["MLB"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        else:
-            distribution["MLB"] = 0
-            distribution["WNBA"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
+            elif total_football_games > 0 and mlb_games > 0:
+                # Football + MLB - Football priority (70%), MLB (30%)
+                football_allocation = int(target_picks * 0.70)
+                distribution["NFL"] = min(20, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(20, max(0, football_allocation - distribution["NFL"]))
+                distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))
+                distribution["WNBA"] = 0
+            elif total_football_games > 0 and wnba_games > 0:
+                # Football + WNBA - Football priority (80%), WNBA (20%)
+                football_allocation = int(target_picks * 0.80)
+                distribution["NFL"] = min(22, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(22, max(0, football_allocation - distribution["NFL"]))
+                distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))
+                distribution["MLB"] = 0
+            elif mlb_games > 0 and wnba_games > 0:
+                # MLB + WNBA (no football) - heavily favor MLB (80%), cap WNBA
+                distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))
+                distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            elif total_football_games > 0:
+                # Only football available - split between NFL/CFB based on games available
+                distribution["NFL"] = min(25, max(0, int(target_picks * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(25, max(0, target_picks - distribution["NFL"]))
+                distribution["MLB"] = 0
+                distribution["WNBA"] = 0
+            elif mlb_games > 0:
+                # Only MLB available
+                distribution["MLB"] = min(30, max(20, target_picks))
+                distribution["WNBA"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            elif wnba_games > 0:
+                # Only WNBA available
+                distribution["WNBA"] = min(20, max(15, target_picks))
+                distribution["MLB"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            else:
+                distribution["MLB"] = 0
+                distribution["WNBA"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
         
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
