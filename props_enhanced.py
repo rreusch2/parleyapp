@@ -496,49 +496,49 @@ class IntelligentPlayerPropsAgent:
                 distribution["CFB"] = min(15, max(0, football_allocation - distribution["NFL"]))
                 distribution["MLB"] = min(12, max(5, int(target_picks * 0.25)))
                 distribution["WNBA"] = min(8, max(3, int(target_picks * 0.15)))
-        elif total_football_games > 0 and mlb_games > 0:
-            # Football + MLB - Football priority (70%), MLB (30%)
-            football_allocation = int(target_picks * 0.70)
-            distribution["NFL"] = min(20, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(20, max(0, football_allocation - distribution["NFL"]))
-            distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))
-            distribution["WNBA"] = 0
-        elif total_football_games > 0 and wnba_games > 0:
-            # Football + WNBA - Football priority (80%), WNBA (20%)
-            football_allocation = int(target_picks * 0.80)
-            distribution["NFL"] = min(22, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(22, max(0, football_allocation - distribution["NFL"]))
-            distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))
-            distribution["MLB"] = 0
-        elif mlb_games > 0 and wnba_games > 0:
-            # MLB + WNBA (no football) - heavily favor MLB (80%), cap WNBA
-            distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))
-            distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        elif total_football_games > 0:
-            # Only football available - split between NFL/CFB based on games available
-            distribution["NFL"] = min(25, max(0, int(target_picks * (nfl_games / max(total_football_games, 1)))))
-            distribution["CFB"] = min(25, max(0, target_picks - distribution["NFL"]))
-            distribution["MLB"] = 0
-            distribution["WNBA"] = 0
-        elif mlb_games > 0:
-            # Only MLB available
-            distribution["MLB"] = min(30, max(20, target_picks))
-            distribution["WNBA"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        elif wnba_games > 0:
-            # Only WNBA available
-            distribution["WNBA"] = min(20, max(15, target_picks))
-            distribution["MLB"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
-        else:
-            distribution["MLB"] = 0
-            distribution["WNBA"] = 0
-            distribution["NFL"] = 0
-            distribution["CFB"] = 0
+            elif total_football_games > 0 and mlb_games > 0:
+                # Football + MLB - Football priority (70%), MLB (30%)
+                football_allocation = int(target_picks * 0.70)
+                distribution["NFL"] = min(20, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(20, max(0, football_allocation - distribution["NFL"]))
+                distribution["MLB"] = min(15, max(8, int(target_picks * 0.30)))
+                distribution["WNBA"] = 0
+            elif total_football_games > 0 and wnba_games > 0:
+                # Football + WNBA - Football priority (80%), WNBA (20%)
+                football_allocation = int(target_picks * 0.80)
+                distribution["NFL"] = min(22, max(0, int(football_allocation * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(22, max(0, football_allocation - distribution["NFL"]))
+                distribution["WNBA"] = min(10, max(5, int(target_picks * 0.20)))
+                distribution["MLB"] = 0
+            elif mlb_games > 0 and wnba_games > 0:
+                # MLB + WNBA (no football) - heavily favor MLB (80%), cap WNBA
+                distribution["MLB"] = min(32, max(24, int(target_picks * 0.80)))
+                distribution["WNBA"] = min(8, max(4, int(target_picks * 0.20)))
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            elif total_football_games > 0:
+                # Only football available - split between NFL/CFB based on games available
+                distribution["NFL"] = min(25, max(0, int(target_picks * (nfl_games / max(total_football_games, 1)))))
+                distribution["CFB"] = min(25, max(0, target_picks - distribution["NFL"]))
+                distribution["MLB"] = 0
+                distribution["WNBA"] = 0
+            elif mlb_games > 0:
+                # Only MLB available
+                distribution["MLB"] = min(30, max(20, target_picks))
+                distribution["WNBA"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            elif wnba_games > 0:
+                # Only WNBA available
+                distribution["WNBA"] = min(20, max(15, target_picks))
+                distribution["MLB"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
+            else:
+                distribution["MLB"] = 0
+                distribution["WNBA"] = 0
+                distribution["NFL"] = 0
+                distribution["CFB"] = 0
         
         logger.info(f"Generous props distribution for frontend filtering: {distribution}")
         return distribution
@@ -738,20 +738,23 @@ class IntelligentPlayerPropsAgent:
         nfl_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in nfl_props[:15]]
         cfb_sample = [{"player": p.player_name, "prop": p.prop_type, "line": p.line, "team": p.team} for p in cfb_props[:10]]
         
-        prompt = f"""You are an elite sports betting analyst. Analyze the available player props and create an INTELLIGENT, DYNAMIC research strategy.
+        # NFL SUNDAY PRIORITY CHECK
+        is_nfl_sunday = target_nfl_queries > target_mlb_queries and len(nfl_props) > 0
+        
+        prompt = f"""You are an elite sports betting analyst. {"🏈 IT'S NFL SUNDAY - PRIORITIZE NFL RESEARCH!" if is_nfl_sunday else "Analyze the available player props and create an INTELLIGENT, DYNAMIC research strategy."}
 
-# CRITICAL ANALYSIS TASK:
-Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research queries.
+# {"🚨 NFL SUNDAY CRITICAL PRIORITY 🚨" if is_nfl_sunday else "CRITICAL ANALYSIS TASK:"}
+{"TODAY IS NFL SUNDAY - The allocation shows NFL gets MORE research than MLB. You MUST focus on NFL players first!" if is_nfl_sunday else "Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research queries."}
 
 ## AVAILABLE PROPS DATA:
 
-**NFL PROPS ({len(nfl_props)} total):**
+**NFL PROPS ({len(nfl_props)} total):** {"⭐ PRIMARY FOCUS - NFL SUNDAY ⭐" if is_nfl_sunday else ""}
 {json.dumps(nfl_sample, indent=2)}
 
 **CFB PROPS ({len(cfb_props)} total):**
 {json.dumps(cfb_sample, indent=2)}
 
-**MLB PROPS ({len(mlb_props)} total):**
+**MLB PROPS ({len(mlb_props)} total):** {"⚠️ SECONDARY PRIORITY ⚠️" if is_nfl_sunday else ""}
 {json.dumps(mlb_sample, indent=2)}
 
 **WNBA PROPS ({len(wnba_props)} total):**  
@@ -760,23 +763,23 @@ Analyze the actual props data below and create DIVERSE, VALUE-FOCUSED research q
 **CURRENT GAMES TODAY:**
 {json.dumps([{"sport": g.get("sport"), "home": g.get("home_team"), "away": g.get("away_team")} for g in games[:10]], indent=2)}
 
-# DYNAMIC RESEARCH ALLOCATION:
-- **NFL Queries**: {target_nfl_queries} {"(🏈 NFL SUNDAY PRIORITY)" if self.nfl_week_mode else ""}
+# MANDATORY RESEARCH ALLOCATION:
+- **NFL Queries**: {target_nfl_queries} {"🏈 MUST PRIORITIZE NFL PLAYERS FIRST!" if is_nfl_sunday else ""}
 - **CFB Queries**: {target_cfb_queries}
-- **MLB Queries**: {target_mlb_queries}
+- **MLB Queries**: {target_mlb_queries} {"(Secondary to NFL today)" if is_nfl_sunday else ""}
 - **WNBA Queries**: {target_wnba_queries}
 - **Web Searches**: 5-8 total (injury/lineup news)
 
-# YOUR INTELLIGENCE TASK:
-1. **ANALYZE THE ACTUAL PROPS**: What players have props? What prop types? What lines look interesting?
-2. **IDENTIFY VALUE OPPORTUNITIES**: Which players/props might be mispriced based on recent performance?
-3. **CREATE DIVERSE RESEARCH**: Don't repeat the same players/queries every time - be INTELLIGENT and ADAPTIVE
-4. **FOCUS ON ACTIONABLE DATA**: Research recent form, matchups, injuries that could affect these specific props
+# {"🏈 NFL SUNDAY REQUIREMENTS:" if is_nfl_sunday else "YOUR INTELLIGENCE TASK:"}
+{"1. **NFL FIRST**: Research NFL players BEFORE any MLB players - this is Sunday!" if is_nfl_sunday else "1. **ANALYZE THE ACTUAL PROPS**: What players have props? What prop types? What lines look interesting?"}
+{"2. **NFL DIVERSITY**: Cover QBs, RBs, WRs, TEs from different NFL games" if is_nfl_sunday else "2. **IDENTIFY VALUE OPPORTUNITIES**: Which players/props might be mispriced based on recent performance?"}
+{"3. **NFL FOCUS**: Use most of your research allocation on NFL props analysis" if is_nfl_sunday else "3. **CREATE DIVERSE RESEARCH**: Don't repeat the same players/queries every time - be INTELLIGENT and ADAPTIVE"}
+{"4. **THEN MLB**: Only research MLB after covering NFL thoroughly" if is_nfl_sunday else "4. **FOCUS ON ACTIONABLE DATA**: Research recent form, matchups, injuries that could affect these specific props"}
 
-## RESEARCH STRATEGY REQUIREMENTS:
-- **NFL PRIORITY** (Sunday): Research diverse NFL players from the props list (QBs, RBs, WRs, TEs)
+## {"NFL SUNDAY" if is_nfl_sunday else "RESEARCH"} STRATEGY REQUIREMENTS:
+- **{"🏈 NFL ABSOLUTE PRIORITY" if is_nfl_sunday else "NFL PRIORITY"}**: Research diverse NFL players from the props list (QBs, RBs, WRs, TEs)
 - **CFB ANALYSIS**: College football key players and prop opportunities  
-- **MLB FOCUS**: Research diverse MLB players from the props list (batters AND pitchers)
+- **{"MLB SECONDARY" if is_nfl_sunday else "MLB FOCUS"}**: Research MLB players {"ONLY AFTER NFL research is covered" if is_nfl_sunday else "from the props list (batters AND pitchers)"}
 - **VARIED PROP TYPES**: Research different prop types (passing yards, rushing yards, hits, HRs, etc.)
 - **DIFFERENT TEAMS**: Spread research across multiple teams and games
 - **AVOID REPETITION**: Don't use the same players/queries every single time
@@ -972,16 +975,28 @@ Generate intelligent research plan as JSON:
         # If no match found, try to infer from team name patterns
         prop_team_lower = prop.team.lower()
         
+        # Common NFL abbreviations (from database analysis)
+        nfl_teams = ['cin', 'buf', 'tb', 'mia', 'ind', 'hou', 'jax', 'ari', 'car', 'gb', 'ne', 
+                     'det', 'no', 'sea', 'bal', 'den', 'cle', 'ten', 'lar', 'nyj', 'atl', 'sf',
+                     'lac', 'lv', 'dal', 'kc', 'nyg', 'phi', 'pit', 'was', 'chi', 'min']
+        
+        # Common CFB abbreviations (basic set)
+        cfb_teams = ['duke', 'illinois', 'indiana', 'kennesaw', 'iowa', 'penn', 'pitt', 'smu',
+                     'baylor', 'syracuse', 'uconn', 'texas', 'clemson', 'oregon', 'alabama']
+        
         # Common MLB abbreviations
-        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min', 
-                    'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
-                    'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
+        mlb_teams = ['bos', 'nyy', 'nym', 'lad', 'phi', 'wsh', 'oak', 'tex', 'tor', 'cws',
+                    'chc', 'mil', 'stl', 'col', 'sd', 'laa']
         
         # Common WNBA teams  
         wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever', 
                      'sky', 'dream', 'lynx', 'mercury', 'sparks']
         
-        if prop_team_lower in mlb_teams:
+        if prop_team_lower in nfl_teams:
+            return "NFL"
+        elif prop_team_lower in cfb_teams:
+            return "CFB"
+        elif prop_team_lower in mlb_teams:
             return "MLB"
         elif prop_team_lower in wnba_teams:
             return "WNBA"
@@ -1341,13 +1356,24 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         props = filtered_props
         
+        # Determine active sports from filtered props for dynamic prompt
+        active_sports = set()
+        for prop in filtered_props[:50]:
+            sport = self._get_prop_sport(prop, games)
+            if sport != "Unknown":
+                active_sports.add(sport)
+        
+        sports_list = ", ".join(sorted(active_sports)) if active_sports else "MLB, WNBA, NFL"
+        
         prompt = f"""
-You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props (MLB, WNBA).
-Your job is to find PROFITABLE betting opportunities across all sports, not just predict outcomes.
+You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props ({sports_list}).
+Your job is to find PROFITABLE betting opportunities across ALL available sports, not just predict outcomes.
 
 🏆 **SPORT EXPERTISE:**
+- **NFL**: Quarterback efficiency, rushing matchups, receiving targets, weather/field conditions, injury reports
 - **MLB**: Batter performance trends, pitcher matchups, weather impacts, ballpark factors
 - **WNBA**: Player usage rates, pace of play, defensive matchups, rest/travel factors
+- **CFB**: College player development, team systems, conference strength
 
 TODAY\'S DATA:
 

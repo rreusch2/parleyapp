@@ -28,6 +28,7 @@ import {
   Trophy
 } from 'lucide-react-native';
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
+import { FacebookPixel } from '../services/analytics';
 import appsFlyerService from '../services/appsFlyerService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
 import { supabase } from '../services/api/supabaseClient';
