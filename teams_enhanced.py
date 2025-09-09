@@ -356,18 +356,20 @@ class DatabaseClient:
     
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
         try:
-            # Sort predictions: WNBA first, MLB last (so MLB shows on top in UI)
+            # Sort predictions: WNBA first, MLB second, NFL third (as requested by user)
             def sport_priority(pred):
                 sport = pred.get("sport", "MLB")
                 if sport == "WNBA":
                     return 1  # Save first
                 elif sport == "MLB":
-                    return 3  # Save last
+                    return 2  # Save second
+                elif sport == "NFL":
+                    return 3  # Save third
                 else:
-                    return 2  # Other sports in middle
+                    return 4  # Other sports last
             
             sorted_predictions = sorted(predictions, key=sport_priority)
-            logger.info(f"📊 Saving predictions in UI order: WNBA first, MLB last")
+            logger.info(f"📊 Saving predictions in requested order: WNBA first, MLB second, NFL third")
             
             for pred in sorted_predictions:
                 # Extract reasoning from metadata if available
@@ -471,8 +473,8 @@ class IntelligentTeamsAgent:
         is_sunday = today.weekday() == 6  # Sunday = 6
         self.nfl_week_mode = is_sunday
     
-    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 50) -> Dict[str, int]:
-        """Generate abundant picks across all available sports for frontend filtering"""
+    def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 15) -> Dict[str, int]:
+        """Distribute exactly 15 picks optimally across all available sports"""
         sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -491,30 +493,70 @@ class IntelligentTeamsAgent:
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # NFL Sunday priority distribution
-        if self.nfl_week_mode and sport_counts["NFL"] > 0:
-            logger.info("🏈 NFL Sunday detected - prioritizing NFL picks")
-            # NFL Sunday gets majority of picks
-            distribution = {
-                "NFL": min(sport_counts["NFL"] * 8, 35),  # 8 picks per NFL game, max 35
-                "MLB": min(sport_counts["MLB"] * 2, 10) if sport_counts["MLB"] > 0 else 0,
-                "CFB": min(sport_counts["CFB"] * 3, 15) if sport_counts["CFB"] > 0 else 0,
-                "WNBA": min(sport_counts["WNBA"] * 2, 5) if sport_counts["WNBA"] > 0 else 0,
-                "MMA": min(sport_counts["MMA"] * 2, 5) if sport_counts["MMA"] > 0 else 0
-            }
-        else:
-            # Regular multi-sport distribution
-            distribution = {}
-            for sport, game_count in sport_counts.items():
-                if game_count > 0:
-                    # Generate 15-20 picks per sport if games are available
-                    # This ensures we have enough for Elite (30), Pro (20), and various sport preferences
-                    max_picks_for_sport = min(20, game_count * 4)  # Up to 4 picks per game
-                    distribution[sport] = max_picks_for_sport
-                else:
-                    distribution[sport] = 0
+        # Calculate optimal distribution for exactly 15 picks
+        active_sports = [sport for sport, count in sport_counts.items() if count > 0]
         
-        logger.info(f"Generous pick distribution for frontend filtering: {distribution}")
+        if not active_sports:
+            return {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        
+        # Smart distribution logic for exactly 15 picks
+        distribution = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        remaining_picks = target_picks
+        
+        # Priority allocation based on available games and sport importance
+        # NFL gets priority if available (big game tonight)
+        if sport_counts["NFL"] > 0 and remaining_picks > 0:
+            nfl_picks = min(5, sport_counts["NFL"] * 3, remaining_picks)  # Up to 5 NFL picks
+            distribution["NFL"] = nfl_picks
+            remaining_picks -= nfl_picks
+            logger.info(f"🏈 Allocated {nfl_picks} picks to NFL (priority sport)")
+        
+        # MLB gets good allocation (major sport with multiple games)
+        if sport_counts["MLB"] > 0 and remaining_picks > 0:
+            mlb_picks = min(8, sport_counts["MLB"] * 2, remaining_picks)  # Up to 8 MLB picks
+            distribution["MLB"] = mlb_picks
+            remaining_picks -= mlb_picks
+            logger.info(f"⚾ Allocated {mlb_picks} picks to MLB")
+        
+        # WNBA gets solid allocation
+        if sport_counts["WNBA"] > 0 and remaining_picks > 0:
+            wnba_picks = min(4, sport_counts["WNBA"] * 2, remaining_picks)  # Up to 4 WNBA picks
+            distribution["WNBA"] = wnba_picks
+            remaining_picks -= wnba_picks
+            logger.info(f"🏀 Allocated {wnba_picks} picks to WNBA")
+        
+        # MMA/CFB get remaining picks if available
+        for sport in ["MMA", "CFB"]:
+            if sport_counts[sport] > 0 and remaining_picks > 0:
+                sport_picks = min(3, sport_counts[sport] * 2, remaining_picks)
+                distribution[sport] = sport_picks
+                remaining_picks -= sport_picks
+                logger.info(f"🥊 Allocated {sport_picks} picks to {sport}")
+        
+        # If we still have remaining picks, distribute proportionally to active sports
+        if remaining_picks > 0:
+            logger.info(f"📊 Distributing {remaining_picks} remaining picks proportionally")
+            for sport in active_sports:
+                if remaining_picks <= 0:
+                    break
+                if sport_counts[sport] > 0:
+                    extra_picks = min(remaining_picks, 2)  # Max 2 extra per sport
+                    distribution[sport] += extra_picks
+                    remaining_picks -= extra_picks
+        
+        # Ensure we don't exceed target
+        total_allocated = sum(distribution.values())
+        if total_allocated > target_picks:
+            # Trim excess picks starting from lowest priority sports
+            excess = total_allocated - target_picks
+            for sport in ["CFB", "MMA", "WNBA", "MLB", "NFL"]:
+                if excess <= 0:
+                    break
+                reduction = min(excess, distribution[sport])
+                distribution[sport] -= reduction
+                excess -= reduction
+        
+        logger.info(f"📊 Final distribution for {target_picks} total picks: {distribution}")
         return distribution
     
     def _format_sport_distribution_requirements(self, sport_distribution: Dict[str, int], target_picks: int) -> str:
@@ -568,7 +610,7 @@ class IntelligentTeamsAgent:
             logger.error(f"Failed to fetch NFL week games: {e}")
             return []
     
-    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 50) -> List[Dict[str, Any]]:
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 15) -> List[Dict[str, Any]]:
         if target_date is None:
             target_date = datetime.now().date()
             
@@ -1652,8 +1694,8 @@ def parse_arguments():
                       help='Generate picks for tomorrow instead of today')
     parser.add_argument('--date', type=str, 
                       help='Specific date to generate picks for (YYYY-MM-DD)')
-    parser.add_argument('--picks', type=int, default=50,
-                      help='Target number of total picks to generate (default: 50)')
+    parser.add_argument('--picks', type=int, default=15,
+                      help='Target number of total picks to generate (default: 15)')
     parser.add_argument('--nfl-week', action='store_true',
                       help='Generate 5 best NFL team picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--verbose', '-v', action='store_true',

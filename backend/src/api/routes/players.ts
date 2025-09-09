@@ -14,8 +14,9 @@ router.get('/search', async (req, res) => {
       });
     }
 
+    // Query players directly to avoid DISTINCT ON limitation in view
     let supabaseQuery = supabaseAdmin
-      .from('players_with_headshots')
+      .from('players')
       .select(`
         id,
         name,
@@ -23,13 +24,12 @@ router.get('/search', async (req, res) => {
         sport,
         position,
         active,
-        headshot_url,
-        has_headshot,
-        recent_games_count,
-        last_game_date
+        player_headshots!left(headshot_url, is_active),
+        player_game_stats!left(id, created_at)
       `)
       .ilike('name', `%${query}%`)
-      .order('name');
+      .eq('active', true)
+      .order('name, team');
 
     if (sport && sport !== 'all') {
       supabaseQuery = supabaseQuery.eq('sport', sport);
@@ -39,11 +39,24 @@ router.get('/search', async (req, res) => {
 
     if (error) throw error;
 
-    const playersWithStats = data?.map(player => ({
-      ...player,
-      recent_games_count: player.recent_games_count || 0,
-      last_game_date: player.last_game_date || new Date().toISOString()
-    })) || [];
+    const playersWithStats = data?.map(player => {
+      const activeHeadshot = player.player_headshots?.find(h => h.is_active);
+      const gameStats = player.player_game_stats || [];
+      const sortedStats = gameStats.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      return {
+        id: player.id,
+        name: player.name,
+        team: player.team,
+        sport: player.sport,
+        position: player.position,
+        active: player.active,
+        headshot_url: activeHeadshot?.headshot_url || null,
+        has_headshot: !!activeHeadshot,
+        recent_games_count: gameStats.length,
+        last_game_date: sortedStats[0]?.created_at || null
+      };
+    }) || [];
 
     res.json({
       players: playersWithStats,

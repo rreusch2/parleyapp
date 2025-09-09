@@ -619,8 +619,8 @@ Generate ONE {style} greeting - just the message, nothing else:"""
         try:
             logger.info("🗑️ Clearing entire daily_professor_insights table...")
             
-            # Delete all records from the table
-            delete_result = self.supabase.table('daily_professor_insights').delete().neq('id', 0).execute()
+            # Delete all records from the table using a condition that matches all UUIDs
+            delete_result = self.supabase.table('daily_professor_insights').delete().gte('insight_order', 0).execute()
             
             if delete_result.data:
                 logger.info(f"✅ Cleared {len(delete_result.data)} existing insights from table")

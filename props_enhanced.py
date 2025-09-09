@@ -397,10 +397,11 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
         # WNBA-only mode flag
         self.wnba_only_mode = False
-        # NFL week mode flag - detect if it's NFL Sunday
+        # NFL week mode flag - detect common NFL action days (Sun, Mon, Thu, Sat-late season)
         today = datetime.now().date()
-        is_sunday = today.weekday() == 6  # Sunday = 6
-        self.nfl_week_mode = is_sunday
+        # Monday=0, Thursday=3, Saturday=5, Sunday=6
+        nfl_active_day = today.weekday() in (0, 3, 5, 6)
+        self.nfl_week_mode = nfl_active_day
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         if self.nfl_week_mode:
@@ -822,7 +823,7 @@ Generate intelligent research plan as JSON:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4",
+                model="grok-beta",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -950,42 +951,70 @@ Generate intelligent research plan as JSON:
         return analysis
     
     def _get_prop_sport(self, prop: PlayerProp, games: List[Dict]) -> str:
-        """Determine sport for a prop using enhanced team matching"""
-        # First try to match using the enhanced team matching we added
+        """Determine sport for a prop using reliable event_id mapping, with fallbacks."""
+        # 1) Most reliable: map by event_id to the game's sport
+        for game in games:
+            if str(prop.event_id) == str(game.get('id')):
+                sport_full = game.get('sport', 'Unknown')
+                if sport_full == "Women's National Basketball Association":
+                    return "WNBA"
+                elif sport_full == "Major League Baseball":
+                    return "MLB"
+                elif sport_full == "National Football League":
+                    return "NFL"
+                elif sport_full == "College Football":
+                    return "CFB"
+                elif sport_full == "Ultimate Fighting Championship":
+                    return "MMA"
+                else:
+                    return "Unknown"
+
+        # 2) Fallback: try team name matching against game teams
         for game in games:
             home_team = game.get('home_team', '').lower()
             away_team = game.get('away_team', '').lower()
-            prop_team = prop.team.lower()
-            
-            # Use the same teams_match function logic from teams_enhanced.py
+            prop_team = (prop.team or "").lower()
+
             if self._teams_match_enhanced(prop_team, home_team, away_team):
-                sport = game.get('sport', 'Unknown')
-                if sport == "Women's National Basketball Association":
+                sport_full = game.get('sport', 'Unknown')
+                if sport_full == "Women's National Basketball Association":
                     return "WNBA"
-                elif sport == "Major League Baseball":
+                elif sport_full == "Major League Baseball":
                     return "MLB"
-                elif sport == "Ultimate Fighting Championship":
+                elif sport_full == "National Football League":
+                    return "NFL"
+                elif sport_full == "College Football":
+                    return "CFB"
+                elif sport_full == "Ultimate Fighting Championship":
                     return "MMA"
                 else:
-                    return "MLB"  # Default to MLB
-        
-        # If no match found, try to infer from team name patterns
-        prop_team_lower = prop.team.lower()
-        
-        # Common MLB abbreviations
-        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min', 
-                    'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
-                    'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
-        
-        # Common WNBA teams  
-        wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever', 
-                     'sky', 'dream', 'lynx', 'mercury', 'sparks']
-        
+                    return "Unknown"
+
+        # 3) Last resort: infer from team nicknames/abbreviations
+        prop_team_lower = (prop.team or "").lower()
+
+        # MLB abbreviations
+        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min',
+                     'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
+                     'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
+
+        # WNBA nicknames
+        wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever',
+                      'sky', 'dream', 'lynx', 'mercury', 'sparks']
+
+        # NFL nicknames
+        nfl_teams = ['bills', 'ravens', 'chiefs', 'chargers', 'broncos', 'raiders', 'patriots', 'dolphins',
+                     'jets', 'steelers', 'browns', 'bengals', 'texans', 'colts', 'jaguars', 'titans',
+                     'cowboys', 'giants', 'eagles', 'commanders', 'packers', 'bears', 'vikings', 'lions',
+                     'saints', 'buccaneers', 'falcons', 'panthers', 'seahawks', '49ers', 'rams', 'cardinals']
+
         if prop_team_lower in mlb_teams:
             return "MLB"
-        elif prop_team_lower in wnba_teams:
+        if prop_team_lower in wnba_teams:
             return "WNBA"
-        
+        if prop_team_lower in nfl_teams:
+            return "NFL"
+
         return "Unknown"
     
     def _teams_match_enhanced(self, prop_team: str, home_team: str, away_team: str) -> bool:
