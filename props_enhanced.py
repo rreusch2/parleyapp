@@ -991,31 +991,34 @@ Generate intelligent research plan as JSON:
                 elif sport_full == "Ultimate Fighting Championship":
                     return "MMA"
                 else:
-                    return "Unknown"
-
-        # 3) Last resort: infer from team nicknames/abbreviations
+                    return "MLB"  # Default to MLB
+        
+        # If no match found, try to infer from team name patterns
         prop_team_lower = (prop.team or "").lower()
-
-        # MLB abbreviations
-        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min',
-                     'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
-                     'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
-
-        # WNBA nicknames
-        wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever',
-                      'sky', 'dream', 'lynx', 'mercury', 'sparks']
-
-        # NFL nicknames
-        nfl_teams = ['bills', 'ravens', 'chiefs', 'chargers', 'broncos', 'raiders', 'patriots', 'dolphins',
-                     'jets', 'steelers', 'browns', 'bengals', 'texans', 'colts', 'jaguars', 'titans',
-                     'cowboys', 'giants', 'eagles', 'commanders', 'packers', 'bears', 'vikings', 'lions',
-                     'saints', 'buccaneers', 'falcons', 'panthers', 'seahawks', '49ers', 'rams', 'cardinals']
-
+        
+        # Common NFL abbreviations (from database analysis)
+        nfl_teams = ['cin', 'buf', 'tb', 'mia', 'ind', 'hou', 'jax', 'ari', 'car', 'gb', 'ne', 
+                     'det', 'no', 'sea', 'bal', 'den', 'cle', 'ten', 'lar', 'nyj', 'atl', 'sf',
+                     'lac', 'lv', 'dal', 'kc', 'nyg', 'phi', 'pit', 'was', 'chi', 'min']
+        
         # Common CFB abbreviations (basic set)
         cfb_teams = ['duke', 'illinois', 'indiana', 'kennesaw', 'iowa', 'penn', 'pitt', 'smu',
                      'baylor', 'syracuse', 'uconn', 'texas', 'clemson', 'oregon', 'alabama']
-
-        if prop_team_lower in mlb_teams:
+        
+        # Common MLB abbreviations
+        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min',
+                     'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
+                     'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
+        
+        # Common WNBA teams  
+        wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever', 
+                     'sky', 'dream', 'lynx', 'mercury', 'sparks']
+        
+        if prop_team_lower in nfl_teams:
+            return "NFL"
+        elif prop_team_lower in cfb_teams:
+            return "CFB"
+        elif prop_team_lower in mlb_teams:
             return "MLB"
         elif prop_team_lower in wnba_teams:
             return "WNBA"
