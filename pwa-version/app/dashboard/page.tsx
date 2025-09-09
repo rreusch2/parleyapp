@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { TrendingUp, Target, Brain, Sparkles, Crown } from 'lucide-react';
+import { FacebookPixel } from '@/lib/analytics';
 
 // Facebook-free dashboard component
 export default function Dashboard() {
@@ -14,6 +15,9 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    // Track page view
+    FacebookPixel.events.viewContent('dashboard', 'PredictivePlay Dashboard');
+    
     // No Facebook React Native memory management issues here!
     loadDashboardData();
   }, []);
@@ -96,7 +100,10 @@ export default function Dashboard() {
               This PWA version runs smooth without Facebook's React Native memory issues
             </p>
             <button 
-              onClick={loadDashboardData}
+              onClick={() => {
+                FacebookPixel.events.viewPredictions();
+                loadDashboardData();
+              }}
               className="bg-cyan-400 text-slate-900 px-6 py-2 rounded-full font-semibold hover:bg-cyan-300 transition-colors"
             >
               Generate Picks

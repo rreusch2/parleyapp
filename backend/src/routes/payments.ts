@@ -66,6 +66,12 @@ router.post('/create-intent', async (req: Request, res: Response) => {
         currency: paymentIntent.currency,
         status: paymentIntent.status,
       },
+      // Add pixel tracking data
+      fbPixelData: {
+        event: 'InitiateCheckout',
+        planId,
+        amount: plan.amount
+      }
     });
   } catch (error: any) {
     logger.error('❌ Error creating payment intent:', error);
@@ -204,6 +210,14 @@ router.post('/confirm-apple-pay', async (req: Request, res: Response) => {
           status: paymentIntent.status,
           amount: paymentIntent.amount,
         },
+        // Facebook Pixel Purchase event data
+        fbPixelData: {
+          event: 'Purchase',
+          planId: paymentIntent.metadata.planId,
+          amount: paymentIntent.amount,
+          transactionId: paymentIntent.id,
+          paymentMethod: 'apple_pay'
+        }
       });
     } else {
       logger.warn(`⚠️ Apple Pay payment requires action: ${paymentIntent.status}`);
@@ -257,6 +271,14 @@ router.post('/confirm-card', async (req: Request, res: Response) => {
           status: paymentIntent.status,
           amount: paymentIntent.amount,
         },
+        // Facebook Pixel Purchase event data  
+        fbPixelData: {
+          event: 'Purchase',
+          planId: paymentIntent.metadata.planId,
+          amount: paymentIntent.amount,
+          transactionId: paymentIntent.id,
+          paymentMethod: 'card'
+        }
       });
     } else {
       res.json({
