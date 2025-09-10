@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { instantIntelService } from '../services/api/instantIntelService';
 
 interface QueryResult {
   success: boolean;
@@ -22,11 +23,7 @@ interface QueryResult {
   cached?: boolean;
 }
 
-interface InstantIntelProps {
-  apiUrl?: string;
-}
-
-export default function InstantIntel({ apiUrl = 'http://localhost:5001' }: InstantIntelProps) {
+export default function InstantIntel() {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -103,14 +100,8 @@ export default function InstantIntel({ apiUrl = 'http://localhost:5001' }: Insta
     slideAnim.setValue(50);
 
     try {
-      const response = await fetch(`${apiUrl}/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: queryText }),
-      });
+      const data = await instantIntelService.query({ query: queryText });
 
-      const data: QueryResult = await response.json();
-      
       if (data.success && data.answer) {
         setResult(data);
         await saveRecentQuery(queryText);
@@ -121,10 +112,10 @@ export default function InstantIntel({ apiUrl = 'http://localhost:5001' }: Insta
           query: queryText,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       setResult({
         success: false,
-        error: 'Connection failed. Please check your internet connection.',
+        error: error?.message ? `Connection failed: ${error.message}` : 'Connection failed. Please check your internet connection.',
         query: queryText,
       });
     } finally {
