@@ -42,6 +42,7 @@ import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
 import HomeTrendsPreview from '../components/HomeTrendsPreview';
+import InstantIntel from '../components/InstantIntel';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
@@ -762,10 +763,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Trends Preview Section - Moved from bottom */}
-        <HomeTrendsPreview 
-          onViewAllTrends={() => router.push('/(tabs)/trends')}
-        />
+        {/* Instant Intel Section - StatMuse Integration */}
+        <View style={styles.section}>
+          <InstantIntel />
+        </View>
 
         {/* Daily AI Insights Section - Pro Only */}
         <View style={styles.section}>

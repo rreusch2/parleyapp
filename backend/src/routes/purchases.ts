@@ -208,27 +208,29 @@ router.post('/verify', async (req, res) => {
       updateData.subscription_expires_at = dayPassExpiration.toISOString();
       subscriptionPlanType = 'daypass';
       updateData.subscription_product_id = productId;
+      updateData.subscription_started_at = new Date().toISOString();
       console.log(`📅 Day pass (${productId}) expires at: ${dayPassExpiration.toISOString()}`);
     } else if (productId.includes('monthly')) {
       subscriptionPlanType = 'monthly';
+      // Only mark trial as used for monthly subscription plan (free trial)
+      updateData.trial_used = true;
+      // Set expiration for auto-renewable subscriptions
+      updateData.subscription_expires_at = expirationDate;
     } else if (productId.includes('yearly')) {
       subscriptionPlanType = 'yearly';
+      // Set expiration for auto-renewable subscriptions
+      updateData.subscription_expires_at = expirationDate;
     } else if (productId.includes('lifetime')) {
       subscriptionPlanType = 'lifetime';
+      // Lifetime subscriptions don't expire
+      updateData.subscription_expires_at = null;
     } else {
       subscriptionPlanType = 'unknown';
+      // For unknown products, use Apple/Google expiration if available
+      updateData.subscription_expires_at = expirationDate;
     }
     
     updateData.subscription_plan_type = subscriptionPlanType;
-    
-    // Only mark trial as used for monthly subscription plan (free trial)
-    if (subscriptionPlanType === 'monthly') {
-      updateData.trial_used = true;
-    }
-    // Only set expiration for non-lifetime subscriptions  
-    else if (subscriptionTier !== 'pro_lifetime') {
-      updateData.subscription_expires_at = expirationDate;
-    }
     
     // Store receipt data for future verification
     if (platform === 'ios' && receipt) {

@@ -57,11 +57,13 @@ const THEODDS_API_KEY = process.env.THEODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
 // Multi-sport leagues based on environment configuration
-// July 2025: MLB, WNBA, and UFC are active
+// September 2025: NFL, CFB, MLB, WNBA, and UFC are active
 const ACTIVE_LEAGUES = [
   { key: 'baseball_mlb', name: 'MLB' },
   { key: 'basketball_wnba', name: 'WNBA' },
-  { key: 'mma_mixed_martial_arts', name: 'UFC' }
+  { key: 'mma_mixed_martial_arts', name: 'UFC' },
+  { key: 'americanfootball_nfl', name: 'NFL' },
+  { key: 'americanfootball_ncaaf', name: 'CFB' }
 ];
 
 // Function to fetch games for a specific sport
@@ -75,9 +77,9 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     
     // Check if we should extend range for NFL week (Thu-Sun)
     if (extendedRange && sportInfo.key === 'americanfootball_nfl') {
-      // Extend to Sunday Sept 8, 2025 for NFL games (Week 1)
-      endDate = new Date('2025-09-08T23:59:59Z');
-      console.log(`🏈 NFL Week Mode: Extended range through Sunday Sept 8th, 2025`);
+      // Extend to Sunday Sept 14, 2025 for NFL games (Week 2 includes Thursday 9/11)
+      endDate = new Date('2025-09-14T23:59:59Z');
+      console.log(`🏈 NFL Week Mode: Extended range through Sunday Sept 14th, 2025 (includes Thursday 9/11)`);
     } else {
       // Default: today and tomorrow only
       endDate.setDate(now.getDate() + 1);

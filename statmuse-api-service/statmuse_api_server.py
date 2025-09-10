@@ -5,18 +5,150 @@ Simple HTTP API that all AI systems can query for real StatMuse data
 """
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import logging
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
-import time
 import re
+import os
+import jwt
+from functools import wraps
+from supabase import create_client, Client
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Initialize Supabase client
+supabase_url = os.getenv('SUPABASE_URL', 'https://lhtfedrwqjhruvbhsjvy.supabase.co')
+supabase_key = os.getenv('SUPABASE_SERVICE_KEY', '')
+supabase: Client = create_client(supabase_url, supabase_key)
+
 app = Flask(__name__)
+CORS(app)
+
+# Thread pool for concurrent request handling
+executor = ThreadPoolExecutor(max_workers=20)
+
+# API Authentication Decorator
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({
+                'error': 'API key required',
+                'message': 'Include Authorization: Bearer YOUR_API_KEY header'
+            }), 401
+        
+        try:
+            # Extract API key from Bearer token
+            if not auth_header.startswith('Bearer '):
+                raise ValueError("Invalid authorization format")
+            
+            api_key = auth_header.split('Bearer ')[1]
+            
+            # Validate API key and get user info
+            user_data = validate_api_key(api_key)
+            if not user_data:
+                return jsonify({
+                    'error': 'Invalid API key',
+                    'message': 'API key is invalid or expired'
+                }), 401
+            
+            # Check rate limits
+            if not check_rate_limit(user_data):
+                return jsonify({
+                    'error': 'Rate limit exceeded',
+                    'message': f'Monthly limit of {user_data["monthly_limit"]} requests exceeded'
+                }), 429
+            
+            # Add user data to request context
+            request.user_data = user_data
+            
+            # Track API usage
+            track_api_usage(user_data['user_id'], request.endpoint)
+            
+            return f(*args, **kwargs)
+            
+        except Exception as e:
+            logger.error(f"API key validation error: {e}")
+            return jsonify({
+                'error': 'Authentication failed',
+                'message': 'Invalid API key format'
+            }), 401
+    
+    return decorated_function
+
+def validate_api_key(api_key):
+    """Validate API key against Supabase database"""
+    try:
+        # Query api_keys table
+        response = supabase.table('api_keys').select('*').eq('key_hash', api_key).eq('is_active', True).single().execute()
+        
+        if response.data:
+            key_data = response.data
+            
+            # Get user subscription info
+            user_response = supabase.table('users').select('*').eq('id', key_data['user_id']).single().execute()
+            
+            if user_response.data:
+                user = user_response.data
+                subscription_tier = user.get('subscription_tier', 'free')
+                
+                # Set monthly limits based on subscription
+                limits = {
+                    'free': 1000,
+                    'developer': 1000, 
+                    'startup': 25000,
+                    'enterprise': 100000
+                }
+                
+                return {
+                    'user_id': key_data['user_id'],
+                    'api_key_id': key_data['id'],
+                    'subscription_tier': subscription_tier,
+                    'monthly_limit': limits.get(subscription_tier, 1000),
+                    'current_usage': key_data.get('current_month_usage', 0)
+                }
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error validating API key: {e}")
+        return None
+
+def check_rate_limit(user_data):
+    """Check if user is within their monthly API call limit"""
+    return user_data['current_usage'] < user_data['monthly_limit']
+
+def track_api_usage(user_id, endpoint):
+    """Track API usage in database"""
+    try:
+        # Update current month usage
+        current_month = datetime.now().strftime('%Y-%m')
+        
+        # Insert usage record
+        supabase.table('api_usage').insert({
+            'user_id': user_id,
+            'endpoint': endpoint,
+            'timestamp': datetime.now().isoformat(),
+            'month': current_month
+        }).execute()
+        
+        # Update monthly usage counter
+        supabase.rpc('increment_api_usage', {
+            'user_id_param': user_id,
+            'month_param': current_month
+        }).execute()
+        
+    except Exception as e:
+        logger.error(f"Error tracking API usage: {e}")
 
 class StatMuseAPI:
     """Simple StatMuse API - same logic as working insights"""
@@ -28,9 +160,6 @@ class StatMuseAPI:
             'Accept-Language': 'en-US,en;q=0.5',
             'Connection': 'keep-alive',
         }
-        # Simple in-memory cache
-        self.cache = {}
-        self.cache_ttl = 3600  # 1 hour
     
     def clean_statmuse_text(self, text: str) -> str:
         """Clean up StatMuse text to fix spacing and grammar issues"""
@@ -82,6 +211,43 @@ class StatMuseAPI:
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in wnba_keywords)
+    
+    def is_nfl_query(self, query: str) -> bool:
+        """Check if query is likely about NFL"""
+        nfl_keywords = [
+            # NFL players
+            "joe burrow", "josh allen", "patrick mahomes", "lamar jackson",
+            "aaron rodgers", "tom brady", "dak prescott", "russell wilson",
+            "justin herbert", "tua tagovailoa", "kyler murray", "jalen hurts",
+            "derrick henry", "jonathan taylor", "nick chubb", "dalvin cook",
+            "christian mccaffrey", "alvin kamara", "ezekiel elliott", "saquon barkley",
+            "davante adams", "tyreek hill", "stefon diggs", "deandre hopkins",
+            "calvin ridley", "mike evans", "chris godwin", "keenan allen",
+            "travis kelce", "george kittle", "mark andrews", "darren waller",
+            
+            # NFL league and season terms
+            "nfl", "national football league", "week 1", "week 2", "week 18",
+            "playoff", "super bowl", "rushing yards", "passing yards", "touchdowns",
+            "interceptions", "receptions", "receiving yards", "sacks", "fumbles",
+            
+            # NFL teams with full names to avoid conflicts
+            "arizona cardinals", "atlanta falcons", "baltimore ravens", "buffalo bills",
+            "carolina panthers", "chicago bears", "cincinnati bengals", "cleveland browns",
+            "dallas cowboys", "denver broncos", "detroit lions", "green bay packers",
+            "houston texans", "indianapolis colts", "jacksonville jaguars", "kansas city chiefs",
+            "las vegas raiders", "los angeles chargers", "los angeles rams", "miami dolphins",
+            "minnesota vikings", "new england patriots", "new orleans saints", "new york giants",
+            "new york jets", "philadelphia eagles", "pittsburgh steelers", "san francisco 49ers",
+            "seattle seahawks", "tampa bay buccaneers", "tennessee titans", "washington commanders",
+            
+            # Common NFL team nicknames that don't conflict with MLB
+            "steelers", "patriots", "cowboys", "packers", "49ers", "chiefs", "bills", 
+            "ravens", "bengals", "broncos", "colts", "titans", "texans", "jaguars", 
+            "chargers", "raiders", "dolphins", "jets", "browns", "eagles", "lions",
+            "vikings", "bears", "saints", "falcons", "panthers", "buccaneers", "seahawks"
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in nfl_keywords)
     
     def scrape_main_sports_pages(self) -> dict:
         """Scrape main StatMuse sports pages to gather current context and insights"""
@@ -285,27 +451,13 @@ class StatMuseAPI:
         return insights
     
     def query_statmuse(self, query: str) -> dict:
-        """Query StatMuse with caching"""
-        cache_key = query.lower()
-        current_time = time.time()
-        
-        # Check cache
-        if cache_key in self.cache:
-            cached_data, timestamp = self.cache[cache_key]
-            if current_time - timestamp < self.cache_ttl:
-                logger.info(f"💾 Cache hit for: {query}")
-                cached_data['cached'] = True
-                return cached_data
-        
-        # Execute the query using standard approach
-        result = self._try_standard_query(query, current_time, cache_key)
-        return result
+        """Query StatMuse directly - no caching for fresh data"""
+        logger.info(f"🔍 StatMuse Query: {query}")
+        return self._execute_query(query)
     
-    def _try_standard_query(self, query: str, current_time: float, cache_key: str) -> dict:
+    def _execute_query(self, query: str) -> dict:
         """Try the standard StatMuse query approach"""
         try:
-            logger.info(f"🔍 StatMuse Query: {query}")
-            
             # Format query for URL to match working StatMuse format
             # Examples: "A'ja Wilson points this season" -> "aja-wilson-points-this-season"
             #          "Caitlin Clark stats last 5 games" -> "caitlin-clark-stats-last-5-games"
@@ -323,6 +475,9 @@ class StatMuseAPI:
             if self.is_wnba_query(query):
                 base_url = "https://www.statmuse.com/wnba/ask"
                 sport_context = "WNBA"
+            elif self.is_nfl_query(query):
+                base_url = "https://www.statmuse.com/nfl/ask"
+                sport_context = "NFL"
             else:
                 base_url = "https://www.statmuse.com/mlb/ask"
                 sport_context = "MLB"
@@ -351,20 +506,18 @@ class StatMuseAPI:
                         'query': query,
                         'answer': answer_text,
                         'url': url,
-                        'cached': False,
-                        'timestamp': datetime.now().isoformat()
+                        'timestamp': datetime.now().isoformat(),
+                        'source': 'StatMuse'
                     }
-                    
-                    # Cache the result
-                    self.cache[cache_key] = (result.copy(), current_time)
-                    
+                            
                     return result
                 else:
                     logger.warning(f"No answer found for: {query}")
                     return {
                         'success': False,
                         'error': 'No answer found',
-                        'query': query
+                        'query': query,
+                        'source': 'StatMuse'
                     }
             else:
                 logger.warning(f"StatMuse query failed: {response.status_code}")
@@ -394,9 +547,10 @@ def health_check():
         'timestamp': datetime.now().isoformat()
     })
 
-@app.route('/query', methods=['POST'])
+@app.route('/v1/query', methods=['POST'])
+@require_api_key
 def query_statmuse():
-    """Main StatMuse query endpoint"""
+    """Main StatMuse query endpoint - requires API key"""
     try:
         data = request.get_json()
         
@@ -547,4 +701,6 @@ if __name__ == '__main__':
     logger.info("  GET /health - Health check")
     logger.info("  GET /cache-stats - Cache statistics")
     
-    app.run(host='0.0.0.0', port=5001, debug=False) 
+    import os
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False) 

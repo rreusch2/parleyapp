@@ -826,7 +826,7 @@ Generate intelligent research plan as JSON:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-beta",
+                model="grok-3-latest",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )

@@ -18,6 +18,9 @@ dist/
 .next/
 
 # misc
+# OAuth tokens and secrets
+**/token.json
+**/*token*.json
 .DS_Store
 *.pem
 .env

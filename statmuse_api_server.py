@@ -5,6 +5,7 @@ Simple HTTP API that all AI systems can query for real StatMuse data
 """
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import logging
 import requests
 from bs4 import BeautifulSoup
@@ -17,6 +18,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app)
 
 class StatMuseAPI:
     """Simple StatMuse API - same logic as working insights"""

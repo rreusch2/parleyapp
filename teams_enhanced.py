@@ -185,9 +185,13 @@ class DatabaseClient:
             
             logger.info(f"Fetching games from UTC range ({start_iso}) to ({end_iso}) and filtering for local date {target_date}")
             
-            # Fetch games from all supported sports - using correct sport names from database
+            # Fetch games from specified sports - using correct sport names from database
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League", "College Football"]
+            if hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
+                sports = ["National Football League"]
+                logger.info("🏈 NFL-only mode: Fetching NFL games only")
+            else:
+                sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League", "College Football"]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -472,9 +476,11 @@ class IntelligentTeamsAgent:
         today = datetime.now().date()
         is_sunday = today.weekday() == 6  # Sunday = 6
         self.nfl_week_mode = is_sunday
+        # NFL only mode flag - can be set externally
+        self.nfl_only_mode = False
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 15) -> Dict[str, int]:
-        """Distribute exactly 15 picks optimally across all available sports"""
+        """Distribute picks optimally across available sports"""
         sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
@@ -493,14 +499,25 @@ class IntelligentTeamsAgent:
         
         logger.info(f"Available games by sport: {sport_counts}")
         
-        # Calculate optimal distribution for exactly 15 picks
+        # Initialize distribution
+        distribution = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        
+        # NFL-only mode: allocate all picks to NFL
+        if hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
+            if sport_counts["NFL"] > 0:
+                distribution["NFL"] = min(target_picks, sport_counts["NFL"] * 3)  # Up to 3 bets per game
+                logger.info(f"🏈 NFL-only mode: Allocated {distribution['NFL']} picks to NFL")
+            else:
+                logger.warning("🏈 NFL-only mode requested but no NFL games available!")
+            return distribution
+        
+        # Calculate optimal distribution for multi-sport mode
         active_sports = [sport for sport, count in sport_counts.items() if count > 0]
         
         if not active_sports:
             return {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
-        # Smart distribution logic for exactly 15 picks
-        distribution = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        # Smart distribution logic for exactly target_picks picks
         remaining_picks = target_picks
         
         # Priority allocation based on available games and sport importance
@@ -685,16 +702,19 @@ class IntelligentTeamsAgent:
         sports_summary = ", ".join(sports_in_data)
         
         # STEP 3: Calculate research allocation based on mode
-        if self.nfl_week_mode:
-            # NFL Week Mode - Focus exclusively on NFL
+        if self.nfl_week_mode or (hasattr(self, 'nfl_only_mode') and self.nfl_only_mode):
+            # NFL Week Mode or NFL Only Mode - Focus exclusively on NFL
             nfl_games = len([g for g in games if g.get('sport') == 'National Football League'])
-            target_nfl_queries = min(22, max(15, nfl_games))  # 15-22 NFL team queries for 5 picks
+            target_nfl_queries = min(22, max(15, nfl_games))  # 15-22 NFL team queries
             target_wnba_queries = 0
             target_mlb_queries = 0
             target_web_searches = 6  # NFL injury/lineup/weather searches
             
             research_focus = "NFL"
-            sport_queries_text = f"**NFL Team Research**: {target_nfl_queries} different NFL teams/matchups (for 5 final picks)"
+            if self.nfl_week_mode:
+                sport_queries_text = f"**NFL Team Research**: {target_nfl_queries} different NFL teams/matchups (for 5 final picks)"
+            else:
+                sport_queries_text = f"**NFL Team Research**: {target_nfl_queries} different NFL teams/matchups (NFL-only mode)"
             web_searches_text = "**Web Searches**: 6 total (NFL injury/lineup/weather)"
         else:
             # Multi-sport mode - Calculate balanced research allocation
@@ -726,7 +746,7 @@ class IntelligentTeamsAgent:
             web_searches_text = "**Web Searches**: 6 total (4 MLB injury/lineup/weather, 2 WNBA injury/lineup)"
         
         # Calculate sport-specific info for prompt
-        if self.nfl_week_mode:
+        if self.nfl_week_mode or (hasattr(self, 'nfl_only_mode') and self.nfl_only_mode):
             nfl_game_count = len([g for g in games if g.get('sport') == 'National Football League'])
             sport_info = f"NFL Games: {nfl_game_count}"
             task_focus = f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups (mix of favorites, underdogs, different conferences)"
@@ -1698,6 +1718,8 @@ def parse_arguments():
                       help='Target number of total picks to generate (default: 15)')
     parser.add_argument('--nfl-week', action='store_true',
                       help='Generate 5 best NFL team picks for the entire week ahead (Thu-Sun)')
+    parser.add_argument('--nfl-only', action='store_true',
+                      help='Generate picks for NFL games only (ignore other sports)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1723,6 +1745,9 @@ async def main():
     if args.nfl_week:
         logger.info(f"🏈 Starting NFL Week Teams Agent for full week ahead")
         target_picks = 5
+    elif args.nfl_only:
+        logger.info(f"🏈 Starting NFL-Only Teams Agent for {target_date}")
+        target_picks = args.picks
     else:
         logger.info(f"🤖 Starting Intelligent Teams Agent for {target_date}")
         target_picks = args.picks
@@ -1731,6 +1756,8 @@ async def main():
     
     # Set NFL week mode if flag is provided
     agent.nfl_week_mode = args.nfl_week
+    # Set NFL only mode if flag is provided
+    agent.nfl_only_mode = args.nfl_only
     
     # Calculate dynamic target picks based on available games and sport distribution
     # This ensures we generate enough picks for frontend filtering

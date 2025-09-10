@@ -213,7 +213,7 @@ def main():
     """Main function for email campaign"""
     emailer = ParleyAppEmailer()
     
-    # EMAIL TEMPLATE - Customize this for your campaign
+    # EMAIL TEMPLATE - App Store Update Campaign
     email_template = """
     <!DOCTYPE html>
     <html>
@@ -224,49 +224,76 @@ def main():
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
             .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-            .cta-button { display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+            .cta-button { display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; text-align: center; }
+            .update-button { display: inline-block; background: #ff6b35; color: white; padding: 18px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0; font-size: 16px; }
+            .discount-banner { background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); color: white; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; }
             .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; }
+            .feature-list { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
-                <h1>🏆 Big ParleyApp Update!</h1>
-                <p>Hey {username}, we've got some exciting news...</p>
+                <h1>🚀 HUGE Predictive Play Update!</h1>
+                <p>Hey {username}, update your app NOW for game-changing features...</p>
             </div>
             <div class="content">
                 <p>Hi {username},</p>
                 
-                <p>Hope you're crushing it with ParleyApp! 🚀</p>
+                <p><strong>We just dropped our biggest update ever! 🔥</strong></p>
                 
-                <p><strong>We just launched some major updates that you're going to love:</strong></p>
+                <div class="discount-banner">
+                    <h2>🎉 50% OFF ALL SUBSCRIPTIONS 🎉</h2>
+                    <p><strong>Limited Time: Lock in 50% savings on Pro & Elite plans!</strong></p>
+                </div>
                 
-                <ul>
-                    <li>🎯 <strong>Enhanced AI Predictions</strong> - Even sharper picks with improved algorithms</li>
-                    <li>📊 <strong>Multi-Sport Coverage</strong> - MLB, WNBA, and UFC predictions now available</li>
-                    <li>🤖 <strong>Professor Lock 2.0</strong> - Your AI betting assistant got a major upgrade</li>
-                    <li>📈 <strong>Better Analytics</strong> - Track your wins with enhanced performance insights</li>
-                </ul>
+                <p><strong>🆕 NEW ANALYTICS HUB</strong></p>
+                <div class="feature-list">
+                    <ul>
+                        <li>📊 <strong>Search ANY player or team</strong> across MLB, WNBA, NBA, NFL & UFC</li>
+                        <li>📈 <strong>Visual performance charts</strong> for last 10 games</li>
+                        <li>🤖 <strong>AI-powered reports</strong> and deeper insights</li>
+                        <li>🎯 <strong>Professional sports data visualization</strong> and trends</li>
+                    </ul>
+                </div>
                 
-                <p>As a {tier} member, you have access to all the latest features. Jump back in and check out the improvements!</p>
+                <p><strong>💰 REFERRAL REWARDS SYSTEM</strong></p>
+                <div class="feature-list">
+                    <ul>
+                        <li>🎁 <strong>Earn free day passes</strong> and weekend passes</li>
+                        <li>📈 <strong>Track referral success</strong> with unique codes</li>
+                        <li>⏰ <strong>30-day discount activation</strong> for successful referrals</li>
+                    </ul>
+                </div>
                 
-                <a href="https://predictiveplay.app" class="cta-button">Open ParleyApp Now →</a>
+                <p><strong>✨ ENHANCED EXPERIENCE</strong></p>
+                <div class="feature-list">
+                    <ul>
+                        <li>🔍 <strong>Improved search</strong> across all sports</li>
+                        <li>💎 <strong>Beautiful visual charts</strong> and analytics</li>
+                        <li>🎨 <strong>Streamlined UI</strong> with better navigation</li>
+                        <li>⚡ <strong>Optimized performance</strong> and stability</li>
+                    </ul>
+                </div>
                 
-                <p><strong>What's Next?</strong></p>
-                <p>We're working on even more exciting features based on your feedback. Keep an eye out for:</p>
-                <ul>
-                    <li>🎲 Live betting alerts</li>
-                    <li>🏀 NBA season prep tools</li>
-                    <li>👥 Social betting features</li>
-                </ul>
+                <p>As a <strong>{tier}</strong> member, these features are waiting for you!</p>
                 
-                <p>Thanks for being part of the ParleyApp family! 💙</p>
+                <p style="text-align: center;">
+                    <a href="https://apps.apple.com/us/app/predictive-play/id6748275790" class="update-button">📲 UPDATE APP NOW →</a>
+                </p>
+                
+                <div class="discount-banner">
+                    <p><strong>⏰ Don't miss out! 50% OFF expires soon.</strong></p>
+                    <p>Transform your sports betting with comprehensive analytics!</p>
+                </div>
+                
+                <p>Ready to dominate? Update now and lock in your savings! 🏆</p>
                 
                 <p>Best,<br>
-                The ParleyApp Team</p>
+                <strong>The Predictive Play Team</strong></p>
             </div>
             <div class="footer">
-                <p>ParleyApp - Smart Betting, Powered by AI</p>
+                <p>Predictive Play - Smart Betting, Powered by AI</p>
                 <p>Questions? Reply to this email or contact us at support@predictiveplay.app</p>
             </div>
         </div>
@@ -275,7 +302,7 @@ def main():
     """
     
     # EMAIL SUBJECT
-    subject = "🚀 Major ParleyApp Updates Are Live!"
+    subject = "🚀 UPDATE NOW: New Analytics Hub + 50% OFF Everything!"
     
     # SEND EMAILS
     # Options:
