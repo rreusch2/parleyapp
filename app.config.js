@@ -26,7 +26,24 @@ module.exports = {
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        // App Transport Security - CRITICAL for Railway API access
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "web-production-f090e.up.railway.app": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false,
+              "NSIncludesSubdomains": false
+            },
+            "up.railway.app": {
+              "NSIncludesSubdomains": true,
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false
+            }
+          }
+        }
       },
       usesAppleSignIn: true
 

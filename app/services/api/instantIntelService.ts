@@ -36,12 +36,21 @@ class InstantIntelService {
   private baseUrl: string;
 
   constructor() {
-    // Use local development server by default, can be overridden via environment
-    this.baseUrl = process.env.EXPO_PUBLIC_STATMUSE_API_URL || 'http://localhost:5001';
+    // Use production Railway server for StatMuse API
+    this.baseUrl = process.env.EXPO_PUBLIC_STATMUSE_API_URL || 'https://web-production-f090e.up.railway.app';
+    
+    // Debug logging for iOS
+    console.log('🔧 InstantIntelService initialized');
+    console.log('🌐 EXPO_PUBLIC_STATMUSE_API_URL:', process.env.EXPO_PUBLIC_STATMUSE_API_URL);
+    console.log('🎯 Using baseUrl:', this.baseUrl);
+    console.log('📱 Platform check - is iOS?', typeof navigator !== 'undefined' ? navigator.userAgent : 'React Native');
   }
 
   async query(queryData: InstantIntelQuery): Promise<InstantIntelResult> {
     try {
+      console.log('🚀 Starting StatMuse query:', queryData.query);
+      console.log('🌐 Requesting URL:', `${this.baseUrl}/query`);
+      
       const response = await fetch(`${this.baseUrl}/query`, {
         method: 'POST',
         headers: {
@@ -50,13 +59,23 @@ class InstantIntelService {
         body: JSON.stringify(queryData),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const result: InstantIntelResult = await response.json();
+      console.log('✅ StatMuse query successful');
       return result;
     } catch (error) {
-      console.error('InstantIntel query error:', error);
+      console.error('❌ InstantIntel query error details:', error);
+      console.error('❌ Error type:', error.constructor.name);
+      console.error('❌ Error message:', error.message);
       return {
         success: false,
-        error: 'Connection failed. Please check your internet connection.',
+        error: `Connection failed: ${error.message}. Check Railway server and iOS ATS settings.`,
         query: queryData.query,
       };
     }
