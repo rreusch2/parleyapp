@@ -1,4 +1,4 @@
-import { API_CONFIG } from './config';
+// NOTE: We route through backend proxy by default to avoid iOS ATS issues.
 
 export interface InstantIntelQuery {
   query: string;
@@ -36,11 +36,15 @@ class InstantIntelService {
   private baseUrl: string;
 
   constructor() {
-    // Use production Railway server for StatMuse API
-    this.baseUrl = process.env.EXPO_PUBLIC_STATMUSE_API_URL || 'https://web-production-f090e.up.railway.app';
+    // Prefer backend proxy to bypass iOS ATS and consolidate networking
+    const backend = process.env.EXPO_PUBLIC_BACKEND_URL;
+    const proxy = backend ? `${backend}/api/statmuse` : undefined;
+    const direct = process.env.EXPO_PUBLIC_STATMUSE_API_URL || 'https://web-production-f090e.up.railway.app';
+    this.baseUrl = proxy || direct;
     
     // Debug logging for iOS
     console.log('🔧 InstantIntelService initialized');
+    console.log('🌐 EXPO_PUBLIC_BACKEND_URL:', process.env.EXPO_PUBLIC_BACKEND_URL);
     console.log('🌐 EXPO_PUBLIC_STATMUSE_API_URL:', process.env.EXPO_PUBLIC_STATMUSE_API_URL);
     console.log('🎯 Using baseUrl:', this.baseUrl);
     console.log('📱 Platform check - is iOS?', typeof navigator !== 'undefined' ? navigator.userAgent : 'React Native');

@@ -25,6 +25,7 @@ import referralsRouter from './api/routes/referrals';
 import rewardsRouter from './api/routes/rewards';
 import webhooksRewardsRoutes from './api/routes/webhooks-rewards';
 import coinsRouter from './api/routes/coins';
+import statmuseRouter from './api/routes/statmuse';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
@@ -125,6 +126,7 @@ app.use('/api/teams', teamsRouter);
 app.use('/api/referrals', referralsRouter);
 app.use('/api/rewards', rewardsRouter);
 app.use('/api/coins', coinsRouter);
+app.use('/api/statmuse', statmuseRouter);
 app.use('/api/webhooks-rewards', webhooksRewardsRoutes);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
