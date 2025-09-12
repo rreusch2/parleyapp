@@ -27,6 +27,13 @@ module.exports = {
       infoPlist: {
         // Only include permissions that your app actually uses
         "ITSAppUsesNonExemptEncryption": false,
+        // App Tracking Transparency prompt text (required for IDFA on iOS 14.5+)
+        "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
+        // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.
+        "SKAdNetworkItems": [
+          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" },
+          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" }
+        ],
         // App Transport Security - CRITICAL for Railway API access
         "NSAppTransportSecurity": {
           "NSExceptionDomains": {
@@ -90,6 +97,14 @@ module.exports = {
           "devKey": "NgBrVqoMhaRVeeaekgT9xX",
           "appId": "id6748275790",
           "isDebug": false
+        }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1019527860059930",
+          "displayName": "Predictive Play",
+          "scheme": "predictiveplay"
         }
       ]
     ],
