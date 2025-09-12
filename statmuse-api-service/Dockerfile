@@ -25,4 +25,4 @@ ENV PORT=5000
 EXPOSE 5000
 
 # Start the application
-CMD ["node", "index.js"]
+CMD ["python3", "statmuse_api_server.py"]

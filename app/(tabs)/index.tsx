@@ -42,6 +42,10 @@ import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
 import HomeTrendsPreview from '../components/HomeTrendsPreview';
+import InstantIntel from '../components/InstantIntel';
+import MediaGallery from '../components/MediaGallery';
+import type { MediaItem as MediaItemType } from '../components/MediaGallery';
+import { listMedia } from '../services/api/mediaService';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
@@ -82,6 +86,7 @@ export default function HomeScreen() {
     sportPreferences: { mlb: true, wnba: false, ufc: false }
   });
   const [userId, setUserId] = useState<string>('');
+  const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -204,6 +209,14 @@ export default function HomeScreen() {
           console.error(`Data loading failed for operation ${index}:`, result.reason);
         }
       });
+
+      // Load media items (separately to keep code simple)
+      try {
+        const items = await listMedia();
+        if (!signal?.aborted) setMediaItems(items);
+      } catch (err) {
+        if (!signal?.aborted) console.error('Failed to load media items:', err);
+      }
       
     } catch (error) {
       if (!signal?.aborted) {
@@ -762,10 +775,10 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Trends Preview Section - Moved from bottom */}
-        <HomeTrendsPreview 
-          onViewAllTrends={() => router.push('/(tabs)/trends')}
-        />
+        {/* Instant Intel Section - StatMuse Integration */}
+        <View style={styles.section}>
+          <InstantIntel />
+        </View>
 
         {/* Daily AI Insights Section - Pro Only */}
         <View style={styles.section}>
@@ -837,9 +850,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-
-
-
+        {/* Media Gallery Section */}
+        <View style={styles.section}>
+          <MediaGallery title="Media" items={mediaItems.length ? mediaItems : undefined} />
+        </View>
 
         {/* AI Disclaimer */}
         <View style={styles.disclaimerContainer}>

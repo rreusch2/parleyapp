@@ -14,8 +14,9 @@ router.get('/search', async (req, res) => {
       });
     }
 
+    // Query players directly to avoid DISTINCT ON limitation in view
     let supabaseQuery = supabaseAdmin
-      .from('players_with_headshots')
+      .from('players')
       .select(`
         id,
         name,
@@ -23,13 +24,12 @@ router.get('/search', async (req, res) => {
         sport,
         position,
         active,
-        headshot_url,
-        has_headshot,
-        recent_games_count,
-        last_game_date
+        player_headshots!left(headshot_url, is_active),
+        player_game_stats!left(id, created_at)
       `)
       .ilike('name', `%${query}%`)
-      .order('name');
+      .eq('active', true)
+      .order('name, team');
 
     if (sport && sport !== 'all') {
       supabaseQuery = supabaseQuery.eq('sport', sport);
@@ -39,15 +39,44 @@ router.get('/search', async (req, res) => {
 
     if (error) throw error;
 
-    const playersWithStats = data?.map(player => ({
-      ...player,
-      recent_games_count: player.recent_games_count || 0,
-      last_game_date: player.last_game_date || new Date().toISOString()
-    })) || [];
+    const playersWithStats = data?.map(player => {
+      const activeHeadshot = player.player_headshots?.find(h => h.is_active);
+      const gameStats = player.player_game_stats || [];
+      const sortedStats = gameStats.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      return {
+        id: player.id,
+        name: player.name,
+        team: player.team,
+        sport: player.sport,
+        position: player.position,
+        active: player.active,
+        headshot_url: activeHeadshot?.headshot_url || null,
+        has_headshot: !!activeHeadshot,
+        recent_games_count: gameStats.length,
+        last_game_date: sortedStats[0]?.created_at || null
+      };
+    }) || [];
+
+    // Deduplicate by name+sport, prefer entries with headshot, full team name, has position, more recent games
+    const score = (p: any) =>
+      (p.has_headshot ? 1000 : 0) +
+      ((p.team && p.team.length > 3) ? 100 : 0) +
+      (p.position ? 50 : 0) +
+      (p.recent_games_count || 0);
+
+    const dedupMap: Record<string, any> = {};
+    for (const p of playersWithStats) {
+      const key = `${(p.name || '').toLowerCase()}|${p.sport || ''}`;
+      if (!dedupMap[key] || score(p) > score(dedupMap[key])) {
+        dedupMap[key] = p;
+      }
+    }
+    const deduped = Object.values(dedupMap);
 
     res.json({
-      players: playersWithStats,
-      total: playersWithStats.length
+      players: deduped,
+      total: deduped.length
     });
 
   } catch (error) {
@@ -76,24 +105,97 @@ router.get('/:playerId/stats', async (req, res) => {
       return res.status(404).json({ error: 'Player not found' });
     }
 
-    // Get recent stats
-    const { data: stats, error: statsError } = await supabaseAdmin
-      .from('player_recent_stats')
-      .select('*')
+    // Helper to extract value from player_game_stats JSON
+    const extractValue = (s: any, sport: string, key: string): number => {
+      switch (sport) {
+        case 'MLB': {
+          const map: Record<string, any> = {
+            hits: s.hits,
+            home_runs: s.home_runs,
+            rbis: s.rbis,
+            runs_scored: s.runs ?? s.runs_scored,
+            stolen_bases: s.stolen_bases,
+            strikeouts: s.strikeouts,
+            walks: s.walks,
+            total_bases: s.total_bases,
+          };
+          return Number(map[key] ?? 0);
+        }
+        case 'NBA':
+        case 'WNBA': {
+          const map: Record<string, any> = {
+            points: s.points,
+            rebounds: s.rebounds,
+            assists: s.assists,
+            steals: s.steals,
+            blocks: s.blocks,
+            three_pointers: s.three_pointers_made ?? s.threes ?? 0,
+          };
+          return Number(map[key] ?? 0);
+        }
+        case 'NFL': {
+          const map: Record<string, any> = {
+            passing_yards: s.passing_yards,
+            passing_tds: s.passing_touchdowns ?? s.passing_tds,
+            completions: s.passing_completions ?? s.completions,
+            attempts: s.passing_attempts ?? s.attempts,
+            interceptions: s.passing_interceptions ?? s.interceptions,
+            rushing_yards: s.rushing_yards,
+            rushing_tds: s.rushing_touchdowns ?? s.rushing_tds,
+            rushing_attempts: s.rushing_attempts,
+            receiving_yards: s.receiving_yards,
+            receiving_tds: s.receiving_touchdowns ?? s.receiving_tds,
+            receptions: s.receptions,
+            targets: s.targets ?? s.receiving_targets,
+            fantasy_points: s.fantasy_points,
+          };
+          return Number(map[key] ?? 0);
+        }
+        default:
+          return Number(s[key] ?? 0);
+      }
+    };
+
+    // Prefer player_game_stats (JSONB) similar to iOS modal, fallback to player_recent_stats
+    let gameStats: Array<{ game_date: any, opponent: string, is_home: boolean, value: number, game_result?: string }> = [];
+
+    const { data: jsonStats, error: jsonErr } = await supabaseAdmin
+      .from('player_game_stats')
+      .select('stats, created_at')
       .eq('player_id', playerId)
-      .order('game_date', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(Number(limit));
 
-    if (statsError) throw statsError;
+    if (!jsonErr && jsonStats && jsonStats.length > 0) {
+      gameStats = jsonStats.map((row: any) => {
+        const s = row.stats || {};
+        const value = extractValue(s, player.sport, String(propType));
+        const opponent = s.opponent_team || s.opponent || 'OPP';
+        const isHome = (typeof s.is_home === 'boolean' ? s.is_home : (s.home_or_away === 'home')) || false;
+        const game_date = s.game_date || row.created_at;
+        const result = (typeof s.plus_minus === 'number' ? (s.plus_minus > 0 ? 'W' : 'L') : undefined);
+        return { game_date, opponent, is_home: isHome, value: Number(value || 0), game_result: result };
+      }).filter(g => g.value !== undefined).reverse();
+    }
 
-    // Transform stats for the requested prop type
-    const gameStats = stats?.map(stat => ({
-      game_date: stat.game_date,
-      opponent: stat.opponent,
-      is_home: stat.is_home,
-      value: stat[propType as string] || 0,
-      game_result: stat.game_result
-    })).reverse() || []; // Reverse to show oldest to newest for chart
+    if (gameStats.length === 0) {
+      const { data: stats, error: statsError } = await supabaseAdmin
+        .from('player_recent_stats')
+        .select('*')
+        .eq('player_id', playerId)
+        .order('game_date', { ascending: false })
+        .limit(Number(limit));
+
+      if (statsError) throw statsError;
+
+      gameStats = stats?.map((stat: any) => ({
+        game_date: stat.game_date,
+        opponent: stat.opponent,
+        is_home: stat.is_home,
+        value: Number(stat[propType as string] || 0),
+        game_result: stat.game_result
+      })).reverse() || [];
+    }
 
     // Get current prop line from player_props_odds table with proper prop type matching
     const sport = player.sport;
@@ -255,39 +357,91 @@ router.get('/:playerId/prop-types', async (req, res) => {
   }
 });
 
-// Get current prop lines for a player
+// Get latest prop lines for a player (distinct by prop type)
 router.get('/:playerId/prop-lines', async (req, res) => {
   try {
     const { playerId } = req.params;
+    const limit = Number(req.query.limit ?? 3);
+    const upcomingOnly = String(req.query.upcomingOnly ?? 'true') === 'true';
 
-    const { data: propLines, error } = await supabaseAdmin
+    // Pull recent odds with joins for labels
+    const { data: oddsRows, error } = await supabaseAdmin
       .from('player_props_odds')
-      .select('*')
+      .select(`
+        id,
+        player_id,
+        event_id,
+        prop_type_id,
+        bookmaker_id,
+        line,
+        over_odds,
+        under_odds,
+        last_update,
+        player_prop_types:prop_type_id(prop_key, prop_name, sport_key),
+        bookmakers:bookmaker_id(bookmaker_name, bookmaker_key)
+      `)
       .eq('player_id', playerId)
-      .order('created_at', { ascending: false });
+      .order('last_update', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
 
-    // Group by prop type and get most recent line for each
-    const latestLines: Record<string, any> = {};
-    
-    propLines?.forEach(line => {
-      const propKey = line.prop_type?.toLowerCase().replace(/[^a-z]/g, '_');
-      if (propKey && !latestLines[propKey]) {
-        latestLines[propKey] = {
-          prop_type: line.prop_type,
-          line: line.line,
-          over_odds: line.over_odds,
-          under_odds: line.under_odds,
-          bookmaker: line.bookmaker,
-          created_at: line.created_at
+    // Optionally enrich with event info and filter to upcoming
+    let eventsMap: Record<string, any> = {};
+    if (upcomingOnly && oddsRows && oddsRows.length > 0) {
+      const eventIds = Array.from(new Set(oddsRows.map(r => r.event_id).filter(Boolean)));
+      if (eventIds.length > 0) {
+        const { data: events } = await supabaseAdmin
+          .from('sports_events')
+          .select('id, start_time, home_team, away_team')
+          .in('id', eventIds);
+        (events || []).forEach(ev => { eventsMap[ev.id] = ev; });
+      }
+    }
+
+    const now = new Date();
+    // Group by prop_type_id and take most recent
+    const latestByProp: Record<string, any> = {};
+    for (const row of oddsRows || []) {
+      const ev = eventsMap[row.event_id];
+      if (upcomingOnly) {
+        // Keep only events not started yet (or missing event info)
+        if (ev && ev.start_time && new Date(ev.start_time) < now) continue;
+      }
+      const key = row.prop_type_id as string;
+      if (!latestByProp[key]) {
+        const ppt: any = Array.isArray((row as any).player_prop_types)
+          ? (row as any).player_prop_types[0]
+          : (row as any).player_prop_types;
+        const bm: any = Array.isArray((row as any).bookmakers)
+          ? (row as any).bookmakers[0]
+          : (row as any).bookmakers;
+        latestByProp[key] = {
+          prop_type_id: row.prop_type_id,
+          prop_key: ppt?.prop_key || null,
+          prop_type: ppt?.prop_name || null,
+          line: typeof row.line === 'number' ? row.line : Number(row.line),
+          over_odds: row.over_odds ?? null,
+          under_odds: row.under_odds ?? null,
+          bookmaker_name: bm?.bookmaker_name || null,
+          bookmaker_key: bm?.bookmaker_key || null,
+          event_id: row.event_id || null,
+          event_start_time: ev?.start_time || null,
+          matchup: ev ? `${ev.away_team} @ ${ev.home_team}` : null,
+          last_update: row.last_update,
         };
       }
-    });
+    }
+
+    // Return top N
+    const sorted = Object.values(latestByProp)
+      .sort((a: any, b: any) => new Date(b.last_update).getTime() - new Date(a.last_update).getTime())
+      .slice(0, Math.max(1, limit));
 
     res.json({
-      propLines: Object.values(latestLines),
-      playerId
+      playerId,
+      propLines: sorted,
+      count: sorted.length
     });
 
   } catch (error) {

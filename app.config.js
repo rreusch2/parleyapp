@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "Predictive Play",
     slug: "parleyapp",
-    version: "1.3.0",
+    version: "1.4.0",
     orientation: "portrait",
     scheme: "predictiveplay",
     userInterfaceStyle: "automatic",
@@ -26,7 +26,31 @@ module.exports = {
       // Permission explanations refined based on app features
       infoPlist: {
         // Only include permissions that your app actually uses
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        // App Tracking Transparency prompt text (required for IDFA on iOS 14.5+)
+        "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
+        // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.
+        "SKAdNetworkItems": [
+          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" },
+          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" }
+        ],
+        // App Transport Security - CRITICAL for Railway API access
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "web-production-f090e.up.railway.app": {
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false,
+              "NSIncludesSubdomains": false
+            },
+            "up.railway.app": {
+              "NSIncludesSubdomains": true,
+              "NSExceptionAllowsInsecureHTTPLoads": false,
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSExceptionRequiresForwardSecrecy": false
+            }
+          }
+        }
       },
       usesAppleSignIn: true
 
@@ -66,12 +90,21 @@ module.exports = {
       "expo-notifications",
       "expo-web-browser",
       "expo-apple-authentication",
+      "expo-asset",
       [
         "react-native-appsflyer",
         {
           "devKey": "NgBrVqoMhaRVeeaekgT9xX",
           "appId": "id6748275790",
           "isDebug": false
+        }
+      ],
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1019527860059930",
+          "displayName": "Predictive Play",
+          "scheme": "predictiveplay"
         }
       ]
     ],

@@ -262,25 +262,25 @@ class DatabaseClient:
         try:
             response = self.supabase.table("player_props_odds").select(
                 "line, over_odds, under_odds, event_id, "
-                "players(name, team), "
+                "players(name, player_name, team), "
                 "player_prop_types(prop_name)"
             ).in_("event_id", game_ids).execute()
             
             props = []
             for row in response.data:
-                if (row.get("players") and 
-                    row.get("player_prop_types") and 
-                    row["players"].get("name") and 
-                    row["player_prop_types"].get("prop_name")):
-                    
+                if row.get("players") and row.get("player_prop_types") and row["player_prop_types"].get("prop_name"):
+                    # Prefer full name; fallback to abbreviated player_name
+                    player_full = row["players"].get("name") or row["players"].get("player_name")
+                    if not player_full:
+                        continue
                     props.append(PlayerProp(
-                        player_name=row["players"]["name"],
+                        player_name=player_full,
                         prop_type=row["player_prop_types"]["prop_name"],
                         line=float(row["line"]),
                         over_odds=self._safe_int_convert(row["over_odds"]),
                         under_odds=self._safe_int_convert(row["under_odds"]),
                         event_id=row["event_id"],
-                        team=row["players"]["team"] if row["players"]["team"] else "Unknown",
+                        team=row["players"].get("team") or "Unknown",
                         bookmaker="fanduel"
                     ))
             
@@ -291,18 +291,23 @@ class DatabaseClient:
     
     def store_ai_predictions(self, predictions: List[Dict[str, Any]]):
         try:
-            # Sort predictions: WNBA first, MLB last (so MLB shows on top in UI)
+            # Sort predictions to control UI display order (UI shows newest first):
+            # Save order (oldest -> newest): WNBA -> MLB -> CFB -> NFL
+            # This makes NFL saved last, so it appears FIRST in UI lists.
             def sport_priority(pred):
                 sport = pred.get("sport", "MLB")
                 if sport == "WNBA":
-                    return 1  # Save first
-                elif sport == "MLB":
-                    return 3  # Save last
-                else:
-                    return 2  # Other sports in middle
+                    return 1  # earliest
+                if sport == "MLB":
+                    return 2
+                if sport in ("CFB", "College Football"):
+                    return 3
+                if sport == "NFL" or sport == "National Football League":
+                    return 4  # latest (top in UI)
+                return 5
             
             sorted_predictions = sorted(predictions, key=sport_priority)
-            logger.info(f"📊 Saving predictions in UI order: WNBA first, MLB last")
+            logger.info(f"📊 Saving predictions in UI order: WNBA → MLB → CFB → NFL (NFL will display first)")
             
             for pred in sorted_predictions:
                 reasoning = pred.get("reasoning", "")
@@ -397,10 +402,9 @@ class IntelligentPlayerPropsAgent:
         self.statmuse_base_url = "http://localhost:5001"
         # WNBA-only mode flag
         self.wnba_only_mode = False
-        # NFL week mode flag - detect if it's NFL Sunday
-        today = datetime.now().date()
-        is_sunday = today.weekday() == 6  # Sunday = 6
-        self.nfl_week_mode = is_sunday
+        # NFL week mode flag (disabled by default; can be enabled via CLI)
+        # We are moving to AI-driven distribution instead of hard-coded NFL-day overrides.
+        self.nfl_week_mode = False
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         if self.nfl_week_mode:
@@ -575,31 +579,33 @@ class IntelligentPlayerPropsAgent:
         
         return "\n".join(requirements)
     
-    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 40) -> List[Dict[str, Any]]:
+    async def generate_daily_picks(self, target_date: Optional[datetime.date] = None, target_picks: int = 15) -> List[Dict[str, Any]]:
         if target_date is None:
             target_date = datetime.now().date()
             
         logger.info(f"🚀 Starting intelligent multi-sport player props analysis for {target_date}...")
         
         games = self.db.get_upcoming_games(target_date)
-        logger.info(f"📅 Found {len(games)} games for {target_date} across MLB and WNBA")
+        logger.info(f"📅 Found {len(games)} games for {target_date} across MLB, WNBA, NFL, and CFB")
         
         if not games:
             logger.warning(f"No games found for {target_date}")
             return []
         
-        # Get sport distribution for props - now generates more props per sport
-        sport_distribution = self._distribute_props_by_sport(games, target_picks)
-        
+        # Decide pick distribution using AI based on actual available props (fallbacks to heuristic if needed)
         game_ids = [game["id"] for game in games]
         available_props = self.db.get_player_props_for_games(game_ids)
         logger.info(f"🎯 Found {len(available_props)} available player props across all sports")
-        
         if not available_props:
             logger.warning("No player props found")
             return []
+
+        sport_distribution = await self.decide_pick_distribution_ai(available_props, games, target_picks)
+        if not sport_distribution:
+            logger.warning("AI distribution failed, falling back to heuristic distribution")
+            sport_distribution = self._distribute_props_by_sport(games, target_picks)
         
-        research_plan = await self.create_research_plan(available_props, games)
+        research_plan = await self.create_research_plan(available_props, games, sport_distribution)
         statmuse_count = len(research_plan.get("statmuse_queries", []))
         web_search_count = len(research_plan.get("web_searches", []))
         total_queries = statmuse_count + web_search_count
@@ -638,8 +644,8 @@ class IntelligentPlayerPropsAgent:
             logger.error(f"❌ StatMuse context scraping error: {e}")
             return {}
     
-    async def create_research_plan(self, props: List[PlayerProp], games: List[Dict]) -> Dict[str, Any]:
-        """Create intelligent research plan based on actual available props data and current StatMuse context"""
+    async def create_research_plan(self, props: List[PlayerProp], games: List[Dict], desired_distribution: Dict[str, int] = None) -> Dict[str, Any]:
+        """Create intelligent research plan based on actual available props data, desired pick distribution, and current StatMuse context"""
         
         # STEP 1: Scrape StatMuse main pages for current context
         statmuse_context = self.scrape_statmuse_context()
@@ -661,8 +667,27 @@ class IntelligentPlayerPropsAgent:
         if unknown_props:
             logger.info(f"  Unknown teams: {list(set(p.team for p in unknown_props[:5]))}")
         
+        # If a desired distribution is provided, allocate research based on it; otherwise use legacy allocation (with optional NFL week mode)
+        if desired_distribution and any(v > 0 for v in desired_distribution.values()):
+            total_desired = max(1, sum(v for v in desired_distribution.values() if v))
+            # Establish a reasonable total research query budget based on props volume
+            base_queries = min(28, max(12, int(len(props) * 0.25)))
+            def alloc_for(sport_key: str, available_count: int) -> int:
+                desired = max(0, desired_distribution.get(sport_key, 0))
+                if desired == 0 or available_count == 0:
+                    return 0
+                share = desired / total_desired
+                # Weight by both desired share and availability
+                weighted = share * base_queries
+                # Cap to available_count to avoid wasted queries; ensure minimum of 2 for selected sports
+                return max(2, min(15, int(round(min(weighted, available_count * 0.8)))))
+
+            target_nfl_queries = alloc_for('NFL', len(nfl_props))
+            target_cfb_queries = alloc_for('CFB', len(cfb_props))
+            target_mlb_queries = alloc_for('MLB', len(mlb_props))
+            target_wnba_queries = alloc_for('WNBA', len(wnba_props))
         # NFL SUNDAY PRIORITY: Override all research allocation for NFL Sunday
-        if self.nfl_week_mode and len(nfl_props) > 0:
+        elif self.nfl_week_mode and len(nfl_props) > 0:
             logger.info(f"🏈 NFL Sunday mode: prioritizing research on {len(nfl_props)} NFL props")
             target_nfl_queries = min(15, max(8, int(len(nfl_props) * 0.6)))
             target_mlb_queries = min(8, max(3, int(len(mlb_props) * 0.4))) if len(mlb_props) > 0 else 0
@@ -825,7 +850,7 @@ Generate intelligent research plan as JSON:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4",
+                model="grok-3-latest",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -840,6 +865,99 @@ Generate intelligent research plan as JSON:
         except Exception as e:
             logger.error(f"Failed to create research plan: {e}")
             return self._create_fallback_research_plan(props)
+
+    async def decide_pick_distribution_ai(self, props: List[PlayerProp], games: List[Dict], target_picks: int) -> Dict[str, int]:
+        """Use Grok to intelligently decide pick distribution across sports, given available props and target count."""
+        try:
+            # Count available props by sport using reliable mapping
+            counts = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0}
+            samples = {"MLB": [], "WNBA": [], "NFL": [], "CFB": []}
+            for p in props:
+                sp = self._get_prop_sport(p, games)
+                if sp in counts:
+                    counts[sp] += 1
+                    if len(samples[sp]) < 8:
+                        samples[sp].append({
+                            "player": p.player_name,
+                            "prop_type": p.prop_type,
+                            "line": p.line,
+                            "team": p.team
+                        })
+
+            # Remove zero-count sports from consideration
+            active_counts = {k: v for k, v in counts.items() if v > 0}
+            if not active_counts:
+                return {}
+
+            prompt = f"""
+You are a world-class betting strategist. Decide how to allocate exactly {target_picks} player prop picks across the available sports based on supply and slate importance.
+
+Rules:
+- Only include sports that have available props.
+- Output MUST be a single JSON object with keys from ["MLB","WNBA","NFL","CFB"].
+- Values are non-negative integers that sum to exactly {target_picks}.
+- Favor sports with higher availability and slate importance (e.g., NFL Sundays), but be reasonable and diversified.
+- If one sport overwhelmingly dominates (e.g., NFL Sunday), it can take most or all of the picks.
+
+Available props by sport: {json.dumps(active_counts)}
+
+Sample props (first few) by sport to understand the slate quality:
+MLB: {json.dumps(samples['MLB'], indent=2)}
+WNBA: {json.dumps(samples['WNBA'], indent=2)}
+NFL: {json.dumps(samples['NFL'], indent=2)}
+CFB: {json.dumps(samples['CFB'], indent=2)}
+
+Return ONLY compact JSON like:
+{{"NFL":10, "MLB":3, "WNBA":2}}
+"""
+
+            response = await self.grok_client.chat.completions.create(
+                model="grok-4",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=400
+            )
+            text = response.choices[0].message.content.strip()
+            # Extract JSON braces
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start == -1 or end <= start:
+                logger.warning("AI distribution response did not contain JSON; falling back")
+                return {}
+            json_str = text[start:end]
+            try:
+                dist = json.loads(json_str)
+            except Exception as pe:
+                logger.warning(f"Failed to parse AI distribution JSON: {pe}")
+                return {}
+
+            # Validate keys and sum
+            valid_keys = {"MLB", "WNBA", "NFL", "CFB"}
+            dist = {k: int(v) for k, v in dist.items() if k in valid_keys and isinstance(v, (int, float))}
+            total = sum(dist.values())
+            if total != target_picks:
+                logger.warning(f"AI distribution does not sum to target ({total}!={target_picks}); normalizing")
+                if total > 0:
+                    # Normalize proportionally and fix rounding
+                    scaled = {k: max(0, int(round(v * target_picks / total))) for k, v in dist.items()}
+                    # Fix rounding drift
+                    drift = target_picks - sum(scaled.values())
+                    for k in sorted(scaled.keys(), key=lambda x: -scaled[x]):
+                        if drift == 0:
+                            break
+                        scaled[k] += 1 if drift > 0 else -1
+                        drift = target_picks - sum(scaled.values())
+                    dist = scaled
+                else:
+                    return {}
+
+            # Remove sports with no available props
+            dist = {k: v for k, v in dist.items() if active_counts.get(k, 0) > 0 and v > 0}
+            logger.info(f"🧠 AI pick distribution decided: {dist}")
+            return dist
+        except Exception as e:
+            logger.error(f"Failed to decide AI distribution: {e}")
+            return {}
     
     def _analyze_available_props(self, props: List[PlayerProp], games: List[Dict]) -> Dict[str, Any]:
         """Analyze the actual props data to understand what's available"""
@@ -953,27 +1071,47 @@ Generate intelligent research plan as JSON:
         return analysis
     
     def _get_prop_sport(self, prop: PlayerProp, games: List[Dict]) -> str:
-        """Determine sport for a prop using enhanced team matching"""
-        # First try to match using the enhanced team matching we added
+        """Determine sport for a prop using reliable event_id mapping, with fallbacks."""
+        # 1) Most reliable: map by event_id to the game's sport
+        for game in games:
+            if str(prop.event_id) == str(game.get('id')):
+                sport_full = game.get('sport', 'Unknown')
+                if sport_full == "Women's National Basketball Association":
+                    return "WNBA"
+                elif sport_full == "Major League Baseball":
+                    return "MLB"
+                elif sport_full == "National Football League":
+                    return "NFL"
+                elif sport_full == "College Football":
+                    return "CFB"
+                elif sport_full == "Ultimate Fighting Championship":
+                    return "MMA"
+                else:
+                    return "Unknown"
+
+        # 2) Fallback: try team name matching against game teams
         for game in games:
             home_team = game.get('home_team', '').lower()
             away_team = game.get('away_team', '').lower()
-            prop_team = prop.team.lower()
-            
-            # Use the same teams_match function logic from teams_enhanced.py
+            prop_team = (prop.team or "").lower()
+
             if self._teams_match_enhanced(prop_team, home_team, away_team):
-                sport = game.get('sport', 'Unknown')
-                if sport == "Women's National Basketball Association":
+                sport_full = game.get('sport', 'Unknown')
+                if sport_full == "Women's National Basketball Association":
                     return "WNBA"
-                elif sport == "Major League Baseball":
+                elif sport_full == "Major League Baseball":
                     return "MLB"
-                elif sport == "Ultimate Fighting Championship":
+                elif sport_full == "National Football League":
+                    return "NFL"
+                elif sport_full == "College Football":
+                    return "CFB"
+                elif sport_full == "Ultimate Fighting Championship":
                     return "MMA"
                 else:
                     return "MLB"  # Default to MLB
         
         # If no match found, try to infer from team name patterns
-        prop_team_lower = prop.team.lower()
+        prop_team_lower = (prop.team or "").lower()
         
         # Common NFL abbreviations (from database analysis)
         nfl_teams = ['cin', 'buf', 'tb', 'mia', 'ind', 'hou', 'jax', 'ari', 'car', 'gb', 'ne', 
@@ -985,8 +1123,9 @@ Generate intelligent research plan as JSON:
                      'baylor', 'syracuse', 'uconn', 'texas', 'clemson', 'oregon', 'alabama']
         
         # Common MLB abbreviations
-        mlb_teams = ['bos', 'nyy', 'nym', 'lad', 'phi', 'wsh', 'oak', 'tex', 'tor', 'cws',
-                    'chc', 'mil', 'stl', 'col', 'sd', 'laa']
+        mlb_teams = ['hou', 'mia', 'bos', 'nyy', 'nym', 'lad', 'sf', 'phi', 'atl', 'det', 'min',
+                     'pit', 'cle', 'bal', 'wsh', 'oak', 'kc', 'tex', 'tb', 'tor', 'cws',
+                     'chc', 'mil', 'stl', 'cin', 'col', 'ari', 'sd', 'sea', 'laa']
         
         # Common WNBA teams  
         wnba_teams = ['liberty', 'wings', 'storm', 'aces', 'mystics', 'sun', 'fever', 
@@ -1000,7 +1139,11 @@ Generate intelligent research plan as JSON:
             return "MLB"
         elif prop_team_lower in wnba_teams:
             return "WNBA"
-        
+        elif prop_team_lower in nfl_teams:
+            return "NFL"
+        elif prop_team_lower in cfb_teams:
+            return "CFB"
+
         return "Unknown"
     
     def _teams_match_enhanced(self, prop_team: str, home_team: str, away_team: str) -> bool:
@@ -1268,6 +1411,128 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         return final_insights
     
+    def _distribute_props_by_game_and_sport(self, props: List[PlayerProp], games: List[Dict], sport_distribution: Dict[str, int]) -> Dict[str, List[PlayerProp]]:
+        """Create game-aware distribution to ensure picks spread across multiple games"""
+        logger.info(f"🎯 Creating game-aware prop distribution for optimal spread")
+        
+        # Group props by game_id first
+        props_by_game = {}
+        for prop in props:
+            game_id = prop.event_id
+            if game_id not in props_by_game:
+                props_by_game[game_id] = []
+            props_by_game[game_id].append(prop)
+        
+        # Get game info for each game with props
+        game_info = {}
+        for game in games:
+            game_id = game.get('id', '')
+            if game_id in props_by_game:
+                game_info[game_id] = {
+                    'home_team': game.get('home_team', ''),
+                    'away_team': game.get('away_team', ''),
+                    'sport': game.get('sport', ''),
+                    'prop_count': len(props_by_game[game_id])
+                }
+        
+        logger.info(f"📊 Props distribution by game:")
+        for game_id, props_list in props_by_game.items():
+            game = game_info.get(game_id, {})
+            teams = f"{game.get('away_team', 'Unknown')} @ {game.get('home_team', 'Unknown')}"
+            sport = game.get('sport', 'Unknown')
+            logger.info(f"  {teams} ({sport}): {len(props_list)} props")
+        
+        # Calculate target picks per game based on available props and sport priority
+        target_games = min(8, len(props_by_game))  # Target 8 games max for good distribution
+        picks_per_game = max(2, 10 // target_games)  # At least 2 picks per game
+        
+        logger.info(f"🎯 Target distribution: {picks_per_game} picks per game across {target_games} games")
+        
+        # Select top games by prop count and sport priority for diverse coverage
+        games_ranked = []
+        for game_id, props_list in props_by_game.items():
+            game = game_info.get(game_id, {})
+            sport = game.get('sport', '')
+            prop_count = len(props_list)
+            
+            # Priority scoring: MLB=3, NFL=2, WNBA=2, CFB=1, plus prop count
+            sport_priority = 3 if 'Baseball' in sport else (2 if 'Football' in sport or 'Basketball' in sport else 1)
+            score = (sport_priority * 10) + min(prop_count, 20)  # Cap prop count influence
+            
+            games_ranked.append((score, game_id, props_list, game))
+        
+        # Sort by score (highest first) and select top games
+        games_ranked.sort(reverse=True)
+        selected_games = games_ranked[:target_games]
+        
+        # Create the final distribution
+        game_distribution = {}
+        for score, game_id, props_list, game_info in selected_games:
+            teams = f"{game_info.get('away_team', 'Unknown')} @ {game_info.get('home_team', 'Unknown')}"
+            sport = game_info.get('sport', 'Unknown')
+            game_distribution[f"{teams} ({sport})"] = props_list[:picks_per_game * 2]  # 2x for AI selection flexibility
+            logger.info(f"✅ Selected: {teams} ({sport}) - {len(props_list)} props available")
+        
+        return game_distribution
+    
+    def _format_game_diversity_requirements(self, game_prop_distribution: Dict[str, List[PlayerProp]]) -> str:
+        """Format game diversity requirements for AI prompt"""
+        if not game_prop_distribution:
+            return "- Distribute picks across all available games evenly"
+        
+        requirements = [
+            f"🎯 MANDATORY GAME DISTRIBUTION - You MUST select from {len(game_prop_distribution)} different games:",
+            ""
+        ]
+        
+        picks_per_game = max(1, 10 // len(game_prop_distribution))  # Distribute 10 picks across games
+        
+        for i, (game_desc, props_list) in enumerate(game_prop_distribution.items(), 1):
+            prop_types = list(set(p.prop_type for p in props_list))[:5]  # Show first 5 prop types
+            requirements.append(f"  {i}. {game_desc}")
+            requirements.append(f"     - Select {picks_per_game}-{picks_per_game+1} picks from this game")
+            requirements.append(f"     - Available prop types: {', '.join(prop_types)}")
+            requirements.append("")
+        
+        requirements.extend([
+            "🚨 CRITICAL DISTRIBUTION RULES:",
+            f"- You MUST select picks from AT LEAST {max(3, len(game_prop_distribution)-1)} different games",
+            "- NO MORE than 3 picks from any single game",
+            "- Prioritize games with more diverse prop types available",
+            "- Ensure good mix of over/under recommendations across all games"
+        ])
+        
+        return "\n".join(requirements)
+    
+    def _format_game_specific_props(self, game_prop_distribution: Dict[str, List[PlayerProp]]) -> str:
+        """Format game-specific prop data for AI analysis"""
+        if not game_prop_distribution:
+            return "No game-specific distribution available"
+        
+        formatted_sections = []
+        
+        for game_desc, props_list in game_prop_distribution.items():
+            formatted_sections.append(f"\n📊 {game_desc}:")
+            formatted_sections.append(f"Available Props ({len(props_list)} total):")
+            
+            # Group by player for better organization
+            players_props = {}
+            for prop in props_list[:20]:  # Limit to 20 props per game for prompt size
+                if prop.player_name not in players_props:
+                    players_props[prop.player_name] = []
+                players_props[prop.player_name].append(prop)
+            
+            for player, player_props in list(players_props.items())[:8]:  # Max 8 players per game
+                prop_details = []
+                for prop in player_props[:3]:  # Max 3 props per player
+                    over_odds = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else prop.over_odds
+                    under_odds = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else prop.under_odds
+                    prop_details.append(f"{prop.prop_type} {prop.line} (O:{over_odds}/U:{under_odds})")
+                
+                formatted_sections.append(f"  • {player}: {', '.join(prop_details)}")
+        
+        return "\n".join(formatted_sections)
+
     async def generate_picks_with_reasoning(
         self, 
         insights: List[ResearchInsight], 
@@ -1276,96 +1541,105 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         target_picks: int,
         sport_distribution: Dict[str, int] = None
     ) -> List[Dict[str, Any]]:
-        insights_summary = []
-        for insight in insights[:40]:
-            insights_summary.append({
-                "source": insight.source,
-                "query": insight.query,
-                "data": str(insight.data)[:800],
-                "confidence": insight.confidence,
-                "timestamp": insight.timestamp.isoformat()
-            })
-        
-        MAX_ODDS = 450
-        
-        filtered_props = []
-        long_shot_count = 0
-        
-        for prop in props:
-            # Allow props with either over OR under odds (not requiring both)
-            has_over = prop.over_odds is not None
-            has_under = prop.under_odds is not None
+        try:
+            insights_summary = []
+            for insight in insights[:40]:
+                insights_summary.append({
+                    "source": insight.source,
+                    "query": insight.query,
+                    "data": str(insight.data)[:800],
+                    "confidence": insight.confidence,
+                    "timestamp": insight.timestamp.isoformat()
+                })
             
-            # Must have at least one side with reasonable odds
-            if has_over or has_under:
-                over_reasonable = not has_over or abs(prop.over_odds) <= MAX_ODDS
-                under_reasonable = not has_under or abs(prop.under_odds) <= MAX_ODDS
+            # GAME-AWARE DISTRIBUTION: Create game distribution for picks spread
+            game_prop_distribution = self._distribute_props_by_game_and_sport(props, games, sport_distribution or {})
+            logger.info(f"🎯 Game-aware distribution created with {len(game_prop_distribution)} games")
+            
+            # Generate game diversity requirements for AI prompt
+            game_diversity_requirements = self._format_game_diversity_requirements(game_prop_distribution)
+            game_specific_props = self._format_game_specific_props(game_prop_distribution)
+            
+            MAX_ODDS = 450
+            
+            filtered_props = []
+            long_shot_count = 0
+            
+            for prop in props:
+                # Allow props with either over OR under odds (not requiring both)
+                has_over = prop.over_odds is not None
+                has_under = prop.under_odds is not None
                 
-                if over_reasonable and under_reasonable:
-                    filtered_props.append(prop)
+                # Must have at least one side with reasonable odds
+                if has_over or has_under:
+                    over_reasonable = not has_over or abs(prop.over_odds) <= MAX_ODDS
+                    under_reasonable = not has_under or abs(prop.under_odds) <= MAX_ODDS
+                
+                    if over_reasonable and under_reasonable:
+                        filtered_props.append(prop)
+                    else:
+                        long_shot_count += 1
+                        over_str = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else str(prop.over_odds) if prop.over_odds else "N/A"
+                        under_str = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else str(prop.under_odds) if prop.under_odds else "N/A"
+                        logger.info(f"🚫 Filtered long shot: {prop.player_name} {prop.prop_type} (Over: {over_str}, Under: {under_str})")
                 else:
                     long_shot_count += 1
-                    over_str = f"+{prop.over_odds}" if prop.over_odds and prop.over_odds > 0 else str(prop.over_odds) if prop.over_odds else "N/A"
-                    under_str = f"+{prop.under_odds}" if prop.under_odds and prop.under_odds > 0 else str(prop.under_odds) if prop.under_odds else "N/A"
-                    logger.info(f"🚫 Filtered long shot: {prop.player_name} {prop.prop_type} (Over: {over_str}, Under: {under_str})")
-            else:
-                long_shot_count += 1
-                logger.info(f"🚫 Filtered no odds: {prop.player_name} {prop.prop_type} (no odds available)")
-        
-        logger.info(f"🎯 Filtered props: {len(props)} → {len(filtered_props)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
-        
-        # Analyze filtered props by sport to understand supply before AI generation
-        try:
-            event_sport_map = {}
-            for g in games:
-                g_s = g.get('sport')
-                sp = 'Other'
-                if g_s == "Women's National Basketball Association":
-                    sp = "WNBA"
-                elif g_s == "Major League Baseball":
-                    sp = "MLB"
-                elif g_s == "Ultimate Fighting Championship":
-                    sp = "UFC"
-                elif g_s == "National Football League":
-                    sp = "NFL"
-                event_sport_map[str(g.get('id'))] = sp
-            filtered_counts = {}
-            for p in filtered_props:
-                sp = event_sport_map.get(str(p.event_id), "Unknown")
-                filtered_counts[sp] = filtered_counts.get(sp, 0) + 1
-            logger.info(f"📊 Filtered props by sport: {filtered_counts}")
-        except Exception as e:
-            logger.warning(f"Failed to summarize filtered props by sport: {e}")
-        
-        props_data = []
-        for prop in filtered_props:
-            props_data.append({
-                "player": prop.player_name,
-                "prop_type": prop.prop_type,
-                "line": prop.line,
-                "over_odds": prop.over_odds,
-                "under_odds": prop.under_odds,
-                "team": prop.team,
-                "event_id": prop.event_id,
-                "bookmaker": prop.bookmaker
-            })
-        
-        games_info = json.dumps(games[:10], indent=2, default=str)
-        props_info = json.dumps(props_data, indent=2)
-        research_summary = json.dumps(insights_summary, indent=2)
-        
-        props = filtered_props
-        
-        # Determine active sports from filtered props for dynamic prompt
-        active_sports = set()
-        for prop in filtered_props[:50]:
-            sport = self._get_prop_sport(prop, games)
-            if sport != "Unknown":
-                active_sports.add(sport)
-        
-        sports_list = ", ".join(sorted(active_sports)) if active_sports else "MLB, WNBA, NFL"
-        
-        prompt = f"""
+                    logger.info(f"🚫 Filtered no odds: {prop.player_name} {prop.prop_type} (no odds available)")
+            
+            logger.info(f"🎯 Filtered props: {len(props)} → {len(filtered_props)} (removed {long_shot_count} long shots with odds > +{MAX_ODDS})")
+            
+            # Analyze filtered props by sport to understand supply before AI generation
+            try:
+                event_sport_map = {}
+                for g in games:
+                    g_s = g.get('sport')
+                    sp = 'Other'
+                    if g_s == "Women's National Basketball Association":
+                        sp = "WNBA"
+                    elif g_s == "Major League Baseball":
+                        sp = "MLB"
+                    elif g_s == "Ultimate Fighting Championship":
+                        sp = "UFC"
+                    elif g_s == "National Football League":
+                        sp = "NFL"
+                    event_sport_map[str(g.get('id'))] = sp
+                filtered_counts = {}
+                for p in filtered_props:
+                    sp = event_sport_map.get(str(p.event_id), "Unknown")
+                    filtered_counts[sp] = filtered_counts.get(sp, 0) + 1
+                logger.info(f"📊 Filtered props by sport: {filtered_counts}")
+            except Exception as e:
+                logger.warning(f"Failed to summarize filtered props by sport: {e}")
+            
+            props_data = []
+            for prop in filtered_props:
+                props_data.append({
+                    "player": prop.player_name,
+                    "prop_type": prop.prop_type,
+                    "line": prop.line,
+                    "over_odds": prop.over_odds,
+                    "under_odds": prop.under_odds,
+                    "team": prop.team,
+                    "event_id": prop.event_id,
+                    "bookmaker": prop.bookmaker
+                })
+            
+            games_info = json.dumps(games[:10], indent=2, default=str)
+            props_info = json.dumps(props_data, indent=2)
+            research_summary = json.dumps(insights_summary, indent=2)
+            
+            props = filtered_props
+            
+            # Determine active sports from filtered props for dynamic prompt
+            active_sports = set()
+            for prop in filtered_props[:50]:
+                sport = self._get_prop_sport(prop, games)
+                if sport != "Unknown":
+                    active_sports.add(sport)
+            
+            sports_list = ", ".join(sorted(active_sports)) if active_sports else "MLB, WNBA, NFL"
+            
+            prompt = f"""
 You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props ({sports_list}).
 Your job is to find PROFITABLE betting opportunities across ALL available sports, not just predict outcomes.
 
@@ -1404,6 +1678,12 @@ TASK: Generate exactly {target_picks} strategic player prop picks that maximize 
 
 🚨 **MANDATORY SPORT DISTRIBUTION:**
 {self._format_sport_distribution_requirements(sport_distribution, target_picks)}
+
+🎯 **GAME DIVERSITY REQUIREMENTS:**
+{game_diversity_requirements}
+
+🏟️ **GAME-SPECIFIC PROP ANALYSIS:**
+{game_specific_props}
 
 🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
 - You have access to {len(filtered_props)} total player props across all games
@@ -1508,95 +1788,99 @@ REMEMBER:
 - **Home Runs 0.5**: Only bet OVER (under is impossible)
 - **Stolen Bases 0.5**: Only bet OVER (under is impossible)
 """
-        
-        try:
-            response = await self.grok_client.chat.completions.create(
-                model="grok-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=4000
-            )
             
-            picks_text = response.choices[0].message.content.strip()
-            logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
-            
-            # DEBUG: Log the full response to understand the format
-            logger.info(f"🔍 FULL Grok response for debugging:\n{picks_text}")
-            
-            # Try to remove markdown code blocks if present
-            if "```json" in picks_text.lower():
-                logger.info("Detected markdown JSON code block, extracting...")
-                start_marker = picks_text.lower().find("```json") + 7
-                end_marker = picks_text.find("```", start_marker)
-                if end_marker != -1:
-                    picks_text = picks_text[start_marker:end_marker].strip()
-                    logger.info(f"Extracted JSON from markdown: {picks_text[:200]}...")
-            elif "```" in picks_text:
-                logger.info("Detected markdown code block, extracting...")
-                start_marker = picks_text.find("```") + 3
-                end_marker = picks_text.find("```", start_marker)
-                if end_marker != -1:
-                    picks_text = picks_text[start_marker:end_marker].strip()
-                    logger.info(f"Extracted content from markdown: {picks_text[:200]}...")
-            
-            # Find and extract the JSON array
-            start_idx = picks_text.find("[")
-            end_idx = picks_text.rfind("]") + 1
-            
-            logger.info(f"🔍 JSON search results: start_idx={start_idx}, end_idx={end_idx}")
-            
-            if start_idx == -1 or end_idx == 0:
-                logger.error("No JSON array found in Grok response")
-                logger.error(f"Response length: {len(picks_text)}")
-                logger.error(f"First 1000 chars: {picks_text[:1000]}")
-                logger.error(f"Last 500 chars: {picks_text[-500:]}")
+            try:
+                response = await self.grok_client.chat.completions.create(
+                    model="grok-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=4000
+                )
                 
-                # Try to find if there's JSON object without array brackets
-                if "{" in picks_text and "}" in picks_text:
-                    logger.info("Found JSON object syntax, attempting to wrap in array...")
-                    # Try to extract objects and wrap them in an array
-                    objects = []
-                    # Find all JSON objects
-                    pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
-                    matches = re.findall(pattern, picks_text, re.DOTALL)
-                    for match in matches:
-                        try:
-                            obj = json.loads(match)
-                            objects.append(obj)
-                        except:
-                            continue
-                    if objects:
-                        logger.info(f"Extracted {len(objects)} JSON objects, proceeding...")
-                        ai_picks = objects
+                picks_text = response.choices[0].message.content.strip()
+                logger.info(f"🧠 Grok raw response: {picks_text[:500]}...")
+                
+                # DEBUG: Log the full response to understand the format
+                logger.info(f"🔍 FULL Grok response for debugging:\n{picks_text}")
+                
+                # Try to remove markdown code blocks if present
+                if "```json" in picks_text.lower():
+                    logger.info("Detected markdown JSON code block, extracting...")
+                    start_marker = picks_text.lower().find("```json") + 7
+                    end_marker = picks_text.find("```", start_marker)
+                    if end_marker != -1:
+                        picks_text = picks_text[start_marker:end_marker].strip()
+                        logger.info(f"Extracted JSON from markdown: {picks_text[:200]}...")
+                elif "```" in picks_text:
+                    logger.info("Detected markdown code block, extracting...")
+                    start_marker = picks_text.find("```") + 3
+                    end_marker = picks_text.find("```", start_marker)
+                    if end_marker != -1:
+                        picks_text = picks_text[start_marker:end_marker].strip()
+                        logger.info(f"Extracted content from markdown: {picks_text[:200]}...")
+                
+                # Find and extract the JSON array
+                start_idx = picks_text.find("[")
+                end_idx = picks_text.rfind("]") + 1
+                
+                logger.info(f"🔍 JSON search results: start_idx={start_idx}, end_idx={end_idx}")
+                
+                if start_idx == -1 or end_idx == 0:
+                    logger.error("No JSON array found in Grok response")
+                    logger.error(f"Response length: {len(picks_text)}")
+                    logger.error(f"First 1000 chars: {picks_text[:1000]}")
+                    logger.error(f"Last 500 chars: {picks_text[-500:]}")
+                    
+                    # Try to find if there's JSON object without array brackets
+                    if "{" in picks_text and "}" in picks_text:
+                        logger.info("Found JSON object syntax, attempting to wrap in array...")
+                        # Try to extract objects and wrap them in an array
+                        objects = []
+                        # Find all JSON objects
+                        pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+                        matches = re.findall(pattern, picks_text, re.DOTALL)
+                        for match in matches:
+                            try:
+                                obj = json.loads(match)
+                                objects.append(obj)
+                            except:
+                                continue
+                        if objects:
+                            logger.info(f"Extracted {len(objects)} JSON objects, proceeding...")
+                            ai_picks = objects
+                        else:
+                            return []
                     else:
                         return []
                 else:
-                    return []
-            else:
-                json_str = picks_text[start_idx:end_idx]
-                
-                # Enhanced error handling for JSON parsing
-                try:
-                    ai_picks = json.loads(json_str)
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON parsing error: {e}")
+                    json_str = picks_text[start_idx:end_idx]
                     
-                    # Attempt to fix common JSON issues
-                    fixed_json_str = self._fix_json_string(json_str)
-                    logger.info("Attempting to parse with fixed JSON")
-                    
+                    # Enhanced error handling for JSON parsing
                     try:
-                        ai_picks = json.loads(fixed_json_str)
-                        logger.info("Successfully parsed JSON after fixes")
-                    except json.JSONDecodeError as e2:
-                        logger.error(f"Still failed to parse JSON after fixes: {e2}")
+                        ai_picks = json.loads(json_str)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"JSON parsing error: {e}")
                         
-                        # Last resort: manual object extraction
-                        ai_picks = self._manual_json_parser(json_str)
-                        if not ai_picks:
-                            logger.error("Manual parsing failed, no valid picks found")
-                            return []
+                        # Attempt to fix common JSON issues
+                        fixed_json_str = self._fix_json_string(json_str)
+                        logger.info("Attempting to parse with fixed JSON")
+                        
+                        try:
+                            ai_picks = json.loads(fixed_json_str)
+                            logger.info("Successfully parsed JSON after fixes")
+                        except json.JSONDecodeError as e2:
+                            logger.error(f"Still failed to parse JSON after fixes: {e2}")
+                            
+                            # Last resort: manual object extraction
+                            ai_picks = self._manual_json_parser(json_str)
+                            if not ai_picks:
+                                logger.error("Manual parsing failed, no valid picks found")
+                                return []
             
+            except Exception as e:
+                logger.error(f"Failed to process AI response: {e}")
+                return []
+                
             formatted_picks = []
             for pick in ai_picks:
                 matching_prop = self._find_matching_prop(pick, props)
@@ -1646,6 +1930,8 @@ REMEMBER:
                             sport = "UFC"
                         elif game_sport == "National Football League":
                             sport = "NFL"
+                        elif game_sport == "College Football":
+                            sport = "CFB"
                         
                         # Create proper game info with team matchup
                         home_team = game.get('home_team', 'Unknown')
@@ -1716,7 +2002,28 @@ REMEMBER:
                 if "WNBA" in desired:
                     desired["WNBA"] = min(desired["WNBA"], 8)
                 
-                logger.info(f"📐 Desired quotas by sport (post-cap): {desired}")
+                # Normalize desired quotas to sum exactly to target_picks
+                total_desired = sum(desired.values()) if desired else 0
+                if total_desired > 0 and total_desired != target_picks:
+                    logger.info(f"📐 Normalizing quotas from {desired} (sum {total_desired}) to target {target_picks}")
+                    # Proportional scaling with largest remainder distribution
+                    ratio = target_picks / max(1, total_desired)
+                    scaled = {sp: int(desired[sp] * ratio) for sp in desired}
+                    # Compute remainders for fair rounding
+                    remainders = {sp: (desired[sp] * ratio) - scaled[sp] for sp in desired}
+                    # Ensure at least 1 for any sport that originally had quota > 0 when target allows
+                    nonzero_sports = [sp for sp, c in desired.items() if c > 0]
+                    # Distribute remaining slots by largest remainders
+                    current_sum = sum(scaled.values())
+                    remaining_slots = max(0, target_picks - current_sum)
+                    if remaining_slots > 0:
+                        for sp, _ in sorted(remainders.items(), key=lambda kv: kv[1], reverse=True):
+                            if remaining_slots <= 0:
+                                break
+                            scaled[sp] = scaled.get(sp, 0) + 1
+                            remaining_slots -= 1
+                    desired = scaled
+                logger.info(f"📐 Desired quotas by sport (normalized): {desired}")
 
                 # Organize picks by sport (already confidence-sorted)
                 name_map = {
@@ -1724,10 +2031,12 @@ REMEMBER:
                     "Women's National Basketball Association": "WNBA",
                     "National Football League": "NFL",
                     "Ultimate Fighting Championship": "UFC",
+                    "College Football": "CFB",
                     "MLB": "MLB",
                     "WNBA": "WNBA",
                     "NFL": "NFL",
                     "UFC": "UFC",
+                    "CFB": "CFB",
                 }
                 by_sport = {}
                 for p in formatted_picks:
@@ -1735,8 +2044,11 @@ REMEMBER:
                     sp = name_map.get(sp_raw, sp_raw)
                     by_sport.setdefault(sp, []).append(p)
                 
-                # Priority order: MLB first
-                priority_order = ["MLB", "WNBA", "NFL", "UFC", "Other"]
+                # Build dynamic allocation order by desired quotas (highest first)
+                allocation_order = [sp for sp, _ in sorted(desired.items(), key=lambda kv: kv[1], reverse=True)]
+                # Fallback order for any sports not in desired
+                fallback_order = allocation_order + [sp for sp in by_sport.keys() if sp not in allocation_order] + ["Other"]
+                
                 selected = []
                 used_ids = set()
                 
@@ -1754,36 +2066,35 @@ REMEMBER:
                             break
                     return added
                 
-                # Allocate quotas by sport
-                total_quota = 0
-                for sp in priority_order:
-                    if sp in desired and desired[sp] > 0:
-                        take = min(desired[sp], len(by_sport.get(sp, [])))
-                        total_quota += take
-                        add_from_bucket(by_sport.get(sp, []), take)
+                # Allocate quotas strictly by desired distribution
+                for sp in allocation_order:
+                    take_quota = min(desired.get(sp, 0), len(by_sport.get(sp, [])))
+                    if take_quota > 0:
+                        add_from_bucket(by_sport.get(sp, []), take_quota)
                 
-                # Fill remaining slots up to target_picks, prioritize extra MLB, then others
+                # Fill remaining up to target with extras, starting from sports with remaining depth
                 remaining = max(0, target_picks - len(selected))
                 if remaining > 0:
-                    # Extra MLB beyond quota
-                    mlb_extra = by_sport.get("MLB", [])[desired.get("MLB", 0):]
-                    remaining -= add_from_bucket(mlb_extra, remaining)
-                if remaining > 0:
-                    for sp in priority_order:
-                        if sp == "MLB":
-                            continue
-                        extras = by_sport.get(sp, [])[desired.get(sp, 0):]
+                    # Compute extras per sport (beyond quota)
+                    for sp in allocation_order:
                         if remaining <= 0:
                             break
-                        remaining -= add_from_bucket(extras, remaining)
+                        start_idx = desired.get(sp, 0)
+                        extras = by_sport.get(sp, [])[start_idx:]
+                        if extras:
+                            remaining -= add_from_bucket(extras, remaining)
                 
-                # If still remaining (not enough total), include whatever is left regardless of sport
+                # Still remaining? Use any other sports (including CFB) not in desired
                 if remaining > 0:
-                    for sp in priority_order:
+                    for sp in fallback_order:
                         if remaining <= 0:
                             break
-                        remaining -= add_from_bucket(by_sport.get(sp, []), remaining)
-                
+                        # Skip already exhausted slices
+                        start_idx = desired.get(sp, 0)
+                        extras = by_sport.get(sp, [])[start_idx:]
+                        if extras:
+                            remaining -= add_from_bucket(extras, remaining)
+
                 final_picks = selected if selected else formatted_picks
                 # If we overshot, trim to target_picks while preserving priority order
                 if len(final_picks) > target_picks:
@@ -1831,6 +2142,8 @@ REMEMBER:
             
         except Exception as e:
             logger.error(f"Failed to generate picks: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def _fix_json_string(self, json_str: str) -> str:
@@ -2050,8 +2363,8 @@ def parse_arguments():
                       help='Generate picks for tomorrow instead of today')
     parser.add_argument('--date', type=str, 
                       help='Specific date to generate picks for (YYYY-MM-DD)')
-    parser.add_argument('--picks', type=int, default=40,
-                      help='Target number of total props to generate (default: 40)')
+    parser.add_argument('--picks', type=int, default=15,
+                      help='Target number of total props to generate (default: 15)')
     parser.add_argument('--wnba', action='store_true',
                       help='Generate 5 best WNBA picks only (overrides --picks)')
     parser.add_argument('--nfl-week', action='store_true',
@@ -2096,15 +2409,8 @@ async def main():
     # Set NFL week mode if flag is provided
     agent.nfl_week_mode = args.nfl_week
     
-    # Calculate dynamic target picks based on available games and sport distribution
-    if not args.wnba and not args.nfl_week:
-        # Normal multi-sport mode
-        games = agent.db.get_upcoming_games(target_date)
-        if games:
-            sport_distribution = agent._distribute_props_by_sport(games, target_picks)
-            dynamic_target = sum(sport_distribution.values())
-            logger.info(f"📊 Calculated dynamic target: {dynamic_target} props across sports")
-            target_picks = max(target_picks, dynamic_target)  # Use the higher of default or calculated
+    # Keep the requested target_picks exact; distribution will be decided intelligently later
+    # (Legacy dynamic escalation removed to honor explicit --picks value.)
     
     picks = await agent.generate_daily_picks(
         target_picks=target_picks,

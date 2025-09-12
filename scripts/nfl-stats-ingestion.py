@@ -127,15 +127,27 @@ def create_or_update_nfl_player(player_data: Dict) -> Optional[str]:
         player_name = f"{player_data.get('FirstName', '')} {player_data.get('LastName', '')}".strip()
         team = player_data.get('Team', '')
         position = player_data.get('Position', '')
+        sportsdata_player_id = str(player_data.get('PlayerID', ''))
         
         if not player_name or player_name == " ":
             logger.warning(f"Skipping player with empty name: {player_data}")
             return None
         
-        # Check if player exists
-        existing_player = supabase.table('players').select('id').eq('name', player_name).eq('sport', 'NFL').eq('team', team).execute()
+        # FIRST: Try to match by SportsData PlayerID (most reliable)
+        if sportsdata_player_id:
+            existing_player = supabase.table('players').select('id').eq('external_player_id', sportsdata_player_id).eq('sport', 'NFL').execute()
+            if existing_player.data:
+                logger.info(f"Found player by PlayerID {sportsdata_player_id}: {player_name}")
+                return existing_player.data[0]['id']
+        
+        # SECOND: Try to match by name, team, AND position (more specific)
+        existing_player = supabase.table('players').select('id').eq('name', player_name).eq('sport', 'NFL').eq('team', team).eq('position', position).execute()
         
         if existing_player.data:
+            # Update the external_player_id if it was missing
+            if sportsdata_player_id:
+                supabase.table('players').update({'external_player_id': sportsdata_player_id}).eq('id', existing_player.data[0]['id']).execute()
+                logger.info(f"Updated PlayerID for existing player: {player_name}")
             return existing_player.data[0]['id']
         
         # Create new player
@@ -270,6 +282,10 @@ def map_nfl_stats_to_standard_format(player_stats: Dict) -> Dict[str, Any]:
         'temperature': player_stats.get('Temperature'),
         'humidity': player_stats.get('Humidity'),
         'wind_speed': player_stats.get('WindSpeed'),
+        
+        # CRITICAL: Preserve SportsData PlayerID for proper linkage
+        'PlayerID': player_stats.get('PlayerID', ''),
+        'sportsdata_player_id': player_stats.get('PlayerID', ''),
         
         # Snap counts
         'offensive_snaps_played': player_stats.get('OffensiveSnapsPlayed', 0),

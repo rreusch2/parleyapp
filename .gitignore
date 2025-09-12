@@ -18,6 +18,9 @@ dist/
 .next/
 
 # misc
+# OAuth tokens and secrets
+**/token.json
+**/*token*.json
 .DS_Store
 *.pem
 .env
@@ -97,3 +100,8 @@ htmlcov/
 # SECURITY: Files with credentials/secrets
 railway-credentials-secure.txt
 *-credentials-*.txt
+
+# Google OAuth credentials (NEVER COMMIT THESE!)
+email-automation/credentials.json
+client_secret_*.json
+**/credentials.json
