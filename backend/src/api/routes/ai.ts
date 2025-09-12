@@ -1916,7 +1916,7 @@ async function generatePicksForUser(userId: string, tier: string = 'free') {
     const monthStr = (today.getMonth() + 1).toString().padStart(2, '0');
     const dayStr = today.getDate().toString().padStart(2, '0');
 
-    const generatedPicks = [];
+    const generatedPicks: any[] = [];
 
     // Generate real predictions using the orchestrator (limit based on tier)
     let picksGenerated = 0;
@@ -2251,7 +2251,7 @@ router.get('/starter-picks', async (req, res) => {
       roi_estimate: prediction.roi_estimate,
       status: prediction.status,
       created_at: prediction.created_at,
-      orchestrator_data: prediction.metadata?.orchestrator_data,
+      orchestrator_data: (prediction as any)?.metadata?.orchestrator_data,
       isStarter: true
     }));
 
