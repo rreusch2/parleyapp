@@ -357,39 +357,91 @@ router.get('/:playerId/prop-types', async (req, res) => {
   }
 });
 
-// Get current prop lines for a player
+// Get latest prop lines for a player (distinct by prop type)
 router.get('/:playerId/prop-lines', async (req, res) => {
   try {
     const { playerId } = req.params;
+    const limit = Number(req.query.limit ?? 3);
+    const upcomingOnly = String(req.query.upcomingOnly ?? 'true') === 'true';
 
-    const { data: propLines, error } = await supabaseAdmin
+    // Pull recent odds with joins for labels
+    const { data: oddsRows, error } = await supabaseAdmin
       .from('player_props_odds')
-      .select('*')
+      .select(`
+        id,
+        player_id,
+        event_id,
+        prop_type_id,
+        bookmaker_id,
+        line,
+        over_odds,
+        under_odds,
+        last_update,
+        player_prop_types:prop_type_id(prop_key, prop_name, sport_key),
+        bookmakers:bookmaker_id(bookmaker_name, bookmaker_key)
+      `)
       .eq('player_id', playerId)
-      .order('created_at', { ascending: false });
+      .order('last_update', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
 
-    // Group by prop type and get most recent line for each
-    const latestLines: Record<string, any> = {};
-    
-    propLines?.forEach(line => {
-      const propKey = line.prop_type?.toLowerCase().replace(/[^a-z]/g, '_');
-      if (propKey && !latestLines[propKey]) {
-        latestLines[propKey] = {
-          prop_type: line.prop_type,
-          line: line.line,
-          over_odds: line.over_odds,
-          under_odds: line.under_odds,
-          bookmaker: line.bookmaker,
-          created_at: line.created_at
+    // Optionally enrich with event info and filter to upcoming
+    let eventsMap: Record<string, any> = {};
+    if (upcomingOnly && oddsRows && oddsRows.length > 0) {
+      const eventIds = Array.from(new Set(oddsRows.map(r => r.event_id).filter(Boolean)));
+      if (eventIds.length > 0) {
+        const { data: events } = await supabaseAdmin
+          .from('sports_events')
+          .select('id, start_time, home_team, away_team')
+          .in('id', eventIds);
+        (events || []).forEach(ev => { eventsMap[ev.id] = ev; });
+      }
+    }
+
+    const now = new Date();
+    // Group by prop_type_id and take most recent
+    const latestByProp: Record<string, any> = {};
+    for (const row of oddsRows || []) {
+      const ev = eventsMap[row.event_id];
+      if (upcomingOnly) {
+        // Keep only events not started yet (or missing event info)
+        if (ev && ev.start_time && new Date(ev.start_time) < now) continue;
+      }
+      const key = row.prop_type_id as string;
+      if (!latestByProp[key]) {
+        const ppt: any = Array.isArray((row as any).player_prop_types)
+          ? (row as any).player_prop_types[0]
+          : (row as any).player_prop_types;
+        const bm: any = Array.isArray((row as any).bookmakers)
+          ? (row as any).bookmakers[0]
+          : (row as any).bookmakers;
+        latestByProp[key] = {
+          prop_type_id: row.prop_type_id,
+          prop_key: ppt?.prop_key || null,
+          prop_type: ppt?.prop_name || null,
+          line: typeof row.line === 'number' ? row.line : Number(row.line),
+          over_odds: row.over_odds ?? null,
+          under_odds: row.under_odds ?? null,
+          bookmaker_name: bm?.bookmaker_name || null,
+          bookmaker_key: bm?.bookmaker_key || null,
+          event_id: row.event_id || null,
+          event_start_time: ev?.start_time || null,
+          matchup: ev ? `${ev.away_team} @ ${ev.home_team}` : null,
+          last_update: row.last_update,
         };
       }
-    });
+    }
+
+    // Return top N
+    const sorted = Object.values(latestByProp)
+      .sort((a: any, b: any) => new Date(b.last_update).getTime() - new Date(a.last_update).getTime())
+      .slice(0, Math.max(1, limit));
 
     res.json({
-      propLines: Object.values(latestLines),
-      playerId
+      playerId,
+      propLines: sorted,
+      count: sorted.length
     });
 
   } catch (error) {

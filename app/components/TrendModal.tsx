@@ -67,7 +67,7 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
             player_prop_types!inner(prop_name, prop_key)
           `)
           .eq('player_id', trend.player_id)
-          .order('created_at', { ascending: false });
+          .order('last_update', { ascending: false });
 
         // If we have specific prop type from metadata, use it
         if (trend?.metadata?.prop_type_id) {
@@ -87,6 +87,11 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
           
           // Join with player_prop_types to filter by prop_key
           propQuery = propQuery.eq('player_prop_types.prop_key', propKey);
+        }
+
+        // If trend has a specific event_id, filter to that event first
+        if (trend?.metadata?.event_id) {
+          propQuery = propQuery.eq('event_id', trend.metadata.event_id);
         }
 
         propQuery = propQuery.limit(1);
