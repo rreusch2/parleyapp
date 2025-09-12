@@ -2653,20 +2653,30 @@ router.get('/daily-picks-combined', async (req, res) => {
     
     logger.info(`📊 Pick limits for tier '${userTier}': ${teamPicksLimit} team + ${playerPropsLimit} props`);
     
-    // Fetch both types of picks from database in parallel
+    // Time window for today to avoid older picks overshadowing newer sports
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Fetch a larger pool, then apply sport-aware limiting locally
     const [teamPicksResult, playerPropsResult] = await Promise.all([
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
+        .gte('created_at', startOfDay.toISOString())
+        .lte('created_at', endOfDay.toISOString())
         .in('bet_type', ['moneyline', 'spread', 'total', 'ML', 'over', 'under'])
         .order('created_at', { ascending: false })
-        .limit(teamPicksLimit),
+        .limit(100),
       supabaseAdmin
         .from('ai_predictions')
         .select('*')
+        .gte('created_at', startOfDay.toISOString())
+        .lte('created_at', endOfDay.toISOString())
         .like('bet_type', '%prop%')
         .order('created_at', { ascending: false })
-        .limit(playerPropsLimit)
+        .limit(100)
     ]);
 
     if (teamPicksResult.error) {
@@ -2679,7 +2689,19 @@ router.get('/daily-picks-combined', async (req, res) => {
       throw playerPropsResult.error;
     }
 
-    // Transform database records to expected format
+    // Normalize sport labels and transform database records to expected format
+    const sportMap: Record<string, string> = {
+      'CFB': 'College Football',
+      'college football': 'College Football',
+      'CollegeFootball': 'College Football',
+      'NCAAF': 'College Football',
+      'National Football League': 'NFL',
+      'Major League Baseball': 'MLB',
+      "Women's National Basketball Association": 'WNBA',
+      'Ultimate Fighting Championship': 'UFC'
+    };
+    const normalizeSport = (s: any) => sportMap[(s || '').toString()] || s || 'Other';
+
     const formatPicks = (picks: any[]) => picks.map(pick => ({
       id: pick.id,
       match_teams: pick.match_teams || `${pick.away_team || 'Away'} @ ${pick.home_team || 'Home'}`,
@@ -2696,17 +2718,77 @@ router.get('/daily-picks-combined', async (req, res) => {
       key_factors: pick.key_factors || [],
       reasoning: pick.reasoning || 'AI-generated prediction',
       bet_type: pick.bet_type,
-      sport: pick.sport,
+      sport: normalizeSport(pick.sport),
       event_time: pick.event_time,
       created_at: pick.created_at,
       status: pick.status,
       metadata: pick.metadata
     }));
 
-    const teamPicks = formatPicks(teamPicksResult.data || []);
-    const playerPropsPicks = formatPicks(playerPropsResult.data || []);
+    // Helper: round-robin selection across sports
+    const selectRoundRobin = (items: any[], limit: number) => {
+      if (!items || items.length === 0 || limit <= 0) return [] as any[];
+      const bySport = new Map<string, any[]>();
+      for (const it of items) {
+        const sp = normalizeSport(it.sport);
+        if (!bySport.has(sp)) bySport.set(sp, []);
+        bySport.get(sp)!.push(it);
+      }
+      const priorityOrder = ['MLB', 'College Football', 'NFL', 'WNBA', 'UFC', 'Other'];
+      const sportsInOrder = [
+        ...priorityOrder.filter(sp => bySport.has(sp)),
+        ...Array.from(bySport.keys()).filter(sp => !priorityOrder.includes(sp))
+      ];
+      const selected: any[] = [];
+      const indices: Record<string, number> = {};
+      sportsInOrder.forEach(sp => (indices[sp] = 0));
+      while (selected.length < limit) {
+        let progressed = false;
+        for (const sp of sportsInOrder) {
+          const bucket = bySport.get(sp) || [];
+          const idx = indices[sp] || 0;
+          if (idx < bucket.length) {
+            selected.push(bucket[idx]);
+            indices[sp] = idx + 1;
+            progressed = true;
+            if (selected.length >= limit) break;
+          }
+        }
+        if (!progressed) break;
+      }
+      return selected;
+    };
+
+    // Apply sport-aware limiting separately for teams and props
+    const teamPool = teamPicksResult.data || [];
+    const propsPool = playerPropsResult.data || [];
+    const teamSelected = selectRoundRobin(teamPool, teamPicksLimit);
+    let propsSelected = selectRoundRobin(propsPool, playerPropsLimit);
+
+    // Smart diversity: if returning 1 team + 1 prop and both are same sport, swap prop to a different sport if available
+    try {
+      if (teamPicksLimit === 1 && playerPropsLimit === 1 && teamSelected.length === 1 && propsPool.length > 0) {
+        const teamSport = normalizeSport(teamSelected[0]?.sport);
+        if (propsSelected.length === 1) {
+          const propSport = normalizeSport(propsSelected[0]?.sport);
+          if (teamSport && propSport && teamSport === propSport) {
+            // find first prop with different sport
+            const alternative = (propsPool as any[]).find(p => normalizeSport(p.sport) !== teamSport);
+            if (alternative) {
+              propsSelected = [alternative];
+              logger.info(`🎯 Diversity swap applied: team sport ${teamSport}, prop sport changed to ${normalizeSport(alternative.sport)}`);
+            }
+          }
+        }
+      }
+    } catch (diversityErr) {
+      logger.warn(`Diversity adjustment failed: ${diversityErr}`);
+    }
+
+    const teamPicks = formatPicks(teamSelected);
+    const playerPropsPicks = formatPicks(propsSelected);
     
-    logger.info(`✅ Fetched ${teamPicks.length} team picks + ${playerPropsPicks.length} player props picks from database`);
+    logger.info(`✅ Fetched ${teamPicks.length} team picks + ${playerPropsPicks.length} player props picks from database (sport-aware, today only)`);
     
     res.json({
       success: true,

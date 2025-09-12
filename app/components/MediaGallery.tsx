@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Play, Image as ImageIcon, X, Volume2, VolumeX } from 'lucide-react-native';
 import { normalize } from '../services/device';
 
@@ -56,6 +57,7 @@ export default function MediaGallery({ title = 'Media', items = defaultItems }: 
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const [muted, setMuted] = useState(false);
   const [videoAvailable, setVideoAvailable] = useState<boolean | null>(null);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   // Lazy-load expo-av only when a video is opened
   const VideoRef = useRef<any>(null);
@@ -100,6 +102,39 @@ export default function MediaGallery({ title = 'Media', items = defaultItems }: 
     }
   }, [selected]);
 
+  // Auto-generate first-frame thumbnails for videos
+  useEffect(() => {
+    let cancelled = false;
+    const generate = async () => {
+      const videos = items.filter(i => i.type === 'video');
+      for (const item of videos) {
+        if (cancelled) break;
+        try {
+          let inputUri: string | null = null;
+          if (typeof item.source === 'string') {
+            inputUri = item.source;
+          } else {
+            try {
+              const { Asset } = require('expo-asset');
+              const asset = Asset.fromModule(item.source);
+              await asset.downloadAsync();
+              inputUri = asset.localUri || asset.uri;
+            } catch {}
+          }
+          if (!inputUri) continue;
+          const { uri } = await VideoThumbnails.getThumbnailAsync(inputUri, { time: 0 });
+          if (!cancelled && uri) {
+            setThumbs(prev => (prev[item.id] ? prev : { ...prev, [item.id]: uri }));
+          }
+        } catch (e) {
+          // ignore failures per item
+        }
+      }
+    };
+    generate();
+    return () => { cancelled = true; };
+  }, [items]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -124,7 +159,9 @@ export default function MediaGallery({ title = 'Media', items = defaultItems }: 
             style={styles.thumbCard}
           >
             <ImageBackground
-              source={typeof item.thumbnail === 'string' ? { uri: item.thumbnail } : item.thumbnail}
+              source={thumbs[item.id]
+                ? { uri: thumbs[item.id] }
+                : (typeof item.thumbnail === 'string' ? { uri: item.thumbnail } : item.thumbnail)}
               style={styles.thumbImage}
               imageStyle={styles.thumbImageInner}
             >

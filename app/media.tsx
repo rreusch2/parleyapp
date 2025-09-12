@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ImageBackground, Image, Dimensions, Modal, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { router } from 'expo-router';
 import { listMedia } from './services/api/mediaService';
 import type { MediaItem } from './components/MediaGallery';
@@ -14,6 +15,7 @@ export default function MediaLibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const [muted, setMuted] = useState(false);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
 
   const VideoRef = useRef<any>(null);
   const VideoComponent = useMemo(() => {
@@ -58,6 +60,31 @@ export default function MediaLibraryScreen() {
     };
   }, []);
 
+  // Auto-generate first-frame thumbnails for videos
+  useEffect(() => {
+    let cancelled = false;
+    const generate = async () => {
+      const videos = items.filter(i => i.type === 'video');
+      for (const item of videos) {
+        if (cancelled) break;
+        if (thumbs[item.id]) continue; // already have
+        try {
+          let inputUri: string | null = null;
+          if (typeof item.source === 'string') {
+            inputUri = item.source;
+          }
+          if (!inputUri) continue;
+          const { uri } = await VideoThumbnails.getThumbnailAsync(inputUri, { time: 0 });
+          if (!cancelled && uri) setThumbs(prev => ({ ...prev, [item.id]: uri }));
+        } catch (e) {
+          // ignore per-item failures
+        }
+      }
+    };
+    generate();
+    return () => { cancelled = true; };
+  }, [items, thumbs]);
+
   useEffect(() => {
     if (!selected) setMuted(false);
   }, [selected]);
@@ -65,7 +92,9 @@ export default function MediaLibraryScreen() {
   const renderItem = ({ item }: { item: MediaItem }) => (
     <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => setSelected(item)}>
       <ImageBackground
-        source={typeof item.thumbnail === 'string' ? { uri: item.thumbnail } : item.thumbnail}
+        source={thumbs[item.id]
+          ? { uri: thumbs[item.id] }
+          : (typeof item.thumbnail === 'string' ? { uri: item.thumbnail } : item.thumbnail)}
         style={styles.cardImage}
         imageStyle={styles.cardImageInner}
       >

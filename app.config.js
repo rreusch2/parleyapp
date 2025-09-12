@@ -83,6 +83,7 @@ module.exports = {
       "expo-notifications",
       "expo-web-browser",
       "expo-apple-authentication",
+      "expo-asset",
       [
         "react-native-appsflyer",
         {
