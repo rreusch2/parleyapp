@@ -2002,7 +2002,28 @@ REMEMBER:
                 if "WNBA" in desired:
                     desired["WNBA"] = min(desired["WNBA"], 8)
                 
-                logger.info(f"📐 Desired quotas by sport (post-cap): {desired}")
+                # Normalize desired quotas to sum exactly to target_picks
+                total_desired = sum(desired.values()) if desired else 0
+                if total_desired > 0 and total_desired != target_picks:
+                    logger.info(f"📐 Normalizing quotas from {desired} (sum {total_desired}) to target {target_picks}")
+                    # Proportional scaling with largest remainder distribution
+                    ratio = target_picks / max(1, total_desired)
+                    scaled = {sp: int(desired[sp] * ratio) for sp in desired}
+                    # Compute remainders for fair rounding
+                    remainders = {sp: (desired[sp] * ratio) - scaled[sp] for sp in desired}
+                    # Ensure at least 1 for any sport that originally had quota > 0 when target allows
+                    nonzero_sports = [sp for sp, c in desired.items() if c > 0]
+                    # Distribute remaining slots by largest remainders
+                    current_sum = sum(scaled.values())
+                    remaining_slots = max(0, target_picks - current_sum)
+                    if remaining_slots > 0:
+                        for sp, _ in sorted(remainders.items(), key=lambda kv: kv[1], reverse=True):
+                            if remaining_slots <= 0:
+                                break
+                            scaled[sp] = scaled.get(sp, 0) + 1
+                            remaining_slots -= 1
+                    desired = scaled
+                logger.info(f"📐 Desired quotas by sport (normalized): {desired}")
 
                 # Organize picks by sport (already confidence-sorted)
                 name_map = {
@@ -2010,10 +2031,12 @@ REMEMBER:
                     "Women's National Basketball Association": "WNBA",
                     "National Football League": "NFL",
                     "Ultimate Fighting Championship": "UFC",
+                    "College Football": "CFB",
                     "MLB": "MLB",
                     "WNBA": "WNBA",
                     "NFL": "NFL",
                     "UFC": "UFC",
+                    "CFB": "CFB",
                 }
                 by_sport = {}
                 for p in formatted_picks:
@@ -2021,8 +2044,11 @@ REMEMBER:
                     sp = name_map.get(sp_raw, sp_raw)
                     by_sport.setdefault(sp, []).append(p)
                 
-                # Priority order: MLB first
-                priority_order = ["MLB", "WNBA", "NFL", "UFC", "Other"]
+                # Build dynamic allocation order by desired quotas (highest first)
+                allocation_order = [sp for sp, _ in sorted(desired.items(), key=lambda kv: kv[1], reverse=True)]
+                # Fallback order for any sports not in desired
+                fallback_order = allocation_order + [sp for sp in by_sport.keys() if sp not in allocation_order] + ["Other"]
+                
                 selected = []
                 used_ids = set()
                 
@@ -2040,36 +2066,35 @@ REMEMBER:
                             break
                     return added
                 
-                # Allocate quotas by sport
-                total_quota = 0
-                for sp in priority_order:
-                    if sp in desired and desired[sp] > 0:
-                        take = min(desired[sp], len(by_sport.get(sp, [])))
-                        total_quota += take
-                        add_from_bucket(by_sport.get(sp, []), take)
+                # Allocate quotas strictly by desired distribution
+                for sp in allocation_order:
+                    take_quota = min(desired.get(sp, 0), len(by_sport.get(sp, [])))
+                    if take_quota > 0:
+                        add_from_bucket(by_sport.get(sp, []), take_quota)
                 
-                # Fill remaining slots up to target_picks, prioritize extra MLB, then others
+                # Fill remaining up to target with extras, starting from sports with remaining depth
                 remaining = max(0, target_picks - len(selected))
                 if remaining > 0:
-                    # Extra MLB beyond quota
-                    mlb_extra = by_sport.get("MLB", [])[desired.get("MLB", 0):]
-                    remaining -= add_from_bucket(mlb_extra, remaining)
-                if remaining > 0:
-                    for sp in priority_order:
-                        if sp == "MLB":
-                            continue
-                        extras = by_sport.get(sp, [])[desired.get(sp, 0):]
+                    # Compute extras per sport (beyond quota)
+                    for sp in allocation_order:
                         if remaining <= 0:
                             break
-                        remaining -= add_from_bucket(extras, remaining)
+                        start_idx = desired.get(sp, 0)
+                        extras = by_sport.get(sp, [])[start_idx:]
+                        if extras:
+                            remaining -= add_from_bucket(extras, remaining)
                 
-                # If still remaining (not enough total), include whatever is left regardless of sport
+                # Still remaining? Use any other sports (including CFB) not in desired
                 if remaining > 0:
-                    for sp in priority_order:
+                    for sp in fallback_order:
                         if remaining <= 0:
                             break
-                        remaining -= add_from_bucket(by_sport.get(sp, []), remaining)
-                
+                        # Skip already exhausted slices
+                        start_idx = desired.get(sp, 0)
+                        extras = by_sport.get(sp, [])[start_idx:]
+                        if extras:
+                            remaining -= add_from_bucket(extras, remaining)
+
                 final_picks = selected if selected else formatted_picks
                 # If we overshot, trim to target_picks while preserving priority order
                 if len(final_picks) > target_picks:

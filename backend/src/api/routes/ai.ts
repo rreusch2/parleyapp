@@ -968,9 +968,67 @@ router.get('/picks', async (req, res) => {
       }
     }
 
-    // Apply tier-based limiting after sport filtering
-    const limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
-    logger.info(`🔢 Limited to ${limitedPredictions.length} predictions for ${profile?.subscription_tier || 'free'} tier (limit: ${actualPickLimit})`);
+    // Apply sport-aware limiting before tier slice to ensure diversity across sports
+    let limitedPredictions = filteredPredictions;
+    try {
+      // Normalize sport keys for grouping
+      const normalizeSport = (s: any) => {
+        const m: Record<string, string> = {
+          'CFB': 'College Football',
+          'college football': 'College Football',
+          'CollegeFootball': 'College Football',
+          'NCAAF': 'College Football'
+        };
+        const key = (s || '').toString();
+        return m[key] || key || 'Other';
+      };
+
+      // Group predictions by normalized sport while preserving recency order
+      const bySport = new Map<string, any[]>();
+      for (const p of filteredPredictions) {
+        const sp = normalizeSport(p.sport);
+        if (!bySport.has(sp)) bySport.set(sp, []);
+        bySport.get(sp)!.push(p);
+      }
+
+      // Priority order for cycling
+      const priorityOrder = ['MLB', 'College Football', 'NFL', 'WNBA', 'UFC', 'Other'];
+      const sportsInOrder = [
+        ...priorityOrder.filter(sp => bySport.has(sp)),
+        ...Array.from(bySport.keys()).filter(sp => !priorityOrder.includes(sp))
+      ];
+
+      // Round-robin selection across sports until actualPickLimit reached
+      const rrSelected: any[] = [];
+      const indices: Record<string, number> = {};
+      sportsInOrder.forEach(sp => (indices[sp] = 0));
+
+      while (rrSelected.length < actualPickLimit) {
+        let madeProgress = false;
+        for (const sp of sportsInOrder) {
+          const bucket = bySport.get(sp) || [];
+          const idx = indices[sp] || 0;
+          if (idx < bucket.length) {
+            rrSelected.push(bucket[idx]);
+            indices[sp] = idx + 1;
+            madeProgress = true;
+            if (rrSelected.length >= actualPickLimit) break;
+          }
+        }
+        if (!madeProgress) break; // no more items
+      }
+
+      if (rrSelected.length > 0) {
+        limitedPredictions = rrSelected;
+      } else {
+        limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
+      }
+
+      logger.info(`🔢 Sport-aware limited to ${limitedPredictions.length} predictions across ${sportsInOrder.length} sports (limit: ${actualPickLimit})`);
+    } catch (e) {
+      logger.warn(`Sport-aware limiting failed, falling back to simple slice: ${e}`);
+      limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
+    }
 
     // Additional safety check for free users with 2 picks
     if (actualPickLimit === 2 && limitedPredictions.length === 0) {
