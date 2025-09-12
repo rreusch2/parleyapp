@@ -944,7 +944,9 @@ router.get('/picks', async (req, res) => {
       // Include CFB picks for users who have NFL preferences (backend-only for now)
       if (userSportPrefs.nfl) {
         preferredSports.push('NFL');
-        preferredSports.push('CFB'); // Include college football with NFL
+        // Include college football with NFL; accept both canonical and legacy labels
+        preferredSports.push('College Football');
+        preferredSports.push('CFB');
       }
       
       logger.info(`🎯 User preferred sports: ${preferredSports.join(', ')}`);
@@ -978,6 +980,17 @@ router.get('/picks', async (req, res) => {
 
     // Transform database format to frontend format with robust error handling
     const formattedPredictions = limitedPredictions.map((prediction, index) => {
+      // Normalize sport label for frontend without requiring app update
+      const sportMap: Record<string, string> = {
+        'CFB': 'College Football',
+        'college football': 'College Football',
+        'CollegeFootball': 'College Football',
+        'NCAAF': 'College Football',
+        'National Football League': 'NFL',
+        'Major League Baseball': 'MLB',
+        "Women's National Basketball Association": 'WNBA',
+        'Ultimate Fighting Championship': 'UFC'
+      };
       let eventTime = 'TBD';
       let formattedValue = '0.00';
       let formattedROI = '0.00';
@@ -1030,13 +1043,14 @@ router.get('/picks', async (req, res) => {
         logger.warn(`Failed to process metadata for prediction ${prediction.id}: ${e}`);
       }
 
+      const displaySport = sportMap[(prediction.sport || '').toString()] || prediction.sport || 'MLB';
       return {
         id: prediction.id || `prediction_${index}_${Date.now()}`,
         match: prediction.match_teams || 'TBD vs TBD',
         pick: prediction.pick || 'TBD',
         odds: prediction.odds || 'EVEN',
         confidence: typeof prediction.confidence === 'number' ? prediction.confidence : 50,
-        sport: prediction.sport || 'MLB',
+        sport: displaySport,
         eventTime,
         reasoning: prediction.reasoning || 'AI-generated prediction',
         value: formattedValue,
