@@ -13,6 +13,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 
 
 // Get device dimensions to adapt UI for iPad
@@ -27,6 +28,25 @@ function AppContent() {
   useEffect(() => {
     initializeReview();
     
+    // REQUEST iOS 14.5+ TRACKING PERMISSION - CRITICAL FOR META ADS
+    (async () => {
+      if (Platform.OS === 'ios') {
+        try {
+          console.log('🔐 Requesting iOS App Tracking Transparency permission...');
+          const { status } = await requestTrackingPermissionsAsync();
+          console.log(`📱 iOS Tracking Permission: ${status}`);
+          
+          if (status === 'granted') {
+            console.log('✅ IDFA tracking granted - Meta campaigns can track conversions');
+          } else {
+            console.log('⚠️ IDFA tracking denied - Meta campaigns will have limited attribution');
+          }
+        } catch (error) {
+          console.error('❌ iOS tracking permission request failed:', error);
+        }
+      }
+    })();
+    
     // Initialize AppsFlyer for TikTok ads tracking
     (async () => {
       try {
@@ -38,12 +58,15 @@ function AppContent() {
       }
     })();
     
-    // Initialize Facebook Analytics for Meta ads tracking
+    // Initialize Facebook Analytics for Meta ads tracking - AFTER iOS permission
     (async () => {
       try {
         console.log('🚀 Initializing Facebook Analytics for Meta ads tracking...');
         await facebookAnalyticsService.initialize();
-        console.log('✅ Facebook Analytics initialized successfully');
+        
+        // CRITICAL: Track app install immediately after FB SDK init
+        facebookAnalyticsService.trackAppInstall();
+        console.log('✅ Facebook Analytics initialized + App Install tracked');
       } catch (error) {
         console.error('❌ Facebook Analytics initialization failed:', error);
       }
