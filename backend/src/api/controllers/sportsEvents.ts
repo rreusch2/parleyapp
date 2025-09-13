@@ -5,52 +5,47 @@ export const getSportsEvents = async (req: Request, res: Response) => {
   try {
     const { sport, league, status, start_date, end_date } = req.query;
     
-    const normalize = (v: unknown) =>
-      typeof v === 'string' ? v.trim() : undefined;
-    const toUpper = (v?: string) => (v ? v.toUpperCase() : undefined);
-    
-    const rawSport = normalize(sport);
-    const rawLeague = normalize(league);
-    const sportParam = toUpper(rawSport);
-    const leagueParam = toUpper(rawLeague);
-    
     let query = supabase
       .from('sports_events')
       .select('*')
       .order('start_time', { ascending: true });
 
-    // Helper: apply mapping for sport/league filters
-    const applyLeagueOrSportFilter = (valueUpper: string) => {
-      console.log('Applying league/sport filter:', valueUpper);
-      if (valueUpper === 'NBA') {
-        // NBA games only
+    // Apply filters if provided
+    if (sport && typeof sport === 'string') {
+      console.log('Filtering by sport:', sport.toUpperCase());
+      query = query.eq('sport', sport.toUpperCase());
+    }
+
+    if (league && typeof league === 'string') {
+      const leagueFilter = league.toUpperCase();
+      console.log('Filtering by league:', leagueFilter);
+      
+      // Backend mapping to support frontend filters and handle inconsistent DB naming
+      if (leagueFilter === 'NBA') {
+        // Show NBA games only (WNBA has its own tab now)
         query = query.eq('sport', 'NBA');
-      } else if (valueUpper === 'WNBA') {
+      } else if (leagueFilter === 'WNBA') {
+        // Handle WNBA games stored with full name in sport field
         query = query.eq('sport', "Women's National Basketball Association");
-      } else if (valueUpper === 'UFC' || valueUpper === 'MMA') {
+      } else if (leagueFilter === 'UFC') {
+        // Show UFC/MMA games under UFC filter
         query = query.eq('sport', 'Ultimate Fighting Championship');
-      } else if (valueUpper === 'MLB') {
+      } else if (leagueFilter === 'MMA') {
+        // Show MMA games under MMA filter
+        query = query.eq('sport', 'Ultimate Fighting Championship');
+      } else if (leagueFilter === 'MLB') {
+        // Handle MLB games with inconsistent naming
         query = query.in('sport', ['MLB', 'Major League Baseball']);
-      } else if (valueUpper === 'NFL') {
+      } else if (leagueFilter === 'NFL') {
+        // Include College Football games in NFL tab for now (backend-only change)
         query = query.in('sport', ['NFL', 'National Football League', 'College Football']);
       } else {
-        // Fallback: try matching either sport or league value directly
-        query = query.or(`sport.eq.${valueUpper},league.eq.${valueUpper}`);
+        // Standard filtering for other leagues - try both sport and league fields
+        query = query.or(`sport.eq.${leagueFilter},league.eq.${leagueFilter}`);
       }
-    };
-
-    // Apply filters if provided (treat 'ALL' as no filter)
-    const ALL_SENTINELS = new Set(['ALL', 'ANY', 'ALL_SPORTS', 'ALL-SPORTS', 'ALLSPORTS', '']);
-
-    if (sportParam && !ALL_SENTINELS.has(sportParam)) {
-      applyLeagueOrSportFilter(sportParam);
-    }
-
-    if (leagueParam && !ALL_SENTINELS.has(leagueParam)) {
-      applyLeagueOrSportFilter(leagueParam);
     }
     
-    // When no sport/league filter is applied ("All" tab), we want all games
+    // When no league filter is applied ("All" tab), we want all games
     // No additional filtering needed - let all sports through
 
     if (status) {
@@ -99,16 +94,62 @@ export const getSportsEvents = async (req: Request, res: Response) => {
 
     if (error) throw error;
 
+    // Normalize sport names for consistent frontend display
+    const normalizedData = data?.map(game => {
+      let normalizedSport = game.sport;
+      let normalizedLeague = game.league;
+
+      // Map database sport names to frontend-expected names
+      switch (game.sport) {
+        case "Women's National Basketball Association":
+          normalizedSport = "WNBA";
+          normalizedLeague = "WNBA";
+          break;
+        case "Ultimate Fighting Championship":
+          normalizedSport = "UFC";
+          normalizedLeague = "UFC";
+          break;
+        case "Major League Baseball":
+          normalizedSport = "MLB";
+          normalizedLeague = "MLB";
+          break;
+        case "National Football League":
+          normalizedSport = "NFL";
+          normalizedLeague = "NFL";
+          break;
+        case "College Football":
+          normalizedSport = "NCAAF";
+          normalizedLeague = "NCAAF";
+          break;
+        case "Mixed Martial Arts":
+        case "MMA":
+          normalizedSport = "MMA";
+          normalizedLeague = "MMA";
+          break;
+        default:
+          // Keep original values for already normalized sports
+          normalizedSport = game.sport;
+          normalizedLeague = game.league || game.sport;
+      }
+
+      return {
+        ...game,
+        sport: normalizedSport,
+        league: normalizedLeague
+      };
+    }) || [];
+
     // Log the results for debugging
     console.log('Query results:', {
       total: count,
-      filtered: data?.length,
-      leagues: data?.map(game => game.league),
-      dates: data?.map(game => game.start_time)
+      filtered: normalizedData?.length,
+      leagues: normalizedData?.map(game => game.league),
+      sports: normalizedData?.map(game => game.sport),
+      dates: normalizedData?.map(game => game.start_time)
     });
 
     res.json({
-      data: data || [],
+      data: normalizedData,
       pagination: {
         page,
         limit,
