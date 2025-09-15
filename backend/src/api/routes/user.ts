@@ -184,10 +184,20 @@ router.get('/profile', async (req, res) => {
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select(`
-        id, username, subscription_tier, subscription_status, 
-        welcome_bonus_claimed, welcome_bonus_expires_at, 
-        created_at, updated_at, sport_preferences, 
-        betting_style, pick_distribution, trial_used
+        id,
+        username,
+        email,
+        subscription_tier,
+        subscription_status,
+        admin_role,
+        welcome_bonus_claimed,
+        welcome_bonus_expires_at,
+        created_at,
+        updated_at,
+        sport_preferences,
+        betting_style,
+        pick_distribution,
+        trial_used
       `)
       .eq('id', userId)
       .single();
