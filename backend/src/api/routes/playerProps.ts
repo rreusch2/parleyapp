@@ -416,4 +416,243 @@ async function generatePlayerPropPrediction({
   };
 }
 
+/**
+ * @route GET /api/player-props/recent-lines/:playerId
+ * @desc Get recent betting lines for a specific player and prop type
+ * @access Private
+ */
+router.get('/recent-lines/:playerId', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { prop_type, limit = 10, sport } = req.query;
+    
+    if (!playerId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Player ID is required' 
+      });
+    }
+
+    // Get player info to validate sport if provided
+    const { data: player, error: playerError } = await supabase
+      .from('players')
+      .select('id, name, sport')
+      .eq('id', playerId)
+      .single();
+
+    if (playerError || !player) {
+      return res.status(404).json({ success: false, error: 'Player not found' });
+    }
+
+    // If sport filter is provided, validate it matches player's sport
+    if (sport && sport !== player.sport) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Sport filter does not match player\'s sport' 
+      });
+    }
+
+    // Build the query for recent lines
+    let query = supabase
+      .from('player_props_odds')
+      .select(`
+        id,
+        line,
+        over_odds,
+        under_odds,
+        created_at,
+        last_update,
+        player_prop_types!inner (
+          id,
+          prop_key,
+          prop_name
+        ),
+        bookmakers (
+          name
+        )
+      `)
+      .eq('player_id', playerId);
+
+    // Filter by prop type if specified
+    if (prop_type) {
+      // Map common prop types to database prop_keys
+      const propKeyMapping: { [key: string]: string[] } = {
+        'points': ['player_points', 'points'],
+        'rebounds': ['player_rebounds', 'rebounds'],  
+        'assists': ['player_assists', 'assists'],
+        'hits': ['player_hits', 'batter_hits', 'hits'],
+        'home_runs': ['player_home_runs', 'batter_home_runs', 'home_runs'],
+        'rbis': ['player_rbis', 'batter_rbis', 'rbi', 'rbis'],
+        'runs_scored': ['batter_runs_scored', 'runs', 'player_runs_scored'],
+        'passing_yards': ['player_pass_yds', 'passing_yards'],
+        'rushing_yards': ['player_rush_yds', 'rushing_yards'],
+        'receiving_yards': ['player_reception_yds', 'receiving_yards'],
+        'passing_tds': ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+        'rushing_tds': ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
+        'receiving_tds': ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
+        'receptions': ['player_receptions', 'receptions'],
+        'completions': ['player_completions', 'passing_completions', 'completions'],
+        'attempts': ['player_pass_att', 'passing_attempts', 'attempts'],
+        'interceptions': ['player_interceptions', 'passing_interceptions', 'interceptions']
+      };
+
+      const propKeys = propKeyMapping[prop_type as string] || [prop_type as string];
+      
+      // Get prop type IDs for the keys
+      const { data: propTypes, error: propTypeError } = await supabase
+        .from('player_prop_types')
+        .select('id')
+        .in('prop_key', propKeys);
+
+      if (propTypeError) {
+        logger.error('Error fetching prop types:', propTypeError);
+        return res.status(500).json({ success: false, error: 'Failed to fetch prop types' });
+      }
+
+      if (propTypes && propTypes.length > 0) {
+        const propTypeIds = propTypes.map(pt => pt.id);
+        query = query.in('prop_type_id', propTypeIds);
+      } else {
+        // No matching prop types found, return empty result
+        return res.status(200).json({ 
+          success: true, 
+          recent_lines: [],
+          player_info: player,
+          message: `No lines found for prop type: ${prop_type}`
+        });
+      }
+    }
+
+    // Execute query with ordering and limit
+    const { data: recentLines, error: linesError } = await query
+      .order('created_at', { ascending: false })
+      .limit(Number(limit));
+
+    if (linesError) {
+      logger.error('Error fetching recent lines:', linesError);
+      return res.status(500).json({ success: false, error: 'Failed to fetch recent lines' });
+    }
+
+    // Format the response data
+    const formattedLines = (recentLines || []).map((line: any) => ({
+      id: line.id,
+      line: parseFloat(line.line),
+      over_odds: parseFloat(line.over_odds),
+      under_odds: parseFloat(line.under_odds),
+      created_at: line.created_at,
+      last_update: line.last_update,
+      prop_name: line.player_prop_types?.prop_name || 'Unknown',
+      prop_key: line.player_prop_types?.prop_key || 'unknown',
+      bookmaker_name: line.bookmakers?.name || 'Unknown'
+    }));
+
+    // Group lines by prop type for better organization
+    const groupedLines = formattedLines.reduce((acc, line) => {
+      const propKey = line.prop_key;
+      if (!acc[propKey]) {
+        acc[propKey] = {
+          prop_name: line.prop_name,
+          prop_key: line.prop_key,
+          lines: []
+        };
+      }
+      acc[propKey].lines.push(line);
+      return acc;
+    }, {} as any);
+
+    return res.status(200).json({ 
+      success: true, 
+      recent_lines: prop_type ? formattedLines : groupedLines,
+      player_info: player,
+      total_lines: formattedLines.length,
+      prop_type_filter: prop_type || null
+    });
+
+  } catch (error) {
+    logger.error(`Error in /recent-lines: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+/**
+ * @route GET /api/player-props/line-movements/:playerId
+ * @desc Get line movement history for a specific player and prop type
+ * @access Private
+ */
+router.get('/line-movements/:playerId', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { prop_type, hours = 24 } = req.query;
+    
+    if (!playerId || !prop_type) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Player ID and prop_type are required' 
+      });
+    }
+
+    // Get lines from the last X hours to track movements
+    const hoursAgo = new Date(Date.now() - Number(hours) * 60 * 60 * 1000).toISOString();
+
+    const { data: lineHistory, error } = await supabase
+      .from('player_props_odds')
+      .select(`
+        line,
+        over_odds,
+        under_odds,
+        created_at,
+        last_update,
+        player_prop_types!inner (
+          prop_name,
+          prop_key
+        ),
+        bookmakers (
+          name
+        )
+      `)
+      .eq('player_id', playerId)
+      .eq('player_prop_types.prop_key', prop_type)
+      .gte('created_at', hoursAgo)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      logger.error('Error fetching line movements:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch line movements' });
+    }
+
+    // Calculate line movements
+    const movements: any[] = [];
+    for (let i = 1; i < (lineHistory?.length || 0); i++) {
+      const current: any = lineHistory![i];
+      const previous: any = lineHistory![i - 1];
+      
+      if (parseFloat(current.line) !== parseFloat(previous.line)) {
+        movements.push({
+          timestamp: current.created_at,
+          from_line: parseFloat(previous.line),
+          to_line: parseFloat(current.line),
+          change: parseFloat(current.line) - parseFloat(previous.line),
+          from_over_odds: parseFloat(previous.over_odds),
+          to_over_odds: parseFloat(current.over_odds),
+          from_under_odds: parseFloat(previous.under_odds),
+          to_under_odds: parseFloat(current.under_odds),
+          bookmaker: current.bookmakers?.name || 'Unknown'
+        });
+      }
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      movements,
+      total_movements: movements.length,
+      time_range_hours: Number(hours),
+      current_line: lineHistory && lineHistory.length > 0 ? parseFloat(lineHistory[lineHistory.length - 1].line) : null
+    });
+
+  } catch (error) {
+    logger.error(`Error in /line-movements: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 export default router; 

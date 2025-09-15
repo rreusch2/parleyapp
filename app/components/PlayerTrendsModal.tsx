@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, G, Rect, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme } from '@react-navigation/native';
 import { supabase } from '../services/api/supabaseClient';
+import RecentLinesCard from './RecentLinesCard';
 
 interface Player {
   id: string;
@@ -67,6 +68,16 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const chartWidth = screenWidth - 80;
 const chartHeight = 250; // Increased height to prevent cutoff of high values
 
+interface RecentLine {
+  id: string;
+  line: number;
+  over_odds: number;
+  under_odds: number;
+  created_at: string;
+  last_update: string;
+  bookmaker_name?: string;
+}
+
 export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTrendsModalProps) {
   const [loading, setLoading] = useState(false);
   const [gameStats, setGameStats] = useState<GameStat[]>([]);
@@ -76,6 +87,8 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const [playerWithHeadshot, setPlayerWithHeadshot] = useState<Player | null>(null);
   const [computedPosition, setComputedPosition] = useState<string | undefined>(undefined);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
+  const [recentLines, setRecentLines] = useState<RecentLine[]>([]);
+  const [linesLoading, setLinesLoading] = useState(false);
 
   const { colors } = useTheme();
   
@@ -315,6 +328,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     if (visible && player && selectedPropType) {
       fetchPlayerStats();
       fetchCurrentPropLine();
+      fetchRecentLines();
     }
   }, [visible, player, selectedPropType]);
 
@@ -689,6 +703,42 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     } catch (error) {
       console.error('Error fetching prop line:', error);
       setCurrentPropLine(1.5); // Default mock line
+    }
+  };
+
+  const fetchRecentLines = async () => {
+    if (!player || !selectedPropType) return;
+
+    setLinesLoading(true);
+    try {
+      // Use backend API to fetch recent lines
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+      const apiUrl = `${backendUrl}/api/player-props/recent-lines/${player.id}?prop_type=${selectedPropType}&limit=8`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.recent_lines) {
+        setRecentLines(data.recent_lines);
+      } else {
+        console.warn('No recent lines found:', data.message || 'Unknown error');
+        setRecentLines([]);
+      }
+    } catch (error) {
+      console.error('Error fetching recent lines:', error);
+      setRecentLines([]);
+    } finally {
+      setLinesLoading(false);
     }
   };
 
@@ -1342,6 +1392,17 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             </View>
           ) : (
             renderChart()
+          )}
+
+          {/* Recent Lines Section */}
+          {selectedPropType && (
+            <View style={{ marginHorizontal: 20, marginTop: 20 }}>
+              <RecentLinesCard 
+                lines={recentLines} 
+                propName={propTypes.find(p => p.key === selectedPropType)?.name || selectedPropType}
+                loading={linesLoading}
+              />
+            </View>
           )}
 
           {/* Game by Game Breakdown */}

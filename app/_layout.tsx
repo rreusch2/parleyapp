@@ -13,7 +13,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
-import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
+// Remove the top-level import since it's not available on web
 
 
 // Get device dimensions to adapt UI for iPad
@@ -33,6 +33,8 @@ function AppContent() {
       if (Platform.OS === 'ios') {
         try {
           console.log('🔐 Requesting iOS App Tracking Transparency permission...');
+          // Dynamic import for native-only module
+          const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
           const { status } = await requestTrackingPermissionsAsync();
           console.log(`📱 iOS Tracking Permission: ${status}`);
           
