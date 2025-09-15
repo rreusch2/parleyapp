@@ -375,7 +375,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       // Fetch team data with logo based on player's team name and sport
       const { data: teamInfo, error } = await supabase
         .from('teams')
-        .select('id, name, abbreviation, city, sport, logo_url')
+        .select('id, team_name, team_abbreviation, city, sport_key, logo_url')
         .eq('sport_key', player.sport)
         .or(`team_name.ilike.%${player.team}%,city.ilike.%${player.team}%,team_abbreviation.ilike.%${player.team}%`)
         .limit(1)
@@ -388,7 +388,14 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       }
 
       if (teamInfo) {
-        setTeamData(teamInfo);
+        setTeamData({
+          id: teamInfo.id,
+          name: teamInfo.team_name,
+          abbreviation: teamInfo.team_abbreviation,
+          city: teamInfo.city,
+          sport: teamInfo.sport_key,
+          logo_url: teamInfo.logo_url
+        });
       } else {
         setTeamData(null);
       }
