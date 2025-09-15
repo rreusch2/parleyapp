@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Svg, G, Rect, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop, Circle } from 'react-native-svg';
 import { useTheme } from '@react-navigation/native';
 import { supabase } from '../services/api/supabaseClient';
-import RecentLinesCard from './RecentLinesCard';
 
 interface Player {
   id: string;
@@ -58,6 +57,21 @@ interface PropType {
   current_line?: number;
 }
 
+interface RecentLine {
+  id: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  lastUpdate: string;
+  createdAt: string;
+  bookmaker: string;
+  propName: string;
+  propKey: string;
+  sportKey: string;
+  category: string;
+  unit: string;
+}
+
 interface PlayerTrendsModalProps {
   visible: boolean;
   player: Player | null;
@@ -67,16 +81,6 @@ interface PlayerTrendsModalProps {
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const chartWidth = screenWidth - 80;
 const chartHeight = 250; // Increased height to prevent cutoff of high values
-
-interface RecentLine {
-  id: string;
-  line: number;
-  over_odds: number;
-  under_odds: number;
-  created_at: string;
-  last_update: string;
-  bookmaker_name?: string;
-}
 
 export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTrendsModalProps) {
   const [loading, setLoading] = useState(false);
@@ -88,7 +92,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const [computedPosition, setComputedPosition] = useState<string | undefined>(undefined);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
   const [recentLines, setRecentLines] = useState<RecentLine[]>([]);
-  const [linesLoading, setLinesLoading] = useState(false);
+  const [loadingLines, setLoadingLines] = useState(false);
 
   const { colors } = useTheme();
   
@@ -709,36 +713,103 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const fetchRecentLines = async () => {
     if (!player || !selectedPropType) return;
 
-    setLinesLoading(true);
+    setLoadingLines(true);
     try {
-      // Use backend API to fetch recent lines
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      const apiUrl = `${backendUrl}/api/player-props/recent-lines/${player.id}?prop_type=${selectedPropType}&limit=8`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
+      // Map UI prop to database prop_key using comprehensive alias mapping
+      // Handle database inconsistencies where NFL players may be mapped to college football prop types
+      const sport = player.sport;
+      const aliasMap: Record<string, Record<string, string[]>> = {
+        MLB: {
+          hits: ['player_hits', 'batter_hits', 'hits', 'player_hits_o_u'],
+          home_runs: ['player_home_runs', 'batter_home_runs', 'home_runs'],
+          rbis: ['player_rbis', 'batter_rbis', 'rbi', 'rbis'],
+          runs_scored: ['batter_runs_scored', 'runs', 'player_runs_scored'],
+          total_bases: ['player_total_bases', 'batter_total_bases', 'total_bases'],
+          strikeouts: ['player_strikeouts', 'strikeouts'],
+          strikeouts_pitched: ['pitcher_strikeouts', 'strikeouts_pitched'],
+          hits_allowed: ['pitcher_hits_allowed', 'hits_allowed']
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
+        NBA: {
+          points: ['player_points', 'points'],
+          rebounds: ['player_rebounds', 'rebounds'],
+          assists: ['player_assists', 'assists'],
+          three_pointers: ['player_threes', 'threes', 'three_pointers'],
+          steals: ['player_steals', 'steals'],
+          blocks: ['player_blocks', 'blocks']
+        },
+        WNBA: {
+          points: ['player_points', 'points'],
+          rebounds: ['player_rebounds', 'rebounds'],
+          assists: ['player_assists', 'assists'],
+          three_pointers: ['player_threes', 'threes', 'three_pointers'],
+          steals: ['player_steals', 'steals'],
+          blocks: ['player_blocks', 'blocks']
+        },
+        // Both NFL and College Football use similar prop keys due to database mapping issues
+        NFL: {
+          passing_yards: ['player_pass_yds', 'passing_yards'],
+          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+          completions: ['player_pass_completions', 'passing_completions', 'completions'],
+          attempts: ['player_pass_attempts', 'passing_attempts', 'attempts'],
+          interceptions: ['player_pass_interceptions', 'passing_interceptions', 'interceptions'],
+          rushing_yards: ['player_rush_yds', 'rushing_yards'],
+          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
+          rushing_attempts: ['player_rush_attempts', 'rushing_attempts'],
+          receiving_yards: ['player_reception_yds', 'receiving_yards'],
+          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
+          receptions: ['player_receptions', 'receptions'],
+          targets: ['player_targets', 'targets'],
+          field_goals_made: ['player_fg_made', 'field_goals_made'],
+          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
+          extra_points_made: ['player_xp_made', 'extra_points_made'],
+          sacks: ['player_sacks', 'sacks'],
+          tackles: ['player_tackles', 'tackles'],
+          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
+          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
+          fantasy_points: ['player_fantasy_points', 'fantasy_points']
+        },
+        'College Football': {
+          passing_yards: ['player_pass_yds', 'passing_yards'],
+          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+          completions: ['player_pass_completions', 'passing_completions', 'completions'],
+          attempts: ['player_pass_attempts', 'passing_attempts', 'attempts'],
+          interceptions: ['player_pass_interceptions', 'passing_interceptions', 'interceptions'],
+          rushing_yards: ['player_rush_yds', 'rushing_yards'],
+          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
+          rushing_attempts: ['player_rush_attempts', 'rushing_attempts'],
+          receiving_yards: ['player_reception_yds', 'receiving_yards'],
+          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
+          receptions: ['player_receptions', 'receptions'],
+          targets: ['player_targets', 'targets'],
+          field_goals_made: ['player_fg_made', 'field_goals_made'],
+          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
+          extra_points_made: ['player_xp_made', 'extra_points_made'],
+          sacks: ['player_sacks', 'sacks'],
+          tackles: ['player_tackles', 'tackles'],
+          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
+          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
+          fantasy_points: ['player_fantasy_points', 'fantasy_points']
+        }
+      };
+      
+      const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
+      const propKey = aliases[0]; // Use the first (most common) alias
+      
+      // Fetch recent lines from our new API endpoint
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/player-props/recent-lines/${player.id}?prop_type=${propKey}&limit=5`);
       const data = await response.json();
       
-      if (data.success && data.recent_lines) {
-        setRecentLines(data.recent_lines);
+      if (data.success && data.recentLines) {
+        setRecentLines(data.recentLines);
       } else {
-        console.warn('No recent lines found:', data.message || 'Unknown error');
+        console.warn('No recent lines found for', player.name, selectedPropType);
         setRecentLines([]);
       }
     } catch (error) {
       console.error('Error fetching recent lines:', error);
       setRecentLines([]);
     } finally {
-      setLinesLoading(false);
+      setLoadingLines(false);
     }
   };
 
@@ -925,6 +996,213 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     const percentage = Math.round((overCount / gameStats.length) * 100);
     
     return { over: overCount, under: underCount, percentage };
+  };
+
+  const formatOdds = (odds: number): string => {
+    if (odds > 0) return `+${odds}`;
+    return odds.toString();
+  };
+
+  const formatTimeAgo = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const renderRecentLines = () => {
+    const selectedProp = propTypes.find(p => p.key === selectedPropType);
+    if (!selectedProp) return null;
+
+    return (
+      <View style={{
+        marginHorizontal: 20,
+        marginTop: 20,
+        padding: 16,
+        backgroundColor: '#1F2937',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#374151'
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 12
+        }}>
+          <Text style={{
+            fontSize: 16,
+            fontWeight: '600',
+            color: '#FFFFFF'
+          }}>
+            Recent Lines - {selectedProp.name}
+          </Text>
+          {loadingLines && (
+            <ActivityIndicator size="small" color="#3B82F6" />
+          )}
+        </View>
+
+        {loadingLines ? (
+          <View style={{
+            height: 100,
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: '#9CA3AF', fontSize: 14 }}>Loading recent lines...</Text>
+          </View>
+        ) : recentLines.length === 0 ? (
+          <View style={{
+            height: 80,
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            <Ionicons name="trending-up-outline" size={32} color="#6B7280" />
+            <Text style={{
+              color: '#9CA3AF',
+              fontSize: 14,
+              marginTop: 8,
+              textAlign: 'center'
+            }}>
+              No recent lines available for {selectedProp.name.toLowerCase()}
+            </Text>
+          </View>
+        ) : (
+          <View>
+            {recentLines.slice(0, 3).map((line, index) => (
+              <View key={line.id} style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: 12,
+                borderBottomWidth: index < Math.min(recentLines.length - 1, 2) ? 1 : 0,
+                borderBottomColor: '#374151'
+              }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 4
+                  }}>
+                    <View style={{
+                      backgroundColor: '#3B82F6',
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      marginRight: 8
+                    }}>
+                      <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '600'
+                      }}>
+                        {line.bookmaker}
+                      </Text>
+                    </View>
+                    <Text style={{
+                      color: '#9CA3AF',
+                      fontSize: 12
+                    }}>
+                      {formatTimeAgo(line.lastUpdate)}
+                    </Text>
+                  </View>
+                  
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}>
+                    <View style={{
+                      backgroundColor: currentPropLine && line.line === currentPropLine ? '#F59E0B' : '#4B5563',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                      marginRight: 12
+                    }}>
+                      <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontWeight: '700'
+                      }}>
+                        {line.line}
+                      </Text>
+                    </View>
+                    
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{
+                        backgroundColor: '#10B981',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 4
+                      }}>
+                        <Text style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          fontWeight: '600'
+                        }}>
+                          O {formatOdds(line.overOdds)}
+                        </Text>
+                      </View>
+                      
+                      <View style={{
+                        backgroundColor: '#6B7280',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 4
+                      }}>
+                        <Text style={{
+                          color: '#FFFFFF',
+                          fontSize: 11,
+                          fontWeight: '600'
+                        }}>
+                          U {formatOdds(line.underOdds)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {currentPropLine && line.line === currentPropLine && (
+                  <View style={{
+                    backgroundColor: '#F59E0B',
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderRadius: 4,
+                    marginLeft: 8
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: '600'
+                    }}>
+                      CURRENT
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
+            
+            {recentLines.length > 3 && (
+              <TouchableOpacity style={{
+                paddingVertical: 8,
+                alignItems: 'center'
+              }}>
+                <Text style={{
+                  color: '#3B82F6',
+                  fontSize: 12,
+                  fontWeight: '600'
+                }}>
+                  +{recentLines.length - 3} more lines available
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
   };
 
   const stats = getOverUnderStats();
@@ -1347,6 +1625,9 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             )}
           </View>
 
+          {/* Recent Lines Section */}
+          {renderRecentLines()}
+
           {/* Chart */}
           {loading ? (
             <View style={{
@@ -1392,17 +1673,6 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             </View>
           ) : (
             renderChart()
-          )}
-
-          {/* Recent Lines Section */}
-          {selectedPropType && (
-            <View style={{ marginHorizontal: 20, marginTop: 20 }}>
-              <RecentLinesCard 
-                lines={recentLines} 
-                propName={propTypes.find(p => p.key === selectedPropType)?.name || selectedPropType}
-                loading={linesLoading}
-              />
-            </View>
           )}
 
           {/* Game by Game Breakdown */}
