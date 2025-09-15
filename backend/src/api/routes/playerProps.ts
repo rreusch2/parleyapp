@@ -269,6 +269,237 @@ router.post('/prediction', async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/player-props/recent-lines/:playerId
+ * @desc Get recent betting lines for a specific player's props
+ * @access Private
+ */
+router.get('/recent-lines/:playerId', async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const { prop_type, limit = 5 } = req.query;
+    
+    if (!prop_type) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'prop_type parameter is required' 
+      });
+    }
+    
+    // Build query to fetch recent lines with proper prop type mapping
+    let query = supabase
+      .from('player_props_odds')
+      .select(`
+        id,
+        line,
+        over_odds,
+        under_odds,
+        last_update,
+        created_at,
+        player_prop_types (
+          id,
+          prop_key,
+          prop_name,
+          sport_key,
+          stat_category,
+          unit
+        ),
+        bookmakers (
+          id,
+          bookmaker_name,
+          bookmaker_key
+        )
+      `)
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false });
+    
+    // Get player info to determine sport for proper mapping
+    const { data: playerInfo, error: playerError } = await supabase
+      .from('players')
+      .select('sport')
+      .eq('id', playerId)
+      .single();
+    
+    if (playerError) {
+      logger.error('Error fetching player info:', playerError);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Player not found' 
+      });
+    }
+    
+    // Enhanced prop type mapping - frontend prop names to database prop_keys
+    const propMappings: Record<string, Record<string, string[]>> = {
+      'MLB': {
+        'hits': ['batter_hits', 'player_hits', 'hits'],
+        'home_runs': ['batter_home_runs', 'player_home_runs', 'home_runs'],
+        'rbi': ['batter_rbis', 'player_rbis', 'rbis'],
+        'runs': ['batter_runs_scored', 'player_runs_scored', 'runs'],
+        'total_bases': ['batter_total_bases', 'player_total_bases', 'total_bases'],
+        'strikeouts': ['pitcher_strikeouts', 'player_strikeouts', 'strikeouts']
+      },
+      'NFL': {
+        'passing_yards': ['player_pass_yds', 'passing_yards'],
+        'passing_tds': ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+        'attempts': ['player_pass_attempts', 'passing_attempts'],
+        'completions': ['player_pass_completions', 'passing_completions'],
+        'interceptions': ['player_pass_interceptions', 'passing_interceptions'],
+        'rushing_yards': ['player_rush_yds', 'rushing_yards'],
+        'receiving_yards': ['player_reception_yds', 'receiving_yards'],
+        'receptions': ['player_receptions', 'receptions']
+      },
+      'americanfootball_nfl': {
+        'passing_yards': ['player_pass_yds', 'passing_yards'],
+        'passing_tds': ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
+        'attempts': ['player_pass_attempts', 'passing_attempts'],
+        'completions': ['player_pass_completions', 'passing_completions'],
+        'interceptions': ['player_pass_interceptions', 'passing_interceptions'],
+        'rushing_yards': ['player_rush_yds', 'rushing_yards'],
+        'receiving_yards': ['player_reception_yds', 'receiving_yards'],
+        'receptions': ['player_receptions', 'receptions']
+      }
+    };
+    
+    // Map sport to correct sport_key format
+    let sportKey = playerInfo?.sport;
+    if (sportKey === 'NFL') {
+      sportKey = 'americanfootball_nfl';
+    } else if (sportKey === 'MLB') {
+      sportKey = 'MLB';
+    }
+    
+    // Get possible prop_keys for this frontend prop name
+    const possiblePropKeys = propMappings[sportKey]?.[prop_type as string] || [prop_type as string];
+    
+    // Find matching prop types in database
+    const { data: propTypes, error: propTypeError } = await supabase
+      .from('player_prop_types')
+      .select('id, prop_key, sport_key')
+      .in('prop_key', possiblePropKeys)
+      .or(`sport_key.eq.${sportKey},sport_key.eq.${playerInfo?.sport}`);
+    
+    if (propTypeError) {
+      logger.error('Error fetching prop types:', propTypeError);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch prop types' 
+      });
+    }
+    
+    if (!propTypes || propTypes.length === 0) {
+      logger.warn(`No prop types found for: ${prop_type} with sport: ${sportKey}, possible keys: ${possiblePropKeys.join(', ')}`);
+      return res.json({
+        success: true,
+        recentLines: [],
+        message: `No recent lines available for ${prop_type}`,
+        debug: {
+          sport: sportKey,
+          possiblePropKeys,
+          searchedPropType: prop_type
+        }
+      });
+    }
+    
+    // Use the first matching prop type ID
+    const propTypeIds = propTypes.map(pt => pt.id);
+    query = query.in('prop_type_id', propTypeIds);
+    
+    const { data: recentLines, error } = await query.limit(Number(limit));
+    
+    if (error) {
+      logger.error('Error fetching recent lines:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch recent lines' 
+      });
+    }
+    
+    // Group lines by prop type for easier frontend consumption
+    const linesByPropType: { [key: string]: any[] } = {};
+    
+    recentLines?.forEach((line: any) => {
+      const propTypeData = Array.isArray(line.player_prop_types) ? line.player_prop_types[0] : line.player_prop_types;
+      const bookmaker = Array.isArray(line.bookmakers) ? line.bookmakers[0] : line.bookmakers;
+      const propKey = propTypeData?.prop_key;
+      
+      if (propKey) {
+        if (!linesByPropType[propKey]) {
+          linesByPropType[propKey] = [];
+        }
+        linesByPropType[propKey].push({
+          id: line.id,
+          line: parseFloat(line.line),
+          overOdds: line.over_odds ? parseFloat(line.over_odds) : null,
+          underOdds: line.under_odds ? parseFloat(line.under_odds) : null,
+          lastUpdate: line.last_update,
+          createdAt: line.created_at,
+          bookmaker: bookmaker?.bookmaker_name || 'Unknown',
+          propName: propTypeData?.prop_name,
+          propKey: propKey,
+          sportKey: propTypeData?.sport_key,
+          category: propTypeData?.stat_category,
+          unit: propTypeData?.unit
+        });
+      }
+    });
+    
+    // Flatten to array format for frontend
+    const formattedLines = Object.values(linesByPropType).flat();
+    
+    res.json({
+      success: true,
+      recentLines: formattedLines,
+      totalCount: formattedLines.length,
+      debug: {
+        sport: sportKey,
+        propTypesFound: propTypes.length,
+        possiblePropKeys,
+        searchedPropType: prop_type
+      }
+    });
+  } catch (error) {
+    logger.error(`Error in /recent-lines: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * @route GET /api/player-props/prop-mapping/:propKey
+ * @desc Get mapped prop type information for frontend prop mapping
+ * @access Private
+ */
+router.get('/prop-mapping/:propKey', async (req, res) => {
+  try {
+    const { propKey } = req.params;
+    const { sport } = req.query;
+    
+    let query = supabase
+      .from('player_prop_types')
+      .select('*')
+      .eq('prop_key', propKey);
+    
+    if (sport) {
+      query = query.eq('sport_key', sport);
+    }
+    
+    const { data: propTypes, error } = await query;
+    
+    if (error) {
+      logger.error('Error fetching prop mapping:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch prop mapping' });
+    }
+    
+    return res.status(200).json({ success: true, propTypes });
+  } catch (error) {
+    logger.error(`Error in /prop-mapping: ${error instanceof Error ? error.message : String(error)}`);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Helper functions
 function calculatePlayerAverages(stats: any[], statType?: string) {
   if (!stats.length) return {};
@@ -415,176 +646,5 @@ async function generatePlayerPropPrediction({
     roiEstimate: valuePercentage > 5 ? Math.round((valuePercentage / 2) * 10) / 10 : 2.5
   };
 }
-
-/**
- * @route GET /api/player-props/recent-lines/:playerId
- * @desc Get recent betting lines for a specific player's props
- * @access Private
- */
-router.get('/recent-lines/:playerId', async (req, res) => {
-  try {
-    const { playerId } = req.params;
-    const { prop_type, limit = 5 } = req.query;
-    
-    // Build query to fetch recent lines
-    let query = supabase
-      .from('player_props_odds')
-      .select(`
-        id,
-        line,
-        over_odds,
-        under_odds,
-        last_update,
-        created_at,
-        player_prop_types (
-          id,
-          prop_key,
-          prop_name,
-          sport_key,
-          stat_category,
-          unit
-        ),
-        bookmakers (
-          id,
-          bookmaker_name,
-          bookmaker_key
-        )
-      `)
-      .eq('player_id', playerId)
-      .order('created_at', { ascending: false });
-    
-    // Filter by specific prop type if provided
-    if (prop_type) {
-      // Get player info to determine sport for proper mapping
-      const { data: playerInfo, error: playerError } = await supabase
-        .from('players')
-        .select('sport')
-        .eq('id', playerId)
-        .single();
-      
-      if (playerError) {
-        logger.error('Error fetching player info:', playerError);
-        return res.status(500).json({ success: false, error: 'Failed to fetch player info' });
-      }
-      
-      // Map sport to correct sport_key due to database inconsistencies
-      let sportKeys: string[] = [];
-      switch (playerInfo?.sport) {
-        case 'NFL':
-          sportKeys = ['americanfootball_nfl', 'americanfootball_ncaaf']; // NFL data sometimes mapped to NCAAF
-          break;
-        case 'College Football':
-          sportKeys = ['americanfootball_ncaaf'];
-          break;
-        case 'MLB':
-          sportKeys = ['baseball_mlb', 'MLB']; // Some props use different sport keys
-          break;
-        case 'NBA':
-          sportKeys = ['basketball_nba'];
-          break;
-        case 'WNBA':
-          sportKeys = ['basketball_wnba'];
-          break;
-        default:
-          sportKeys = [playerInfo?.sport?.toLowerCase() || ''];
-      }
-      
-      // First get the prop_type_id for the given prop_key across relevant sport_keys
-      const { data: propTypes, error: propTypeError } = await supabase
-        .from('player_prop_types')
-        .select('id, sport_key')
-        .eq('prop_key', prop_type)
-        .in('sport_key', sportKeys);
-      
-      if (propTypeError) {
-        logger.error('Error fetching prop type:', propTypeError);
-        return res.status(500).json({ success: false, error: 'Failed to fetch prop type' });
-      }
-      
-      if (propTypes && propTypes.length > 0) {
-        // Use the first matching prop type ID
-        query = query.eq('prop_type_id', propTypes[0].id);
-      }
-    }
-    
-    const { data: recentLines, error } = await query.limit(Number(limit));
-    
-    if (error) {
-      logger.error('Error fetching recent lines:', error);
-      return res.status(500).json({ success: false, error: 'Failed to fetch recent lines' });
-    }
-    
-    // Group lines by prop type for easier frontend consumption
-    const linesByPropType: { [key: string]: any[] } = {};
-    
-    recentLines?.forEach((line: any) => {
-      const propTypes = Array.isArray(line.player_prop_types) ? line.player_prop_types[0] : line.player_prop_types;
-      const bookmakers = Array.isArray(line.bookmakers) ? line.bookmakers[0] : line.bookmakers;
-      const propKey = propTypes?.prop_key;
-      
-      if (propKey) {
-        if (!linesByPropType[propKey]) {
-          linesByPropType[propKey] = [];
-        }
-        linesByPropType[propKey].push({
-          id: line.id,
-          line: parseFloat(line.line),
-          overOdds: parseFloat(line.over_odds),
-          underOdds: parseFloat(line.under_odds),
-          lastUpdate: line.last_update,
-          createdAt: line.created_at,
-          bookmaker: bookmakers?.bookmaker_name || 'Unknown',
-          propName: propTypes?.prop_name,
-          propKey: propTypes?.prop_key,
-          sportKey: propTypes?.sport_key,
-          category: propTypes?.stat_category,
-          unit: propTypes?.unit
-        });
-      }
-    });
-    
-    return res.status(200).json({ 
-      success: true, 
-      recentLines: prop_type ? linesByPropType[prop_type] || [] : linesByPropType,
-      totalCount: recentLines?.length || 0
-    });
-  } catch (error) {
-    logger.error(`Error in /recent-lines: ${error instanceof Error ? error.message : String(error)}`);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
-
-/**
- * @route GET /api/player-props/prop-mapping/:propKey
- * @desc Get mapped prop type information for frontend prop mapping
- * @access Private
- */
-router.get('/prop-mapping/:propKey', async (req, res) => {
-  try {
-    const { propKey } = req.params;
-    const { sport } = req.query;
-    
-    let query = supabase
-      .from('player_prop_types')
-      .select('*')
-      .eq('prop_key', propKey);
-    
-    if (sport) {
-      query = query.eq('sport_key', sport);
-    }
-    
-    const { data: propTypes, error } = await query;
-    
-    if (error) {
-      logger.error('Error fetching prop mapping:', error);
-      return res.status(500).json({ success: false, error: 'Failed to fetch prop mapping' });
-    }
-    
-    return res.status(200).json({ success: true, propTypes });
-  } catch (error) {
-    logger.error(`Error in /prop-mapping: ${error instanceof Error ? error.message : String(error)}`);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
-  }
-});
 
 export default router; 
