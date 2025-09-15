@@ -603,117 +603,109 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
     if (!player) return;
 
     try {
-      // Map UI prop to possible prop_key aliases by sport
+      console.log('🔥 DEBUG: Fetching current prop line for:', player.name, selectedPropType);
+      
+      // CRITICAL FIX: If we already have recent lines data, use the most recent line
+      // This ensures perfect synchronization between currentPropLine and recent lines
+      if (recentLines && recentLines.length > 0) {
+        const mostRecentLine = recentLines[0].line; // Recent lines are ordered newest first
+        console.log('🔥 DEBUG: Using most recent line from recentLines:', mostRecentLine);
+        setCurrentPropLine(mostRecentLine);
+        return;
+      }
+
       const sport = player.sport;
+      const propKey = selectedPropType;
+
+      console.log('🔥 DEBUG: No recent lines available, querying database directly for:', propKey, 'sport:', sport);
+
+      // Use alias map for database queries
       const aliasMap: Record<string, Record<string, string[]>> = {
-        MLB: {
-          hits: ['player_hits', 'batter_hits', 'hits', 'player_hits_o_u'],
-          home_runs: ['player_home_runs', 'batter_home_runs', 'home_runs'],
-          rbis: ['player_rbis', 'batter_rbis', 'rbi', 'rbis'],
-          runs_scored: ['batter_runs_scored', 'runs', 'player_runs_scored'],
-          total_bases: ['player_total_bases', 'batter_total_bases', 'total_bases'],
-          strikeouts: ['player_strikeouts', 'strikeouts'],
-          strikeouts_pitched: ['pitcher_strikeouts', 'strikeouts_pitched'],
-          hits_allowed: ['pitcher_hits_allowed', 'hits_allowed']
+        'mlb': {
+          'hits': ['batter_hits', 'hits'],
+          'home_runs': ['batter_home_runs', 'home_runs', 'homers'],
+          'rbis': ['batter_rbis', 'rbis'],
+          'runs': ['batter_runs_scored', 'runs', 'runs_scored'],
+          'stolen_bases': ['batter_stolen_bases', 'stolen_bases'],
+          'strikeouts': ['batter_strikeouts', 'strikeouts'],
+          'walks': ['batter_walks', 'walks'],
+          'total_bases': ['batter_total_bases', 'total_bases'],
+          'singles': ['batter_singles', 'singles']
         },
-        NBA: {
-          points: ['player_points', 'points'],
-          rebounds: ['player_rebounds', 'rebounds'],
-          assists: ['player_assists', 'assists'],
-          three_pointers: ['threes', 'three_pointers']
+        'nfl': {
+          'passing_yards': ['passing_yards'],
+          'rushing_yards': ['rushing_yards'],
+          'receiving_yards': ['receiving_yards']
         },
-        WNBA: {
-          points: ['player_points', 'points'],
-          rebounds: ['player_rebounds', 'rebounds'],
-          assists: ['player_assists', 'assists'],
-          three_pointers: ['threes', 'three_pointers']
+        'nba': {
+          'points': ['points'],
+          'rebounds': ['rebounds'],
+          'assists': ['assists']
         },
-        NFL: {
-          passing_yards: ['player_pass_yds', 'passing_yards'],
-          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
-          completions: ['player_completions', 'passing_completions', 'completions'],
-          attempts: ['player_pass_att', 'passing_attempts', 'attempts'],
-          interceptions: ['player_interceptions', 'passing_interceptions', 'interceptions'],
-          rushing_yards: ['player_rush_yds', 'rushing_yards'],
-          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
-          rushing_attempts: ['player_rush_att', 'rushing_attempts'],
-          receiving_yards: ['player_reception_yds', 'receiving_yards'],
-          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
-          receptions: ['player_receptions', 'receptions'],
-          targets: ['player_targets', 'targets'],
-          field_goals_made: ['player_fg_made', 'field_goals_made'],
-          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
-          extra_points_made: ['player_xp_made', 'extra_points_made'],
-          sacks: ['player_sacks', 'sacks'],
-          tackles: ['player_tackles', 'tackles'],
-          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
-          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
-          fantasy_points: ['player_fantasy_points', 'fantasy_points']
-        },
-        'College Football': {
-          passing_yards: ['player_pass_yds', 'passing_yards'],
-          passing_tds: ['player_pass_tds', 'passing_touchdowns', 'passing_tds'],
-          completions: ['player_pass_completions', 'passing_completions', 'completions'],
-          attempts: ['player_pass_attempts', 'passing_attempts', 'attempts'],
-          interceptions: ['player_pass_interceptions', 'passing_interceptions', 'interceptions'],
-          rushing_yards: ['player_rush_yds', 'rushing_yards'],
-          rushing_tds: ['player_rush_tds', 'rushing_touchdowns', 'rushing_tds'],
-          rushing_attempts: ['player_rush_attempts', 'rushing_attempts'],
-          receiving_yards: ['player_reception_yds', 'receiving_yards'],
-          receiving_tds: ['player_reception_tds', 'receiving_touchdowns', 'receiving_tds'],
-          receptions: ['player_receptions', 'receptions'],
-          targets: ['player_targets', 'targets'],
-          field_goals_made: ['player_fg_made', 'field_goals_made'],
-          field_goals_attempted: ['player_fg_att', 'field_goals_attempted'],
-          extra_points_made: ['player_xp_made', 'extra_points_made'],
-          sacks: ['player_sacks', 'sacks'],
-          tackles: ['player_tackles', 'tackles'],
-          tackles_for_loss: ['player_tfl', 'tackles_for_loss'],
-          fumbles_recovered: ['player_fumbles_rec', 'fumbles_recovered'],
-          fantasy_points: ['player_fantasy_points', 'fantasy_points']
+        'wnba': {
+          'points': ['points'],
+          'rebounds': ['rebounds'],
+          'assists': ['assists']
         }
       };
-      const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
 
-      // Find prop_type_id for any alias
-      const { data: propTypeRows, error: propTypeErr } = await supabase
+      const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
+      console.log('🔥 DEBUG: Database aliases for', selectedPropType, ':', aliases);
+
+      // Query player_prop_types to get the prop type ID
+      const { data: propTypeRows, error: propTypeError } = await supabase
         .from('player_prop_types')
         .select('id, prop_key')
         .in('prop_key', aliases)
         .limit(1);
-      if (propTypeErr) throw propTypeErr;
 
-      let line: number | null = null;
+      if (propTypeError) {
+        console.error('Error fetching prop type:', propTypeError);
+        throw propTypeError;
+      }
+
+      console.log('🔥 DEBUG: Prop type query result:', propTypeRows);
+
+      let line = null;
       if (propTypeRows && propTypeRows.length > 0) {
         const propTypeId = propTypeRows[0].id;
-        const { data: oddsRows } = await supabase
+        console.log('🔥 DEBUG: Found prop type ID:', propTypeId);
+
+        // Query player_props_odds for the most recent line
+        const { data: oddsRows, error: oddsError } = await supabase
           .from('player_props_odds')
           .select('line, last_update')
           .eq('player_id', player.id)
           .eq('prop_type_id', propTypeId)
           .order('last_update', { ascending: false })
           .limit(1);
+
+        if (oddsError) {
+          console.error('Error fetching odds:', oddsError);
+          throw oddsError;
+        }
+
+        console.log('🔥 DEBUG: Odds query result:', oddsRows);
+
         if (oddsRows && oddsRows.length > 0) {
           line = Number(oddsRows[0].line);
+          console.log('🔥 DEBUG: Found line from database:', line);
         }
       }
-      // Fallback default if not found
-      if (line === null) {
-        const mockLines: Record<string, number> = {
-          hits: 1.5,
-          home_runs: 0.5,
-          rbis: 1.5,
-          runs_scored: 1.5,
-          points: 18.5,
-          rebounds: 8.5,
-          assists: 6.5
-        };
-        line = mockLines[selectedPropType] ?? 1.5;
+
+      // REMOVED: Fallback mock lines that cause incorrect 1.5 defaults
+      // Only set currentPropLine if we found actual data
+      if (line !== null) {
+        setCurrentPropLine(line);
+        console.log('🔥 DEBUG: Set currentPropLine to actual database value:', line);
+      } else {
+        console.warn('🔥 DEBUG: No prop line found - will not set fallback value');
+        // Don't set any fallback - let the chart handle missing data gracefully
       }
-      setCurrentPropLine(line);
     } catch (error) {
-      console.error('Error fetching prop line:', error);
-      setCurrentPropLine(1.5); // Default mock line
+      console.error('Error fetching current prop line:', error);
+      // REMOVED: Final fallback that caused incorrect 1.5 values
+      console.warn('🔥 DEBUG: Error occurred - will not set fallback value');
     }
   };
 
@@ -829,9 +821,18 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
         
         console.log('🔥 DEBUG: Formatted lines:', formattedLines);
         setRecentLines(formattedLines);
+        
+        // CRITICAL FIX: Always set currentPropLine to the most recent line
+        // This ensures the horizontal dotted line matches the Recent Lines data
+        const mostRecentLine = formattedLines[0]; // API returns newest first
+        if (mostRecentLine && mostRecentLine.line) {
+          console.log('🔥 DEBUG: Setting currentPropLine to most recent:', mostRecentLine.line);
+          setCurrentPropLine(mostRecentLine.line);
+        }
       } else {
         console.warn('No recent lines found for', player.name, selectedPropType, 'Response:', data);
         setRecentLines([]);
+        // Don't set a fallback currentPropLine here - let fetchCurrentPropLine handle it
       }
     } catch (error) {
       console.error('Error fetching recent lines:', error);

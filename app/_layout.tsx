@@ -6,6 +6,7 @@ import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
+import { useRouter } from 'expo-router';
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useReview } from './hooks/useReview';
@@ -13,6 +14,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
+import ReviewDebugPanel from './components/ReviewDebugPanel';
 // Remove the top-level import since it's not available on web
 
 
@@ -23,6 +25,7 @@ const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
 function AppContent() {
   const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
   const { initializeReview } = useReview();
+  const router = useRouter();
 
   // Initialize review service, AppsFlyer, and Facebook Analytics on app startup
   useEffect(() => {
@@ -90,6 +93,29 @@ function AppContent() {
     })();
   }, [initializeReview]);
 
+  // Handle notification taps (navigate to the right tab)
+  useEffect(() => {
+    let subscription: any;
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+          const data = response?.notification?.request?.content?.data as any;
+          const deeplink = data?.deeplink;
+          if (deeplink === 'predictions') router.push('/(tabs)/predictions');
+          else if (deeplink === 'insights') router.push('/(tabs)/index');
+          else if (deeplink === 'news') router.push('/(tabs)/index');
+          else router.push('/(tabs)/index');
+        });
+      } catch (e) {
+        console.warn('Notification listener setup failed', e);
+      }
+    })();
+    return () => {
+      try { subscription?.remove && subscription.remove(); } catch {}
+    };
+  }, [router]);
+
 
 
   return (
@@ -106,6 +132,11 @@ function AppContent() {
           closeSubscriptionModal();
         }}
       />
+
+      {__DEV__ && (
+        // Dev-only overlay to QA the in-app review system
+        <ReviewDebugPanel />
+      )}
     </View>
   );
 }

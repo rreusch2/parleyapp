@@ -1,14 +1,18 @@
 
-import { Expo } from 'expo-server-sdk';
-import { supabase } from '../../config/supabaseClient'; // Assuming you have a supabase client setup
+import { Expo, ExpoPushMessage } from 'expo-server-sdk';
+import { supabaseAdmin } from '../../services/supabaseClient';
 
 const expo = new Expo();
 
-async function getPushTokens(proUsers: boolean) {
-  const { data, error } = await supabase
+type NotificationSettings = {
+  push_alerts?: boolean;
+  [key: string]: any;
+} | null;
+
+async function getOptedInPushTokens(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
     .from('profiles')
-    .select('push_token, subscription_tier')
-    .eq('subscription_tier', proUsers ? 'pro' : 'free')
+    .select('push_token, notification_settings')
     .not('push_token', 'is', null);
 
   if (error) {
@@ -16,35 +20,42 @@ async function getPushTokens(proUsers: boolean) {
     return [];
   }
 
-  return data.map(profile => profile.push_token);
+  const tokens: string[] = [];
+  for (const row of data || []) {
+    const settings = (row as any).notification_settings as NotificationSettings;
+    // Treat missing settings as opted-in unless explicitly set to false
+    const optedOut = settings && settings.push_alerts === false;
+    if (!optedOut && (row as any).push_token) {
+      tokens.push((row as any).push_token);
+    }
+  }
+  return tokens;
 }
 
-export async function sendNewPicksNotification(totalPicks: number = 10) {
-  const proTokens = await getPushTokens(true);
-  const freeTokens = await getPushTokens(false);
+export async function broadcastToOptedIn(title: string, body: string, data?: Record<string, any>) {
+  const tokens = await getOptedInPushTokens();
+  if (tokens.length === 0) {
+    return { sent: 0 };
+  }
 
-  const proMessages = proTokens.map(token => ({
-    to: token,
+  const messages: ExpoPushMessage[] = tokens.map((to) => ({
+    to,
     sound: 'default',
-    title: '🏆 New Pro Picks Available!',
-    body: `${totalPicks} new AI-powered predictions are ready for you. Tap to see them now!`,
+    title,
+    body,
+    data,
   }));
 
-  const freeMessages = freeTokens.map(token => ({
-    to: token,
-    sound: 'default',
-    title: '🔥 New Picks Are In!',
-    body: `${Math.min(totalPicks, 5)} new picks are available. Check them out before the games start!`,
-  }));
-
-  const messages = [...proMessages, ...freeMessages];
   const chunks = expo.chunkPushNotifications(messages);
-
+  let sent = 0;
   for (const chunk of chunks) {
     try {
-      await expo.sendPushNotificationsAsync(chunk);
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+      sent += tickets.length;
     } catch (error) {
       console.error('Error sending push notifications:', error);
     }
   }
+
+  return { sent };
 }

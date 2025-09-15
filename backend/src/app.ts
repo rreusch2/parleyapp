@@ -13,6 +13,7 @@ import trendsRouter from './api/routes/trends';
 import insightsRouter from './api/routes/insights';
 import adminRouter from './api/routes/admin';
 import authRoutes from './api/routes/auth';
+import notificationsRouter from './api/routes/notifications';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { logger } from './utils/logger';
@@ -30,6 +31,7 @@ import playerPropsRouter from './api/routes/playerProps';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
+import { initNotificationsCron } from './cron/notificationsCron';
 
 const app = express();
 
@@ -134,6 +136,7 @@ app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/automation', automationLimiter, automationRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationsRouter);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
@@ -179,6 +182,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Initialize cron jobs
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
   initRewardExpiryCron();
+  initNotificationsCron();
   logger.info('🚀 Cron jobs initialized');
 }
 

@@ -9,7 +9,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createLogger } from '../utils/logger';
 import orchestrator from '../ai/orchestrator/enhancedDeepseekOrchestrator';
-import { sendNewPicksNotification } from '../services/notifications/expo';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
@@ -116,15 +115,8 @@ async function main() {
     
     logger.info('✅ Orchestrator completed successfully');
 
-    // Send notifications for successful generation (only in production mode)
-    if (!testMode && totalPicks > 0) {
-      try {
-        await sendNewPicksNotification(totalPicks);
-        logger.info(`📱 Sent notification for ${totalPicks} new picks`);
-      } catch (notificationError) {
-        logger.warn(`⚠️ Failed to send notification: ${notificationError}`);
-      }
-    }
+    // Push notifications are no longer sent automatically from this script.
+    // Use the admin notifications endpoint (/api/notifications/send) or a dedicated cron.
 
   } catch (error) {
     logger.error(`❌ Orchestrator failed: ${error}`);

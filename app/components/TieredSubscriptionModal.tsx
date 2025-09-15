@@ -243,7 +243,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
   const renderTierComparison = () => (
     <View style={styles.tierComparisonContainer}>
-      <Text style={styles.chooseYourPlanTitle}>Choose Your Plan</Text>
+      <Text style={styles.chooseYourPlanTitle}>Unlock Premium Intelligence</Text>
       
       {/* Tier Selection Tabs */}
       <View style={styles.tierTabsContainer}>
@@ -372,14 +372,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   </View>
                 )}
                 
-                {isTrialEligible && (
-                  <View style={[styles.trialBadge, isSelected && styles.trialBadgeSelected]}>
-                    <Gift size={10} color={isSelected ? '#0F172A' : '#F59E0B'} />
-                    <Text style={[styles.trialText, isSelected && styles.trialTextSelected]}>
-                      3-DAY FREE
-                    </Text>
-                  </View>
-                )}
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
@@ -404,7 +396,10 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                           <Text style={styles.discountText}>50% OFF</Text>
                         </View>
                       </View>
-                      <Text style={styles.planPrice}>{price}</Text>
+                      <Text style={styles.planPrice}>
+                        <Text style={styles.currencySymbol}>$</Text>
+                        {price.replace('$', '')}
+                      </Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
                     {/* Remove duplicate trial text to fix overlap - badge is enough */}
@@ -437,7 +432,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#94A3B8" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Upgrade to Premium</Text>
+            <Text style={styles.headerTitle}>Join 25,000+ Elite Bettors</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -491,41 +486,39 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>Only $12.49 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
+                    <Text style={styles.subscriptionInfoText}>Just $24.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>Only $199.99 per year, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Pro Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>$4.99 one-time purchase (24 hours)</Text>
+                    <Text style={styles.subscriptionInfoText}>Just $4.99 one-time purchase (24 hours)</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>Only $14.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
+                    <Text style={styles.subscriptionInfoText}>Just $29.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>Only $199.99 per year, auto-renewable</Text>
                   </View>
                 </>
               )}
@@ -787,13 +780,21 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   priceContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
+    paddingLeft: 8,
   },
   planPrice: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#EF4444',
+    textAlign: 'left',
+  },
+  currencySymbol: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginRight: 2,
   },
   planPeriod: {
     fontSize: 14,
@@ -931,24 +932,32 @@ const styles = StyleSheet.create({
   pricingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+    justifyContent: 'flex-start',
   },
   originalPrice: {
-    fontSize: 14,
-    color: '#94A3B8',
+    fontSize: 16,
+    color: '#64748B',
     textDecorationLine: 'line-through',
-    marginRight: 8,
+    marginRight: 12,
+    fontWeight: '500',
   },
   discountBadge: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   discountText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   planNameWithIcon: {
     flexDirection: 'row',

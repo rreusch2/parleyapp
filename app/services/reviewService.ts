@@ -1,6 +1,7 @@
 import * as StoreReview from 'expo-store-review';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Linking } from 'react-native';
+import Constants from 'expo-constants';
 
 interface ReviewTriggerEvent {
   eventType: 'successful_subscription' | 'welcome_wheel_win' | 'ai_chat_positive' | 'daily_picks_viewed' | 'winning_streak' | 'app_usage_milestone' | 'referral_success' | 'giveaway_entry' | 'tier_upgrade';
@@ -25,6 +26,11 @@ interface ReviewState {
   lastPositiveInteraction: string | null;
   appInstallDate: string;
   totalAppOpens: number;
+  // New fields (migration-safe)
+  appVersion?: string;                 // App version the counters belong to
+  autoRequestCount?: number;           // Count of automatic native prompts requested this version
+  autoLastRequestDate?: string | null; // Last time we attempted an automatic native prompt
+  manualLastRequestDate?: string | null; // Last time user manually requested review (Settings)
 }
 
 class ReviewService {
@@ -35,6 +41,29 @@ class ReviewService {
   private readonly MIN_DAYS_SINCE_INSTALL = 0; // Allow immediate reviews for testing
   private readonly MAX_REVIEWS_PER_VERSION = 3; // Allow up to 3 review requests per version
   private readonly APP_STORE_REVIEW_URL = 'https://apps.apple.com/app/id6748275790?action=write-review';
+
+  /** Get current app version in a safe way (works in Expo) */
+  private getCurrentAppVersion(): string {
+    try {
+      const v = (Constants as any)?.expoConfig?.version;
+      return typeof v === 'string' && v.length > 0 ? v : 'dev';
+    } catch {
+      return 'dev';
+    }
+  }
+
+  /** Ensure the stored state has all new fields and sane defaults */
+  private normalizeState(state: ReviewState): ReviewState {
+    const currentVersion = this.getCurrentAppVersion();
+    const normalized: ReviewState = {
+      ...state,
+      appVersion: state.appVersion ?? currentVersion,
+      autoRequestCount: state.autoRequestCount ?? 0,
+      autoLastRequestDate: state.autoLastRequestDate ?? state.lastReviewRequestDate ?? null,
+      manualLastRequestDate: state.manualLastRequestDate ?? null,
+    };
+    return normalized;
+  }
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {
@@ -48,20 +77,42 @@ class ReviewService {
    */
   async initialize(): Promise<void> {
     try {
-      const state = await this.getReviewState();
-      
+      const existing = await this.getReviewState();
+      const currentVersion = this.getCurrentAppVersion();
+      let updatedState = this.normalizeState(existing);
+
+      // Reset counters if app version changed (per-version cap)
+      if (updatedState.appVersion !== currentVersion) {
+        console.log('🆕 App version changed for review system', {
+          from: updatedState.appVersion,
+          to: currentVersion,
+        });
+        updatedState = {
+          ...updatedState,
+          appVersion: currentVersion,
+          autoRequestCount: 0,
+          autoLastRequestDate: null,
+          // Keep manual history, but clear legacy fields for safety
+          lastReviewRequestDate: null,
+          reviewTriggerCount: 0,
+          hasRequestedReview: false,
+        };
+      }
+
       // Increment app opens counter
-      const updatedState: ReviewState = {
-        ...state,
-        totalAppOpens: state.totalAppOpens + 1
+      updatedState = {
+        ...updatedState,
+        totalAppOpens: (updatedState.totalAppOpens || 0) + 1,
       };
-      
+
       await this.saveReviewState(updatedState);
-      
+
       console.log('📱 Review Service initialized:', {
+        version: updatedState.appVersion,
         totalOpens: updatedState.totalAppOpens,
         positiveInteractions: updatedState.positiveInteractions,
-        daysSinceInstall: this.getDaysSinceInstall(updatedState.appInstallDate)
+        daysSinceInstall: this.getDaysSinceInstall(updatedState.appInstallDate),
+        autoRequestCount: updatedState.autoRequestCount,
       });
     } catch (error) {
       console.error('❌ Failed to initialize review service:', error);
@@ -80,7 +131,8 @@ class ReviewService {
         ...state,
         positiveInteractions: state.positiveInteractions + 1,
         lastPositiveInteraction: now,
-        reviewTriggerCount: state.reviewTriggerCount + 1
+        // IMPORTANT: Do NOT increment review request counters here.
+        // Apple may suppress the dialog; we only count when we actually call requestReview.
       };
       
       await this.saveReviewState(updatedState);
@@ -110,15 +162,17 @@ class ReviewService {
         return;
       }
 
-      // Check if we've hit the maximum requests per version
-      if (state.reviewTriggerCount >= this.MAX_REVIEWS_PER_VERSION) {
-        console.log(`📱 Maximum review requests reached (${state.reviewTriggerCount}/${this.MAX_REVIEWS_PER_VERSION})`);
+      const autoCount = state.autoRequestCount ?? 0;
+      // Check if we've hit the maximum automatic requests per version
+      if (autoCount >= this.MAX_REVIEWS_PER_VERSION) {
+        console.log(`📱 Maximum auto review requests reached (${autoCount}/${this.MAX_REVIEWS_PER_VERSION})`);
         return;
       }
 
       // Check minimum time since last request (if any)
-      if (state.lastReviewRequestDate) {
-        const daysSinceLastRequest = this.getDaysSince(state.lastReviewRequestDate);
+      const lastAuto = state.autoLastRequestDate ?? state.lastReviewRequestDate;
+      if (lastAuto) {
+        const daysSinceLastRequest = this.getDaysSince(lastAuto);
         if (daysSinceLastRequest < this.MIN_DAYS_BETWEEN_REQUESTS) {
           console.log(`📱 Too soon since last review request (${daysSinceLastRequest} days)`);
           return;
@@ -210,8 +264,11 @@ class ReviewService {
       const updatedState: ReviewState = {
         ...state,
         hasRequestedReview: true,
+        // Maintain legacy field for backward compatibility (not used for gating anymore)
         lastReviewRequestDate: new Date().toISOString(),
-        reviewTriggerCount: state.reviewTriggerCount + 1
+        // Increment per-version automatic counter and timestamp
+        autoRequestCount: (state.autoRequestCount ?? 0) + 1,
+        autoLastRequestDate: new Date().toISOString(),
       };
       
       await this.saveReviewState(updatedState);
@@ -233,7 +290,11 @@ class ReviewService {
     try {
       const stored = await AsyncStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored) as ReviewState;
+        // Migrate to include new fields while preserving history
+        const normalized = this.normalizeState(parsed);
+        // Also, if stored version differs, don't reset here (handled in initialize) – just annotate
+        return normalized;
       }
       
       // Return default state for new users
@@ -244,7 +305,11 @@ class ReviewService {
         positiveInteractions: 0,
         lastPositiveInteraction: null,
         appInstallDate: new Date().toISOString(),
-        totalAppOpens: 0
+        totalAppOpens: 0,
+        appVersion: this.getCurrentAppVersion(),
+        autoRequestCount: 0,
+        autoLastRequestDate: null,
+        manualLastRequestDate: null,
       };
       
       await this.saveReviewState(defaultState);
@@ -260,7 +325,11 @@ class ReviewService {
         positiveInteractions: 0,
         lastPositiveInteraction: null,
         appInstallDate: new Date().toISOString(),
-        totalAppOpens: 0
+        totalAppOpens: 0,
+        appVersion: this.getCurrentAppVersion(),
+        autoRequestCount: 0,
+        autoLastRequestDate: null,
+        manualLastRequestDate: null,
       };
     }
   }
@@ -318,12 +387,13 @@ class ReviewService {
     try {
       console.log('⭐ Manual review requested by user');
       
-      // Fetch state and enforce a short manual cooldown (7 days)
+      // Fetch state and enforce a short manual-only cooldown (7 days)
       const state = await this.getReviewState();
-      if (state.lastReviewRequestDate) {
-        const daysSinceLastRequest = this.getDaysSince(state.lastReviewRequestDate);
-        if (daysSinceLastRequest < 7) { // Only 7 days wait for manual
-          console.log(`📱 Manual review blocked - too recent (${daysSinceLastRequest} days ago)`);
+      const lastManual = state.manualLastRequestDate;
+      if (lastManual) {
+        const daysSinceLastManual = this.getDaysSince(lastManual);
+        if (daysSinceLastManual < 7) {
+          console.log(`📱 Manual review blocked - too recent (${daysSinceLastManual} days ago)`);
           return false;
         }
       }
@@ -337,9 +407,9 @@ class ReviewService {
             const updatedState: ReviewState = {
               ...state,
               hasRequestedReview: true,
-              lastReviewRequestDate: new Date().toISOString(),
-              reviewTriggerCount: state.reviewTriggerCount + 1,
-              positiveInteractions: state.positiveInteractions + 1
+              manualLastRequestDate: new Date().toISOString(),
+              // Do not touch auto counters or lastReviewRequestDate to avoid blocking auto prompts
+              positiveInteractions: state.positiveInteractions + 1,
             };
             await this.saveReviewState(updatedState);
             console.log('✅ Opened App Store write-review page as fallback');
@@ -358,9 +428,9 @@ class ReviewService {
       const updatedState: ReviewState = {
         ...state,
         hasRequestedReview: true,
-        lastReviewRequestDate: new Date().toISOString(),
-        reviewTriggerCount: state.reviewTriggerCount + 1,
-        positiveInteractions: state.positiveInteractions + 1
+        manualLastRequestDate: new Date().toISOString(),
+        // Do not affect auto counters; manual prompt shouldn't block future auto prompts
+        positiveInteractions: state.positiveInteractions + 1,
       };
       await this.saveReviewState(updatedState);
       console.log('✅ Manual App Store review shown successfully');
