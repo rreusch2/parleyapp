@@ -360,23 +360,19 @@ router.get('/recent-lines/:playerId', async (req, res) => {
       }
     };
     
-    // Map sport to correct sport_key format
-    let sportKey = playerInfo?.sport;
-    if (sportKey === 'NFL') {
-      sportKey = 'americanfootball_nfl';
-    } else if (sportKey === 'MLB') {
-      sportKey = 'MLB';
-    }
+    // Map sport to correct sport_key format - use player sport directly
+    let sportKey = playerInfo?.sport || 'MLB';
     
     // Get possible prop_keys for this frontend prop name
     const possiblePropKeys = propMappings[sportKey]?.[prop_type as string] || [prop_type as string];
     
-    // Find matching prop types in database
+    logger.info(`Searching for prop types: ${possiblePropKeys.join(', ')} for sport: ${sportKey}`);
+    
+    // Find matching prop types in database - simplified query
     const { data: propTypes, error: propTypeError } = await supabase
       .from('player_prop_types')
       .select('id, prop_key, sport_key')
-      .in('prop_key', possiblePropKeys)
-      .or(`sport_key.eq.${sportKey},sport_key.eq.${playerInfo?.sport}`);
+      .in('prop_key', possiblePropKeys);
     
     if (propTypeError) {
       logger.error('Error fetching prop types:', propTypeError);

@@ -800,16 +800,37 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       };
       
       const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
-      const propKey = aliases[0]; // Use the first (most common) alias
+      const propKey = selectedPropType; // Use the frontend prop name directly since backend now maps it
+      
+      console.log('🔥 DEBUG: Fetching recent lines for', player.name, 'prop:', propKey);
       
       // Fetch recent lines from our new API endpoint
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/player-props/recent-lines/${player.id}?prop_type=${propKey}&limit=5`);
+      const response = await fetch(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/player-props/recent-lines/${player.id}?prop_type=${propKey}&limit=5`);
       const data = await response.json();
       
-      if (data.success && data.recentLines) {
-        setRecentLines(data.recentLines);
+      console.log('🔥 DEBUG: API Response:', data);
+      
+      if (data.success && data.recentLines && data.recentLines.length > 0) {
+        // Map the API response to our expected format
+        const formattedLines = data.recentLines.map((line: any) => ({
+          id: line.id || `${player.id}-${propKey}-${Date.now()}`,
+          line: parseFloat(line.line),
+          overOdds: parseFloat(line.over_odds || line.overOdds || 0),
+          underOdds: parseFloat(line.under_odds || line.underOdds || 0),
+          lastUpdate: line.last_update || line.lastUpdate || new Date().toISOString(),
+          createdAt: line.created_at || line.createdAt || new Date().toISOString(),
+          bookmaker: line.bookmaker?.bookmaker_name || line.bookmaker || 'Unknown',
+          propName: line.prop_name || line.propName || propKey,
+          propKey: line.prop_key || line.propKey || propKey,
+          sportKey: line.sport_key || line.sportKey || sport,
+          category: line.category || 'props',
+          unit: line.unit || ''
+        }));
+        
+        console.log('🔥 DEBUG: Formatted lines:', formattedLines);
+        setRecentLines(formattedLines);
       } else {
-        console.warn('No recent lines found for', player.name, selectedPropType);
+        console.warn('No recent lines found for', player.name, selectedPropType, 'Response:', data);
         setRecentLines([]);
       }
     } catch (error) {
