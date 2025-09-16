@@ -927,10 +927,10 @@ router.get('/picks', async (req, res) => {
     }
     
     // Get a larger pool of predictions to support Elite tier and sport filtering
+    // IMPORTANT: Global predictions (do NOT filter by user_id) so free/welcome users see latest global picks
     const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);  // Increased to 100 to support Elite tier (30 picks) + sport filtering
 
@@ -961,110 +961,100 @@ router.get('/picks', async (req, res) => {
       });
     }
 
-    logger.info(`📊 Found ${predictions.length} total predictions, applying sport preferences and limiting to ${actualPickLimit} for user`);
+    logger.info(`📊 Found ${predictions.length} total predictions. Limiting to ${actualPickLimit} for user (tier: ${profile?.subscription_tier || 'free'})`);
 
-    // Apply sport preference filtering
-    let filteredPredictions = predictions;
-    const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true, nfl: true }; // Include NFL by default to show CFB
-    
-    if (userSportPrefs && Object.keys(userSportPrefs).length > 0) {
-      const preferredSports: string[] = [];
-      if (userSportPrefs.mlb) preferredSports.push('MLB');
-      if (userSportPrefs.wnba) preferredSports.push('WNBA'); 
-      if (userSportPrefs.ufc) preferredSports.push('UFC');
-      // Include CFB picks for users who have NFL preferences (backend-only for now)
-      if (userSportPrefs.nfl) {
-        preferredSports.push('NFL');
-        // Include college football with NFL; accept both canonical and legacy labels
-        preferredSports.push('College Football');
-        preferredSports.push('CFB');
-      }
-      
-      logger.info(`🎯 User preferred sports: ${preferredSports.join(', ')}`);
-      
-      if (preferredSports.length > 0) {
-        // Filter by preferred sports first
-        const preferredPicks = predictions.filter(p => preferredSports.includes(p.sport));
-        
-        // If we have enough picks from preferred sports, use those
-        if (preferredPicks.length >= actualPickLimit) {
-          filteredPredictions = preferredPicks;
-          logger.info(`✅ Found ${preferredPicks.length} picks from preferred sports`);
-        } else {
-          // Not enough from preferred sports - use preferred + fallback to others
-          const otherPicks = predictions.filter(p => !preferredSports.includes(p.sport));
-          filteredPredictions = [...preferredPicks, ...otherPicks];
-          logger.info(`⚖️ Using ${preferredPicks.length} preferred + ${Math.min(otherPicks.length, actualPickLimit - preferredPicks.length)} fallback picks`);
+    let limitedPredictions: any[] = [];
+
+    const isPaidTier = profile?.subscription_tier === 'pro' || profile?.subscription_tier === 'elite';
+
+    if (!isPaidTier) {
+      // Free or Welcome users: ALWAYS show the most recent global picks, no sport filtering
+      limitedPredictions = predictions.slice(0, actualPickLimit);
+    } else {
+      // Pro/Elite: keep sport preferences and round-robin diversity
+      let filteredPredictions = predictions;
+      const userSportPrefs = profile?.sport_preferences || { mlb: true, wnba: true, ufc: true, nfl: true };
+
+      if (userSportPrefs && Object.keys(userSportPrefs).length > 0) {
+        const preferredSports: string[] = [];
+        if (userSportPrefs.mlb) preferredSports.push('MLB');
+        if (userSportPrefs.wnba) preferredSports.push('WNBA');
+        if (userSportPrefs.ufc) preferredSports.push('UFC');
+        if (userSportPrefs.nfl) {
+          preferredSports.push('NFL');
+          preferredSports.push('College Football');
+          preferredSports.push('CFB');
         }
-      }
-    }
 
-    // Apply sport-aware limiting before tier slice to ensure diversity across sports
-    let limitedPredictions = filteredPredictions;
-    try {
-      // Normalize sport keys for grouping
-      const normalizeSport = (s: any) => {
-        const m: Record<string, string> = {
-          'CFB': 'College Football',
-          'college football': 'College Football',
-          'CollegeFootball': 'College Football',
-          'NCAAF': 'College Football'
-        };
-        const key = (s || '').toString();
-        return m[key] || key || 'Other';
-      };
+        logger.info(`🎯 User preferred sports: ${preferredSports.join(', ')}`);
 
-      // Group predictions by normalized sport while preserving recency order
-      const bySport = new Map<string, any[]>();
-      for (const p of filteredPredictions) {
-        const sp = normalizeSport(p.sport);
-        if (!bySport.has(sp)) bySport.set(sp, []);
-        bySport.get(sp)!.push(p);
-      }
-
-      // Priority order for cycling
-      const priorityOrder = ['MLB', 'College Football', 'NFL', 'WNBA', 'UFC', 'Other'];
-      const sportsInOrder = [
-        ...priorityOrder.filter(sp => bySport.has(sp)),
-        ...Array.from(bySport.keys()).filter(sp => !priorityOrder.includes(sp))
-      ];
-
-      // Round-robin selection across sports until actualPickLimit reached
-      const rrSelected: any[] = [];
-      const indices: Record<string, number> = {};
-      sportsInOrder.forEach(sp => (indices[sp] = 0));
-
-      while (rrSelected.length < actualPickLimit) {
-        let madeProgress = false;
-        for (const sp of sportsInOrder) {
-          const bucket = bySport.get(sp) || [];
-          const idx = indices[sp] || 0;
-          if (idx < bucket.length) {
-            rrSelected.push(bucket[idx]);
-            indices[sp] = idx + 1;
-            madeProgress = true;
-            if (rrSelected.length >= actualPickLimit) break;
+        if (preferredSports.length > 0) {
+          const preferredPicks = predictions.filter(p => preferredSports.includes(p.sport));
+          if (preferredPicks.length >= actualPickLimit) {
+            filteredPredictions = preferredPicks;
+          } else {
+            const otherPicks = predictions.filter(p => !preferredSports.includes(p.sport));
+            filteredPredictions = [...preferredPicks, ...otherPicks];
           }
         }
-        if (!madeProgress) break; // no more items
       }
 
-      if (rrSelected.length > 0) {
-        limitedPredictions = rrSelected;
-      } else {
+      // Round-robin across sports for paid tiers
+      try {
+        const normalizeSport = (s: any) => {
+          const m: Record<string, string> = {
+            'CFB': 'College Football',
+            'college football': 'College Football',
+            'CollegeFootball': 'College Football',
+            'NCAAF': 'College Football'
+          };
+          const key = (s || '').toString();
+          return m[key] || key || 'Other';
+        };
+
+        const bySport = new Map<string, any[]>();
+        for (const p of filteredPredictions) {
+          const sp = normalizeSport(p.sport);
+          if (!bySport.has(sp)) bySport.set(sp, []);
+          bySport.get(sp)!.push(p);
+        }
+
+        const priorityOrder = ['MLB', 'College Football', 'NFL', 'WNBA', 'UFC', 'Other'];
+        const sportsInOrder = [
+          ...priorityOrder.filter(sp => bySport.has(sp)),
+          ...Array.from(bySport.keys()).filter(sp => !priorityOrder.includes(sp))
+        ];
+
+        const rrSelected: any[] = [];
+        const indices: Record<string, number> = {};
+        sportsInOrder.forEach(sp => (indices[sp] = 0));
+
+        while (rrSelected.length < actualPickLimit) {
+          let madeProgress = false;
+          for (const sp of sportsInOrder) {
+            const bucket = bySport.get(sp) || [];
+            const idx = indices[sp] || 0;
+            if (idx < bucket.length) {
+              rrSelected.push(bucket[idx]);
+              indices[sp] = idx + 1;
+              madeProgress = true;
+              if (rrSelected.length >= actualPickLimit) break;
+            }
+          }
+          if (!madeProgress) break;
+        }
+
+        limitedPredictions = rrSelected.length > 0 ? rrSelected : filteredPredictions.slice(0, actualPickLimit);
+      } catch (e) {
+        logger.warn(`Sport-aware limiting failed, falling back to simple slice: ${e}`);
         limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
       }
-
-      logger.info(`🔢 Sport-aware limited to ${limitedPredictions.length} predictions across ${sportsInOrder.length} sports (limit: ${actualPickLimit})`);
-    } catch (e) {
-      logger.warn(`Sport-aware limiting failed, falling back to simple slice: ${e}`);
-      limitedPredictions = filteredPredictions.slice(0, actualPickLimit);
     }
 
     // Additional safety check for free users with 2 picks
     if (actualPickLimit === 2 && limitedPredictions.length === 0) {
-      logger.warn(`⚠️ No predictions available for free user ${userId} with 2-pick limit. Checking total available...`);
-      logger.warn(`Total predictions in DB: ${predictions.length}, After filtering: ${filteredPredictions.length}`);
+      logger.warn(`⚠️ No predictions available for free user ${userId} with 2-pick limit. Checking totals...`);
+      logger.warn(`Total predictions in DB: ${predictions.length}, After limiting: ${limitedPredictions.length}`);
     }
 
     // Transform database format to frontend format with robust error handling

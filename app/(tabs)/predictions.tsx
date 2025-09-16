@@ -42,8 +42,7 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
-import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
-import { adsService } from '../services/api/adsService';
+// AdMob integration paused: relying on backend to limit free/welcome picks
 import { useUITheme } from '../services/uiThemeContext';
 
 
@@ -66,14 +65,8 @@ export default function PredictionsScreen() {
   const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
   const [welcomeBonusExpires, setWelcomeBonusExpires] = useState<string | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
-  // Ad reward state
+  // Backend-provided daily pick limit for display
   const [apiDailyPickLimit, setApiDailyPickLimit] = useState<number | null>(null);
-  const [adDailyLimit, setAdDailyLimit] = useState<number>(5);
-  const [adRewardsUsed, setAdRewardsUsed] = useState<number>(0);
-  const [adRewardsRemaining, setAdRewardsRemaining] = useState<number>(5);
-  const [rewardedLoaded, setRewardedLoaded] = useState(false);
-  const [adProcessing, setAdProcessing] = useState(false);
-  const rewardedRef = React.useRef<ReturnType<typeof RewardedAd.createForAdRequest> | null>(null);
   
   // Elite user preferences for filtering predictions
   const [userPreferences, setUserPreferences] = useState<any>({
@@ -88,62 +81,7 @@ export default function PredictionsScreen() {
     loadPredictions();
   }, [isPro, isElite]); // Added isElite to dependencies to re-render when subscription changes
 
-  // Setup Rewarded Ad lifecycle (mobile only). Recreate when userId is available to pass SSV options
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (!userId) return; // wait for auth
-    // Create / recreate ad instance with SSV options
-    const adUnitId = __DEV__ ? TestIds.REWARDED : (process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID as string);
-    rewardedRef.current = RewardedAd.createForAdRequest(adUnitId || TestIds.REWARDED, {
-      serverSideVerificationOptions: {
-        userId: userId,
-        customData: 'extra_pick'
-      }
-    });
-    const rewarded = rewardedRef.current!;
-    const unsubscribeLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
-      setRewardedLoaded(true);
-    });
-    const unsubscribeClosed = rewarded.addAdEventListener(RewardedAdEventType.CLOSED, () => {
-      // Preload next after close
-      setTimeout(() => rewarded.load(), 300);
-    });
-    const unsubscribeEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, async (reward) => {
-      try {
-        setAdProcessing(true);
-        // Notify backend to grant 1 extra pick
-        await adsService.grantExtraPick({});
-        // Reload predictions to reflect extra slot
-        await loadPredictions();
-      } catch (e) {
-        console.warn('Failed to grant extra pick:', e);
-      } finally {
-        setAdProcessing(false);
-      }
-    });
-    // Start loading immediately
-    rewarded.load();
-    return () => {
-      unsubscribeLoaded();
-      unsubscribeClosed();
-      unsubscribeEarned();
-    };
-  }, [userId]);
-
-  const handleShowRewardedAd = () => {
-    try {
-      if (Platform.OS === 'web') return;
-      if (!rewardedRef.current) return;
-      if (!rewardedLoaded) {
-        rewardedRef.current.load();
-        return;
-      }
-      rewardedRef.current.show();
-      setRewardedLoaded(false); // will reload on close
-    } catch (e) {
-      console.warn('Error showing rewarded ad', e);
-    }
-  };
+  // Rewarded ads paused: no ad lifecycle in this build
 
   
 
@@ -376,15 +314,7 @@ export default function PredictionsScreen() {
             if (typeof data.metadata.dailyPickLimit === 'number') {
               setApiDailyPickLimit(data.metadata.dailyPickLimit);
             }
-            if (typeof data.metadata.adDailyLimit === 'number') {
-              setAdDailyLimit(data.metadata.adDailyLimit);
-            }
-            if (typeof data.metadata.adRewardsUsed === 'number') {
-              setAdRewardsUsed(data.metadata.adRewardsUsed);
-            }
-            if (typeof data.metadata.adRewardsRemaining === 'number') {
-              setAdRewardsRemaining(data.metadata.adRewardsRemaining);
-            }
+            // ad metadata ignored in this build; backend still limits results
             
             console.log(`📊 Predictions API Metadata:`, JSON.stringify(data.metadata, null, 2));
             
@@ -447,12 +377,8 @@ export default function PredictionsScreen() {
         filtered = filtered.filter(p => p.sport.toLowerCase() === selectedSport.toLowerCase());
       }
     } else {
-      // For free users:
-      // - If new user or welcome bonus, backend already limited to 5
-      // - Otherwise, trust backend to limit to (2 + ad extras). As safety, slice to apiDailyPickLimit if provided
-      if (!isNewUser && !welcomeBonusActive && typeof apiDailyPickLimit === 'number') {
-        filtered = filtered.slice(0, apiDailyPickLimit);
-      }
+      // Free users: rely entirely on backend limiting (2 or 5, plus any extras)
+      // No client-side slicing to avoid zero-pick issues
     }
 
     return filtered;
@@ -733,39 +659,7 @@ What are your thoughts on this prediction?`;
           </View>
         )}
 
-        {/* Rewarded Ad CTA for Free users */}
-        {!isPro && (
-          <View style={{ paddingHorizontal: normalize(16), marginTop: normalize(8) }}>
-            <TouchableOpacity disabled={adProcessing || adRewardsRemaining <= 0} onPress={handleShowRewardedAd}>
-              <LinearGradient
-                colors={adRewardsRemaining > 0 ? ['#22c55e', '#16a34a'] : ['#64748B', '#475569']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  paddingVertical: normalize(14),
-                  paddingHorizontal: normalize(16),
-                  borderRadius: normalize(14),
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.12)'
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Zap size={18} color="#FFFFFF" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: normalize(14) }}>
-                    {adProcessing ? 'Processing...' : 'Watch an ad to unlock 1 extra pick'}
-                  </Text>
-                </View>
-                <Text style={{ color: 'rgba(255,255,255,0.9)', marginTop: normalize(6), fontSize: normalize(12) }}>
-                  {adRewardsRemaining > 0
-                    ? `You can unlock up to ${adDailyLimit} extra picks per day • Remaining today: ${adRewardsRemaining}`
-                    : 'Daily limit reached • Come back tomorrow for more extra picks'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Rewarded Ad CTA paused in this build */}
 
         {/* Predictions List */}
         <View style={styles.predictionsSection}>

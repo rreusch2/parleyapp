@@ -42,6 +42,7 @@ import { aiService, AIPrediction } from '../services/api/aiService';
 import { useSubscription } from '../services/subscriptionContext';
 
 import { useAIChat } from '../services/aiChatContext';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -93,6 +94,7 @@ interface EnhancedSportsEvent extends SportsEvent {
 export default function GamesScreen() {
   const router = useRouter();
   const { isPro, isElite, proFeatures, openSubscriptionModal } = useSubscription();
+  const { theme } = useUITheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState<EnhancedSportsEvent[]>([]);
@@ -813,15 +815,15 @@ export default function GamesScreen() {
       >
         {/* Header Stats */}
         <LinearGradient
-          colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#334155']}
+          colors={isElite ? theme.headerGradient : (isPro ? ['#7C3AED', '#1E40AF'] as const : ['#1E293B', '#334155'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerStats}
         >
           {isElite && (
-            <View style={[styles.proBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' }]}>
-              <Crown size={16} color="#FFD700" />
-              <Text style={[styles.proBadgeText, { color: '#FFD700' }]}>✨ ELITE MEMBER ✨</Text>
+            <View style={[styles.proBadge, { backgroundColor: `${theme.accentPrimary}33`, borderColor: theme.accentPrimary }]}> 
+              <Crown size={16} color={theme.accentPrimary} />
+              <Text style={[styles.proBadgeText, { color: theme.accentPrimary }]}>✨ ELITE MEMBER ✨</Text>
             </View>
           )}
           {isPro && !isElite && (
@@ -833,13 +835,13 @@ export default function GamesScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.dualStatCard}>
-              <Calendar size={22} color="#00E5FF" />
+              <Calendar size={22} color={isElite ? theme.accentPrimary : '#00E5FF'} />
               <Text style={styles.dualStatValue}>{gameStats.total}</Text>
               <Text style={styles.dualStatLabel}>Games Available{'\n'}Today & Tomorrow</Text>
             </View>
             
             <View style={styles.dualStatCardSecondary}>
-              <Clock size={22} color="#8B5CF6" />
+              <Clock size={22} color={isElite ? theme.accentPrimary : '#8B5CF6'} />
               <Text style={styles.dualStatValueSecondary}>
                 {new Date().toLocaleDateString('en-US', { 
                   weekday: 'short', 

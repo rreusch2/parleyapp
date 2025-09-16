@@ -47,6 +47,9 @@ export default function EliteThemeModal({ visible, onClose }: Props) {
           </ScrollView>
 
           <View style={styles.footer}>
+            <TouchableOpacity style={[styles.resetButton]} onPress={() => setThemeId('elite_default')}>
+              <Text style={styles.resetText}>Reset to Default</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeText}>Done</Text>
             </TouchableOpacity>
@@ -134,12 +137,28 @@ const styles = StyleSheet.create({
     padding: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  resetButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
+  },
+  resetText: {
+    fontWeight: '800',
+    color: '#E5E7EB',
   },
   closeButton: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    flex: 1,
   },
   closeText: {
     fontWeight: '800',
