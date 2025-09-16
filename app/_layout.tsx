@@ -6,6 +6,7 @@ import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
+import { UIThemeProvider } from './services/uiThemeContext';
 import { UISettingsProvider } from './services/uiSettingsContext';
 import { useRouter } from 'expo-router';
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
@@ -15,7 +16,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
-import ReviewDebugPanel from './components/ReviewDebugPanel';
+// ReviewDebugPanel removed (dev-only overlay disabled)
 import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
 // Remove the top-level import since it's not available on web
 
@@ -147,11 +148,7 @@ function AppContent() {
           closeSubscriptionModal();
         }}
       />
-
-      {__DEV__ && (
-        // Dev-only overlay to QA the in-app review system
-        <ReviewDebugPanel />
-      )}
+      {/* ReviewDebugPanel removed for now */}
     </View>
   );
 }
@@ -164,7 +161,9 @@ export default function RootLayout() {
     <ErrorBoundary>
       <UISettingsProvider>
         <SubscriptionProvider>
-          <AppContent />
+          <UIThemeProvider>
+            <AppContent />
+          </UIThemeProvider>
         </SubscriptionProvider>
       </UISettingsProvider>
     </ErrorBoundary>

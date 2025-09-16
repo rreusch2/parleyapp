@@ -51,11 +51,13 @@ import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
 import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 import AnimatedSplash from '../components/AnimatedSplash';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { isPro, isElite, subscriptionTier, openSubscriptionModal, eliteFeatures } = useSubscription();
+  const { theme } = useUITheme();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const { trackPositiveInteraction } = useReview();
   const { isLoading: optimizedLoading, loadData } = useOptimizedLoading({ 
@@ -423,7 +425,7 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={isElite ? ['#8B5CF6', '#EC4899', '#F59E0B'] : isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] : ['#1E293B', '#334155', '#0F172A']}
+          colors={isElite ? theme.headerGradient : (isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] as const : ['#1E293B', '#334155', '#0F172A'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -457,8 +459,8 @@ export default function HomeScreen() {
                   </View>
                 )}
                 <View style={styles.brandTextContainer}>
-                  <Text style={styles.welcomeText}>Welcome back!</Text>
-                  <Text style={styles.headerTitle}>
+                  <Text style={[styles.welcomeText, isElite && { color: theme.headerTextSecondary }]}>Welcome back!</Text>
+                  <Text style={[styles.headerTitle, isElite && { color: theme.headerTextPrimary }]}>
                     {isElite ? 'Elite Dashboard' : isPro ? 'Pro Dashboard' : 'Predictive Play'}
                   </Text>
                 </View>

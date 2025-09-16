@@ -11,29 +11,29 @@ export interface PresetAvatar {
 
 // Multiavatar preset options - 12 billion unique possibilities!
 export const PRESET_AVATARS: PresetAvatar[] = [
-  // Sports Legends - Using themed seed strings
-  { id: 'multi_babe_ruth', name: 'The Babe', url: 'https://api.multiavatar.com/Babe Ruth.png', category: 'sports' },
-  { id: 'multi_jordan', name: 'Air Jordan', url: 'https://api.multiavatar.com/Michael Jordan.png', category: 'sports' },
-  { id: 'multi_brady', name: 'The GOAT', url: 'https://api.multiavatar.com/Tom Brady.png', category: 'sports' },
-  { id: 'multi_champion', name: 'Champion', url: 'https://api.multiavatar.com/Sports Champion.png', category: 'sports' },
+  // Sports Legends - Using themed seed strings (URLs encoded)
+  { id: 'multi_babe_ruth', name: 'The Babe', url: 'https://api.multiavatar.com/Babe%20Ruth.png', category: 'sports' },
+  { id: 'multi_jordan', name: 'Air Jordan', url: 'https://api.multiavatar.com/Michael%20Jordan.png', category: 'sports' },
+  { id: 'multi_brady', name: 'The GOAT', url: 'https://api.multiavatar.com/Tom%20Brady.png', category: 'sports' },
+  { id: 'multi_champion', name: 'Champion', url: 'https://api.multiavatar.com/Sports%20Champion.png', category: 'sports' },
   
   // Professional Personas
-  { id: 'multi_analyst', name: 'The Analyst', url: 'https://api.multiavatar.com/Data Analyst Pro.png', category: 'professional' },
-  { id: 'multi_strategist', name: 'Strategist', url: 'https://api.multiavatar.com/Master Strategist.png', category: 'professional' },
-  { id: 'multi_expert', name: 'Expert', url: 'https://api.multiavatar.com/Sports Expert.png', category: 'professional' },
-  { id: 'multi_consultant', name: 'Consultant', url: 'https://api.multiavatar.com/Pro Consultant.png', category: 'professional' },
+  { id: 'multi_analyst', name: 'The Analyst', url: 'https://api.multiavatar.com/Data%20Analyst%20Pro.png', category: 'professional' },
+  { id: 'multi_strategist', name: 'Strategist', url: 'https://api.multiavatar.com/Master%20Strategist.png', category: 'professional' },
+  { id: 'multi_expert', name: 'Expert', url: 'https://api.multiavatar.com/Sports%20Expert.png', category: 'professional' },
+  { id: 'multi_consultant', name: 'Consultant', url: 'https://api.multiavatar.com/Pro%20Consultant.png', category: 'professional' },
   
   // Gaming/Betting Theme
-  { id: 'multi_shark', name: 'Card Shark', url: 'https://api.multiavatar.com/Card Shark Pro.png', category: 'gaming' },
-  { id: 'multi_roller', name: 'High Roller', url: 'https://api.multiavatar.com/High Roller VIP.png', category: 'gaming' },
-  { id: 'multi_ace', name: 'Lucky Ace', url: 'https://api.multiavatar.com/Lucky Ace Winner.png', category: 'gaming' },
-  { id: 'multi_winner', name: 'Big Winner', url: 'https://api.multiavatar.com/Big Winner Pro.png', category: 'gaming' },
+  { id: 'multi_shark', name: 'Card Shark', url: 'https://api.multiavatar.com/Card%20Shark%20Pro.png', category: 'gaming' },
+  { id: 'multi_roller', name: 'High Roller', url: 'https://api.multiavatar.com/High%20Roller%20VIP.png', category: 'gaming' },
+  { id: 'multi_ace', name: 'Lucky Ace', url: 'https://api.multiavatar.com/Lucky%20Ace%20Winner.png', category: 'gaming' },
+  { id: 'multi_winner', name: 'Big Winner', url: 'https://api.multiavatar.com/Big%20Winner%20Pro.png', category: 'gaming' },
   
   // Unique Characters
-  { id: 'multi_prophet', name: 'The Prophet', url: 'https://api.multiavatar.com/Sports Prophet.png', category: 'mystical' },
-  { id: 'multi_oracle', name: 'Oracle', url: 'https://api.multiavatar.com/Betting Oracle.png', category: 'mystical' },
-  { id: 'multi_legend', name: 'Legend', url: 'https://api.multiavatar.com/ParleyApp Legend.png', category: 'mystical' },
-  { id: 'multi_sage', name: 'Sage', url: 'https://api.multiavatar.com/Wise Sage Pro.png', category: 'mystical' },
+  { id: 'multi_prophet', name: 'The Prophet', url: 'https://api.multiavatar.com/Sports%20Prophet.png', category: 'mystical' },
+  { id: 'multi_oracle', name: 'Oracle', url: 'https://api.multiavatar.com/Betting%20Oracle.png', category: 'mystical' },
+  { id: 'multi_legend', name: 'Legend', url: 'https://api.multiavatar.com/ParleyApp%20Legend.png', category: 'mystical' },
+  { id: 'multi_sage', name: 'Sage', url: 'https://api.multiavatar.com/Wise%20Sage%20Pro.png', category: 'mystical' },
 ];
 
 export class AvatarService {

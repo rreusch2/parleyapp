@@ -14,6 +14,7 @@ import {
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, FugazOne_400Regular } from '@expo-google-fonts/fugaz-one';
 import {
   X,
   Crown,
@@ -56,6 +57,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onSubscribe,
   onContinueFree,
 }) => {
+  const [fugazLoaded] = useFonts({ FugazOne_400Regular });
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
   const [loading, setLoading] = useState(false);
@@ -495,7 +497,14 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 <Image source={require('../../assets/images/icon.png')} style={styles.appLogo} />
               </View>
               <Text style={styles.headerTitleLine1}>Welcome to</Text>
-              <Text style={styles.headerTitleLine2}>{'Predictive\u00A0Play'}</Text>
+              <Text
+                style={[
+                  styles.headerTitleLine2,
+                  fugazLoaded && { fontFamily: 'FugazOne_400Regular', fontWeight: 'normal' },
+                ]}
+              >
+                {'Predictive\u00A0Play'}
+              </Text>
               <Text
                 style={[
                   styles.headerSocialProof,

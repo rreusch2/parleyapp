@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSubscription } from '@/app/services/subscriptionContext';
-import { useAIChat } from '@/app/services/aiChatContext';
-import { useUISettings } from '@/app/services/uiSettingsContext';
+import { useSubscription } from '../services/subscriptionContext';
+import { useAIChat } from '../services/aiChatContext';
+import { useUISettings } from '../services/uiSettingsContext';
+import { getRingColors } from '../utils/chatBubbleTheme';
 
 interface FloatingAIChatButtonProps {
   onPress?: () => void; // Made optional since we'll use context
@@ -28,9 +29,9 @@ export default function FloatingAIChatButton({
   bottom = 110, 
   right = 20 
 }: FloatingAIChatButtonProps) {
-  const { isPro } = useSubscription();
+  const { isPro, isElite } = useSubscription();
   const { setShowAIChat, setChatContext } = useAIChat();
-  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion } = useUISettings();
+  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion, ringTheme } = useUISettings();
   const [appearScale] = useState(new Animated.Value(0));
   const [pressScale] = useState(new Animated.Value(1));
   const [breath] = useState(new Animated.Value(0));
@@ -72,6 +73,7 @@ export default function FloatingAIChatButton({
       } catch {}
     })();
   }, []);
+
 
   // Handle animation mode changes
   useEffect(() => {
@@ -216,7 +218,7 @@ export default function FloatingAIChatButton({
           borderRadius: (SIZE * 1.24) / 2,
           opacity: ringOpacity,
           transform: [{ scale: ringScale }],
-          backgroundColor: '#00E5FF',
+          backgroundColor: getRingColors(ringTheme, { isPro, isElite })[0],
           zIndex: -1,
         }}
       />)}
@@ -253,7 +255,7 @@ export default function FloatingAIChatButton({
       >
         {/* Gradient ring with circular logo inside */}
         <LinearGradient
-          colors={["#00E5FF", "#0891B2"]}
+          colors={getRingColors(ringTheme, { isPro, isElite })}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{

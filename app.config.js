@@ -100,6 +100,13 @@ module.exports = {
       "expo-apple-authentication",
       "expo-asset",
       [
+        "react-native-google-mobile-ads",
+        {
+          iosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || "ca-app-pub-3940256099942544~1458002511", // Test ID fallback
+          androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || "ca-app-pub-3940256099942544~3347511713" // Test ID fallback
+        }
+      ],
+      [
         "react-native-appsflyer",
         {
           "devKey": "NgBrVqoMhaRVeeaekgT9xX",
@@ -136,6 +143,9 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
       revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
+      admobAndroidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID,
+      admobIosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID,
+      admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
 
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"

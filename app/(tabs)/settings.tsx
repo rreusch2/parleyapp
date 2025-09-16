@@ -61,6 +61,7 @@ import { useUISettings } from '../services/uiSettingsContext';
 import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
+import EliteThemeModal from '../components/EliteThemeModal';
 
 interface UserProfile {
   id: string;
@@ -108,6 +109,7 @@ export default function SettingsScreen() {
   // DEV: show signup paywall without creating a new account
   const [showSignupPaywall, setShowSignupPaywall] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showEliteThemeModal, setShowEliteThemeModal] = useState(false);
 
   // Auth state - check if user has Apple auth and/or password
   const [hasAppleAuth, setHasAppleAuth] = useState(false);
@@ -1029,6 +1031,14 @@ export default function SettingsScreen() {
           } • ${bubbleSize === 'compact' ? 'Compact' : 'Standard'}${respectReduceMotion ? ' • Reduce Motion' : ''}`,
           action: () => setShowChatBubbleSettings(true)
         },
+        // Elite-only theme customization
+        ...(!isElite ? [] : [{
+          id: 'elite_theme',
+          title: 'Elite Theme',
+          type: 'link',
+          subtitle: 'Exclusive color themes for Elite',
+          action: () => setShowEliteThemeModal(true)
+        }]),
       ]
     },
     {
@@ -1369,6 +1379,12 @@ export default function SettingsScreen() {
       <ChatBubbleSettingsModal
         visible={showChatBubbleSettings}
         onClose={() => setShowChatBubbleSettings(false)}
+      />
+
+      {/* Elite Theme Modal (Elite-only) */}
+      <EliteThemeModal
+        visible={showEliteThemeModal}
+        onClose={() => setShowEliteThemeModal(false)}
       />
 
       {/* Change Password Modal */}

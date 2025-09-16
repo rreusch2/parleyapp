@@ -832,7 +832,7 @@ router.get('/picks', async (req, res) => {
     // First, check user's welcome bonus status, subscription tier, and sport preferences
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, subscription_expires_at, subscription_status, created_at, sport_preferences')
+      .select('welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier, subscription_expires_at, subscription_status, created_at, sport_preferences, daily_ad_rewards_used, last_ad_reward_reset')
       .eq('id', userId)
       .single();
 
@@ -846,6 +846,9 @@ router.get('/picks', async (req, res) => {
     let isNewUser = false;
     let welcomeBonusActive = false;
     let bonusType: string | null = null;
+    const MAX_DAILY_AD_REWARDS = 5;
+    let adRewardsUsed = 0;
+    let adRewardsRemaining = MAX_DAILY_AD_REWARDS;
 
     if (profile) {
       const now = new Date();
@@ -892,7 +895,34 @@ router.get('/picks', async (req, res) => {
         actualPickLimit = 5; // Welcome bonus (only for free tier users)
         bonusType = welcomeBonusActive ? 'welcome_bonus' : 'new_user_auto';
       }
-      
+
+      // Daily Ad Reward extras (free/welcome users only)
+      // Reset daily counter every 24 hours (similar to chat message logic)
+      try {
+        const lastReset = profile.last_ad_reward_reset ? new Date(profile.last_ad_reward_reset) : null;
+        const hoursSinceReset = lastReset ? (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60) : 999;
+        if (hoursSinceReset >= 24) {
+          await supabaseAdmin
+            .from('profiles')
+            .update({ daily_ad_rewards_used: 0, last_ad_reward_reset: now.toISOString(), updated_at: now.toISOString() })
+            .eq('id', userId);
+          adRewardsUsed = 0;
+        } else {
+          adRewardsUsed = Math.max(0, profile.daily_ad_rewards_used || 0);
+        }
+      } catch (e) {
+        logger.warn(`Failed to process ad reward reset for user ${userId}: ${e}`);
+        adRewardsUsed = Math.max(0, profile.daily_ad_rewards_used || 0);
+      }
+
+      adRewardsRemaining = Math.max(0, MAX_DAILY_AD_REWARDS - adRewardsUsed);
+
+      // Only apply ad extras if user is not Pro/Elite (i.e., free or welcome period)
+      if (!(profile.subscription_tier === 'pro' || profile.subscription_tier === 'elite')) {
+        const adExtras = Math.min(adRewardsUsed, MAX_DAILY_AD_REWARDS);
+        actualPickLimit = Math.max(actualPickLimit, 2) + adExtras; // base (2 or 5 during welcome) + extras
+      }
+
       logger.info(`🎯 User status - New: ${isNewUser}, Welcome Bonus: ${welcomeBonusActive}, Tier: ${profile.subscription_tier}, Limit: ${actualPickLimit}`);
     }
     
@@ -900,6 +930,7 @@ router.get('/picks', async (req, res) => {
     const { data: predictions, error } = await supabaseAdmin
       .from('ai_predictions')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100);  // Increased to 100 to support Elite tier (30 picks) + sport filtering
 
@@ -1131,7 +1162,10 @@ router.get('/picks', async (req, res) => {
         bonusType,
         generatedCount: formattedPredictions.length,
         totalAvailable: predictions.length,
-        fetched_at: new Date().toISOString()
+        fetched_at: new Date().toISOString(),
+        adRewardsUsed,
+        adRewardsRemaining,
+        adDailyLimit: MAX_DAILY_AD_REWARDS
       }
     });
 

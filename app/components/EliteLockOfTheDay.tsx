@@ -26,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import Colors from '../constants/Colors';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -56,6 +57,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
   const [lockPick, setLockPick] = useState<LockOfTheDayPick | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { theme } = useUITheme();
 
   useEffect(() => {
     fetchLockOfTheDay();
@@ -147,7 +149,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
     return (
       <View style={styles.container}>
         <LinearGradient
-          colors={['#8B5CF6', '#EC4899', '#F59E0B']}
+          colors={theme.headerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.loadingCard}
@@ -180,7 +182,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
       <View style={styles.container}>
         {/* Remove TouchableOpacity to prevent chatbot popup */}
         <LinearGradient
-          colors={['#8B5CF6', '#EC4899', '#F59E0B']}
+          colors={theme.headerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.card}
@@ -268,9 +270,9 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
             }}
             activeOpacity={0.8}
           >
-            <Trophy size={20} color="#8B5CF6" />
+            <Trophy size={20} color={theme.accentPrimary} />
             <Text style={styles.actionButtonText}>View Full Analysis</Text>
-            <Zap size={20} color="#8B5CF6" />
+            <Zap size={20} color={theme.accentPrimary} />
           </TouchableOpacity>
         </LinearGradient>
       </View>
@@ -303,7 +305,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
               {/* Modal Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>
-                  <Lock size={24} color="#FFD700" />
+                  <Lock size={24} color={theme.accentPrimary} />
                   <Text style={styles.modalTitle}>Elite Lock Analysis</Text>
                 </View>
                 <TouchableOpacity 
@@ -349,7 +351,7 @@ const EliteLockOfTheDay: React.FC<EliteLockOfTheDayProps> = ({ userId, userPrefe
                 <>
                   {/* Analytics */}
                   <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>📊 Elite Analytics</Text>
+                    <Text style={[styles.modalSectionTitle, { color: theme.accentPrimary }]}>📊 Elite Analytics</Text>
                     <View style={styles.modalAnalyticsGrid}>
                       <View style={styles.modalAnalyticsItem}>
                         <Text style={styles.modalAnalyticsLabel}>Confidence</Text>

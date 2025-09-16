@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { normalize, isTablet } from '../services/device';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -25,6 +26,7 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
   isVisible = true,
   tier = 'free'
 }) => {
+  const { theme } = useUITheme();
   // Animation values
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -171,7 +173,7 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
   const getTierGradient = (): readonly [string, string, ...string[]] => {
     switch (tier) {
       case 'elite':
-        return ['#8B5CF6', '#EC4899', '#F59E0B'] as const;
+        return theme.headerGradient;
       case 'pro':
         return ['#1E40AF', '#7C3AED', '#0F172A'] as const;
       default:
@@ -182,7 +184,7 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
   const getTierAccentColor = () => {
     switch (tier) {
       case 'elite':
-        return '#FFD700';
+        return theme.accentPrimary;
       case 'pro':
         return '#00E5FF';
       default:

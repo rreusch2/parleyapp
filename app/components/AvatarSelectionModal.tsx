@@ -76,19 +76,31 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
   const handlePersonalizedAvatar = async () => {
     try {
       setLoading('personalized');
+      // Create a unique, encoded Multiavatar URL from user data
       const personalizedUrl = await avatarService.generatePersonalizedAvatar(userId, username, email);
-      
-      // Set as preset avatar (saves to database)
+
+      // Best-effort prefetch so the image appears instantly when modal closes
+      try {
+        // @ts-ignore - prefetch exists on RN Image
+        await Image.prefetch?.(personalizedUrl);
+      } catch {}
+
+      // Persist to profile (DB) so it survives reloads
       const personalizedPreset: PresetAvatar = {
         id: 'personalized_' + userId,
         name: 'My Personal Avatar',
         url: personalizedUrl,
         category: 'personal'
       };
-      
+
       await avatarService.setPresetAvatar(userId, personalizedPreset);
+
+      // Update UI immediately and close modal
       onAvatarSelected(personalizedUrl);
       onClose();
+
+      // Friendly confirmation
+      Alert.alert('Avatar Updated', 'Your personal avatar has been set!');
     } catch (error) {
       Alert.alert('Error', 'Failed to create personalized avatar. Please try again.');
       console.error('Error creating personalized avatar:', error);

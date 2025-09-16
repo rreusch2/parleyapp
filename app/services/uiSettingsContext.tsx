@@ -3,18 +3,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AccessibilityInfo } from 'react-native';
 
 export type ChatBubbleAnimation = 'glow' | 'pulse' | 'shimmer' | 'static';
+export type RingTheme = 'auto' | 'aqua' | 'sunset' | 'indigo';
 export type BubbleSize = 'standard' | 'compact';
 
 export interface UISettings {
   chatBubbleAnimation: ChatBubbleAnimation;
   bubbleSize: BubbleSize;
   respectReduceMotion: boolean;
+  ringTheme: RingTheme;
 }
 
 const DEFAULT_SETTINGS: UISettings = {
   chatBubbleAnimation: 'glow',
   bubbleSize: 'standard',
   respectReduceMotion: true,
+  ringTheme: 'auto',
 };
 
 const STORAGE_KEY = 'pp_ui_settings_v1';
@@ -25,6 +28,7 @@ interface UISettingsContextValue extends UISettings {
   setChatBubbleAnimation: (anim: ChatBubbleAnimation) => Promise<void> | void;
   setBubbleSize: (size: BubbleSize) => Promise<void> | void;
   setRespectReduceMotion: (value: boolean) => Promise<void> | void;
+  setRingTheme: (theme: RingTheme) => Promise<void> | void;
   setSettings: (next: Partial<UISettings>) => Promise<void> | void;
 }
 
@@ -68,6 +72,7 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
     setChatBubbleAnimation: (anim) => setSettings({ chatBubbleAnimation: anim }),
     setBubbleSize: (size) => setSettings({ bubbleSize: size }),
     setRespectReduceMotion: (value) => setSettings({ respectReduceMotion: value }),
+    setRingTheme: (theme) => setSettings({ ringTheme: theme }),
     setSettings,
   }), [settings, reduceMotionOS]);
 

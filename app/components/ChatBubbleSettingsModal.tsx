@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUISettings, ChatBubbleAnimation, BubbleSize } from '../services/uiSettingsContext';
+import { useUISettings, ChatBubbleAnimation, BubbleSize, RingTheme } from '../services/uiSettingsContext';
+import ChatBubblePreview from './ChatBubblePreview';
 
 interface Props {
   visible: boolean;
@@ -18,6 +19,13 @@ const ANIM_LABELS: Record<ChatBubbleAnimation, string> = {
 const SIZE_LABELS: Record<BubbleSize, string> = {
   standard: 'Standard',
   compact: 'Compact',
+};
+
+const THEME_LABELS: Record<RingTheme, string> = {
+  auto: 'Auto (match tier)',
+  aqua: 'Aqua',
+  sunset: 'Sunset',
+  indigo: 'Indigo',
 };
 
 function OptionRow({ selected, title, subtitle, onPress }: { selected: boolean; title: string; subtitle?: string; onPress: () => void }) {
@@ -39,10 +47,13 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
     chatBubbleAnimation,
     bubbleSize,
     respectReduceMotion,
+    ringTheme,
     setChatBubbleAnimation,
     setBubbleSize,
     setRespectReduceMotion,
+    setRingTheme,
   } = useUISettings();
+  const [exiting, setExiting] = useState(false);
 
   const animOptions = useMemo<ChatBubbleAnimation[]>(() => ['glow', 'pulse', 'shimmer', 'static'], []);
   const sizeOptions = useMemo<BubbleSize[]>(() => ['standard', 'compact'], []);
@@ -56,7 +67,15 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
             <Text style={styles.headerSubtitle}>Make it yours. Changes apply instantly.</Text>
           </LinearGradient>
 
-          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ padding: 16 }}>
+          {/* Live Preview */}
+          <View style={styles.previewArea}>
+            <Text style={styles.previewTitle}>Preview</Text>
+            <View style={styles.previewFrame}>
+              <ChatBubblePreview animateOut={exiting} onExited={onClose} />
+            </View>
+          </View>
+
+          <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ padding: 16 }}>
             <Text style={styles.sectionTitle}>Animation</Text>
             {animOptions.map((opt) => (
               <OptionRow
@@ -77,6 +96,16 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
               />
             ))}
 
+            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ring Theme</Text>
+            {(Object.keys(THEME_LABELS) as RingTheme[]).map((opt) => (
+              <OptionRow
+                key={opt}
+                selected={ringTheme === opt}
+                title={THEME_LABELS[opt]}
+                onPress={() => setRingTheme(opt)}
+              />
+            ))}
+
             <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Motion</Text>
             <OptionRow
               selected={respectReduceMotion}
@@ -87,7 +116,13 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setExiting(true);
+                // ChatBubblePreview will call onExited -> onClose
+              }}
+            >
               <Text style={styles.closeText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -124,6 +159,24 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     marginTop: 4,
     fontSize: 12,
+  },
+  previewArea: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  previewTitle: {
+    color: '#93C5FD',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  previewFrame: {
+    height: 140,
+    backgroundColor: '#0A1220',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
     color: '#93C5FD',
