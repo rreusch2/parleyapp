@@ -197,14 +197,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
   const renderTierComparison = () => (
     <View style={styles.tierComparisonContainer}>
+      <Text style={styles.chooseYourPlanTitle}>🚀 Choose Your Winning Plan</Text>
       <View style={styles.urgencyContainer}>
         <View style={styles.urgencyBadge}>
           <Text style={styles.urgencyText}>⚡ Limited Time: 50% OFF All Plans</Text>
         </View>
-      </View>
-      <Text style={styles.chooseYourPlanTitle}>🚀 Choose Your Winning Plan</Text>
-      <View style={styles.socialProofContainer}>
-        <Text style={styles.socialProofText}>🏆 Join 10,000+ Elite Winners</Text>
       </View>
       
       {/* Tier Selection Cards */}
@@ -233,24 +230,28 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             
             <View style={styles.tierFeatures}>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 💰 20 Winning AI Picks
+                • 20 Winning AI Picks
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 🧠 8 Expert Insights
+                • 8 Expert Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 💬 Unlimited AI Chat
+                • Unlimited AI Chat
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 📊 Live Analytics
+                • Live Analytics
               </Text>
             </View>
             
-            {selectedTier === 'pro' && (
-              <View style={styles.selectedIndicator}>
-                <Check size={16} color="#1D4ED8" />
-              </View>
-            )}
+            <View>
+              {selectedTier === 'pro' ? (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#1D4ED8" />
+                </View>
+              ) : (
+                <View style={styles.selectedIndicatorPlaceholder} />
+              )}
+            </View>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -278,28 +279,29 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             
             <View style={styles.tierFeatures}>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 💰 30 Elite AI Picks
+                • 30 Elite AI Picks
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 🧠 12 Pro Insights
+                • 12 Pro Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 🎆 Advanced Professor Lock
+                • Advanced Professor Lock
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 📈 Premium Analytics
-              </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 🔒 Guaranteed Daily Lock
+                • Premium Analytics
               </Text>
             </View>
             {/* Removed guarantee row to keep Pro/Elite cards the same height */}
             
-            {selectedTier === 'elite' && (
-              <View style={styles.selectedIndicator}>
-                <Check size={16} color="#7C3AED" />
-              </View>
-            )}
+            <View>
+              {selectedTier === 'elite' ? (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#7C3AED" />
+                </View>
+              ) : (
+                <View style={styles.selectedIndicatorPlaceholder} />
+              )}
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -369,15 +371,42 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 style={styles.planGradient}
               >
                 {savings && (
-                  <View style={styles.savingsBadge}>
-                    <Text style={styles.savingsText}>{savings}</Text>
+                  <View
+                    style={[
+                      styles.savingsBadge,
+                      selectedTier === 'pro' ? styles.savingsBadgePro : styles.savingsBadgeElite,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.savingsText,
+                        { color: selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
+                      ]}
+                    >
+                      {savings}
+                    </Text>
                   </View>
                 )}
                 
                 {savings === 'Save 17%' && (
-                  <View style={[styles.popularBadge, isSelected && styles.popularBadgeSelected]}>
-                    <TrendingUp size={10} color={isSelected ? '#0F172A' : '#10B981'} />
-                    <Text style={[styles.popularText, isSelected && styles.popularTextSelected]}>
+                  <View
+                    style={[
+                      styles.popularBadge,
+                      isSelected && styles.popularBadgeSelected,
+                      selectedTier === 'pro' ? styles.popularBadgePro : styles.popularBadgeElite,
+                    ]}
+                  >
+                    <TrendingUp
+                      size={10}
+                      color={isSelected ? '#0F172A' : selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6'}
+                    />
+                    <Text
+                      style={[
+                        styles.popularText,
+                        isSelected && styles.popularTextSelected,
+                        { color: isSelected ? '#0F172A' : selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
+                      ]}
+                    >
                       POPULAR
                     </Text>
                   </View>
@@ -410,8 +439,20 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
                     {savings === 'Save 17%' && (
-                      <View style={styles.valuePropositionContainer}>
-                        <Text style={styles.valuePropositionText}>🔥 Most Chosen by Winners</Text>
+                      <View
+                        style={[
+                          styles.valuePropositionContainer,
+                          selectedTier === 'pro' ? styles.valuePropositionPillPro : styles.valuePropositionPillElite,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.valuePropositionText,
+                            selectedTier === 'pro' ? styles.valuePropositionTextPro : styles.valuePropositionTextElite,
+                          ]}
+                        >
+                          🔥 Most Chosen by Winners
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -455,8 +496,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </View>
               <Text style={styles.headerTitleLine1}>Welcome to</Text>
               <Text style={styles.headerTitleLine2}>{'Predictive\u00A0Play'}</Text>
-              <Text style={styles.headerSubtitle}>
-                Join elite bettors using AI-powered predictions
+              <Text
+                style={[
+                  styles.headerSocialProof,
+                  { color: selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
+                ]}
+              >
+                Join 10,000+ Elite Winners
               </Text>
             </View>
 
@@ -672,6 +718,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  headerSocialProof: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 0,
+  },
   tierComparisonContainer: {
     paddingHorizontal: 20,
     marginBottom: 30,
@@ -811,6 +864,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  savingsBadgePro: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+  },
+  savingsBadgeElite: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
   },
   savingsText: {
     fontSize: 10,
@@ -885,6 +947,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+  },
+  selectedIndicatorPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginLeft: 8,
+    opacity: 0,
   },
   subscribeButton: {
     marginHorizontal: 20,
@@ -1135,6 +1204,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderColor: '#FFFFFF',
   },
+  popularBadgePro: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+  },
+  popularBadgeElite: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
+  },
   popularText: {
     fontSize: 10,
     fontWeight: '700',
@@ -1153,6 +1230,34 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
     textAlign: 'center',
+  },
+  valuePropositionPillPro: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  valuePropositionPillElite: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  valuePropositionTextPro: {
+    color: '#3B82F6',
+    fontWeight: '700',
+  },
+  valuePropositionTextElite: {
+    color: '#8B5CF6',
+    fontWeight: '700',
   },
   previewSection: {
     marginTop: 20,

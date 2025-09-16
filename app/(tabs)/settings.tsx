@@ -55,6 +55,12 @@ import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
 import * as Clipboard from 'expo-clipboard';
+import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
+import ChatBubbleSettingsModal from '../components/ChatBubbleSettingsModal';
+import { useUISettings } from '../services/uiSettingsContext';
+import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
+import { UserAvatar } from '../components/UserAvatar';
+import { avatarService } from '../services/avatarService';
 
 interface UserProfile {
   id: string;
@@ -80,6 +86,7 @@ interface UserProfile {
 export default function SettingsScreen() {
   const { isPro, isElite, restorePurchases, openSubscriptionModal } = useSubscription();
   const { showManualReview } = useReview();
+  const { chatBubbleAnimation, bubbleSize, respectReduceMotion } = useUISettings();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,7 +103,11 @@ export default function SettingsScreen() {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showUserPreferencesModal, setShowUserPreferencesModal] = useState(false);
+  const [showChatBubbleSettings, setShowChatBubbleSettings] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  // DEV: show signup paywall without creating a new account
+  const [showSignupPaywall, setShowSignupPaywall] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   // Auth state - check if user has Apple auth and/or password
   const [hasAppleAuth, setHasAppleAuth] = useState(false);
@@ -123,6 +134,7 @@ export default function SettingsScreen() {
   const [referralStats, setReferralStats] = useState({ totalReferrals: 0, pendingRewards: 0 });
   const [pointsBalance, setPointsBalance] = useState(0);
   const [showPointsModal, setShowPointsModal] = useState(false);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
 
   // Profile and preference states
   const [riskTolerance, setRiskTolerance] = useState('medium');
@@ -274,6 +286,7 @@ export default function SettingsScreen() {
             subscription_tier: profile.subscription_tier || 'free',
             created_at: profile.created_at
           });
+          setCurrentAvatarUrl(profile.avatar_url);
           setHasUsername(!!profile.username && profile.username.trim() !== '');
           setUserReferralCode(profile.referral_code || '');
           
@@ -602,43 +615,62 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = async () => {
+    // On web, React Native's Alert with multiple buttons is not supported.
+    // Use a native window.confirm to ensure the callback runs.
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Are you sure you want to log out?') : true;
+      if (!confirmed) return;
+      try {
+        console.log('🚪 Logging out user (web)...');
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Logout error:', error);
+          Alert.alert('Error', 'Failed to log out. Please try again.');
+          return;
+        }
+        console.log('✅ Successfully logged out');
+        // Best-effort purge of Supabase tokens in case storage implementation on web doesn't clear
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            Object.keys(window.localStorage)
+              .filter((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+              .forEach((k) => window.localStorage.removeItem(k));
+          }
+        } catch {}
+        // Try router first (works well on web), then hard redirect as a fallback
+        try {
+          await router.replace('/(auth)/login');
+        } catch {}
+        console.log('🌐 Web platform detected, forcing full reload to /login');
+        window.location.replace('/login');
+      } catch (error) {
+        console.error('Logout error:', error);
+        Alert.alert('Error', 'Failed to log out. Please try again.');
+      }
+      return;
+    }
+
+    // Native platforms (iOS/Android): use Alert with buttons
     Alert.alert(
       'Log Out',
       'Are you sure you want to log out?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🚪 Logging out user...');
-              
-              // Sign out from Supabase
+              console.log('🚪 Logging out user (native)...');
               const { error } = await supabase.auth.signOut();
-              
               if (error) {
                 console.error('Logout error:', error);
                 Alert.alert('Error', 'Failed to log out. Please try again.');
                 return;
               }
-              
               console.log('✅ Successfully logged out');
-              
-              // Platform-specific navigation handling
-              if (Platform.OS === 'web') {
-                // For web, use window.location to force a full redirect
-                console.log('🌐 Web platform detected, using window.location');
-                window.location.href = '/login';
-              } else {
-                // For native platforms, use router.replace
-                console.log('📱 Native platform detected, using router.replace');
-                await router.replace('/(auth)/login');
-              }
-              
+              console.log('📱 Native platform detected, using router.replace');
+              await router.replace('/(auth)/login');
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Error', 'Failed to log out. Please try again.');
@@ -650,51 +682,71 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = async () => {
+    // Web: use window.confirm for reliable confirmation flow
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' ? window.confirm('Are you sure you want to delete your account? This cannot be undone.') : false;
+      if (!confirmed) return;
+      try {
+        setDeleteAccountLoading(true);
+        console.log('🗑️ Deleting user account (web)...');
+        if (!userProfile?.id) {
+          Alert.alert('Error', 'User not found. Please try logging out and back in.');
+          return;
+        }
+        await userApi.deleteAccount(userProfile.id);
+        console.log('✅ Account successfully deleted');
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Signout after account deletion error:', error);
+        }
+        // Best-effort purge of Supabase tokens on web
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            Object.keys(window.localStorage)
+              .filter((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+              .forEach((k) => window.localStorage.removeItem(k));
+          }
+        } catch {}
+        try {
+          await router.replace('/(auth)/login');
+        } catch {}
+        console.log('🌐 Web platform detected, forcing full reload to /login');
+        window.location.replace('/login');
+      } catch (error) {
+        console.error('Delete account error:', error);
+        Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
+      } finally {
+        setDeleteAccountLoading(false);
+      }
+      return;
+    }
+
+    // Native platforms (iOS/Android)
     Alert.alert(
       'Delete Account',
       'Are you sure you want to delete your account? This action cannot be undone and will permanently delete all your data.',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete Account',
           style: 'destructive',
           onPress: async () => {
             try {
               setDeleteAccountLoading(true);
-              console.log('🗑️ Deleting user account...');
-              
+              console.log('🗑️ Deleting user account (native)...');
               if (!userProfile?.id) {
                 Alert.alert('Error', 'User not found. Please try logging out and back in.');
                 return;
               }
-              
-              // Call the delete account API
               await userApi.deleteAccount(userProfile.id);
-              
               console.log('✅ Account successfully deleted');
-              
-              // Sign out and navigate to login
               const { error } = await supabase.auth.signOut();
               if (error) {
                 console.error('Signout after account deletion error:', error);
               }
-              
-              // Platform-specific navigation handling
-              if (Platform.OS === 'web') {
-                // For web, use window.location to force a full redirect
-                console.log('🌐 Web platform detected, using window.location');
-                window.location.href = '/login';
-              } else {
-                // For native platforms, use router.replace
-                console.log('📱 Native platform detected, using router.replace');
-                await router.replace('/(auth)/login');
-              }
-              
+              console.log('📱 Native platform detected, using router.replace');
+              await router.replace('/(auth)/login');
               Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
-              
             } catch (error) {
               console.error('Delete account error:', error);
               Alert.alert('Error', 'Failed to delete account. Please try again or contact support.');
@@ -799,6 +851,18 @@ export default function SettingsScreen() {
     return displayName.substring(0, 2).toUpperCase();
   };
 
+  const handleAvatarSelected = (newAvatarUrl: string) => {
+    setCurrentAvatarUrl(newAvatarUrl);
+    if (userProfile) {
+      setUserProfile({
+        ...userProfile,
+        avatar_url: newAvatarUrl
+      });
+    }
+    // Force refresh of avatar
+    fetchUserProfile();
+  };
+
   const handleBiometricComingSoon = () => {
     Alert.alert(
       'Coming Soon! 🔐',
@@ -868,6 +932,22 @@ export default function SettingsScreen() {
           action: handleManageSubscription
         },
         {
+          id: 'open_signup_paywall_dev',
+          title: 'Open Signup Paywall (DEV)',
+          type: 'link',
+          subtitle: 'Temporarily show the signup paywall for testing',
+          badge: 'DEV',
+          badgeColor: '#3B82F6',
+          action: () => setShowSignupPaywall(true),
+        },
+        {
+          id: 'avatar',
+          title: 'Edit Avatar',
+          type: 'link',
+          subtitle: 'Choose from presets or upload your own photo',
+          action: () => setShowAvatarModal(true)
+        },
+        {
           id: 'preferences',
           title: 'User Preferences',
           type: 'link',
@@ -932,6 +1012,22 @@ export default function SettingsScreen() {
           type: 'toggle',
           value: pushAlertsEnabled,
           onToggle: handleTogglePushAlerts,
+        },
+      ]
+    },
+    {
+      title: 'Appearance & UI',
+      icon: Sparkles,
+      iconColor: '#0EA5E9',
+      items: [
+        {
+          id: 'chat_bubble_customization',
+          title: 'Chat Bubble',
+          type: 'link',
+          subtitle: `${
+            chatBubbleAnimation === 'glow' ? 'Subtle Glow' : chatBubbleAnimation === 'pulse' ? 'Gentle Pulse' : chatBubbleAnimation === 'shimmer' ? 'Logo Shimmer' : 'Static'
+          } • ${bubbleSize === 'compact' ? 'Compact' : 'Standard'}${respectReduceMotion ? ' • Reduce Motion' : ''}`,
+          action: () => setShowChatBubbleSettings(true)
         },
       ]
     },
@@ -1077,13 +1173,35 @@ export default function SettingsScreen() {
         >
           <View style={styles.profileToggleContent}>
             <View style={styles.profileBasicInfo}>
-              <LinearGradient
-                colors={isElite ? ['#8B5CF6', '#7C3AED'] : (isPro ? ['#F59E0B', '#D97706'] : ['#1E293B', '#374151'])}
-                style={styles.profileImagePlaceholder}
-              >
-                {(isPro || isElite) && <Crown size={20} color="#FFFFFF" />}
-                {!isPro && !isElite && <Text style={styles.profileInitials}>{getUserInitials()}</Text>}
-              </LinearGradient>
+              <TouchableOpacity onPress={() => setShowAvatarModal(true)}>
+                <UserAvatar
+                  userId={userProfile?.id}
+                  username={userProfile?.username || undefined}
+                  email={userProfile?.email || undefined}
+                  avatarUrl={currentAvatarUrl}
+                  size={60}
+                  showBorder={true}
+                  borderColor={isElite ? '#8B5CF6' : (isPro ? '#F59E0B' : '#2E86AB')}
+                  gradientColors={isElite ? ['#8B5CF6', '#7C3AED'] : (isPro ? ['#F59E0B', '#D97706'] : ['#2E86AB', '#A23B72'])}
+                />
+                {(isPro || isElite) && (
+                  <View style={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: -2,
+                    backgroundColor: isElite ? '#8B5CF6' : '#F59E0B',
+                    borderRadius: 10,
+                    width: 20,
+                    height: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: '#0A0A0A'
+                  }}>
+                    <Crown size={10} color="#FFFFFF" />
+                  </View>
+                )}
+              </TouchableOpacity>
               <View style={styles.profileDetails}>
                 <View style={styles.profileNameContainer}>
                   <Text style={styles.profileName}>{loading ? 'Loading...' : getUserDisplayName()}</Text>
@@ -1233,8 +1351,25 @@ export default function SettingsScreen() {
 
       <View style={styles.versionInfo}>
         <Text style={styles.versionText}>Predictive Play v1.0.0</Text>
-        <Text style={styles.copyrightText}>© 2025 Predictive Play Inc.</Text>
+        <Text style={styles.copyrightText}> 2025 Predictive Play Inc.</Text>
       </View>
+
+      {/* Avatar Selection Modal */}
+      <AvatarSelectionModal
+        visible={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        onAvatarSelected={handleAvatarSelected}
+        userId={userProfile?.id || ''}
+        currentAvatarUrl={currentAvatarUrl}
+        username={userProfile?.username || undefined}
+        email={userProfile?.email || undefined}
+      />
+
+      {/* Chat Bubble Settings */}
+      <ChatBubbleSettingsModal
+        visible={showChatBubbleSettings}
+        onClose={() => setShowChatBubbleSettings(false)}
+      />
 
       {/* Change Password Modal */}
       <Modal
@@ -1548,6 +1683,13 @@ export default function SettingsScreen() {
         visible={showPointsModal}
         onClose={() => setShowPointsModal(false)}
         userId={userProfile?.id || ''}
+      />
+
+      {/* DEV: Signup Paywall (Tiered) */}
+      <TieredSignupSubscriptionModal
+        visible={showSignupPaywall}
+        onClose={() => setShowSignupPaywall(false)}
+        onContinueFree={() => setShowSignupPaywall(false)}
       />
     </ScrollView>
   );

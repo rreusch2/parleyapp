@@ -6,6 +6,7 @@ import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
+import { UISettingsProvider } from './services/uiSettingsContext';
 import { useRouter } from 'expo-router';
 import TieredSubscriptionModal from './components/TieredSubscriptionModal';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -161,9 +162,11 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <SubscriptionProvider>
-        <AppContent />
-      </SubscriptionProvider>
+      <UISettingsProvider>
+        <SubscriptionProvider>
+          <AppContent />
+        </SubscriptionProvider>
+      </UISettingsProvider>
     </ErrorBoundary>
   );
 }
