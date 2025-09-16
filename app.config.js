@@ -60,8 +60,8 @@ module.exports = {
           }
         }
       },
-      usesAppleSignIn: true
-
+      usesAppleSignIn: true,
+      googleServicesFile: "./GoogleService-Info.plist"
     },
     android: {
       icon: "./assets/images/icon.png",
@@ -73,6 +73,7 @@ module.exports = {
       package: "com.parleyapp.mobile",
       versionCode: 1,
       jsEngine: "hermes",
+      googleServicesFile: "./google-services.json",
       // Permissions for sports betting app
       permissions: [
         "INTERNET",
@@ -99,6 +100,12 @@ module.exports = {
       "expo-web-browser",
       "expo-apple-authentication",
       "expo-asset",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.37834669347-14cuffdgj2u50rtn752hd8s7tbq6dkss"
+        }
+      ],
       [
         "react-native-google-mobile-ads",
         {

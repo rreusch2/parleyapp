@@ -46,6 +46,8 @@ import { AIPrediction } from '../services/api/aiService';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
 import { useReview } from '../hooks/useReview';
+import { RewardedAd, RewardedAdEventType, TestIds, AdEventType } from 'react-native-google-mobile-ads';
+import { adsService } from '../services/api/adsService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -216,6 +218,34 @@ export default function ProAIChat({
     }
   };
 
+  const handleWatchAd = () => {
+    try {
+      setShowAdGateModal(false);
+      const rewarded = rewardedRef.current;
+      if (!rewarded) return;
+      if (!rewardedLoaded) {
+        rewarded.load();
+        setTimeout(() => {
+          try { rewarded.show(); } catch {}
+        }, 400);
+      } else {
+        rewarded.show();
+        setRewardedLoaded(false);
+      }
+    } catch (e) {
+      console.warn('Error showing rewarded ad', e);
+    }
+  };
+
+  const handleUpgradePress = () => {
+    setShowAdGateModal(false);
+    openSubscriptionModal();
+  };
+
+  const handleCloseAdGate = () => {
+    setShowAdGateModal(false);
+  };
+
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -234,6 +264,12 @@ export default function ProAIChat({
   const [buttonScaleAnimation] = useState(new Animated.Value(1));
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [quickPromptAnim] = useState(new Animated.Value(0));
+  // Ad-gated chat state (free users only)
+  const [showAdGateModal, setShowAdGateModal] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [adProcessing, setAdProcessing] = useState(false);
+  const [rewardedLoaded, setRewardedLoaded] = useState(false);
+  const rewardedRef = useRef<ReturnType<typeof RewardedAd.createForAdRequest> | null>(null);
 
   // Add keyboard listeners with height detection
   useEffect(() => {
@@ -342,6 +378,58 @@ export default function ProAIChat({
     }
   }, [showAIChat, chatContext?.customPrompt]);
 
+  // Prepare rewarded ad lifecycle for chat gating
+  useEffect(() => {
+    let unsubscribeLoaded: any = null;
+    let unsubscribeClosed: any = null;
+    let unsubscribeEarned: any = null;
+    const setup = async () => {
+      if (Platform.OS === 'web') return;
+      // Only prepare when chat is open to reduce memory usage
+      if (!showAIChat) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      if (!userId) return;
+      const adUnitId = __DEV__ ? TestIds.REWARDED : (process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID as string);
+      const rewarded = RewardedAd.createForAdRequest(adUnitId || TestIds.REWARDED, {
+        serverSideVerificationOptions: {
+          userId: userId,
+          customData: 'chat_send'
+        }
+      });
+      rewardedRef.current = rewarded;
+
+      unsubscribeLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => setRewardedLoaded(true));
+      unsubscribeClosed = rewarded.addAdEventListener(AdEventType.CLOSED, () => {
+        // Preload next ad
+        setTimeout(() => rewarded.load(), 300);
+      });
+      unsubscribeEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, async () => {
+        try {
+          setAdProcessing(true);
+          await adsService.grantExtraPick({ rewardItem: 'chat_send' });
+          if (pendingMessage) {
+            const toSend = pendingMessage;
+            setPendingMessage(null);
+            await performSend(toSend);
+          }
+        } catch (e) {
+          console.warn('Chat ad grant failed', e);
+        } finally {
+          setAdProcessing(false);
+        }
+      });
+
+      rewarded.load();
+    };
+    setup();
+    return () => {
+      if (unsubscribeLoaded) unsubscribeLoaded();
+      if (unsubscribeClosed) unsubscribeClosed();
+      if (unsubscribeEarned) unsubscribeEarned();
+    };
+  }, [showAIChat, pendingMessage]);
+
   // Enhanced search animations
   useEffect(() => {
     if (isSearching) {
@@ -393,8 +481,21 @@ export default function ProAIChat({
     }
   }, [isSearching]);
 
-  const sendMessage = async () => {
+  // Wrapper that decides whether to ad-gate or send immediately
+  const onPressSend = async () => {
     if (!inputText.trim() || isTyping) return;
+    if (isPro || isElite) {
+      await performSend(inputText.trim());
+      return;
+    }
+    // Free user: show ad-gate modal
+    setPendingMessage(inputText.trim());
+    setShowAdGateModal(true);
+  };
+
+  // Actual send implementation
+  const performSend = async (messageToSend: string) => {
+    if (!messageToSend.trim() || isTyping) return;
 
     // Dismiss keyboard when sending message
     Keyboard.dismiss();
@@ -415,26 +516,15 @@ export default function ProAIChat({
       }),
     ]).start();
 
-    // Check if user can send message (free users limited to 3 messages)
-    if (!canSendMessage(isPro)) {
-      console.log('🔒 Free user reached message limit, opening subscription modal');
-      setInputText('');
-      setShowAIChat(false);
-      setTimeout(() => {
-        openSubscriptionModal();
-      }, 300);
-      return;
-    }
-
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: inputText,
+      text: messageToSend,
       isUser: true,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const messageText = inputText;
+    const messageText = messageToSend;
     setInputText('');
     setIsTyping(true);
     setIsSearching(false);
@@ -1150,7 +1240,7 @@ export default function ProAIChat({
               multiline
               maxLength={500}
               blurOnSubmit={false}
-              onSubmitEditing={sendMessage}
+              onSubmitEditing={onPressSend}
             />
             {/* Quick Prompts Toggle */}
             <TouchableOpacity
@@ -1165,7 +1255,7 @@ export default function ProAIChat({
                 styles.sendButton, 
                 !inputText.trim() && styles.sendButtonDisabled
               ]}
-              onPress={sendMessage}
+              onPress={onPressSend}
               disabled={!inputText.trim() || isTyping}
             >
               <Animated.View style={{ transform: [{ scale: buttonScaleAnimation }] }}>
@@ -1178,6 +1268,47 @@ export default function ProAIChat({
           )}
           </View>
         </Pressable>
+        {/* Ad-Gate Modal for Free Users */}
+        <Modal visible={showAdGateModal} animationType="fade" transparent>
+          <View style={styles.adGateOverlay}>
+            <View style={styles.adGateContainer}>
+              <TouchableOpacity style={styles.adGateClose} onPress={handleCloseAdGate} accessibilityLabel="Close">
+                <X size={20} color="#94A3B8" />
+              </TouchableOpacity>
+              <LinearGradient colors={["#0b1220", "#0f172a"]} style={styles.adGateHeader}>
+                <View style={styles.adGateIconCircle}>
+                  <Brain size={22} color="#00E5FF" />
+                </View>
+                <Text style={styles.adGateTitle}>Send message to Professor Lock</Text>
+                <Text style={styles.adGateSubtitle}>
+                  Watch a quick ad to send this message, or upgrade for unlimited chats.
+                </Text>
+              </LinearGradient>
+
+              <View style={styles.adGateButtons}>
+                <TouchableOpacity
+                  style={[styles.adGateButton, adProcessing && { opacity: 0.6 }]}
+                  onPress={handleWatchAd}
+                  disabled={adProcessing}
+                >
+                  <LinearGradient colors={["#22c55e", "#16a34a"]} style={styles.adGateButtonGradient}>
+                    <Zap size={18} color="#0F172A" />
+                    <Text style={styles.adGateButtonText}>{adProcessing ? 'Processing…' : 'Watch ad to send'}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.adGateUpgrade} onPress={handleUpgradePress}>
+                  <LinearGradient colors={["#00E5FF", "#0891B2"]} style={styles.adGateButtonGradient}>
+                    <Crown size={18} color="#0F172A" />
+                    <Text style={styles.adGateButtonText}>Upgrade for unlimited chat</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.adGateFootnote}>Pro and Elite members chat without limits.</Text>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -1364,6 +1495,98 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 8,
+  },
+
+  // Ad-gate modal styles
+  adGateOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  adGateContainer: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#0B1220',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    overflow: 'hidden',
+  },
+  adGateClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)'
+  },
+  adGateHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 22,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(148, 163, 184, 0.15)'
+  },
+  adGateIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.25)',
+    marginBottom: 10
+  },
+  adGateTitle: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    marginBottom: 6,
+  },
+  adGateSubtitle: {
+    color: 'rgba(226,232,240,0.9)',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  adGateButtons: {
+    padding: 16,
+    gap: 12,
+  },
+  adGateButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.35)'
+  },
+  adGateUpgrade: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,255,0.35)'
+  },
+  adGateButtonGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10
+  },
+  adGateButtonText: {
+    color: '#0F172A',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  adGateFootnote: {
+    color: '#94A3B8',
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   
   // Enhanced search bubble styles

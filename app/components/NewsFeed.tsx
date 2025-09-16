@@ -35,6 +35,8 @@ import {
   BarChart3
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
+import { useSubscription } from '../services/subscriptionContext';
+import { useUITheme } from '../services/uiThemeContext';
 import NewsModal from './NewsModal';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -74,6 +76,8 @@ export default function NewsFeed({
   showHeader = true, 
   onNewsClick 
 }: Props) {
+  const { isElite } = useSubscription();
+  const { theme } = useUITheme();
   const [allNews, setAllNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -274,9 +278,12 @@ export default function NewsFeed({
           <View style={styles.titleContainer}>
             <View style={styles.titleRow}>
               <Text style={styles.title}>Live News Feed</Text>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveIndicator} />
-                <Text style={styles.liveText}>LIVE</Text>
+              <View style={[
+                styles.liveBadge,
+                isElite && { backgroundColor: `${theme.accentPrimary}1A`, borderWidth: 1, borderColor: `${theme.accentPrimary}33` }
+              ]}>
+                <View style={[styles.liveIndicator, isElite && { backgroundColor: theme.accentPrimary }]} />
+                <Text style={[styles.liveText, isElite && { color: theme.accentPrimary }]}>LIVE</Text>
               </View>
             </View>
             <Text style={styles.subtitle}>Real-time sports news & updates</Text>
@@ -302,7 +309,11 @@ export default function NewsFeed({
           return (
             <TouchableOpacity
               key={filter.key}
-              style={[styles.filterChip, isSelected && styles.filterChipSelected]}
+              style={[
+                styles.filterChip,
+                isSelected && styles.filterChipSelected,
+                isElite && isSelected && { backgroundColor: theme.accentPrimary, borderColor: theme.accentPrimary }
+              ]}
               onPress={() => setSelectedFilter(filter.key)}
             >
               <IconComponent 
@@ -348,9 +359,9 @@ export default function NewsFeed({
       >
         {error ? (
           <View style={styles.errorContainer}>
-            <AlertTriangle size={24} color="#00E5FF" />
+            <AlertTriangle size={24} color={isElite ? theme.accentPrimary : '#00E5FF'} />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => fetchNews()}>
+            <TouchableOpacity style={[styles.retryButton, isElite && { backgroundColor: theme.accentPrimary }]} onPress={() => fetchNews()}>
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>
           </View>
@@ -373,14 +384,14 @@ export default function NewsFeed({
                   colors={['#1E293B', '#334155']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.newsGradient}
+                  style={[styles.newsGradient, isElite && { borderColor: `${theme.accentPrimary}14` }]}
                 >
                   {/* Header */}
                   <View style={styles.newsHeader}>
                     <View style={styles.newsMetadata}>
                       <View style={styles.typeContainer}>
                         {getNewsIcon(item.type)}
-                        <Text style={styles.newsType}>{item.type.toUpperCase()}</Text>
+                        <Text style={[styles.newsType, isElite && { color: theme.accentPrimary }]}>{item.type.toUpperCase()}</Text>
                       </View>
                       
                       <View style={styles.rightMetadata}>
@@ -444,18 +455,18 @@ export default function NewsFeed({
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={['rgba(0, 229, 255, 0.1)', 'rgba(0, 229, 255, 0.05)']}
+                  colors={isElite ? theme.ctaGradient : ['rgba(0, 229, 255, 0.1)', 'rgba(0, 229, 255, 0.05)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.showAllGradient}
                 >
                   <View style={styles.showAllContent}>
-                    <Text style={styles.showAllText}>
+                    <Text style={[styles.showAllText, isElite && { color: theme.headerTextPrimary }]}>
                       {isExpanded ? 'Show Less' : `Show All ${news.length}`}
                     </Text>
                     <ChevronRight 
                       size={16} 
-                      color="#00E5FF" 
+                      color={isElite ? theme.accentPrimary : '#00E5FF'} 
                       style={[
                         styles.showAllChevron,
                         isExpanded && styles.showAllChevronRotated

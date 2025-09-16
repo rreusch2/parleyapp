@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { X } from 'lucide-react-native';
 import { AVAILABLE_ELITE_THEMES, getThemeTokens, ThemeId, useUITheme } from '../services/uiThemeContext';
 
 interface Props {
@@ -18,6 +19,9 @@ export default function EliteThemeModal({ visible, onClose }: Props) {
           <LinearGradient colors={["#0EA5E9", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
             <Text style={styles.headerTitle}>Elite Theme</Text>
             <Text style={styles.headerSubtitle}>Personalize your Elite experience</Text>
+            <TouchableOpacity onPress={onClose} style={styles.headerClose}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
           </LinearGradient>
 
           <ScrollView contentContainerStyle={styles.content}>
@@ -78,6 +82,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.1)',
+    position: 'relative',
+  },
+  headerClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 6,
   },
   headerTitle: {
     color: '#FFFFFF',

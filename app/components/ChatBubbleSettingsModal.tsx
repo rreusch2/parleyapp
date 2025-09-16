@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useUISettings, ChatBubbleAnimation, BubbleSize, RingTheme } from '../services/uiSettingsContext';
+import { useUISettings, ChatBubbleAnimation, BubbleSize } from '../services/uiSettingsContext';
 import ChatBubblePreview from './ChatBubblePreview';
+import { X } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -19,14 +20,10 @@ const ANIM_LABELS: Record<ChatBubbleAnimation, string> = {
 const SIZE_LABELS: Record<BubbleSize, string> = {
   standard: 'Standard',
   compact: 'Compact',
+  large: 'Large',
 };
 
-const THEME_LABELS: Record<RingTheme, string> = {
-  auto: 'Auto (match tier)',
-  aqua: 'Aqua',
-  sunset: 'Sunset',
-  indigo: 'Indigo',
-};
+// Ring theme is now automatic based on tier; customization removed per latest design
 
 function OptionRow({ selected, title, subtitle, onPress }: { selected: boolean; title: string; subtitle?: string; onPress: () => void }) {
   return (
@@ -46,17 +43,23 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
   const {
     chatBubbleAnimation,
     bubbleSize,
-    respectReduceMotion,
-    ringTheme,
+    // respectReduceMotion,
     setChatBubbleAnimation,
     setBubbleSize,
-    setRespectReduceMotion,
-    setRingTheme,
+    // setRespectReduceMotion,
+    // setRingTheme,
   } = useUISettings();
   const [exiting, setExiting] = useState(false);
 
+  // Fix auto-close on re-open when shimmer was selected: reset exit state on open
+  useEffect(() => {
+    if (visible) {
+      setExiting(false);
+    }
+  }, [visible]);
+
   const animOptions = useMemo<ChatBubbleAnimation[]>(() => ['glow', 'pulse', 'shimmer', 'static'], []);
-  const sizeOptions = useMemo<BubbleSize[]>(() => ['standard', 'compact'], []);
+  const sizeOptions = useMemo<BubbleSize[]>(() => ['standard', 'compact', 'large'], []);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -65,6 +68,9 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
           <LinearGradient colors={["#0EA5E9", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
             <Text style={styles.headerTitle}>Chat Bubble Customization</Text>
             <Text style={styles.headerSubtitle}>Make it yours. Changes apply instantly.</Text>
+            <TouchableOpacity onPress={onClose} style={styles.headerClose}>
+              <X size={18} color="#FFFFFF" />
+            </TouchableOpacity>
           </LinearGradient>
 
           {/* Live Preview */}
@@ -95,24 +101,7 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
                 onPress={() => setBubbleSize(opt)}
               />
             ))}
-
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Ring Theme</Text>
-            {(Object.keys(THEME_LABELS) as RingTheme[]).map((opt) => (
-              <OptionRow
-                key={opt}
-                selected={ringTheme === opt}
-                title={THEME_LABELS[opt]}
-                onPress={() => setRingTheme(opt)}
-              />
-            ))}
-
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Motion</Text>
-            <OptionRow
-              selected={respectReduceMotion}
-              title="Respect iOS/Android Reduce Motion"
-              subtitle="When enabled, animations turn off automatically if the system setting is on."
-              onPress={() => setRespectReduceMotion(!respectReduceMotion)}
-            />
+            {/* Ring Theme and Motion customization removed per latest design */}
           </ScrollView>
 
           <View style={styles.footer}>
@@ -149,6 +138,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+    position: 'relative',
+  },
+  headerClose: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 6,
   },
   headerTitle: {
     color: 'white',

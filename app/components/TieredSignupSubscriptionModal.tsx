@@ -168,7 +168,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   const openTermsOfService = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    const url = 'https://www.predictive-play.com/terms';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -183,7 +183,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   const openPrivacyPolicy = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    const url = 'https://www.predictive-play.com/privacy';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -561,17 +561,17 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$12.49 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$24.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -595,6 +595,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                   </View>
+
+                  <View style={styles.subscriptionOption}>
+                    <Text style={styles.subscriptionInfoTitle}>Elite Day Pass</Text>
+                    <Text style={styles.subscriptionInfoText}>$8.99 one-time purchase (24 hours), non-renewable</Text>
+                  </View>
                 </>
               )}
               
@@ -613,18 +618,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </View>
             </View>
 
-            {/* Footer Links */}
-            <View style={styles.footer}>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity onPress={openTermsOfService}>
-                  <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </TouchableOpacity>
-                <Text style={styles.legalSeparator}> • </Text>
-                <TouchableOpacity onPress={openPrivacyPolicy}>
-                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            
           </ScrollView>
         </LinearGradient>
         {/* Floating CTA */}

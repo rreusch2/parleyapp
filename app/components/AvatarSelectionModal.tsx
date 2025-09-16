@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { avatarService, PRESET_AVATARS, PresetAvatar } from '../services/avatarService';
+import { avatarService } from '../services/avatarService';
 
 interface AvatarSelectionModalProps {
   visible: boolean;
@@ -32,42 +32,28 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
   username,
   email,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('sports');
   const [loading, setLoading] = useState<string | null>(null);
 
-  const categories = [
-    { id: 'sports', name: 'Sports', icon: 'basketball-outline' },
-    { id: 'professional', name: 'Pro', icon: 'briefcase-outline' },
-    { id: 'gaming', name: 'Gaming', icon: 'game-controller-outline' },
-    { id: 'mystical', name: 'Mystical', icon: 'eye-outline' },
-  ];
+  // Simple sports emoji options (lightweight selection)
+  const EMOJI_AVATARS = ['⚾️', '🏀', '🏈', '⚽️', '🎯', '🎲', '🏆', '💰', '📈', '🧠'];
 
-  const handlePresetSelection = async (preset: PresetAvatar) => {
+  // Category tabs removed per design update – using emoji options instead
+
+  // Preset image grid removed – only personalized and emoji options remain
+
+  // Custom upload removed for now per request
+
+  const handleEmojiSelection = async (emoji: string) => {
     try {
-      setLoading(preset.id);
-      await avatarService.setPresetAvatar(userId, preset);
-      onAvatarSelected(preset.url);
+      setLoading(`emoji_${emoji}`);
+      const emojiValue = `emoji:${emoji}`;
+      // Save to DB like a preset so it persists
+      await avatarService.updateUserAvatar(userId, emojiValue);
+      onAvatarSelected(emojiValue);
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'Failed to set avatar. Please try again.');
-      console.error('Error setting preset avatar:', error);
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleCustomUpload = async () => {
-    try {
-      setLoading('custom');
-      const newAvatarUrl = await avatarService.setCustomAvatar(userId);
-      onAvatarSelected(newAvatarUrl);
-      onClose();
-    } catch (error) {
-      if (error instanceof Error && error.message === 'No image selected') {
-        return; // User cancelled
-      }
-      Alert.alert('Error', 'Failed to upload custom avatar. Please try again.');
-      console.error('Error uploading custom avatar:', error);
+      Alert.alert('Error', 'Failed to set emoji avatar. Please try again.');
+      console.error('Error setting emoji avatar:', error);
     } finally {
       setLoading(null);
     }
@@ -86,14 +72,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
       } catch {}
 
       // Persist to profile (DB) so it survives reloads
-      const personalizedPreset: PresetAvatar = {
-        id: 'personalized_' + userId,
-        name: 'My Personal Avatar',
-        url: personalizedUrl,
-        category: 'personal'
-      };
-
-      await avatarService.setPresetAvatar(userId, personalizedPreset);
+      await avatarService.updateUserAvatar(userId, personalizedUrl);
 
       // Update UI immediately and close modal
       onAvatarSelected(personalizedUrl);
@@ -109,7 +88,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
     }
   };
 
-  const filteredAvatars = PRESET_AVATARS.filter(avatar => avatar.category === selectedCategory);
+  // We no longer filter by categories; emojis are now the primary quick-pick options
 
   return (
     <Modal
@@ -153,7 +132,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
         </LinearGradient>
 
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          {/* Custom Upload Button */}
+          {/* Personalized + Emoji Avatar Options */}
           <View style={{ padding: 20 }}>
             {/* Personalized Avatar Button - COOL NEW FEATURE! */}
             <TouchableOpacity
@@ -193,34 +172,6 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleCustomUpload}
-              disabled={loading === 'custom'}
-              style={{
-                backgroundColor: '#2E86AB',
-                paddingVertical: 12,
-                paddingHorizontal: 20,
-                borderRadius: 8,
-                alignItems: 'center',
-                marginTop: 12,
-              }}
-            >
-              {loading === 'custom' ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="camera-outline" size={20} color="#FFFFFF" style={{ marginBottom: 4 }} />
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontSize: 16,
-                    fontWeight: '600',
-                  }}>
-                    Upload Custom Photo
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
             <Text style={{
               color: '#8E8E93',
               fontSize: 14,
@@ -228,60 +179,23 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
               marginTop: 20,
               lineHeight: 20,
             }}>
-              Generate a unique avatar based on your username, choose from presets, or upload your own photo
+              Generate a unique avatar based on your username or pick a sports emoji below
             </Text>
 
-            {/* Category Tabs */}
-            <View style={{
-              flexDirection: 'row',
-              backgroundColor: 'rgba(255,255,255,0.05)',
-              borderRadius: 12,
-              padding: 4,
-              marginBottom: 20,
-            }}>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => setSelectedCategory(category.id)}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    backgroundColor: selectedCategory === category.id ? '#2E86AB' : 'transparent',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Ionicons
-                    name={category.icon as any}
-                    size={20}
-                    color={selectedCategory === category.id ? '#FFFFFF' : '#8E8E93'}
-                  />
-                  <Text style={{
-                    color: selectedCategory === category.id ? '#FFFFFF' : '#8E8E93',
-                    fontSize: 12,
-                    fontWeight: '500',
-                    marginTop: 4,
-                  }}>
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Avatar Grid */}
+            {/* Emoji Grid */}
             <View style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
               justifyContent: 'space-between',
+              marginTop: 12,
             }}>
-              {filteredAvatars.map((avatar) => {
-                const isSelected = currentAvatarUrl === avatar.url;
-                const isLoading = loading === avatar.id;
-
+              {EMOJI_AVATARS.map((emoji) => {
+                const isLoading = loading === `emoji_${emoji}`;
+                const isSelected = currentAvatarUrl === `emoji:${emoji}`;
                 return (
                   <TouchableOpacity
-                    key={avatar.id}
-                    onPress={() => handlePresetSelection(avatar)}
+                    key={emoji}
+                    onPress={() => handleEmojiSelection(emoji)}
                     disabled={isLoading}
                     style={{
                       width: '22%',
@@ -299,37 +213,14 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
                     {isLoading ? (
                       <ActivityIndicator color="#2E86AB" size="small" />
                     ) : (
-                      <>
-                        <Image
-                          source={{ uri: avatar.url }}
-                          style={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 24,
-                          }}
-                          resizeMode="contain"
-                        />
-                        {isSelected && (
-                          <View style={{
-                            position: 'absolute',
-                            top: -2,
-                            right: -2,
-                            backgroundColor: '#2E86AB',
-                            borderRadius: 10,
-                            width: 20,
-                            height: 20,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}>
-                            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                          </View>
-                        )}
-                      </>
+                      <Text style={{ fontSize: 28 }}>{emoji}</Text>
                     )}
                   </TouchableOpacity>
                 );
               })}
             </View>
+
+            {/* Removed image-based preset grid for a cleaner, emoji-focused UI */}
 
             <Text style={{
               color: '#8E8E93',
@@ -338,7 +229,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
               marginTop: 20,
               lineHeight: 20,
             }}>
-              Choose from our preset avatars or upload your own photo from your camera roll
+              Tip: You can change your avatar anytime.
             </Text>
           </View>
         </ScrollView>

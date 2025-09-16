@@ -7,6 +7,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Easing,
+  AccessibilityInfo,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,148 +28,48 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
   tier = 'free'
 }) => {
   const { theme } = useUITheme();
-  // Animation values
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const sparkleRotation = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const footballBounce = useRef(new Animated.Value(0)).current;
-  
-  // Floating particles
-  const particle1 = useRef(new Animated.Value(0)).current;
-  const particle2 = useRef(new Animated.Value(0)).current;
-  const particle3 = useRef(new Animated.Value(0)).current;
-  
-  // Text reveal animation
-  const textRevealAnim = useRef(new Animated.Value(0)).current;
+  // Subtle shimmer animation (no entry transitions)
+  const shimmerX = useRef(new Animated.Value(-screenWidth)).current;
+  const SHIMMER_DURATION = 8000;
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    if (isVisible) {
-      startEntryAnimation();
-      startContinuousAnimations();
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((rm) => { if (mounted) setReduceMotion(rm); })
+      .catch(() => {});
+    const listener = AccessibilityInfo.addEventListener?.('reduceMotionChanged', (rm: boolean) => {
+      setReduceMotion(rm);
+    });
+    return () => {
+      mounted = false;
+      // @ts-ignore - RN new API returns subscription object, older returns void
+      listener?.remove?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    // Start a very light shimmer that moves across the card slowly only if reduce motion is off.
+    // No mount-time transitions for the card container itself.
+    if (reduceMotion) {
+      shimmerX.setValue(-screenWidth);
+      return;
     }
-  }, [isVisible]);
-
-  const startEntryAnimation = () => {
-    // Staggered entry animation
-    Animated.parallel([
-      // Main card entrance
-      Animated.sequence([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 800,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      // Text reveal after card appears
-      Animated.sequence([
-        Animated.delay(300),
-        Animated.timing(textRevealAnim, {
-          toValue: 1,
-          duration: 500,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-  };
-
-  const startContinuousAnimations = () => {
-    // Sparkle rotation
-    Animated.loop(
-      Animated.timing(sparkleRotation, {
-        toValue: 1,
-        duration: 4000,
+    const anim = Animated.loop(
+      Animated.timing(shimmerX, {
+        toValue: screenWidth,
+        duration: SHIMMER_DURATION,
         easing: Easing.linear,
         useNativeDriver: true,
       })
-    ).start();
-
-    // Pulse animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Football bounce
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(footballBounce, {
-          toValue: -8,
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(footballBounce, {
-          toValue: 0,
-          duration: 1500,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Floating particles
-    const createParticleAnimation = (particle: Animated.Value, delay: number) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(particle, {
-            toValue: -20,
-            duration: 3000,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-          Animated.timing(particle, {
-            toValue: 0,
-            duration: 3000,
-            easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
+    );
+    anim.start();
+    return () => {
+      anim.stop();
+      shimmerX.setValue(-screenWidth);
     };
-
-    createParticleAnimation(particle1, 0);
-    createParticleAnimation(particle2, 1000);
-    createParticleAnimation(particle3, 2000);
-  };
-
-  const sparkleRotationInterpolated = sparkleRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  const textSlideUp = textRevealAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0],
-  });
+  }, [reduceMotion, screenWidth]);
+  // Removed heavy entry/continuous animations to prioritize performance
 
   const getTierGradient = (): readonly [string, string, ...string[]] => {
     switch (tier) {
@@ -193,127 +94,51 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
   };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim },
-          ],
-        },
-      ]}
-    >
+    <View style={styles.container}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={onPress}
         style={styles.touchable}
       >
-        <Animated.View
-          style={[
-            styles.cardContainer,
-            {
-              transform: [{ scale: pulseAnim }],
-            },
-          ]}
-        >
+        <View style={styles.cardContainer}>
           <LinearGradient
             colors={getTierGradient()}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradient}
           >
-            {/* Animated Background Pattern */}
-            <View style={styles.backgroundPattern}>
-              <Animated.View
-                style={[
-                  styles.patternElement,
-                  { transform: [{ rotate: sparkleRotationInterpolated }] },
-                ]}
-              >
-                <Text style={styles.patternEmoji}>🏈</Text>
-              </Animated.View>
-              <Animated.View
-                style={[
-                  styles.patternElement2,
-                  { transform: [{ rotate: sparkleRotationInterpolated }] },
-                ]}
-              >
-                <Text style={styles.patternEmoji}>🏆</Text>
-              </Animated.View>
-            </View>
-
-            {/* Floating Particles */}
+            {/* Subtle shimmer line */}
             <Animated.View
+              pointerEvents="none"
               style={[
-                styles.particle,
-                styles.particle1,
-                { transform: [{ translateY: particle1 }] },
+                styles.shimmer,
+                { transform: [{ translateX: shimmerX }] },
               ]}
             >
-              <Text style={styles.particleEmoji}>⭐</Text>
-            </Animated.View>
-            <Animated.View
-              style={[
-                styles.particle,
-                styles.particle2,
-                { transform: [{ translateY: particle2 }] },
-              ]}
-            >
-              <Text style={styles.particleEmoji}>🔥</Text>
-            </Animated.View>
-            <Animated.View
-              style={[
-                styles.particle,
-                styles.particle3,
-                { transform: [{ translateY: particle3 }] },
-              ]}
-            >
-              <Text style={styles.particleEmoji}>⚡</Text>
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.15)', 'transparent']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.shimmerGradient}
+              />
             </Animated.View>
 
             {/* Main Content */}
             <View style={styles.contentContainer}>
-              {/* Left Side - Football Icon with Bounce */}
-              <Animated.View
-                style={[
-                  styles.footballContainer,
-                  { transform: [{ translateY: footballBounce }] },
-                ]}
-              >
+              {/* Left Side - Football Icon (static for performance) */}
+              <View style={styles.footballContainer}>
                 <View style={[styles.footballIcon, { borderColor: getTierAccentColor() }]}>
-                  <Text style={styles.footballEmoji}>🏈</Text>
+                  <Ionicons name="american-football" size={20} color="#FFFFFF" />
                 </View>
-              </Animated.View>
+              </View>
 
-              {/* Center Content - Text */}
-              <Animated.View
-                style={[
-                  styles.textContainer,
-                  {
-                    opacity: textRevealAnim,
-                    transform: [{ translateY: textSlideUp }],
-                  },
-                ]}
-              >
+              {/* Center Content - Text (no reveal transition) */}
+              <View style={styles.textContainer}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.mainTitle}>Football is Back!</Text>
-                  <Animated.View
-                    style={[
-                      styles.sparkleIcon,
-                      { transform: [{ rotate: sparkleRotationInterpolated }] },
-                    ]}
-                  >
-                    <Ionicons 
-                      name="sparkles" 
-                      size={16} 
-                      color={getTierAccentColor()} 
-                    />
-                  </Animated.View>
+                  <Text style={styles.mainTitle}>Football Season Is Live</Text>
                 </View>
                 <Text style={styles.subtitle}>
-                  Now featuring NFL & College Football predictions
+                  NFL + College Football predictions now in your feed
                 </Text>
                 <View style={styles.featuresRow}>
                   <View style={[styles.featureBadge, { backgroundColor: `${getTierAccentColor()}20` }]}>
@@ -327,7 +152,7 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
                     </Text>
                   </View>
                 </View>
-              </Animated.View>
+              </View>
 
               {/* Right Side - Arrow with Glow */}
               <View style={styles.arrowContainer}>
@@ -340,18 +165,10 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
                 </View>
               </View>
             </View>
-
-            {/* Bottom Shine Effect */}
-            <LinearGradient
-              colors={['transparent', 'rgba(255,255,255,0.1)', 'transparent']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.shineEffect}
-            />
           </LinearGradient>
-        </Animated.View>
+        </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -367,14 +184,14 @@ const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: normalize(16),
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
   gradient: {
     paddingHorizontal: normalize(16),
@@ -382,6 +199,16 @@ const styles = StyleSheet.create({
     minHeight: normalize(isTablet ? 90 : 80),
     position: 'relative',
     overflow: 'hidden',
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: normalize(100),
+    opacity: 0.2,
+  },
+  shimmerGradient: {
+    flex: 1,
   },
   backgroundPattern: {
     position: 'absolute',
@@ -510,4 +337,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FootballSeasonCard;
+export default React.memo(FootballSeasonCard);

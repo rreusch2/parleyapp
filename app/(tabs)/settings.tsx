@@ -796,6 +796,67 @@ export default function SettingsScreen() {
     }
   };
 
+  // Forgot password handler
+  const handleForgotPassword = async () => {
+    Alert.alert(
+      'Reset Password',
+      'Enter your email address to receive a password reset link.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => {
+            Alert.prompt(
+              'Reset Password',
+              'Enter your email address:',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Send Reset Link',
+                  onPress: async (email) => {
+                    if (!email || !email.trim()) {
+                      Alert.alert('Error', 'Please enter your email address.');
+                      return;
+                    }
+
+                    // Basic email validation
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email.trim())) {
+                      Alert.alert('Error', 'Please enter a valid email address');
+                      return;
+                    }
+
+                    try {
+                      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+                        redirectTo: 'https://iriaegoipkjtktitpary.supabase.co/auth/v1/verify?type=recovery',
+                      });
+
+                      if (error) {
+                        Alert.alert('Error', error.message);
+                        return;
+                      }
+
+                      Alert.alert(
+                        'Reset Link Sent!',
+                        'Check your email for a password reset link. The link will redirect you to a secure page where you can reset your password.',
+                        [{ text: 'OK' }]
+                      );
+                    } catch (error: any) {
+                      Alert.alert('Error', error.message || 'Failed to send reset email');
+                    }
+                  }
+                }
+              ],
+              'plain-text',
+              '',
+              'email-address'
+            );
+          }
+        }
+      ]
+    );
+  };
+
   // Handler for link items
   const handleLinkPress = (itemId: string) => {
     switch (itemId) {
@@ -809,6 +870,10 @@ export default function SettingsScreen() {
       
       case 'setUsername':
         setShowSetUsernameModal(true);
+        break;
+
+      case 'forgot_password':
+        handleForgotPassword();
         break;
       
       case 'help':
@@ -1066,6 +1131,11 @@ export default function SettingsScreen() {
           id: 'password',
           title: 'Change Password',
           type: 'link'
+        }, {
+          id: 'forgot_password',
+          title: 'Forgot Password',
+          type: 'link',
+          subtitle: 'Reset your password via email'
         }] : [])),
         
         // Payment History removed per requirements
@@ -1183,7 +1253,7 @@ export default function SettingsScreen() {
         >
           <View style={styles.profileToggleContent}>
             <View style={styles.profileBasicInfo}>
-              <TouchableOpacity onPress={() => setShowAvatarModal(true)}>
+              <TouchableOpacity onPress={() => setShowAvatarModal(true)} style={{ marginRight: 16 }}>
                 <UserAvatar
                   userId={userProfile?.id}
                   username={userProfile?.username || undefined}

@@ -20,6 +20,62 @@ from collections import defaultdict
 # Load environment variables
 load_dotenv()
 
+# Mapping of NFL abbreviations to full team names for display matching
+NFL_ABBR_TO_FULL = {
+    'LAC': 'Los Angeles Chargers',
+    'LV': 'Las Vegas Raiders',
+    'CHI': 'Chicago Bears',
+    'TB': 'Tampa Bay Buccaneers',
+    'HOU': 'Houston Texans',
+    'KC': 'Kansas City Chiefs',
+    'SEA': 'Seattle Seahawks',
+    'NYJ': 'New York Jets',
+    'CLE': 'Cleveland Browns',
+    'DAL': 'Dallas Cowboys',
+    'GB': 'Green Bay Packers',
+    'MIN': 'Minnesota Vikings',
+    'DET': 'Detroit Lions',
+    'NO': 'New Orleans Saints',
+    'ATL': 'Atlanta Falcons',
+    'NE': 'New England Patriots',
+    'BUF': 'Buffalo Bills',
+    'MIA': 'Miami Dolphins',
+    'NYG': 'New York Giants',
+    'PHI': 'Philadelphia Eagles',
+    'WAS': 'Washington Commanders',
+    'BAL': 'Baltimore Ravens',
+    'PIT': 'Pittsburgh Steelers',
+    'CIN': 'Cincinnati Bengals',
+    'IND': 'Indianapolis Colts',
+    'JAX': 'Jacksonville Jaguars',
+    'TEN': 'Tennessee Titans',
+    'ARI': 'Arizona Cardinals',
+    'LAR': 'Los Angeles Rams',
+    'SF': 'San Francisco 49ers'
+}
+
+def infer_team_display(player_team: Optional[str], sport: Optional[str], ev: Dict[str, Any]) -> Optional[str]:
+    """
+    Return the event team name to display for a player prop, or None if uncertain.
+    We never guess outside the event's teams; if player's team doesn't match either team (after simple NFL abbr mapping), we omit.
+    """
+    if not ev:
+        return None
+    home = (ev.get('home_team') or '').strip()
+    away = (ev.get('away_team') or '').strip()
+    pt = (player_team or '').strip()
+    sp = (sport or '').strip()
+    # Exact match
+    if pt and (pt == home or pt == away):
+        return pt
+    # NFL simple abbr->full comparison
+    if sp in ('NFL', 'National Football League', 'americanfootball_nfl') and pt in NFL_ABBR_TO_FULL:
+        full = NFL_ABBR_TO_FULL.get(pt)
+        if full == home or full == away:
+            return full
+    # Unknown/conflict -> None to avoid mislabeling
+    return None
+
 class StatMuseClient:
     """Minimal client for the ParleyApp StatMuse API service.
 
@@ -126,7 +182,9 @@ class DailyAIReportGenerator:
             'Daily Sports', 'Sports Analytics', 'Mobile Display',
             'Generated At', 'Generated at', 'Games Today', 'Games Tomorrow',
             'Quick Look', 'Upcoming Games', 'Quick Look: Upcoming Games',
-            'Daily Sports Analytics Report'
+            'Daily Sports Analytics Report',
+            # odds field labels that are not entities
+            'Over Odds', 'Under Odds'
         }
 
         # Helper: minimal NFL abbreviation to full-name map to align with sports_events
@@ -314,6 +372,9 @@ class DailyAIReportGenerator:
                 teams_set.add(g['away_team'])
             if g.get('sport'):
                 sports_set.add(g['sport'])
+            # Also allow league names as sports display labels (e.g., Major League Baseball, Ultimate Fighting Championship)
+            if g.get('league'):
+                sports_set.add(g['league'])
 
         # 2) Recent AI predictions (for context)
         recent_preds = (
@@ -331,6 +392,26 @@ class DailyAIReportGenerator:
             parts = [x.strip() for x in mt.split('vs') if x.strip()] if 'vs' in mt else []
             for t in parts:
                 teams_set.add(t)
+            if p.get('sport'):
+                sports_set.add(p['sport'])
+
+        # Expand allowed sports with common league/synonym names for stricter-but-practical validation
+        expanded_sports: Set[str] = set(sports_set)
+        lower_sports = {s.lower() for s in sports_set}
+        # MLB
+        if any(s in lower_sports for s in ['mlb', 'baseball_mlb', 'major league baseball']):
+            expanded_sports.update({'MLB', 'Major League Baseball'})
+        # WNBA (add formal long name and guard against NBA phrasing slip-ups)
+        if any(s in lower_sports for s in ['wnba', "women's national basketball association", 'basketball_wnba']):
+            expanded_sports.update({'WNBA', "Women's National Basketball Association", 'National Basketball Association'})
+        # NFL
+        if any(s in lower_sports for s in ['nfl', 'americanfootball_nfl', 'national football league']):
+            expanded_sports.update({'NFL', 'National Football League'})
+        # MMA / UFC
+        if any(s in lower_sports for s in ['mma', 'ultimate fighting championship', 'mma_mixed_martial_arts']):
+            expanded_sports.update({'MMA', 'Ultimate Fighting Championship', 'UFC'})
+        # Replace with expanded set
+        sports_set = expanded_sports
 
         # 3) Player props for those upcoming events, joined with players and prop types
         props_with_names: List[Dict[str, Any]] = []

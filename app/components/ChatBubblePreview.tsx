@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Image, Platform, Text, View } from 'react-native';
+import { Animated, Easing, Image, Platform, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUISettings } from '../services/uiSettingsContext';
 import { useSubscription } from '../services/subscriptionContext';
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function ChatBubblePreview({ animateOut = false, onExited }: Props) {
-  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion, ringTheme } = useUISettings();
+  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion } = useUISettings();
   const { isPro, isElite } = useSubscription();
 
   const [appear] = useState(new Animated.Value(0)); // 0 -> in, 1 -> center
@@ -21,7 +21,7 @@ export default function ChatBubblePreview({ animateOut = false, onExited }: Prop
   const [pulse] = useState(new Animated.Value(0));
   const [shimmerX] = useState(new Animated.Value(0));
 
-  const SIZE = bubbleSize === 'compact' ? 50 : 56;
+  const SIZE = bubbleSize === 'compact' ? 50 : bubbleSize === 'large' ? 64 : 56;
   const RING_PAD = 2;
 
   useEffect(() => {
@@ -31,24 +31,33 @@ export default function ChatBubblePreview({ animateOut = false, onExited }: Prop
       Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
       Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
     ]).start();
+  }, []);
 
-    if (!shouldReduceMotion && chatBubbleAnimation === 'glow') {
+  // React to animation mode changes to ensure preview updates immediately
+  useEffect(() => {
+    breath.setValue(0);
+    pulse.setValue(0);
+    shimmerX.setValue(0);
+
+    if (shouldReduceMotion || chatBubbleAnimation === 'static') {
+      return;
+    }
+
+    if (chatBubbleAnimation === 'glow') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(breath, { toValue: 1, duration: 4200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
           Animated.timing(breath, { toValue: 0, duration: 4200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
         ])
       ).start();
-    }
-    if (!shouldReduceMotion && chatBubbleAnimation === 'pulse') {
+    } else if (chatBubbleAnimation === 'pulse') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, { toValue: 1, duration: 2800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
           Animated.timing(pulse, { toValue: 0, duration: 2800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
         ])
       ).start();
-    }
-    if (!shouldReduceMotion && chatBubbleAnimation === 'shimmer') {
+    } else if (chatBubbleAnimation === 'shimmer') {
       Animated.loop(
         Animated.sequence([
           Animated.timing(shimmerX, { toValue: 1, duration: 3200, easing: Easing.linear, useNativeDriver: true }),
@@ -56,7 +65,7 @@ export default function ChatBubblePreview({ animateOut = false, onExited }: Prop
         ])
       ).start();
     }
-  }, []);
+  }, [chatBubbleAnimation, shouldReduceMotion]);
 
   useEffect(() => {
     if (animateOut) {
@@ -76,7 +85,7 @@ export default function ChatBubblePreview({ animateOut = false, onExited }: Prop
   const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });
   const shimmerTranslate = shimmerX.interpolate({ inputRange: [0, 1], outputRange: [-SIZE, SIZE] });
 
-  const colors = getRingColors(ringTheme, { isPro, isElite });
+  const colors = getRingColors('auto', { isPro, isElite });
 
   return (
     <Animated.View style={{ transform: [{ translateY }, { scale }, ...(chatBubbleAnimation === 'pulse' && !shouldReduceMotion ? [{ scale: pulseScale }] as any : [])], opacity }}>
@@ -123,9 +132,6 @@ export default function ChatBubblePreview({ animateOut = false, onExited }: Prop
             </Animated.View>
           )}
 
-          <View style={{ position: 'absolute', bottom: 3, right: 3, backgroundColor: '#FFFFFF', borderRadius: 8, paddingHorizontal: 4, paddingVertical: 2 }}>
-            <Text style={{ fontSize: 9, fontWeight: '800', color: isElite ? '#8B5CF6' : isPro ? '#F59E0B' : '#0891B2' }}>{isElite ? 'ELITE' : isPro ? 'PRO' : 'AI'}</Text>
-          </View>
         </View>
       </LinearGradient>
     </Animated.View>

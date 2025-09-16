@@ -1,17 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   FlatList,
+  SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { adminApi, AdminUserSummary } from '../services/api/client';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Paging {
   page: number;
@@ -47,12 +49,13 @@ const badgeColorForStatus = (status?: string | null) => {
 };
 
 export default function AdminUsersManager() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
-  const [planFilter, setPlanFilter] = useState<'' | 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'admin_manual'>('');
   const [paging, setPaging] = useState<Paging>({ page: 1, pageSize: 20, totalPages: 1, totalCount: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -68,7 +71,6 @@ export default function AdminUsersManager() {
           pageSize: paging.pageSize,
           search: debouncedSearch || undefined,
           tier: tierFilter === 'all' ? '' : tierFilter,
-          plan: planFilter || undefined,
           sortBy: 'created_at_desc',
         });
         if (!isMounted) return;
@@ -85,7 +87,12 @@ export default function AdminUsersManager() {
     return () => {
       isMounted = false;
     };
-  }, [paging.page, paging.pageSize, debouncedSearch, tierFilter, planFilter, refreshKey]);
+  }, [paging.page, paging.pageSize, debouncedSearch, tierFilter, refreshKey]);
+
+  // Reset to first page when filters/search change
+  useEffect(() => {
+    setPaging((p) => (p.page === 1 ? p : { ...p, page: 1 }));
+  }, [tierFilter, debouncedSearch]);
 
   const onSetTier = async (user: AdminUserSummary, tier: 'free' | 'pro' | 'elite') => {
     if (updatingId) return;
@@ -147,25 +154,25 @@ export default function AdminUsersManager() {
             title="Make Free"
             onPress={() => onSetTier(item, 'free')}
             disabled={disabled || item.subscription_tier === 'free'}
-            colors={["#334155", "#475569"]}
+            colors={["#334155", "#475569"] as const}
           />
           <ActionButton
             title="Make Pro"
             onPress={() => onSetTier(item, 'pro')}
             disabled={disabled || item.subscription_tier === 'pro'}
-            colors={["#2563eb", "#1d4ed8"]}
+            colors={["#2563eb", "#1d4ed8"] as const}
           />
           <ActionButton
             title="Make Elite"
             onPress={() => onSetTier(item, 'elite')}
             disabled={disabled || item.subscription_tier === 'elite'}
-            colors={["#7c3aed", "#6d28d9"]}
+            colors={["#7c3aed", "#6d28d9"] as const}
           />
           <ActionButton
             title="Clear Numba"
             onPress={() => onClearPhone(item)}
             disabled={disabled}
-            colors={["#dc2626", "#b91c1c"]}
+            colors={["#dc2626", "#b91c1c"] as const}
           />
         </View>
       </View>
@@ -173,9 +180,12 @@ export default function AdminUsersManager() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <LinearGradient colors={["#0f172a", "#1e293b"]} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+      <LinearGradient colors={["#0f172a", "#1e293b"]} style={[styles.header, { paddingTop: Math.max(12, insets.top + 6) }]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} accessibilityLabel="Close admin users" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.closeBtnText}>✕</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Admin • Users</Text>
         <Text style={styles.headerSubtitle}>Manage profiles, subscriptions and contact</Text>
       </LinearGradient>
@@ -191,57 +201,73 @@ export default function AdminUsersManager() {
             style={styles.searchInput}
           />
         </View>
-        <View style={styles.filtersRow}>
-          <Segmented
-            options={[{ label: 'All', value: 'all' }, { label: 'Free', value: 'free' }, { label: 'Pro', value: 'pro' }, { label: 'Elite', value: 'elite' }]}
-            value={tierFilter}
-            onChange={(v) => setTierFilter(v as TierFilter)}
-          />
-          <Segmented
-            options={[{ label: 'Any Plan', value: '' }, { label: 'Weekly', value: 'weekly' }, { label: 'Monthly', value: 'monthly' }, { label: 'Yearly', value: 'yearly' }, { label: 'Lifetime', value: 'lifetime' }, { label: 'Admin', value: 'admin_manual' }]}
-            value={planFilter}
-            onChange={(v) => setPlanFilter(v as any)}
-          />
+
+        {/* Tier filter row */}
+        <View style={styles.filterRow}>
+          {(['all','free','pro','elite'] as TierFilter[]).map((tier) => (
+            <Chip
+              key={tier}
+              label={tier === 'all' ? 'All' : tier.charAt(0).toUpperCase() + tier.slice(1)}
+              active={tierFilter === tier}
+              onPress={() => setTierFilter(tier)}
+            />
+          ))}
+          {(tierFilter !== 'all' || (debouncedSearch && debouncedSearch.length > 0)) && (
+            <Chip
+              key="reset"
+              label="Reset"
+              active={false}
+              onPress={() => {
+                setSearch('');
+                setTierFilter('all');
+                setPaging((p) => ({ ...p, page: 1 }));
+              }}
+            />
+          )}
         </View>
       </View>
 
       {/* Content */}
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#60a5fa" />
-          <Text style={styles.loadingText}>Loading users…</Text>
-        </View>
-      ) : (
-        <>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryText}>Showing page {paging.page} of {Math.max(paging.totalPages, 1)} • {paging.totalCount} users</Text>
-            <View style={styles.paginationRow}>
-              <TouchableOpacity
-                style={[styles.pageBtn, paging.page === 1 && styles.pageBtnDisabled]}
-                disabled={paging.page === 1}
-                onPress={() => setPaging((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
-              >
-                <Text style={styles.pageBtnText}>Prev</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.pageBtn, paging.page >= paging.totalPages && styles.pageBtnDisabled]}
-                disabled={paging.page >= paging.totalPages}
-                onPress={() => setPaging((p) => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
-              >
-                <Text style={styles.pageBtnText}>Next</Text>
-              </TouchableOpacity>
-            </View>
+      <View style={styles.content}>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#60a5fa" />
+            <Text style={styles.loadingText}>Loading users…</Text>
           </View>
+        ) : (
+          <>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryText}>Showing page {paging.page} of {Math.max(paging.totalPages, 1)} • {paging.totalCount} users</Text>
+              <View style={styles.paginationRow}>
+                <TouchableOpacity
+                  style={[styles.pageBtn, paging.page === 1 && styles.pageBtnDisabled]}
+                  disabled={paging.page === 1}
+                  onPress={() => setPaging((p) => ({ ...p, page: Math.max(1, p.page - 1) }))}
+                >
+                  <Text style={styles.pageBtnText}>Prev</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pageBtn, paging.page >= paging.totalPages && styles.pageBtnDisabled, { marginLeft: 8 }]}
+                  disabled={paging.page >= paging.totalPages}
+                  onPress={() => setPaging((p) => ({ ...p, page: Math.min(p.totalPages, p.page + 1) }))}
+                >
+                  <Text style={styles.pageBtnText}>Next</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          <FlatList
-            data={users}
-            keyExtractor={(u) => u.id}
-            renderItem={renderUser}
-            contentContainerStyle={styles.listContent}
-          />
-        </>
-      )}
-    </View>
+            <FlatList
+              data={users}
+              keyExtractor={(u) => u.id}
+              renderItem={renderUser}
+              contentContainerStyle={styles.listContent}
+              style={styles.list}
+              keyboardShouldPersistTaps="handled"
+            />
+          </>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -254,7 +280,7 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ActionButton({ title, onPress, colors, disabled }: { title: string; onPress: () => void; colors: string[]; disabled?: boolean }) {
+function ActionButton({ title, onPress, colors, disabled }: { title: string; onPress: () => void; colors: readonly [string, string]; disabled?: boolean }) {
   return (
     <TouchableOpacity onPress={onPress} disabled={disabled} style={[styles.actionBtn, disabled && { opacity: 0.6 }]}> 
       <LinearGradient colors={colors} style={styles.actionBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
@@ -264,18 +290,11 @@ function ActionButton({ title, onPress, colors, disabled }: { title: string; onP
   );
 }
 
-function Segmented({ options, value, onChange }: { options: { label: string; value: string }[]; value: string; onChange: (v: string) => void }) {
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <View style={styles.segmented}>
-      {options.map((opt) => {
-        const active = opt.value === value;
-        return (
-          <TouchableOpacity key={opt.value} onPress={() => onChange(opt.value)} style={[styles.segment, active ? styles.segmentActive : styles.segmentInactive]}>
-            <Text style={active ? styles.segmentTextActive : styles.segmentText}>{opt.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+    <TouchableOpacity onPress={onPress} style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}>
+      <Text style={active ? styles.chipTextActive : styles.chipText}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -304,7 +323,25 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingVertical: 12,
+    paddingTop: 12,
+    position: 'relative',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeBtnText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
   },
   headerTitle: {
     color: '#fff',
@@ -313,14 +350,15 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     color: '#cbd5e1',
-    marginTop: 6,
+    marginTop: 4,
   },
   controls: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
   searchWrap: {
-    marginBottom: 10,
+    marginBottom: 6,
   },
   searchInput: {
     backgroundColor: '#111827',
@@ -329,41 +367,41 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     color: '#e5e7eb',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
-  filtersRow: {
+  filterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 8,
   },
-  segmented: {
-    flexDirection: 'row',
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipInactive: {
     backgroundColor: '#0b1220',
     borderColor: '#1f2937',
-    borderWidth: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
-    flex: 1,
   },
-  segment: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flex: 1,
-    alignItems: 'center',
-  },
-  segmentActive: {
+  chipActive: {
     backgroundColor: '#1d4ed8',
+    borderColor: '#1d4ed8',
   },
-  segmentInactive: {
-    backgroundColor: 'transparent',
-  },
-  segmentText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  segmentTextActive: {
-    color: '#fff',
+  chipText: {
+    color: '#cbd5e1',
     fontWeight: '700',
+    fontSize: 13,
+  },
+  chipTextActive: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 13,
   },
   loadingWrap: {
     flex: 1,
@@ -373,6 +411,11 @@ const styles = StyleSheet.create({
   loadingText: {
     color: '#94a3b8',
     marginTop: 10,
+  },
+  content: {
+    flex: 1,
+    minHeight: 0,
+    paddingTop: 6,
   },
   summaryRow: {
     paddingHorizontal: 16,
@@ -386,7 +429,6 @@ const styles = StyleSheet.create({
   },
   paginationRow: {
     flexDirection: 'row',
-    gap: 8,
   },
   pageBtn: {
     backgroundColor: '#111827',
@@ -395,6 +437,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    marginLeft: 0,
   },
   pageBtnDisabled: {
     opacity: 0.5,
@@ -406,6 +449,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
+  },
+  list: {
+    flex: 1,
   },
   userCard: {
     backgroundColor: '#0b1220',
@@ -444,12 +490,13 @@ const styles = StyleSheet.create({
   },
   badgesWrap: {
     flexDirection: 'row',
-    gap: 6,
+    marginLeft: 8,
   },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
+    marginLeft: 6,
   },
   badgeText: {
     color: '#fff',
@@ -483,11 +530,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
   },
   actionBtn: {
     borderRadius: 10,
     overflow: 'hidden',
+    marginRight: 8,
+    marginBottom: 8,
   },
   actionBtnGradient: {
     paddingHorizontal: 12,

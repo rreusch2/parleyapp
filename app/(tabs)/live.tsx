@@ -910,13 +910,15 @@ export default function GamesScreen() {
               key={sport.id}
               style={[
                 styles.filterChip,
-                selectedSport === sport.id && styles.filterChipActive
+                selectedSport === sport.id && styles.filterChipActive,
+                isElite && selectedSport === sport.id && { backgroundColor: theme.accentPrimary, borderWidth: 1, borderColor: theme.accentPrimary }
               ]}
               onPress={() => setSelectedSport(sport.id)}
             >
               <Text style={[
                 styles.filterChipText,
-                selectedSport === sport.id && styles.filterChipTextActive
+                selectedSport === sport.id && styles.filterChipTextActive,
+                isElite && selectedSport === sport.id && { color: '#0F172A' }
               ]}>
                 {sport.name}
               </Text>

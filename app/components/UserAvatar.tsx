@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Platform } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { avatarService } from '../services/avatarService';
 
@@ -28,6 +29,8 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 }) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(propAvatarUrl || null);
   const [imageError, setImageError] = useState(false);
+  const [webFallbackSrc, setWebFallbackSrc] = useState<string | null>(null);
+  const [svgXml, setSvgXml] = useState<string | null>(null);
 
   useEffect(() => {
     // If no avatar URL provided but we have userId, fetch it
@@ -43,20 +46,98 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     }
   }, [propAvatarUrl, userId]);
 
+  // Fetch SVG for Multiavatar so we can render reliably across platforms
+  useEffect(() => {
+    (async () => {
+      try {
+        if (avatarUrl && avatarUrl.includes('api.multiavatar.com')) {
+          const svgUrl = avatarUrl.endsWith('.svg') ? avatarUrl : avatarUrl.replace('.png', '.svg');
+          const res = await fetch(svgUrl);
+          const xml = await res.text();
+          setSvgXml(xml);
+          setImageError(false);
+        } else {
+          setSvgXml(null);
+        }
+      } catch {
+        // Ignore; will fallback to Image/initials
+      }
+    })();
+  }, [avatarUrl]);
+
   const initials = avatarService.getUserInitials(username, email);
-  const shouldShowImage = avatarUrl && !imageError;
+  const isEmojiAvatar = !!avatarUrl && avatarUrl.startsWith('emoji:');
+  const emojiChar = isEmojiAvatar ? avatarUrl!.replace('emoji:', '') : '';
+  const shouldShowImage = !!avatarUrl && !imageError && !isEmojiAvatar;
 
   const AvatarContent = () => {
+    // Emoji avatar: render emoji centered on gradient
+    if (isEmojiAvatar) {
+      return (
+        <LinearGradient
+          colors={gradientColors}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: size * 0.55,
+              textAlign: 'center',
+            }}
+          >
+            {emojiChar}
+          </Text>
+        </LinearGradient>
+      );
+    }
+
+    // Prefer SVG render for Multiavatar if available
+    if (svgXml) {
+      return (
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            overflow: 'hidden',
+            backgroundColor: '#0A0A0A'
+          }}
+        >
+          <SvgXml xml={svgXml} width={size} height={size} />
+        </View>
+      );
+    }
+
     if (shouldShowImage) {
+      const src = webFallbackSrc || avatarUrl!;
       return (
         <Image
-          source={{ uri: avatarUrl }}
+          source={{ uri: src }}
           style={{
             width: size,
             height: size,
             borderRadius: size / 2,
           }}
-          onError={() => setImageError(true)}
+          onError={() => {
+            // On web, try SVG fallback for Multiavatar if PNG fails
+            if (
+              Platform.OS === 'web' &&
+              avatarUrl &&
+              avatarUrl.includes('api.multiavatar.com') &&
+              avatarUrl.endsWith('.png') &&
+              !webFallbackSrc
+            ) {
+              setWebFallbackSrc(avatarUrl.replace('.png', '.svg'));
+              return;
+            }
+            setImageError(true);
+          }}
           resizeMode="cover"
         />
       );

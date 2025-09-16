@@ -107,13 +107,15 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       // Track subscription intent with Facebook Analytics (Add to Cart event)
       try {
         const planPrices = {
-          'pro_weekly': 12.49,
-          'pro_monthly': 24.99,
+          'pro_weekly': 9.99,
+          'pro_monthly': 19.99,
           'pro_yearly': 199.99,
           'pro_lifetime': 349.99,
+          'pro_daypass': 4.99,
           'elite_weekly': 14.99,
           'elite_monthly': 29.99,
-          'elite_yearly': 199.99
+          'elite_yearly': 199.99,
+          'elite_daypass': 8.99
         };
         
         const price = planPrices[selectedPlan] || 0;
@@ -182,7 +184,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const openTermsOfService = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    const url = 'https://www.predictive-play.com/terms';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -197,7 +199,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const openPrivacyPolicy = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    const url = 'https://www.predictive-play.com/privacy';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -515,17 +517,17 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$12.49 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$24.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -549,6 +551,11 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                   </View>
+
+                  <View style={styles.subscriptionOption}>
+                    <Text style={styles.subscriptionInfoTitle}>Elite Day Pass</Text>
+                    <Text style={styles.subscriptionInfoText}>$8.99 one-time purchase (24 hours), non-renewable</Text>
+                  </View>
                 </>
               )}
               
@@ -557,32 +564,16 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
               </View>
               
               <View style={styles.termsLinksRow}>
-                <TouchableOpacity style={styles.linkButton} onPress={() => {
-                  // Add terms of service handler
-                }}>
+                <TouchableOpacity style={styles.linkButton} onPress={openTermsOfService}>
                   <Text style={styles.linkText}>Terms of Service</Text>
                 </TouchableOpacity>
                 <Text style={styles.subscriptionInfoText}> and </Text>
-                <TouchableOpacity style={styles.linkButton} onPress={() => {
-                  // Add privacy policy handler  
-                }}>
+                <TouchableOpacity style={styles.linkButton} onPress={openPrivacyPolicy}>
                   <Text style={styles.linkText}>Privacy Policy</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Footer Links */}
-            <View style={styles.footer}>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity onPress={openTermsOfService}>
-                  <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </TouchableOpacity>
-                <Text style={styles.legalSeparator}> • </Text>
-                <TouchableOpacity onPress={openPrivacyPolicy}>
-                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </ScrollView>
         </LinearGradient>
 

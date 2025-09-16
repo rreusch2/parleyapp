@@ -4,7 +4,7 @@ import { AccessibilityInfo } from 'react-native';
 
 export type ChatBubbleAnimation = 'glow' | 'pulse' | 'shimmer' | 'static';
 export type RingTheme = 'auto' | 'aqua' | 'sunset' | 'indigo';
-export type BubbleSize = 'standard' | 'compact';
+export type BubbleSize = 'standard' | 'compact' | 'large';
 
 export interface UISettings {
   chatBubbleAnimation: ChatBubbleAnimation;

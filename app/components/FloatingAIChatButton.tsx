@@ -4,12 +4,12 @@ import {
   StyleSheet,
   Animated,
   View,
-  Text,
   Platform,
   Image,
   Easing,
   Dimensions,
   PanResponder,
+  StatusBar,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +31,7 @@ export default function FloatingAIChatButton({
 }: FloatingAIChatButtonProps) {
   const { isPro, isElite } = useSubscription();
   const { setShowAIChat, setChatContext } = useAIChat();
-  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion, ringTheme } = useUISettings();
+  const { chatBubbleAnimation, bubbleSize, shouldReduceMotion } = useUISettings();
   const [appearScale] = useState(new Animated.Value(0));
   const [pressScale] = useState(new Animated.Value(1));
   const [breath] = useState(new Animated.Value(0));
@@ -44,11 +44,13 @@ export default function FloatingAIChatButton({
   const isTablet = screenWidth > 768;
   const SIZE = (() => {
     if (bubbleSize === 'compact') return isTablet ? 60 : 50;
+    if (bubbleSize === 'large') return isTablet ? 76 : 64; // slightly bigger than standard
     return isTablet ? 68 : 56;
   })();
   const RING_PAD = 2; // gradient ring thickness
   const SIDE_MARGIN = 20;
-  const TOP_SPACING = isTablet ? 32 : 20;
+  const STATUSBAR = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : (isTablet ? 20 : 44);
+  const TOP_SPACING = STATUSBAR + 12;
   const STORAGE_KEY = 'pp_fab_corner_v1';
 
   type Corner = 'bottomRight' | 'bottomLeft' | 'topRight' | 'topLeft';
@@ -218,7 +220,7 @@ export default function FloatingAIChatButton({
           borderRadius: (SIZE * 1.24) / 2,
           opacity: ringOpacity,
           transform: [{ scale: ringScale }],
-          backgroundColor: getRingColors(ringTheme, { isPro, isElite })[0],
+          backgroundColor: getRingColors('auto', { isPro, isElite })[0],
           zIndex: -1,
         }}
       />)}
@@ -255,7 +257,7 @@ export default function FloatingAIChatButton({
       >
         {/* Gradient ring with circular logo inside */}
         <LinearGradient
-          colors={getRingColors(ringTheme, { isPro, isElite })}
+          colors={getRingColors('auto', { isPro, isElite })}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
@@ -317,10 +319,7 @@ export default function FloatingAIChatButton({
               </Animated.View>
             )}
 
-            {/* User tier badge */}
-            <View style={[styles.proBadge, { bottom: 3, right: 3 }]}> 
-              <Text style={styles.proText}>{isPro ? 'PRO' : 'AI'}</Text>
-            </View>
+            {/* No text badge inside the bubble per latest design */}
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -333,18 +332,4 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 999,
   },
-  proBadge: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  proText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#0891B2',
-  },
-}); 
+});

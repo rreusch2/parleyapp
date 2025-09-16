@@ -22,9 +22,9 @@ import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
 import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
-import PhoneVerification from '../components/PhoneVerification';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import appsFlyerService from '../services/appsFlyerService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
@@ -36,8 +36,6 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
-  const [pendingVerifiedPhone, setPendingVerifiedPhone] = useState<string | null>(null);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showSpinningWheel, setShowSpinningWheel] = useState(false);
@@ -45,8 +43,8 @@ export default function SignupScreen() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [hasSubscribedToPro, setHasSubscribedToPro] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+  const [isGoogleAuthAvailable, setIsGoogleAuthAvailable] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [verifiedPhoneNumber, setVerifiedPhoneNumber] = useState<string | null>(null);
   
   // Focus states for better UX
   const [usernameFocused, setUsernameFocused] = useState(false);
@@ -63,7 +61,7 @@ export default function SignupScreen() {
   const params = useLocalSearchParams();
   const { checkSubscriptionStatus } = useSubscription();
 
-  // Check if Apple Auth is available on mount
+  // Check if Apple Auth and Google Auth are available on mount
   React.useEffect(() => {
     // Apple Authentication is only available on iOS
     if (Platform.OS === 'ios') {
@@ -72,6 +70,9 @@ export default function SignupScreen() {
       setIsAppleAuthAvailable(false);
     }
     
+    // Google Authentication is available on both platforms
+    setIsGoogleAuthAvailable(true);
+    
     // Check if user was redirected from login after Apple Sign In
     if (params.appleSignInComplete === 'true' && params.userId) {
       console.log('User redirected from Apple Sign In, showing subscription modal');
@@ -79,6 +80,16 @@ export default function SignupScreen() {
       setAgreeToTerms(true);
       // Show subscription modal immediately
       setShowSubscriptionModal(true);
+    }
+    
+    // Check if user was redirected from login after Google Sign In
+    if (params.googleSignInComplete === 'true' && params.userId) {
+      console.log('User redirected from Google Sign In, showing user preferences modal');
+      // Automatically agree to terms since they already authenticated
+      setAgreeToTerms(true);
+      // Set current user ID and show preferences modal
+      setCurrentUserId(params.userId as string);
+      setShowPreferencesModal(true);
     }
   }, [params]);
 
@@ -387,17 +398,136 @@ export default function SignupScreen() {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    if (!agreeToTerms) {
+      Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Starting Google Sign Up...');
+      
+      // Check if device supports Google Play Services
+      await GoogleSignin.hasPlayServices();
+      
+      // Get user info from Google
+      const userInfo = await GoogleSignin.signIn();
+      
+      console.log('🔍 Google user info received:', {
+        idToken: userInfo.idToken ? 'Present' : 'Missing',
+        user: userInfo.user
+      });
+
+      if (userInfo.idToken) {
+        console.log('🔍 Attempting Supabase signInWithIdToken...');
+        
+        // Sign in with Supabase using Google ID token
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: userInfo.idToken,
+        });
+
+        if (error) {
+          console.error('Supabase Google Sign Up error:', error);
+          throw error;
+        }
+
+        if (data.user) {
+          // For new sign ups, Google provides the name and email
+          const displayName = userInfo.user.name || userInfo.user.email?.split('@')[0] || 'GoogleUser';
+
+          // Generate unique referral code for new user
+          const generateReferralCode = () => {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+              result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+          };
+
+          const userReferralCode = generateReferralCode();
+          
+          // Check if user entered a referral code
+          let referredBy = null;
+          if (referralCode && referralCode.trim().length > 0) {
+            referredBy = referralCode.trim().toUpperCase();
+            console.log('🎯 Google user entered referral code:', referredBy);
+          }
+
+          // Update the user's profile with their name and referral info
+          await supabase
+            .from('profiles')
+            .update({
+              username: displayName,
+              email: userInfo.user.email || data.user.email,
+              referral_code: userReferralCode,
+              referred_by: referredBy,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+
+          console.log('✅ Google user profile updated with referral code:', userReferralCode);
+
+          // If user was referred, process with points system
+          if (referredBy) {
+            try {
+              const PointsService = (await import('../services/pointsService')).default;
+              const pointsService = PointsService.getInstance();
+              
+              const success = await pointsService.processReferralSignup(data.user.id, referredBy);
+              if (success) {
+                console.log('✅ Google user referral processed - 2,500 points awarded');
+              } else {
+                console.log('❌ Invalid referral code for Google user');
+              }
+            } catch (error) {
+              console.error('❌ Error processing Google user referral:', error);
+            }
+          }
+
+          console.log('✅ Google Sign Up successful! User ID:', data.user.id);
+          
+          // Store user ID and show preferences modal first
+          setCurrentUserId(data.user.id);
+          setShowPreferencesModal(true);
+        }
+      }
+    } catch (error: any) {
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        // User canceled the sign-in
+        console.log('User canceled Google Sign Up');
+      } else {
+        console.error('Google Sign Up error details:', {
+          code: error.code,
+          message: error.message,
+          error: error
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to sign up with Google. Please try again.';
+        
+        if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message?.includes('PLAY_SERVICES')) {
+          errorMessage = 'Google Play Services not available. Please update Google Play Services.';
+        }
+        
+        Alert.alert('Sign Up Error', errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAppleSignUp = async () => {
     if (!agreeToTerms) {
       Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
       return;
     }
 
-    if (!pendingVerifiedPhone) {
-      console.log('📱 Phone not verified yet for Apple Sign Up; opening phone verification');
-      setShowPhoneVerification(true);
-      return;
-    }
 
     try {
       setLoading(true);
@@ -486,9 +616,6 @@ export default function SignupScreen() {
             .update({
               username: displayName,
               email: credential.email || data.user.email,
-              phone_number: pendingVerifiedPhone,
-              phone_verified: true,
-              phone_verified_at: new Date().toISOString(),
               referral_code: userReferralCode,
               referred_by: referredBy,
               updated_at: new Date().toISOString()
@@ -566,12 +693,6 @@ export default function SignupScreen() {
       return;
     }
 
-    // Enforce phone verification before signup
-    if (!pendingVerifiedPhone) {
-      console.log('📱 Phone not verified yet; opening phone verification flow');
-      setShowPhoneVerification(true);
-      return;
-    }
 
     if (!isValidEmail) {
       console.log('❌ Validation failed: Invalid email');
@@ -607,9 +728,7 @@ export default function SignupScreen() {
         password,
         options: { 
           data: { 
-            username: username,
-            phone_number: pendingVerifiedPhone,
-            phone_verified: true,
+            username: username
           } 
         }
       });
@@ -662,9 +781,6 @@ export default function SignupScreen() {
           .update({
             username: username,
             email: email,
-            phone_number: pendingVerifiedPhone,
-            phone_verified: true,
-            phone_verified_at: new Date().toISOString(),
             referral_code: userReferralCode,
             referred_by: referredBy,
             updated_at: new Date().toISOString()
@@ -759,7 +875,20 @@ export default function SignupScreen() {
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
 
             <View style={styles.form}>
-              {/* Apple Sign Up Button - Show first for better UX */}
+              {/* Google Sign Up Button - Show first for better UX */}
+              {isGoogleAuthAvailable && (
+                <View style={styles.socialButtonContainer}>
+                  <TouchableOpacity
+                    style={styles.googleButton}
+                    onPress={handleGoogleSignUp}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.googleButtonText}>Continue with Google</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              {/* Apple Sign Up Button */}
               {isAppleAuthAvailable && (
                 <View style={styles.appleButtonContainer}>
                   <AppleAuthentication.AppleAuthenticationButton
@@ -769,12 +898,15 @@ export default function SignupScreen() {
                     style={styles.appleButton}
                     onPress={handleAppleSignUp}
                   />
-                  
-                  <View style={styles.divider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.dividerText}>OR</Text>
-                    <View style={styles.dividerLine} />
-                  </View>
+                </View>
+              )}
+              
+              {/* Divider - Only show if social auth is available */}
+              {(isGoogleAuthAvailable || isAppleAuthAvailable) && (
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>OR</Text>
+                  <View style={styles.dividerLine} />
                 </View>
               )}
 
@@ -849,11 +981,6 @@ export default function SignupScreen() {
                     textContentType="newPassword"
                     autoCorrect={false}
                     autoCapitalize="none"
-                    keyboardType="default"
-                    blurOnSubmit={false}
-                    enablesReturnKeyAutomatically={false}
-                    clearButtonMode="never"
-                    spellCheck={false}
                   />
                   <TouchableOpacity
                     onPress={togglePasswordVisibility}
@@ -890,11 +1017,6 @@ export default function SignupScreen() {
                     textContentType="newPassword"
                     autoCorrect={false}
                     autoCapitalize="none"
-                    keyboardType="default"
-                    blurOnSubmit={false}
-                    enablesReturnKeyAutomatically={false}
-                    clearButtonMode="never"
-                    spellCheck={false}
                   />
                   <TouchableOpacity
                     onPress={toggleConfirmPasswordVisibility}
@@ -943,19 +1065,6 @@ export default function SignupScreen() {
                 )}
               </View>
 
-              {/* Phone verification entry point */}
-              <View style={styles.inputContainer}>
-                <TouchableOpacity
-                  style={[styles.button, { backgroundColor: pendingVerifiedPhone ? '#10B981' : '#ffffff' }]}
-                  onPress={() => setShowPhoneVerification(true)}
-                  activeOpacity={0.8}
-                >
-                  <UserPlus color="#000000" size={20} style={styles.buttonIcon} />
-                  <Text style={styles.buttonText}>
-                    {pendingVerifiedPhone ? `Verified: ${pendingVerifiedPhone}` : 'Verify Phone Number'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
               {/* Terms of Service Agreement */}
               <View style={styles.termsContainer}>
@@ -1013,17 +1122,6 @@ export default function SignupScreen() {
 
       <TermsOfServiceModal visible={showTermsModal} onClose={closeTermsModal} />
 
-      {/* Phone Verification Modal */}
-      {showPhoneVerification && (
-        <PhoneVerification
-          onVerificationComplete={(phone) => {
-            setPendingVerifiedPhone(phone);
-            setShowPhoneVerification(false);
-            Alert.alert('Phone Verified', 'Your phone number has been verified. You can now create your account.');
-          }}
-          onClose={() => setShowPhoneVerification(false)}
-        />
-      )}
       
       <UserPreferencesModal 
         visible={showPreferencesModal} 
@@ -1226,9 +1324,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: normalize(15),
   },
+  socialButtonContainer: {
+    marginBottom: normalize(15),
+  },
+  googleButton: {
+    backgroundColor: '#4285f4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: normalize(16),
+    borderRadius: normalize(30),
+    width: '100%',
+    shadowColor: '#4285f4',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  googleButtonText: {
+    color: '#ffffff',
+    fontSize: normalize(16),
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   appleButtonContainer: {
     marginBottom: normalize(20),
-    alignItems: 'center',
   },
   appleButton: {
     width: '100%',

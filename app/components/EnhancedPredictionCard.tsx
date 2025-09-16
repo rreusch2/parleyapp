@@ -8,7 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Animated,
-  Alert
+  
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -176,29 +176,10 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   };
 
   const handleAdvancedAnalysis = async () => {
-    const hasAnalysisAccess = isPro || welcomeBonusActive;
-    
-    if (!hasAnalysisAccess) {
-      Alert.alert(
-        'Premium Feature 🌟',
-        welcomeBonusActive ? 
-          'Welcome bonus expired! Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!' :
-          'Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!',
-        [
-          { text: 'Later', style: 'cancel' },
-          { 
-            text: 'Upgrade to Pro', 
-            onPress: openSubscriptionModal,
-            style: 'default'
-          }
-        ]
-      );
-      return;
-    }
-
+    // Free users now have access to the analysis modal as well
     setIsLoadingAnalysis(true);
     
-    // Calculate real analytics from prediction data
+    // Calculate analytics from prediction data
     setTimeout(() => {
       const kellyStake = calculateKellyStake(prediction);
       const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
@@ -260,7 +241,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
               <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams || 'Unknown Match'}</Text>
               <View style={styles.timeContainer}>
                 <Clock size={12} color="#94A3B8" />
-                <Text style={styles.eventTime}>{formatEventTime(prediction.eventTime || (prediction as any).event_time)}</Text>
+                <Text style={styles.eventTime}>{formatEventTime(prediction.eventTime || (prediction as any).event_time || (prediction as any).created_at)}</Text>
               </View>
             </View>
             

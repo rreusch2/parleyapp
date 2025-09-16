@@ -16,6 +16,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 // ReviewDebugPanel removed (dev-only overlay disabled)
 import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
 // Remove the top-level import since it's not available on web
@@ -75,6 +76,22 @@ function AppContent() {
             return true;
           } catch (error) {
             console.error('❌ Facebook Analytics failed:', error);
+            return false;
+          }
+        },
+
+        // Google Sign-In initialization
+        async () => {
+          try {
+            GoogleSignin.configure({
+              iosClientId: '37834669347-14cuffdgj2u50rtn752hd8s7tbq6dkss.apps.googleusercontent.com',
+              offlineAccess: true,
+              forceCodeForRefreshToken: true,
+            });
+            console.log('✅ Google Sign-In initialized');
+            return true;
+          } catch (error) {
+            console.error('❌ Google Sign-In failed:', error);
             return false;
           }
         },

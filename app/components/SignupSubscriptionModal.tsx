@@ -521,9 +521,9 @@ const SignupSubscriptionModal: React.FC<SignupSubscriptionModalProps> = ({
             <View style={styles.appleRequiredInfo}>
               <Text style={styles.subscriptionInfoTitle}>Subscription Details</Text>
               <Text style={styles.subscriptionInfoText}>
-                Weekly Pro: $12.49/week, auto-renewable{"\n"}
-                Monthly Pro: $24.99/month, auto-renewable{"\n"}
-                Yearly Pro: $199.99/year, auto-renewable{"\n"}
+                Weekly Pro: $9.99/week, auto-renewable{"\n"}
+                Monthly Pro: $19.99/month, auto-renewable{"\n"}
+                Yearly Pro: $149.99/year, auto-renewable{"\n"}
                 Lifetime Pro: $349.99 one-time payment
               </Text>
               

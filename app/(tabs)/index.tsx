@@ -25,7 +25,8 @@ import {
   Calendar,
   Lock,
   Shield,
-  Trophy
+  Trophy,
+  Palette
 } from 'lucide-react-native';
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
 import { FacebookPixel } from '../services/analytics';
@@ -38,6 +39,7 @@ import { useSubscription } from '../services/subscriptionContext';
 import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
+import EliteThemeModal from '../components/EliteThemeModal';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
@@ -94,6 +96,7 @@ export default function HomeScreen() {
   });
   const [userId, setUserId] = useState<string>('');
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
+  const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -432,14 +435,24 @@ export default function HomeScreen() {
         >
           {/* Background Pattern */}
           <View style={styles.headerPattern} />
-
           {isElite ? (
-            <View style={styles.eliteBadge}>
-              <Crown size={16} color="#FFD700" />
-              <Text style={styles.eliteBadgeText}>ELITE</Text>
-              <Animated.View style={[styles.eliteSparkle, { opacity: sparkleAnimation }]}>
-                <Text style={styles.sparkleEmoji}>✨</Text>
-              </Animated.View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => setEliteThemeModalVisible(true)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 14,
+                  backgroundColor: `${theme.accentPrimary}1A`,
+                  borderWidth: 1,
+                  borderColor: `${theme.accentPrimary}33`
+                }}
+              >
+                <Palette size={14} color={theme.accentPrimary} />
+                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '700', color: theme.accentPrimary }}>Theme</Text>
+              </TouchableOpacity>
             </View>
           ) : isPro ? (
             <View style={styles.proBadge}>
@@ -844,6 +857,14 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Elite Theme Modal */}
+        {isElite && (
+          <EliteThemeModal
+            visible={eliteThemeModalVisible}
+            onClose={() => setEliteThemeModalVisible(false)}
+          />
+        )}
 
       </ScrollView>
       

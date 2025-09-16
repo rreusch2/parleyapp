@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { supabase } from '../services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Lock } from 'lucide-react-native';
 
@@ -156,8 +156,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     color: '#ffffff',
-    selectionColor: '#00E5FF',
-  },
+  } as any,
   button: {
     backgroundColor: '#4169e1',
     paddingVertical: 15,

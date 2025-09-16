@@ -156,7 +156,7 @@ export default function AdminAnalyticsDashboard() {
 
       setSubscriptionBreakdown(breakdown);
 
-      const monthlyRevenue = (breakdown.monthly || 0) * 24.99;
+      const monthlyRevenue = (breakdown.monthly || 0) * 19.99;
       const yearlyRevenue = (breakdown.yearly || 0) * 199.99;
       const lifetimeRevenue = (breakdown.lifetime || 0) * 349.99;
       const totalRevenue = monthlyRevenue + yearlyRevenue + lifetimeRevenue;

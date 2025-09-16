@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { normalize, isTablet } from '@/app/services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // No need to redefine isTablet since we're importing it
 
@@ -31,9 +32,10 @@ export default function LoginScreen() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+  const [isGoogleAuthAvailable, setIsGoogleAuthAvailable] = useState(false);
   const router = useRouter();
 
-  // Check if Apple Auth is available on mount
+  // Check if Apple Auth and Google Auth are available on mount
   React.useEffect(() => {
     // Apple Authentication is only available on iOS
     if (Platform.OS === 'ios') {
@@ -41,6 +43,9 @@ export default function LoginScreen() {
     } else {
       setIsAppleAuthAvailable(false);
     }
+    
+    // Google Authentication is available on both platforms
+    setIsGoogleAuthAvailable(true);
   }, []);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
@@ -99,6 +104,102 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       Alert.alert('Login Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      
+      console.log('🔍 Starting Google Sign In...');
+      
+      // Check if device supports Google Play Services
+      await GoogleSignin.hasPlayServices();
+      
+      // Get user info from Google
+      const userInfo = await GoogleSignin.signIn();
+      
+      console.log('🔍 Google user info received:', {
+        idToken: userInfo.idToken ? 'Present' : 'Missing',
+        user: userInfo.user
+      });
+
+      if (userInfo.idToken) {
+        console.log('🔍 Attempting Supabase signInWithIdToken...');
+        
+        // Sign in with Supabase using Google ID token
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: userInfo.idToken,
+        });
+
+        if (error) {
+          console.error('Supabase Google Sign In error:', error);
+          throw error;
+        }
+
+        if (data.user) {
+          // Check if this is a new user (first time sign in with Google)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username, created_at')
+            .eq('id', data.user.id)
+            .single();
+
+          const isNewUser = !profile || !profile.username || 
+            (profile.created_at && new Date(profile.created_at) > new Date(Date.now() - 60000)); // Created within last minute
+
+          if (isNewUser) {
+            // New user - update their profile with Google-provided info
+            const displayName = userInfo.user.name || userInfo.user.email?.split('@')[0] || 'User';
+
+            await supabase
+              .from('profiles')
+              .update({
+                username: displayName,
+                email: userInfo.user.email || data.user.email,
+              })
+              .eq('id', data.user.id);
+
+            // Redirect new users to signup page to go through onboarding flow
+            // Pass a flag to indicate they're already authenticated
+            router.replace({
+              pathname: '/signup',
+              params: { 
+                googleSignInComplete: 'true',
+                userId: data.user.id 
+              }
+            });
+          } else {
+            // Existing user - go to main app
+            router.replace('/(tabs)');
+          }
+        }
+      }
+    } catch (error: any) {
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        // User canceled the sign-in
+        console.log('User canceled Google Sign In');
+      } else {
+        console.error('Google Sign In error details:', {
+          code: error.code,
+          message: error.message,
+          error: error
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = 'Failed to sign in with Google. Please try again.';
+        
+        if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error.message?.includes('PLAY_SERVICES')) {
+          errorMessage = 'Google Play Services not available. Please update Google Play Services.';
+        }
+        
+        Alert.alert('Sign In Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -253,7 +354,20 @@ export default function LoginScreen() {
               <Text style={styles.subtitle}>Sign in to continue your journey</Text>
 
               <View style={styles.form}>
-                {/* Apple Sign In Button - Show first for better UX */}
+                {/* Google Sign In Button - Show first for better UX */}
+                {isGoogleAuthAvailable && (
+                  <View style={styles.socialButtonContainer}>
+                    <TouchableOpacity
+                      style={styles.googleButton}
+                      onPress={handleGoogleSignIn}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.googleButtonText}>Continue with Google</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                {/* Apple Sign In Button */}
                 {isAppleAuthAvailable && (
                   <View style={styles.appleButtonContainer}>
                     <AppleAuthentication.AppleAuthenticationButton
@@ -263,12 +377,15 @@ export default function LoginScreen() {
                       style={styles.appleButton}
                       onPress={handleAppleSignIn}
                     />
-                    
-                    <View style={styles.divider}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>OR</Text>
-                      <View style={styles.dividerLine} />
-                    </View>
+                  </View>
+                )}
+                
+                {/* Divider - Only show if social auth is available */}
+                {(isGoogleAuthAvailable || isAppleAuthAvailable) && (
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>OR</Text>
+                    <View style={styles.dividerLine} />
                   </View>
                 )}
 
@@ -414,7 +531,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     minHeight: isTablet ? 70 : 60,
-    transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
     borderColor: '#00E5FF',
@@ -487,8 +603,36 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
   },
+  socialButtonContainer: {
+    marginBottom: normalize(10),
+  },
+  googleButton: {
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isTablet ? 18 : 16,
+    borderRadius: normalize(30),
+    marginBottom: normalize(10),
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  googleButtonText: {
+    color: '#000000',
+    fontSize: isTablet ? 18 : 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Medium',
+  },
   appleButtonContainer: {
-    marginBottom: normalize(20),
+    marginBottom: normalize(10),
   },
   appleButton: {
     width: '100%',
@@ -496,7 +640,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: normalize(30),
-    marginTop: normalize(10),
   },
   divider: {
     flexDirection: 'row',
