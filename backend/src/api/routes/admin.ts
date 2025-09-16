@@ -150,7 +150,8 @@ router.get('/users', async (req: express.Request, res: express.Response) => {
         created_at,
         is_active,
         welcome_bonus_claimed,
-        revenuecat_customer_id
+        revenuecat_customer_id,
+        phone_number
       `, { count: 'exact' });
 
     // Apply search filter
@@ -534,5 +535,110 @@ router.post('/revenuecat-webhook', async (req: express.Request, res: express.Res
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+
+// Update a user's subscription tier (free | pro | elite) with comprehensive field updates
+router.patch('/users/:userId/tier', async (req: express.Request, res: express.Response) => {
+  try {
+    const { userId } = req.params;
+    const { tier } = req.body as { tier?: 'free' | 'pro' | 'elite' };
+
+    if (!tier || !['free', 'pro', 'elite'].includes(tier)) {
+      return res.status(400).json({ error: 'Invalid or missing tier. Must be one of free | pro | elite' });
+    }
+
+    const now = new Date().toISOString();
+    const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+    const updateData: any = {
+      subscription_tier: tier,
+      subscription_status: tier === 'free' ? 'inactive' : 'active',
+      updated_at: now,
+    };
+
+    if (tier === 'free') {
+      updateData.max_daily_picks = 2;
+      updateData.subscription_plan_type = null;
+      updateData.subscription_product_id = null;
+      updateData.subscription_expires_at = null;
+      updateData.auto_renew_enabled = null;
+      updateData.revenuecat_customer_id = null;
+      // Clear welcome bonus to prevent UI override
+      updateData.welcome_bonus_claimed = false;
+      updateData.welcome_bonus_expires_at = null;
+    } else if (tier === 'pro') {
+      updateData.max_daily_picks = 20;
+      updateData.subscription_plan_type = 'admin_manual';
+      updateData.subscription_product_id = 'admin_override_pro';
+      updateData.subscription_expires_at = oneYearFromNow;
+      updateData.auto_renew_enabled = false;
+      updateData.subscription_started_at = now;
+      updateData.subscription_renewed_at = now;
+      updateData.revenuecat_customer_id = `admin_${userId}`;
+      updateData.welcome_bonus_claimed = false;
+      updateData.welcome_bonus_expires_at = null;
+    } else if (tier === 'elite') {
+      updateData.max_daily_picks = 30;
+      updateData.subscription_plan_type = 'admin_manual';
+      updateData.subscription_product_id = 'admin_override_elite';
+      updateData.subscription_expires_at = oneYearFromNow;
+      updateData.auto_renew_enabled = false;
+      updateData.subscription_started_at = now;
+      updateData.subscription_renewed_at = now;
+      updateData.revenuecat_customer_id = `admin_${userId}`;
+      updateData.welcome_bonus_claimed = false;
+      updateData.welcome_bonus_expires_at = null;
+    }
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error updating user tier (admin):', error);
+      return res.status(500).json({ error: 'Failed to update user tier' });
+    }
+
+    // Return updated user
+    const { data: updated, error: fetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching updated user:', fetchError);
+      return res.status(200).json({ success: true });
+    }
+
+    res.json({ success: true, user: updated });
+  } catch (error) {
+    console.error('Error in admin update tier:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Clear a user's phone number (set phone_number to NULL)
+router.patch('/users/:userId/clear-phone', async (req: express.Request, res: express.Response) => {
+  try {
+    const { userId } = req.params;
+    const now = new Date().toISOString();
+
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ phone_number: null, updated_at: now })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error clearing phone number (admin):', error);
+      return res.status(500).json({ error: 'Failed to clear phone number' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error in admin clear phone:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 export default router;

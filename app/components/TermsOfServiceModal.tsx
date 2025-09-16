@@ -264,7 +264,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                 If you have questions about these Terms of Service, please contact us at:
               </Text>
               <View style={styles.contactInfo}>
-                <Text style={styles.contactText}>Email: predictiveplay2025@gmail.com</Text>
+                <Text style={styles.contactText}>Email: support@predictive-play.com</Text>
                 <Text style={styles.contactText}>Website: https://rreusch2.github.io/ppwebsite</Text>
               </View>
             </View>

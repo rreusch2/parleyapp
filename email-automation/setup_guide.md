@@ -19,8 +19,8 @@
    - If prompted, configure OAuth consent screen:
      - Choose "External" user type
      - Fill in app name: "ParleyApp Email System"
-     - User support email: predictiveplay2025@gmail.com
-     - Developer contact: predictiveplay2025@gmail.com
+     - User support email: support@predictive-play.com
+     - Developer contact: support@predictive-play.com
      - Save and continue through all steps
    - Choose "Desktop application" as application type
    - Name it "ParleyApp Emailer"
@@ -45,7 +45,7 @@ pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-pyt
    python gmail_bulk_emailer.py
    ```
 3. **Browser will open** asking you to:
-   - Sign in to predictiveplay2025@gmail.com
+   - Sign in to support@predictive-play.com
    - Grant permissions to send emails
    - This creates `token.json` for future use
 
@@ -140,7 +140,7 @@ python gmail_bulk_emailer.py
 - Place in `/home/reid/Desktop/parleyapp/email-automation/credentials.json`
 
 **"Authentication failed"**:
-- Ensure you're signed into predictiveplay2025@gmail.com
+- Ensure you're signed into support@predictive-play.com
 - Grant all permissions when prompted
 - Check if Gmail API is enabled in Google Cloud Console
 

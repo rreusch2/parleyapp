@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
-import AdminAnalyticsDashboard from './components/AdminAnalyticsDashboard';
+import AdminUsersManager from './components/AdminUsersManager';
 
 export default function AdminDashboardScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f1419" />
-      <AdminAnalyticsDashboard />
+      <AdminUsersManager />
     </View>
   );
 }

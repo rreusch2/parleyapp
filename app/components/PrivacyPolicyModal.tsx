@@ -176,7 +176,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                 <Text style={styles.bulletPoint}>&bull; Export your data in a portable format</Text>
               </View>
               <Text style={styles.sectionText}>
-                You can update your account information and preferences in the app's settings. To exercise other rights, please contact us at predictiveplay2025@gmail.com.
+                You can update your account information and preferences in the app's settings. To exercise other rights, please contact us at support@predictive-play.com.
               </Text>
             </View>
 
@@ -212,7 +212,7 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                 If you have questions about this Privacy Policy or our data practices, please contact us at:
               </Text>
               <Text style={styles.sectionText}>
-                Email: predictiveplay2025@gmail.com
+                Email: support@predictive-play.com
               </Text>
             </View>
           </ScrollView>
