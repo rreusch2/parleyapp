@@ -29,6 +29,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_daypass: 'com.parleyapp.prodaypass',
     pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect)
+    elite_daypass: 'com.parleyapp.elitedaypass',
     elite_weekly: 'com.parleyapp.allstarweekly',
     elite_monthly: 'com.parleyapp.allstarmonthly', 
     elite_yearly: 'com.parleyapp.allstaryearly',
@@ -46,6 +47,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_daypass: 'com.parleyapp.prodaypass',
     pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect base IDs)
+    elite_daypass: 'com.parleyapp.elitedaypass',
     elite_weekly: 'com.parleyapp.allstarweekly:weekly-elite2025',
     elite_monthly: 'com.parleyapp.allstarmonthly:monthly-elite2025',
     elite_yearly: 'com.parleyapp.allstaryearly:yearly-elite2025',
@@ -59,7 +61,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
 
 // Subscription tiers and plans
 export type SubscriptionTier = 'free' | 'pro' | 'elite';
-export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'pro_lifetime' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'pro_lifetime' | 'elite_daypass' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
 
 // Tier configuration
 export const SUBSCRIPTION_TIERS = {
@@ -84,7 +86,7 @@ export const SUBSCRIPTION_TIERS = {
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: true,
-    pricing: { weekly: 14.99, monthly: 29.99, yearly: 199.99 }
+    pricing: { daypass: 8.99, weekly: 14.99, monthly: 29.99, yearly: 199.99 }
   },
 
 };

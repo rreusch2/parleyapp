@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,7 @@ import { listMedia } from '../services/api/mediaService';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
+import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -56,8 +57,11 @@ export default function HomeScreen() {
   const { isPro, isElite, subscriptionTier, openSubscriptionModal, eliteFeatures } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const { trackPositiveInteraction } = useReview();
+  const { isLoading: optimizedLoading, loadData, progress } = useOptimizedLoading({ 
+    timeout: 8000, 
+    enableProgress: true 
+  });
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     todayPicks: 0,
@@ -92,37 +96,42 @@ export default function HomeScreen() {
     let isMounted = true;
     const abortController = new AbortController();
     
-    const loadData = async () => {
+    const initializeDashboard = async () => {
       if (!isMounted) return;
       
-      try {
-        await loadInitialData(abortController.signal);
+      // Use optimized loading with concurrent operations
+      const operations = [
+        // Data fetching operations
+        () => fetchTodaysPicks(abortController.signal),
+        () => fetchUserStats(abortController.signal),
+        () => fetchUserPreferencesData(abortController.signal),
+        () => loadMediaItems(abortController.signal),
         
-        // Track prediction view for AppsFlyer/TikTok optimization
-        try {
-          await appsFlyerService.trackPredictionView();
-        } catch (error) {
-          console.error('Failed to track prediction view:', error);
+        // Analytics tracking (non-critical)
+        async () => {
+          try {
+            await appsFlyerService.trackPredictionView();
+          } catch (err) {
+            console.error('Analytics tracking failed:', err);
+          }
+        },
+        async () => {
+          try {
+            facebookAnalyticsService.trackViewContent('Daily AI Picks', {
+              content_category: 'predictions',
+              user_tier: subscriptionTier,
+              picks_count: todaysPicks.length
+            });
+          } catch (err) {
+            console.error('Facebook Analytics failed:', err);
+          }
         }
-        
-        // Track daily picks view with Facebook Analytics
-        try {
-          facebookAnalyticsService.trackViewContent('Daily AI Picks', {
-            content_category: 'predictions',
-            user_tier: subscriptionTier,
-            picks_count: todaysPicks.length
-          });
-        } catch (error) {
-          console.error('Failed to track view content with Facebook Analytics:', error);
-        }
-      } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Failed to load dashboard data:', error);
-        }
-      }
+      ];
+
+      await loadData(operations);
     };
     
-    loadData();
+    initializeDashboard();
     const stopAnimation = startSparkleAnimation();
     
     return () => {
@@ -130,7 +139,7 @@ export default function HomeScreen() {
       abortController.abort();
       if (stopAnimation) stopAnimation();
     };
-  }, [isPro]); // Added isPro to dependencies
+  }, [isPro, loadData]); // Added loadData to dependencies
 
   const startSparkleAnimation = () => {
     const animation = Animated.loop(
@@ -157,77 +166,44 @@ export default function HomeScreen() {
     };
   };
 
-  const loadInitialData = async (signal?: AbortSignal) => {
+  // Helper functions for optimized loading
+  const fetchUserPreferencesData = useCallback(async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
     
-    setLoading(true);
-    try {
-      // Check if user is new first
-      if (signal?.aborted) return;
-      const newUserStatus = await aiService.isNewUser();
-      if (signal?.aborted) return;
-      setIsNewUser(newUserStatus);
+    const newUserStatus = await aiService.isNewUser();
+    if (signal?.aborted) return;
+    setIsNewUser(newUserStatus);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (signal?.aborted) return;
+    
+    if (user) {
+      setUserId(user.id);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('sport_preferences, betting_style, risk_tolerance')
+        .eq('id', user.id)
+        .single();
       
-      // Fetch user preferences for Elite features
-      if (signal?.aborted) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (signal?.aborted) return;
-      
-      if (user) {
-        setUserId(user.id);
-        if (signal?.aborted) return;
-        
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences, betting_style, risk_tolerance')
-          .eq('id', user.id)
-          .single();
-        
-        if (signal?.aborted) return;
-        
-        if (profile) {
-          setUserPreferences({
-            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
-            bettingStyle: profile.betting_style || 'balanced',
-            riskTolerance: profile.risk_tolerance || 'medium'
-          });
-        }
-      }
-      
-      // Load data with cancellation support
-      if (signal?.aborted) return;
-      
-      // Use Promise.allSettled instead of Promise.all to prevent cascading failures
-      const results = await Promise.allSettled([
-        fetchTodaysPicks(signal),
-        fetchUserStats(signal)
-      ]);
-      
-      // Log any failures but don't crash
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.error(`Data loading failed for operation ${index}:`, result.reason);
-        }
-      });
-
-      // Load media items (separately to keep code simple)
-      try {
-        const items = await listMedia();
-        if (!signal?.aborted) setMediaItems(items);
-      } catch (err) {
-        if (!signal?.aborted) console.error('Failed to load media items:', err);
-      }
-      
-    } catch (error) {
-      if (!signal?.aborted) {
-        console.error('Error loading initial data:', error);
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
+      if (profile && !signal?.aborted) {
+        setUserPreferences({
+          sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+          bettingStyle: profile.betting_style || 'balanced',
+          riskTolerance: profile.risk_tolerance || 'medium'
+        });
       }
     }
-  };
+  }, []);
+
+  const loadMediaItems = useCallback(async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    try {
+      const items = await listMedia();
+      if (!signal?.aborted) setMediaItems(items);
+    } catch (err) {
+      if (!signal?.aborted) console.error('Failed to load media items:', err);
+    }
+  }, []);
 
 
 
@@ -339,7 +315,14 @@ export default function HomeScreen() {
     const abortController = new AbortController();
     
     try {
-      await loadInitialData(abortController.signal);
+      const operations = [
+        () => fetchTodaysPicks(abortController.signal),
+        () => fetchUserStats(abortController.signal),
+        () => fetchUserPreferencesData(abortController.signal),
+        () => loadMediaItems(abortController.signal)
+      ];
+      
+      await loadData(operations);
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error('Refresh failed:', error);
@@ -394,13 +377,19 @@ export default function HomeScreen() {
     outputRange: [0.4, 1],
   });
 
-  if (loading) {
+  if (optimizedLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <Animated.View style={{ opacity: sparkleOpacity }}>
           <Sparkles size={40} color="#00E5FF" />
         </Animated.View>
         <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        {progress > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: `${progress}%` }]} />
+            <Text style={styles.progressText}>{Math.round(progress)}%</Text>
+          </View>
+        )}
       </View>
     );
   }
@@ -1489,5 +1478,28 @@ const styles = StyleSheet.create({
   eliteCenterStatLabel: {
     color: '#0F172A', // Even darker for better contrast on the center stat
     fontWeight: '700',
+  },
+  
+  // Progress indicator styles for optimized loading
+  progressContainer: {
+    marginTop: 20,
+    width: '80%',
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#00E5FF',
+    borderRadius: 10,
+  },
+  progressText: {
+    position: 'absolute',
+    top: -25,
+    right: 0,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

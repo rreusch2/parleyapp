@@ -5,6 +5,7 @@ import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
 import facebookAnalyticsService from './facebookAnalyticsService';
+import eliteDayPassService from './eliteDayPassService';
 
 
 interface SubscriptionContextType {
@@ -239,6 +240,38 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       console.log('✅ DEBUG: User found:', user.id);
 
+      // Handle Elite Day Pass specially
+      if (planId === 'elite_daypass') {
+        console.log('🎯 DEBUG: Processing Elite Day Pass purchase...');
+        const dayPassResult = await eliteDayPassService.purchaseEliteDayPass(user.id);
+        
+        if (dayPassResult.success) {
+          console.log('✅ Elite Day Pass activated successfully!');
+          
+          // Update local state immediately
+          setIsPro(true);
+          setIsElite(true);
+          setSubscriptionTier('elite');
+          await AsyncStorage.setItem('subscriptionStatus', 'elite');
+          
+          // Track the purchase
+          facebookAnalyticsService.trackPurchase(8.99, 'USD');
+          
+          // Show success message
+          Alert.alert(
+            '🎉 Elite Day Pass Activated!',
+            `You now have Elite access for 24 hours. Enjoy premium features, advanced analytics, and priority support!`,
+            [{ text: 'Get Started', style: 'default' }]
+          );
+          
+          return true;
+        } else {
+          Alert.alert('Purchase Failed', dayPassResult.error || 'Unable to activate Elite Day Pass');
+          return false;
+        }
+      }
+
+      // Handle regular subscriptions
       console.log('🔥 DEBUG: Initializing RevenueCat service...');
       await revenueCatService.initialize();
       

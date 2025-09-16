@@ -11,6 +11,7 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
@@ -243,7 +244,15 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
   const renderTierComparison = () => (
     <View style={styles.tierComparisonContainer}>
-      <Text style={styles.chooseYourPlanTitle}>Unlock Premium Intelligence</Text>
+      <View style={styles.urgencyContainer}>
+        <View style={styles.urgencyBadge}>
+          <Text style={styles.urgencyText}>⚡ Limited Time: 50% OFF All Plans</Text>
+        </View>
+      </View>
+      <Text style={styles.chooseYourPlanTitle}>Choose Your Winning Plan</Text>
+      <View style={styles.socialProofContainer}>
+        <Text style={styles.socialProofText}>🏆 Join 10,000+ Winning Bettors</Text>
+      </View>
       
       {/* Tier Selection Tabs */}
       <View style={styles.tierTabsContainer}>
@@ -279,31 +288,65 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       {/* Tier Features Comparison */}
       <View style={styles.featuresComparisonContainer}>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily AI Picks</Text>
+          <Text style={styles.featureLabel}>💎 Daily AI Picks</Text>
           <Text style={styles.featureValue}>
-            {selectedTier === 'pro' ? '20 picks' : '30 picks'}
+            {selectedTier === 'pro' ? '20 winning picks' : '30 winning picks'}
           </Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily Insights</Text>
+          <Text style={styles.featureLabel}>🧠 Expert Insights</Text>
           <Text style={styles.featureValue}>
-            {selectedTier === 'pro' ? '8 insights' : '12 insights'}
+            {selectedTier === 'pro' ? '8 daily insights' : '12 daily insights'}
           </Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Professor Lock Chat</Text>
-          <Text style={styles.featureValue}>Unlimited</Text>
+          <Text style={styles.featureLabel}>💬 AI Chat Support</Text>
+          <Text style={styles.featureValue}>Unlimited Access</Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily AI Predictions</Text>
-          <Text style={styles.featureValue}>✓ Included</Text>
+          <Text style={styles.featureLabel}>📊 Live Analytics</Text>
+          <Text style={styles.featureValue}>Real-time Updates</Text>
         </View>
         {selectedTier === 'elite' && (
           <View style={styles.featureRow}>
-            <Text style={styles.featureLabel}>🔒 Lock of the Day</Text>
-            <Text style={styles.featureValuePremium}>✓ Elite Exclusive</Text>
+            <Text style={styles.featureLabel}>🔒 Guaranteed Lock</Text>
+            <Text style={styles.featureValuePremium}>Daily Sure Bet</Text>
           </View>
         )}
+        <View style={styles.guaranteeRow}>
+          <Shield size={14} color="#10B981" />
+          <Text style={styles.guaranteeText}>30-Day Success Guarantee</Text>
+        </View>
+      </View>
+      
+      {/* Preview Section */}
+      <View style={styles.previewSection}>
+        <Text style={styles.previewTitle}>See What You Get 👀</Text>
+        <View style={styles.previewContainer}>
+          <View style={styles.previewImageContainer}>
+            <Image 
+              source={require('../../assets/images/previews/pro-dashboard.png')}
+              style={[styles.previewImage, selectedTier !== 'pro' && styles.previewImageDimmed]}
+              resizeMode="cover"
+            />
+            <View style={[styles.previewOverlay, selectedTier === 'pro' && styles.previewOverlayActive]}>
+              <Text style={styles.previewLabel}>Pro Dashboard</Text>
+              <Text style={styles.previewFeature}>20 Daily Picks</Text>
+            </View>
+          </View>
+          
+          <View style={styles.previewImageContainer}>
+            <Image 
+              source={require('../../assets/images/previews/elite-dashboard.png')}
+              style={[styles.previewImage, selectedTier !== 'elite' && styles.previewImageDimmed]}
+              resizeMode="cover"
+            />
+            <View style={[styles.previewOverlay, selectedTier === 'elite' && styles.previewOverlayActive]}>
+              <Text style={styles.previewLabel}>Elite Dashboard</Text>
+              <Text style={styles.previewFeature}>30 Premium Picks</Text>
+            </View>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -311,7 +354,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
-      : ['elite_weekly', 'elite_monthly', 'elite_yearly'];
+      : ['elite_daypass', 'elite_weekly', 'elite_monthly', 'elite_yearly'];
 
     return (
       <View style={styles.planOptionsContainer}>
@@ -343,9 +386,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             period = 'per year';
             savings = 'Save 50%';
           } else if (plan.includes('daypass')) {
-            planName = 'Day Pass';
+            planName = selectedTier === 'elite' ? 'Elite Day Pass' : 'Day Pass';
             price = `$${pricing.daypass}`;
-            period = 'one day';
+            period = selectedTier === 'elite' ? '24 hours' : 'one day';
+            if (selectedTier === 'elite') {
+              savings = 'Try Elite';
+            }
           } else if (plan.includes('lifetime')) {
             planName = 'Lifetime';
             price = `$${pricing.lifetime}`;
@@ -372,6 +418,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   </View>
                 )}
                 
+                {savings === 'Save 17%' && (
+                  <View style={[styles.popularBadge, isSelected && styles.popularBadgeSelected]}>
+                    <TrendingUp size={10} color={isSelected ? '#0F172A' : '#10B981'} />
+                    <Text style={[styles.popularText, isSelected && styles.popularTextSelected]}>
+                      POPULAR
+                    </Text>
+                  </View>
+                )}
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
@@ -396,13 +450,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                           <Text style={styles.discountText}>50% OFF</Text>
                         </View>
                       </View>
-                      <Text style={styles.planPrice}>
-                        <Text style={styles.currencySymbol}>$</Text>
-                        {price.replace('$', '')}
-                      </Text>
+                      <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {/* Remove duplicate trial text to fix overlap - badge is enough */}
+                    {savings === 'Save 17%' && (
+                      <View style={styles.valuePropositionContainer}>
+                        <Text style={styles.valuePropositionText}>🔥 Most Chosen Plan</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </LinearGradient>
@@ -432,7 +487,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#94A3B8" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Join 25,000+ Elite Bettors</Text>
+            <Text style={styles.headerTitle}>Upgrade to Premium</Text>
             <View style={styles.headerSpacer} />
           </View>
 
@@ -462,7 +517,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   <>
                     <Crown size={20} color="#FFFFFF" />
                     <Text style={styles.subscribeButtonText}>
-                      Start {selectedTier === 'pro' ? 'Pro' : 'Elite'} Subscription
+                      🚀 Start Winning Today - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
                     </Text>
                   </>
                 )}
@@ -486,39 +541,39 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Only $12.49 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Just $24.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Only $199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Pro Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>Just $4.99 one-time purchase (24 hours)</Text>
+                    <Text style={styles.subscriptionInfoText}>$4.99 one-time purchase (24 hours)</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Only $14.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Just $29.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>Only $199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
                   </View>
                 </>
               )}
@@ -780,21 +835,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   priceContainer: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 4,
-    paddingLeft: 8,
   },
   planPrice: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#EF4444',
-    textAlign: 'left',
-  },
-  currencySymbol: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#EF4444',
-    marginRight: 2,
+    color: '#FFFFFF',
   },
   planPeriod: {
     fontSize: 14,
@@ -932,32 +979,24 @@ const styles = StyleSheet.create({
   pricingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    justifyContent: 'flex-start',
+    marginBottom: 4,
   },
   originalPrice: {
-    fontSize: 16,
-    color: '#64748B',
+    fontSize: 14,
+    color: '#94A3B8',
     textDecorationLine: 'line-through',
-    marginRight: 12,
-    fontWeight: '500',
+    marginRight: 8,
   },
   discountBadge: {
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   discountText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
   },
   planNameWithIcon: {
     flexDirection: 'row',
@@ -992,6 +1031,149 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     opacity: 0.9,
+  },
+  // New conversion-optimized styles
+  urgencyContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  urgencyBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  urgencyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  socialProofContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  socialProofText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    textAlign: 'center',
+  },
+  guaranteeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  guaranteeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+    marginLeft: 6,
+  },
+  popularBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  popularBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#FFFFFF',
+  },
+  popularText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
+    marginLeft: 4,
+  },
+  popularTextSelected: {
+    color: '#0F172A',
+  },
+  valuePropositionContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  valuePropositionText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  previewSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  previewContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  previewImageContainer: {
+    flex: 1,
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+  },
+  previewImageDimmed: {
+    opacity: 0.6,
+  },
+  previewOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 8,
+    opacity: 0.8,
+  },
+  previewOverlayActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    opacity: 1,
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  previewFeature: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
 

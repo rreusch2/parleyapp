@@ -15,6 +15,7 @@ import { registerForPushNotificationsAsync, savePushTokenToProfile } from './ser
 import appsFlyerService from './services/appsFlyerService';
 import facebookAnalyticsService from './services/facebookAnalyticsService';
 import ReviewDebugPanel from './components/ReviewDebugPanel';
+import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
 // Remove the top-level import since it's not available on web
 
 
@@ -27,70 +28,83 @@ function AppContent() {
   const { initializeReview } = useReview();
   const router = useRouter();
 
-  // Initialize review service, AppsFlyer, and Facebook Analytics on app startup
+  // Initialize services with performance optimizations
   useEffect(() => {
+    // Initialize review service immediately (lightweight)
     initializeReview();
     
-    // REQUEST iOS 14.5+ TRACKING PERMISSION - CRITICAL FOR META ADS
-    (async () => {
-      if (Platform.OS === 'ios') {
-        try {
-          console.log('🔐 Requesting iOS App Tracking Transparency permission...');
-          // Dynamic import for native-only module
-          const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
-          const { status } = await requestTrackingPermissionsAsync();
-          console.log(`📱 iOS Tracking Permission: ${status}`);
-          
-          if (status === 'granted') {
-            console.log('✅ IDFA tracking granted - Meta campaigns can track conversions');
-          } else {
-            console.log('⚠️ IDFA tracking denied - Meta campaigns will have limited attribution');
+    // Run heavy operations after interactions complete (non-blocking)
+    runAfterInteractions(async () => {
+      const initializationOperations = [
+        // iOS tracking permission
+        async () => {
+          if (Platform.OS === 'ios') {
+            try {
+              const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
+              const { status } = await requestTrackingPermissionsAsync();
+              console.log(`📱 iOS Tracking: ${status}`);
+              return status;
+            } catch (error) {
+              console.error('❌ iOS tracking failed:', error);
+              return null;
+            }
           }
-        } catch (error) {
-          console.error('❌ iOS tracking permission request failed:', error);
-        }
-      }
-    })();
-    
-    // Initialize AppsFlyer for TikTok ads tracking
-    (async () => {
-      try {
-        console.log('🚀 Initializing AppsFlyer for TikTok ads tracking...');
-        await appsFlyerService.initialize();
-        console.log('✅ AppsFlyer initialized successfully');
-      } catch (error) {
-        console.error('❌ AppsFlyer initialization failed:', error);
-      }
-    })();
-    
-    // Initialize Facebook Analytics for Meta ads tracking - AFTER iOS permission
-    (async () => {
-      try {
-        console.log('🚀 Initializing Facebook Analytics for Meta ads tracking...');
-        await facebookAnalyticsService.initialize();
-        
-        // CRITICAL: Track app install immediately after FB SDK init
-        facebookAnalyticsService.trackAppInstall();
-        console.log('✅ Facebook Analytics initialized + App Install tracked');
-      } catch (error) {
-        console.error('❌ Facebook Analytics initialization failed:', error);
-      }
-    })();
-    
-    // Register push notifications
-    (async () => {
-      try {
-        const token = await registerForPushNotificationsAsync();
-        if (token) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user?.id) {
-            await savePushTokenToProfile(token, user.id);
+          return null;
+        },
+
+        // AppsFlyer initialization
+        async () => {
+          try {
+            await appsFlyerService.initialize();
+            console.log('✅ AppsFlyer initialized');
+            return true;
+          } catch (error) {
+            console.error('❌ AppsFlyer failed:', error);
+            return false;
+          }
+        },
+
+        // Facebook Analytics initialization
+        async () => {
+          try {
+            await facebookAnalyticsService.initialize();
+            facebookAnalyticsService.trackAppInstall();
+            console.log('✅ Facebook Analytics initialized');
+            return true;
+          } catch (error) {
+            console.error('❌ Facebook Analytics failed:', error);
+            return false;
+          }
+        },
+
+        // Push notification registration
+        async () => {
+          try {
+            const token = await registerForPushNotificationsAsync();
+            if (token) {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user?.id) {
+                await savePushTokenToProfile(token, user.id);
+                return token;
+              }
+            }
+            return null;
+          } catch (err) {
+            console.error('Push notification registration failed', err);
+            return null;
           }
         }
-      } catch (err) {
-        console.error('Error during push notification registration', err);
-      }
-    })();
+      ];
+
+      // Execute all operations concurrently instead of sequentially
+      const results = await batchAsyncOperations(initializationOperations);
+      console.log('🚀 App initialization completed:', {
+        tracking: results[0]?.status === 'fulfilled',
+        appsFlyer: results[1]?.status === 'fulfilled',
+        facebook: results[2]?.status === 'fulfilled',
+        pushNotifications: results[3]?.status === 'fulfilled'
+      });
+    });
   }, [initializeReview]);
 
   // Handle notification taps (navigate to the right tab)
