@@ -628,8 +628,16 @@ export default function SettingsScreen() {
               
               console.log('✅ Successfully logged out');
               
-              // Navigate to login screen
-              await router.replace('/(auth)/login');
+              // Platform-specific navigation handling
+              if (Platform.OS === 'web') {
+                // For web, use window.location to force a full redirect
+                console.log('🌐 Web platform detected, using window.location');
+                window.location.href = '/login';
+              } else {
+                // For native platforms, use router.replace
+                console.log('📱 Native platform detected, using router.replace');
+                await router.replace('/(auth)/login');
+              }
               
             } catch (error) {
               console.error('Logout error:', error);
@@ -674,8 +682,16 @@ export default function SettingsScreen() {
                 console.error('Signout after account deletion error:', error);
               }
               
-              // Navigate to login screen
-              await router.replace('/(auth)/login');
+              // Platform-specific navigation handling
+              if (Platform.OS === 'web') {
+                // For web, use window.location to force a full redirect
+                console.log('🌐 Web platform detected, using window.location');
+                window.location.href = '/login';
+              } else {
+                // For native platforms, use router.replace
+                console.log('📱 Native platform detected, using router.replace');
+                await router.replace('/(auth)/login');
+              }
               
               Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
               

@@ -62,7 +62,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   referralBonusType = 'free_trial',
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro');
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime');
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly');
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -165,9 +165,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_lifetime');
+      setSelectedPlan('pro_weekly');
     } else if (tier === 'elite') {
-      setSelectedPlan('elite_weekly');
+      setSelectedPlan('elite_daypass');
     }
   };
 
@@ -319,35 +319,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         </View>
       </View>
       
-      {/* Preview Section */}
-      <View style={styles.previewSection}>
-        <Text style={styles.previewTitle}>See What You Get 👀</Text>
-        <View style={styles.previewContainer}>
-          <View style={styles.previewImageContainer}>
-            <Image 
-              source={require('../../assets/images/previews/pro-dashboard.png')}
-              style={[styles.previewImage, selectedTier !== 'pro' && styles.previewImageDimmed]}
-              resizeMode="cover"
-            />
-            <View style={[styles.previewOverlay, selectedTier === 'pro' && styles.previewOverlayActive]}>
-              <Text style={styles.previewLabel}>Pro Dashboard</Text>
-              <Text style={styles.previewFeature}>20 Daily Picks</Text>
-            </View>
-          </View>
-          
-          <View style={styles.previewImageContainer}>
-            <Image 
-              source={require('../../assets/images/previews/elite-dashboard.png')}
-              style={[styles.previewImage, selectedTier !== 'elite' && styles.previewImageDimmed]}
-              resizeMode="cover"
-            />
-            <View style={[styles.previewOverlay, selectedTier === 'elite' && styles.previewOverlayActive]}>
-              <Text style={styles.previewLabel}>Elite Dashboard</Text>
-              <Text style={styles.previewFeature}>30 Premium Picks</Text>
-            </View>
-          </View>
-        </View>
-      </View>
+      
     </View>
   );
 
@@ -487,11 +459,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#94A3B8" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Upgrade to Premium</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={require('../../assets/images/icon.png')} style={styles.headerLogo} />
+              <Text style={[styles.headerTitle, { marginLeft: 8 }]}>Upgrade to Premium</Text>
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
             {/* Referral Bonus Banner */}
             {renderReferralBonus()}
             
@@ -501,28 +476,27 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             {/* Plan Options */}
             {renderPlanOptions()}
 
-            {/* Subscribe Button */}
-            <TouchableOpacity
-              style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
-              onPress={handleSubscribe}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
-                style={styles.subscribeButtonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Crown size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeButtonText}>
-                      🚀 Start Winning Today - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            {/* Tier Screenshot Preview below plan options */}
+            {selectedTier === 'pro' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/pro-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+            {selectedTier === 'elite' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/elite-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+
+            {/* (Subscribe button moved to floating footer) */}
 
             <TouchableOpacity
               style={styles.restoreButton}
@@ -611,6 +585,28 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             </View>
           </ScrollView>
         </LinearGradient>
+
+        {/* Floating CTA */}
+        <View style={styles.floatingFooter}>
+          <TouchableOpacity
+            style={[styles.floatingCTAButton, loading && styles.subscribeButtonDisabled]}
+            onPress={handleSubscribe}
+            disabled={loading}
+          >
+            <LinearGradient
+              colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
+              style={styles.floatingCTAButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.floatingCTAButtonText}>
+                  🚀 Start Winning Now - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -647,8 +643,19 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  headerLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+  },
   scrollView: {
     flex: 1,
+  },
+  tierScreenshot: {
+    width: '100%',
+    height: Math.min(screenHeight * 0.5, 520),
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   tierComparisonContainer: {
     paddingHorizontal: 20,
@@ -873,6 +880,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     marginLeft: 8,
+  },
+  floatingFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+    paddingTop: 0,
+  },
+  floatingCTAButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  floatingCTAButtonGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  floatingCTAButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   footer: {
     paddingHorizontal: 20,

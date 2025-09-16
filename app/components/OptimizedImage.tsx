@@ -1,12 +1,12 @@
-// Optimized image component using FastImage for better performance
+// Optimized image component using Expo Image for better performance
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
-import FastImage from 'react-native-fast-image';
+import { Image } from 'expo-image';
 
 interface OptimizedImageProps {
   source: { uri: string } | number;
   style?: any;
-  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
+  resizeMode?: 'contain' | 'cover' | 'fill' | 'scale-down' | 'none';
   priority?: 'low' | 'normal' | 'high';
   fallbackColor?: string;
   showLoader?: boolean;
@@ -39,33 +39,15 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setError(true);
   };
 
-  // Convert priority to FastImage priority
-  const fastImagePriority = priority === 'high' 
-    ? FastImage.priority.high 
-    : priority === 'low' 
-    ? FastImage.priority.low 
-    : FastImage.priority.normal;
-
-  // Convert resizeMode to FastImage resizeMode
-  const fastImageResizeMode = resizeMode === 'contain' 
-    ? FastImage.resizeMode.contain
-    : resizeMode === 'stretch'
-    ? FastImage.resizeMode.stretch
-    : resizeMode === 'center'
-    ? FastImage.resizeMode.center
-    : FastImage.resizeMode.cover;
-
   return (
     <View style={[styles.container, style]}>
       {!error && (
-        <FastImage
-          source={typeof source === 'number' ? source : { 
-            uri: source.uri,
-            priority: fastImagePriority,
-            cache: FastImage.cacheControl.immutable
-          }}
+        <Image
+          source={source}
           style={[styles.image, style]}
-          resizeMode={fastImageResizeMode}
+          contentFit={resizeMode}
+          priority={priority}
+          cachePolicy="memory-disk"
           onLoadStart={handleLoadStart}
           onLoadEnd={handleLoadEnd}
           onError={handleError}

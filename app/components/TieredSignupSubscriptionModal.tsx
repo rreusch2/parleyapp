@@ -57,7 +57,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onContinueFree,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime'); // Default to Pro lifetime
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -149,9 +149,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_lifetime');
+      setSelectedPlan('pro_weekly');
     } else if (tier === 'elite') {
-      setSelectedPlan('elite_yearly');
+      setSelectedPlan('elite_daypass');
     }
   };
 
@@ -293,40 +293,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 • 🔒 Guaranteed Daily Lock
               </Text>
             </View>
-            <View style={styles.guaranteeRow}>
-              <Shield size={14} color="#10B981" />
-              <Text style={styles.guaranteeText}>30-Day Win Guarantee</Text>
-            </View>
-            
-            {/* Preview Section */}
-            <View style={styles.previewSection}>
-              <Text style={styles.previewTitle}>See What You Get 👀</Text>
-              <View style={styles.previewContainer}>
-                <View style={styles.previewImageContainer}>
-                  <Image 
-                    source={require('../../assets/images/previews/pro-dashboard.png')}
-                    style={[styles.previewImage, selectedTier !== 'pro' && styles.previewImageDimmed]}
-                    resizeMode="cover"
-                  />
-                  <View style={[styles.previewOverlay, selectedTier === 'pro' && styles.previewOverlayActive]}>
-                    <Text style={styles.previewLabel}>Pro Dashboard</Text>
-                    <Text style={styles.previewFeature}>20 Daily Picks</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.previewImageContainer}>
-                  <Image 
-                    source={require('../../assets/images/previews/elite-dashboard.png')}
-                    style={[styles.previewImage, selectedTier !== 'elite' && styles.previewImageDimmed]}
-                    resizeMode="cover"
-                  />
-                  <View style={[styles.previewOverlay, selectedTier === 'elite' && styles.previewOverlayActive]}>
-                    <Text style={styles.previewLabel}>Elite Dashboard</Text>
-                    <Text style={styles.previewFeature}>30 Premium Picks</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
+            {/* Removed guarantee row to keep Pro/Elite cards the same height */}
             
             {selectedTier === 'elite' && (
               <View style={styles.selectedIndicator}>
@@ -480,14 +447,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
             {/* Main Header */}
             <View style={styles.headerContent}>
-              <View style={styles.crownContainer}>
-                <Crown size={42} color="#F59E0B" />
-                <View style={styles.crownGlow} />
+              <View style={styles.logoContainer}>
+                <Image source={require('../../assets/images/icon.png')} style={styles.appLogo} />
               </View>
-              <Text style={styles.headerTitle}>🚀 Welcome to Predictive Play!</Text>
+              <Text style={styles.headerTitle}>Welcome to Predictive Play!</Text>
               <Text style={styles.headerSubtitle}>
                 Join elite bettors using AI-powered predictions
               </Text>
@@ -499,33 +465,30 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             {/* Plan Options */}
             {renderPlanOptions()}
 
-            {/* Subscribe Button */}
-            <TouchableOpacity
-              style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
-              onPress={handleSubscribe}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
-                style={styles.subscribeButtonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Crown size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeButtonText}>
-                      🚀 Start Winning Now - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
             {/* Continue Free Button */}
             <TouchableOpacity style={styles.continueButton} onPress={onContinueFree}>
               <Text style={styles.continueButtonText}>Skip Upgrade (Limited to 2 picks daily)</Text>
             </TouchableOpacity>
+
+            {/* Tier Screenshot Preview below Skip */}
+            {selectedTier === 'pro' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/pro-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+            {selectedTier === 'elite' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/elite-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
 
             {/* Restore Purchases */}
             <TouchableOpacity style={styles.restoreButton} onPress={restorePurchases}>
@@ -608,6 +571,27 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             </View>
           </ScrollView>
         </LinearGradient>
+        {/* Floating CTA */}
+        <View style={styles.floatingFooter}>
+          <TouchableOpacity
+            style={[styles.floatingCTAButton, loading && styles.subscribeButtonDisabled]}
+            onPress={handleSubscribe}
+            disabled={loading}
+          >
+            <LinearGradient
+              colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
+              style={styles.floatingCTAButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.floatingCTAButtonText}>
+                  🚀 Start Winning Now - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -658,6 +642,14 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     opacity: 0.2,
     zIndex: -1,
+  },
+  logoContainer: {
+    marginBottom: 16,
+  },
+  appLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
   },
   headerTitle: {
     fontSize: 28,
@@ -901,6 +893,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 8,
   },
+  tierScreenshot: {
+    width: '100%',
+    height: Math.min(screenHeight * 0.5, 520),
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   continueButton: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -935,6 +933,29 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     marginHorizontal: 4,
+  },
+  floatingFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
+    paddingTop: 8,
+  },
+  floatingCTAButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  floatingCTAButtonGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  floatingCTAButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   appleRequiredInfo: {
     marginTop: 20,
