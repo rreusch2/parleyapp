@@ -15,6 +15,7 @@ import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
+import { useUITheme } from '../services/uiThemeContext';
 
 interface Pick {
   id: string;
@@ -33,6 +34,7 @@ interface TwoTabPredictionsLayoutProps {
 }
 
 export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) {
+  const { theme } = useUITheme();
   const [activeTab, setActiveTab] = useState<'team' | 'props'>('team');
   const [teamPicks, setTeamPicks] = useState<Pick[]>([]);
   const [playerPropsPicks, setPlayerPropsPicks] = useState<Pick[]>([]);
@@ -368,10 +370,9 @@ What are your thoughts on this prediction?`;
         styles.tabButton,
         activeTab === tab && [
           styles.activeTabButton,
-          isElite && {
-            backgroundColor: '#FFD700',
-            borderColor: '#FFD700',
-            shadowColor: '#FFD700'
+          {
+            backgroundColor: theme.accentPrimary,
+            borderColor: theme.accentPrimary,
           }
         ]
       ]}
@@ -381,7 +382,7 @@ What are your thoughts on this prediction?`;
         styles.tabTitle,
         activeTab === tab && [
           styles.activeTabTitle,
-          isElite && activeTab === tab && { color: '#000000' }
+          { color: '#000000' }
         ]
       ]}>
         {title}
@@ -390,7 +391,7 @@ What are your thoughts on this prediction?`;
         styles.tabSubtitle,
         activeTab === tab && [
           styles.activeTabSubtitle,
-          isElite && activeTab === tab && { color: 'rgba(0, 0, 0, 0.8)' }
+          { color: 'rgba(0, 0, 0, 0.8)' }
         ]
       ]}>
         {subtitle}

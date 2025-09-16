@@ -59,6 +59,16 @@ router.get('/stats', async (req: express.Request, res: express.Response) => {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const newUsers7d = users.filter(u => new Date(u.created_at) >= sevenDaysAgo).length;
 
+    // New users today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const newUsersToday = users.filter(u => {
+      const userDate = new Date(u.created_at);
+      return userDate >= today && userDate < tomorrow;
+    }).length;
+
     // Previous 7 days for comparison
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
@@ -81,6 +91,7 @@ router.get('/stats', async (req: express.Request, res: express.Response) => {
       lifetimeSubs,
       monthlyRevenue: parseFloat(monthlyRevenue.toFixed(2)),
       newUsers7d,
+      newUsersToday,
       userGrowthChange: parseFloat(userGrowthChange)
     });
 

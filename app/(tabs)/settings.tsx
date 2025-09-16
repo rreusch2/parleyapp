@@ -993,26 +993,6 @@ export default function SettingsScreen() {
         { 
           id: 'subscription', 
           title: 'Subscription', 
-          type: 'link', 
-          badge: isElite ? 'ELITE' : isPro ? 'PRO' : 'FREE',
-          badgeColor: isElite ? '#FFD700' : isPro ? '#F59E0B' : '#6B7280',
-          action: handleManageSubscription
-        },
-        {
-          id: 'open_signup_paywall_dev',
-          title: 'Open Signup Paywall (DEV)',
-          type: 'link',
-          subtitle: 'Temporarily show the signup paywall for testing',
-          badge: 'DEV',
-          badgeColor: '#3B82F6',
-          action: () => setShowSignupPaywall(true),
-        },
-        {
-          id: 'avatar',
-          title: 'Edit Avatar',
-          type: 'link',
-          subtitle: 'Choose from presets or upload your own photo',
-          action: () => setShowAvatarModal(true)
         },
         {
           id: 'preferences',
@@ -1096,14 +1076,6 @@ export default function SettingsScreen() {
           } • ${bubbleSize === 'compact' ? 'Compact' : 'Standard'}${respectReduceMotion ? ' • Reduce Motion' : ''}`,
           action: () => setShowChatBubbleSettings(true)
         },
-        // Elite-only theme customization
-        ...(!isElite ? [] : [{
-          id: 'elite_theme',
-          title: 'Elite Theme',
-          type: 'link',
-          subtitle: 'Exclusive color themes for Elite',
-          action: () => setShowEliteThemeModal(true)
-        }]),
       ]
     },
     {
@@ -1137,6 +1109,15 @@ export default function SettingsScreen() {
           type: 'link',
           subtitle: 'Reset your password via email'
         }] : [])),
+        
+        // App Themes - Available to all users with tiered access
+        {
+          id: 'app_themes',
+          title: 'App Themes',
+          type: 'link',
+          subtitle: isElite ? 'Choose from all 6 premium themes' : isPro ? 'Choose from 2 Pro themes' : 'Upgrade to unlock premium themes',
+          action: () => setShowEliteThemeModal(true)
+        },
         
         // Payment History removed per requirements
         // Biometric Login removed per requirements
@@ -1451,10 +1432,14 @@ export default function SettingsScreen() {
         onClose={() => setShowChatBubbleSettings(false)}
       />
 
-      {/* Elite Theme Modal (Elite-only) */}
+      {/* App Themes Modal (All users with tiered access) */}
       <EliteThemeModal
         visible={showEliteThemeModal}
         onClose={() => setShowEliteThemeModal(false)}
+        onUpgradePress={() => {
+          setShowEliteThemeModal(false);
+          openSubscriptionModal();
+        }}
       />
 
       {/* Change Password Modal */}

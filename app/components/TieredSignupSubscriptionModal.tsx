@@ -238,6 +238,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 • 8 Expert Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
+                • 2 App Themes
+              </Text>
+              <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
                 • Unlimited AI Chat
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
@@ -285,6 +288,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • 12 Pro Insights
+              </Text>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
+                • All 6 App Themes
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • Advanced Professor Lock
@@ -338,7 +344,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             planName = 'Monthly';
             price = `$${pricing.monthly}`;
             period = 'per month';
-            savings = 'Save 17%';
+            savings = null;
             isTrialEligible = true;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
@@ -390,29 +396,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   </View>
                 )}
                 
-                {savings === 'Save 17%' && (
-                  <View
-                    style={[
-                      styles.popularBadge,
-                      isSelected && styles.popularBadgeSelected,
-                      selectedTier === 'pro' ? styles.popularBadgePro : styles.popularBadgeElite,
-                    ]}
-                  >
-                    <TrendingUp
-                      size={10}
-                      color={isSelected ? '#0F172A' : selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6'}
-                    />
-                    <Text
-                      style={[
-                        styles.popularText,
-                        isSelected && styles.popularTextSelected,
-                        { color: isSelected ? '#0F172A' : selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
-                      ]}
-                    >
-                      POPULAR
-                    </Text>
-                  </View>
-                )}
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
@@ -440,23 +423,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {savings === 'Save 17%' && (
-                      <View
-                        style={[
-                          styles.valuePropositionContainer,
-                          selectedTier === 'pro' ? styles.valuePropositionPillPro : styles.valuePropositionPillElite,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.valuePropositionText,
-                            selectedTier === 'pro' ? styles.valuePropositionTextPro : styles.valuePropositionTextElite,
-                          ]}
-                        >
-                          🔥 Most Chosen by Winners
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 </View>
               </LinearGradient>

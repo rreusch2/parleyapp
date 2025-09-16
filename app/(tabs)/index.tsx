@@ -612,7 +612,7 @@ export default function HomeScreen() {
         {isPro ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
+              <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary, textShadowColor: `${theme.accentPrimary}30`, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
             </View>
@@ -652,7 +652,7 @@ export default function HomeScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={['#00E5FF', '#0EA5E9']}
+                  colors={theme.ctaGradient}
                   style={styles.proViewAllGradient}
                 >
                   <Brain size={16} color="#000000" />
@@ -673,7 +673,7 @@ export default function HomeScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={['#FFD700', '#FFA500']}
+                  colors={theme.ctaGradient}
                   style={styles.eliteViewAllGradient}
                 >
                   <Trophy size={16} color="#000000" />

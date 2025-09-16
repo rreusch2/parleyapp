@@ -127,13 +127,30 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
   },
 };
 
+export const AVAILABLE_PRO_THEMES: { id: ThemeId; name: string }[] = [
+  { id: 'pro_default', name: 'Pro Default' },
+  { id: 'midnight_aqua', name: 'Midnight Aqua' },
+];
+
 export const AVAILABLE_ELITE_THEMES: { id: ThemeId; name: string }[] = [
+  { id: 'pro_default', name: 'Pro Default' },
   { id: 'elite_default', name: 'Elite Default' },
   { id: 'midnight_aqua', name: 'Midnight Aqua' },
   { id: 'sunset_gold', name: 'Sunset Gold' },
   { id: 'neon_indigo', name: 'Neon Indigo' },
   { id: 'emerald_noir', name: 'Emerald Noir' },
   { id: 'crimson_blaze', name: 'Crimson Blaze' },
+];
+
+export const ALL_THEMES: { id: ThemeId; name: string; tier: 'free' | 'pro' | 'elite' }[] = [
+  { id: 'free_default', name: 'Free Default', tier: 'free' },
+  { id: 'pro_default', name: 'Pro Default', tier: 'pro' },
+  { id: 'midnight_aqua', name: 'Midnight Aqua', tier: 'pro' },
+  { id: 'elite_default', name: 'Elite Default', tier: 'elite' },
+  { id: 'sunset_gold', name: 'Sunset Gold', tier: 'elite' },
+  { id: 'neon_indigo', name: 'Neon Indigo', tier: 'elite' },
+  { id: 'emerald_noir', name: 'Emerald Noir', tier: 'elite' },
+  { id: 'crimson_blaze', name: 'Crimson Blaze', tier: 'elite' },
 ];
 
 export function getThemeTokens(id: ThemeId): ThemeTokens {
@@ -166,8 +183,19 @@ export function UIThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const activeTheme = useMemo<ThemeTokens>(() => {
-    if (isElite) return THEMES[selectedThemeId] || THEMES.elite_default;
-    if (isPro) return THEMES.pro_default;
+    if (isElite) {
+      // Elite users can use any theme
+      return THEMES[selectedThemeId] || THEMES.elite_default;
+    }
+    if (isPro) {
+      // Pro users can only use pro_default and midnight_aqua
+      const allowedProThemes: ThemeId[] = ['pro_default', 'midnight_aqua'];
+      if (allowedProThemes.includes(selectedThemeId)) {
+        return THEMES[selectedThemeId];
+      }
+      return THEMES.pro_default;
+    }
+    // Free users always get free_default
     return THEMES.free_default;
   }, [isElite, isPro, selectedThemeId]);
 
@@ -190,4 +218,25 @@ export function useUITheme() {
   const ctx = useContext(UIThemeContext);
   if (!ctx) throw new Error('useUITheme must be used within a UIThemeProvider');
   return ctx;
+}
+
+export function getAvailableThemesForTier(isElite: boolean, isPro: boolean) {
+  if (isElite) {
+    return AVAILABLE_ELITE_THEMES;
+  }
+  if (isPro) {
+    return AVAILABLE_PRO_THEMES;
+  }
+  return []; // Free users can't select themes
+}
+
+export function canUserAccessTheme(themeId: ThemeId, isElite: boolean, isPro: boolean): boolean {
+  const theme = ALL_THEMES.find(t => t.id === themeId);
+  if (!theme) return false;
+  
+  if (theme.tier === 'free') return true;
+  if (theme.tier === 'pro') return isPro || isElite;
+  if (theme.tier === 'elite') return isElite;
+  
+  return false;
 }

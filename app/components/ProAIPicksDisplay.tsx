@@ -29,6 +29,7 @@ import {
   ChevronRight
 } from 'lucide-react-native';
 import { formatEventTime } from '../utils/timeFormat';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -69,6 +70,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
   showViewAllButton,
   onViewAllPress
 }) => {
+  const { theme } = useUITheme();
   const [picks, setPicks] = useState<AIPrediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPicks, setExpandedPicks] = useState<Set<string>>(new Set());
@@ -221,9 +223,11 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
     
     return (
       <TouchableOpacity
-        key={pick.id}
-        style={[styles.pickCard, isTopPick && styles.topPickCard]}
-        onPress={() => toggleExpanded(pick.id)}
+        style={[
+          styles.pickCard,
+          isTopPick && { ...styles.topPickCard, borderColor: theme.accentPrimary },
+        ]}
+        onPress={() => onPickPress?.(pick)}
         activeOpacity={0.8}
       >
         <LinearGradient
@@ -235,9 +239,9 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
         >
           {/* Top Pick Badge - Moved to avoid overlap */}
           {isTopPick && (
-            <View style={styles.topPickBadge}>
-              <Trophy size={12} color="#FFD700" />
-              <Text style={styles.topPickText}>TOP {index + 1}</Text>
+            <View style={[styles.topPickBadge, { backgroundColor: theme.accentPrimary }]}>
+              <Trophy size={12} color="#000000" />
+              <Text style={[styles.topPickText, { color: '#000000' }]}>TOP {index + 1}</Text>
               <Animated.View
                 style={[
                   styles.sparkle,
@@ -252,7 +256,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                   },
                 ]}
               >
-                <Flame size={10} color="#FFD700" />
+                <Flame size={10} color={theme.accentPrimary} />
               </Animated.View>
             </View>
           )}
@@ -515,7 +519,6 @@ const styles = StyleSheet.create({
   },
   topPickCard: {
     borderWidth: 1,
-    borderColor: '#FFD700',
     elevation: 8,
     shadowOpacity: 0.5,
   },
@@ -531,7 +534,7 @@ const styles = StyleSheet.create({
     left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFD700',
+    // backgroundColor will be set dynamically with theme
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

@@ -15,12 +15,12 @@ import {
   Dimensions,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { supabase } from '../services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { normalize, isTablet } from '@/app/services/device';
+import { normalize, isTablet } from '../services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 
 // No need to redefine isTablet since we're importing it
 
@@ -121,18 +121,21 @@ export default function LoginScreen() {
       // Get user info from Google
       const userInfo = await GoogleSignin.signIn();
       
+      // Get the ID token
+      const { idToken } = await GoogleSignin.getTokens();
+      
       console.log('🔍 Google user info received:', {
-        idToken: userInfo.idToken ? 'Present' : 'Missing',
-        user: userInfo.user
+        idToken: idToken ? 'Present' : 'Missing',
+        userInfo: userInfo
       });
 
-      if (userInfo.idToken) {
+      if (idToken) {
         console.log('🔍 Attempting Supabase signInWithIdToken...');
         
         // Sign in with Supabase using Google ID token
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: userInfo.idToken,
+          token: idToken,
         });
 
         if (error) {
@@ -152,14 +155,14 @@ export default function LoginScreen() {
             (profile.created_at && new Date(profile.created_at) > new Date(Date.now() - 60000)); // Created within last minute
 
           if (isNewUser) {
-            // New user - update their profile with Google-provided info
-            const displayName = userInfo.user.name || userInfo.user.email?.split('@')[0] || 'User';
+            // New user          // For new sign ups, Google provides the name and email
+          const displayName = (userInfo as any)?.user?.name || (userInfo as any)?.user?.email?.split('@')[0] || 'GoogleUser';
 
             await supabase
               .from('profiles')
               .update({
                 username: displayName,
-                email: userInfo.user.email || data.user.email,
+                email: (userInfo as any)?.user?.email || data.user.email,
               })
               .eq('id', data.user.id);
 
@@ -351,19 +354,18 @@ export default function LoginScreen() {
           >
             <View style={styles.content}>
               <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to continue your journey</Text>
+              <Text style={styles.subtitle}>Sign in to your account</Text>
 
               <View style={styles.form}>
                 {/* Google Sign In Button - Show first for better UX */}
                 {isGoogleAuthAvailable && (
                   <View style={styles.socialButtonContainer}>
-                    <TouchableOpacity
+                    <GoogleSigninButton
                       style={styles.googleButton}
+                      size={GoogleSigninButton.Size.Wide}
+                      color={GoogleSigninButton.Color.Dark}
                       onPress={handleGoogleSignIn}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.googleButtonText}>Continue with Google</Text>
-                    </TouchableOpacity>
+                    />
                   </View>
                 )}
                 

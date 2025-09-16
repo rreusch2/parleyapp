@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { adminApi, AdminUserSummary } from '../services/api/client';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import apiClient from '../services/api/client';
 
 interface Paging {
   page: number;
@@ -58,6 +59,7 @@ export default function AdminUsersManager() {
   const [tierFilter, setTierFilter] = useState<TierFilter>('all');
   const [paging, setPaging] = useState<Paging>({ page: 1, pageSize: 20, totalPages: 1, totalCount: 0 });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [dailyCount, setDailyCount] = useState<number>(0);
 
   const debouncedSearch = useDebounce(search, 350);
 
@@ -88,6 +90,19 @@ export default function AdminUsersManager() {
       isMounted = false;
     };
   }, [paging.page, paging.pageSize, debouncedSearch, tierFilter, refreshKey]);
+
+  // Load daily account count
+  useEffect(() => {
+    const loadDailyCount = async () => {
+      try {
+        const response = await apiClient.get('/admin/stats');
+        setDailyCount(response.data.newUsersToday || 0);
+      } catch (error) {
+        console.error('Failed to load daily count:', error);
+      }
+    };
+    loadDailyCount();
+  }, [refreshKey]);
 
   // Reset to first page when filters/search change
   useEffect(() => {
@@ -188,6 +203,9 @@ export default function AdminUsersManager() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Admin • Users</Text>
         <Text style={styles.headerSubtitle}>Manage profiles, subscriptions and contact</Text>
+        <View style={styles.dailyCounter}>
+          <Text style={styles.dailyCounterText}>Today: {dailyCount} new accounts</Text>
+        </View>
       </LinearGradient>
 
       {/* Controls */}
@@ -452,6 +470,21 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  dailyCounter: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  dailyCounterText: {
+    color: '#818cf8',
+    fontSize: 12,
+    fontWeight: '600',
   },
   userCard: {
     backgroundColor: '#0b1220',

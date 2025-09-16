@@ -306,6 +306,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           <Text style={styles.featureValue}>Unlimited Access</Text>
         </View>
         <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>🎨 App Themes</Text>
+          <Text style={styles.featureValue}>
+            {selectedTier === 'pro' ? '2 Pro themes' : 'All 6 premium themes'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
           <Text style={styles.featureLabel}>📊 Live Analytics</Text>
           <Text style={styles.featureValue}>Real-time Updates</Text>
         </View>
@@ -352,7 +358,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             planName = 'Monthly';
             price = `$${pricing.monthly}`;
             period = 'per month';
-            savings = 'Save 17%';
+            savings = null;
             isTrialEligible = true;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
@@ -392,15 +398,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   </View>
                 )}
                 
-                {savings === 'Save 17%' && (
-                  <View style={[styles.popularBadge, isSelected && styles.popularBadgeSelected]}>
-                    <TrendingUp size={10} color={isSelected ? '#0F172A' : '#10B981'} />
-                    <Text style={[styles.popularText, isSelected && styles.popularTextSelected]}>
-                      POPULAR
-                    </Text>
-                  </View>
-                )}
-                
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
                     <View style={styles.planNameContainer}>
@@ -427,11 +424,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {savings === 'Save 17%' && (
-                      <View style={styles.valuePropositionContainer}>
-                        <Text style={styles.valuePropositionText}>🔥 Most Chosen Plan</Text>
-                      </View>
-                    )}
                   </View>
                 </View>
               </LinearGradient>

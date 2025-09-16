@@ -24,7 +24,7 @@ import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import appsFlyerService from '../services/appsFlyerService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
@@ -415,18 +415,21 @@ export default function SignupScreen() {
       // Get user info from Google
       const userInfo = await GoogleSignin.signIn();
       
+      // Get the ID token
+      const { idToken } = await GoogleSignin.getTokens();
+      
       console.log('🔍 Google user info received:', {
-        idToken: userInfo.idToken ? 'Present' : 'Missing',
-        user: userInfo.user
+        idToken: idToken ? 'Present' : 'Missing',
+        userInfo: userInfo
       });
 
-      if (userInfo.idToken) {
+      if (idToken) {
         console.log('🔍 Attempting Supabase signInWithIdToken...');
         
         // Sign in with Supabase using Google ID token
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
-          token: userInfo.idToken,
+          token: idToken,
         });
 
         if (error) {
@@ -436,7 +439,7 @@ export default function SignupScreen() {
 
         if (data.user) {
           // For new sign ups, Google provides the name and email
-          const displayName = userInfo.user.name || userInfo.user.email?.split('@')[0] || 'GoogleUser';
+          const displayName = (userInfo as any)?.user?.name || (userInfo as any)?.user?.email?.split('@')[0] || 'GoogleUser';
 
           // Generate unique referral code for new user
           const generateReferralCode = () => {
@@ -462,7 +465,7 @@ export default function SignupScreen() {
             .from('profiles')
             .update({
               username: displayName,
-              email: userInfo.user.email || data.user.email,
+              email: (userInfo as any)?.user?.email || data.user.email,
               referral_code: userReferralCode,
               referred_by: referredBy,
               updated_at: new Date().toISOString()
@@ -878,13 +881,12 @@ export default function SignupScreen() {
               {/* Google Sign Up Button - Show first for better UX */}
               {isGoogleAuthAvailable && (
                 <View style={styles.socialButtonContainer}>
-                  <TouchableOpacity
+                  <GoogleSigninButton
                     style={styles.googleButton}
+                    size={GoogleSigninButton.Size.Wide}
+                    color={GoogleSigninButton.Color.Dark}
                     onPress={handleGoogleSignUp}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.googleButtonText}>Continue with Google</Text>
-                  </TouchableOpacity>
+                  />
                 </View>
               )}
               
