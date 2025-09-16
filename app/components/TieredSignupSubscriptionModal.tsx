@@ -211,7 +211,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       <View style={styles.tierCardsContainer}>
         {/* Pro Tier Card */}
         <TouchableOpacity
-          style={[styles.tierCard, selectedTier === 'pro' && styles.tierCardSelected]}
+          style={[styles.tierCard, styles.tierCardLeft, selectedTier === 'pro' && styles.tierCardSelected]}
           onPress={() => handleTierSelection('pro')}
         >
           <LinearGradient
@@ -256,7 +256,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
         {/* Elite Tier Card */}
         <TouchableOpacity
-          style={[styles.tierCard, selectedTier === 'elite' && styles.tierCardSelected]}
+          style={[styles.tierCard, styles.tierCardRight, selectedTier === 'elite' && styles.tierCardSelected]}
           onPress={() => handleTierSelection('elite')}
         >
           <LinearGradient
@@ -453,7 +453,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               <View style={styles.logoContainer}>
                 <Image source={require('../../assets/images/icon.png')} style={styles.appLogo} />
               </View>
-              <Text style={styles.headerTitle}>Welcome to Predictive Play!</Text>
+              <Text style={styles.headerTitleLine1}>Welcome to</Text>
+              <Text style={styles.headerTitleLine2}>{'Predictive\u00A0Play'}</Text>
               <Text style={styles.headerSubtitle}>
                 Join elite bettors using AI-powered predictions
               </Text>
@@ -651,11 +652,18 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 12,
   },
-  headerTitle: {
-    fontSize: 28,
+  headerTitleLine1: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  headerTitleLine2: {
+    fontSize: 30,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
+    marginTop: 2,
     marginBottom: 8,
   },
   headerSubtitle: {
@@ -677,12 +685,16 @@ const styles = StyleSheet.create({
   },
   tierCardsContainer: {
     flexDirection: 'row',
-    gap: 12,
   },
   tierCard: {
     flex: 1,
     borderRadius: 16,
-    overflow: 'hidden',
+  },
+  tierCardLeft: {
+    marginRight: 6,
+  },
+  tierCardRight: {
+    marginLeft: 6,
   },
   tierCardSelected: {
     shadowColor: '#000',
@@ -695,7 +707,10 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     position: 'relative',
-    minHeight: 200,
+    minHeight: 240,
+    paddingBottom: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   mostPopularBadge: {
     position: 'absolute',
@@ -895,7 +910,7 @@ const styles = StyleSheet.create({
   },
   tierScreenshot: {
     width: '100%',
-    height: Math.min(screenHeight * 0.5, 520),
+    height: Math.min(screenHeight * 0.65, 640),
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -938,10 +953,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: Platform.OS === 'ios' ? 14 : 10,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 16,
-    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 16 : 12,
+    paddingTop: 4,
   },
   floatingCTAButton: {
     borderRadius: 16,

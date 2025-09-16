@@ -50,6 +50,7 @@ import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
 import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -57,9 +58,9 @@ export default function HomeScreen() {
   const { isPro, isElite, subscriptionTier, openSubscriptionModal, eliteFeatures } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const { trackPositiveInteraction } = useReview();
-  const { isLoading: optimizedLoading, loadData, progress } = useOptimizedLoading({ 
+  const { isLoading: optimizedLoading, loadData } = useOptimizedLoading({ 
     timeout: 8000, 
-    enableProgress: true 
+    enableProgress: false 
   });
   const [refreshing, setRefreshing] = useState(false);
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([]);
@@ -372,25 +373,13 @@ export default function HomeScreen() {
     return '#00E5FF'; // Changed from red to cyan for better UX
   };
 
-  const sparkleOpacity = sparkleAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.4, 1],
-  });
+  // sparkleAnimation is used for subtle header animations; no separate opacity needed here
 
   if (optimizedLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Animated.View style={{ opacity: sparkleOpacity }}>
-          <Sparkles size={40} color="#00E5FF" />
-        </Animated.View>
-        <Text style={styles.loadingText}>Loading your dashboard...</Text>
-        {progress > 0 && (
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { width: `${progress}%` }]} />
-            <Text style={styles.progressText}>{Math.round(progress)}%</Text>
-          </View>
-        )}
-      </View>
+      <AnimatedSplash 
+        variant={isElite ? 'elite' : (isPro ? 'pro' : 'free')} 
+      />
     );
   }
 

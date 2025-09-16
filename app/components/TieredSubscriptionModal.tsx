@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   },
   tierScreenshot: {
     width: '100%',
-    height: Math.min(screenHeight * 0.5, 520),
+    height: Math.min(screenHeight * 0.65, 640),
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 24 : 16,
+    bottom: Platform.OS === 'ios' ? 18 : 12,
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'ios' ? 10 : 8,
     paddingTop: 0,

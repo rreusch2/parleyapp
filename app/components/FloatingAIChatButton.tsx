@@ -5,9 +5,11 @@ import {
   Animated,
   View,
   Text,
-  Platform
+  Platform,
+  Image,
+  Easing,
+  Dimensions,
 } from 'react-native';
-import { MessageCircle, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '@/app/services/subscriptionContext';
 import { useAIChat } from '@/app/services/aiChatContext';
@@ -25,115 +27,154 @@ export default function FloatingAIChatButton({
 }: FloatingAIChatButtonProps) {
   const { isPro } = useSubscription();
   const { setShowAIChat, setChatContext } = useAIChat();
-  const [scaleAnimation] = useState(new Animated.Value(0));
-  const [pulseAnimation] = useState(new Animated.Value(1));
-  const [rotateAnimation] = useState(new Animated.Value(0));
+  const [appearScale] = useState(new Animated.Value(0));
+  const [pressScale] = useState(new Animated.Value(1));
+  const [breath] = useState(new Animated.Value(0));
+
+  // Adaptive sizing for tablet vs phone
+  const { width: screenWidth } = Dimensions.get('window');
+  const isTablet = screenWidth > 768;
+  const SIZE = isTablet ? 68 : 56; // overall button size
+  const RING_PAD = 2; // gradient ring thickness
 
   useEffect(() => {
-    // Initial appearance animation (for all users)
-    Animated.spring(scaleAnimation, {
+    // Gentle appear animation
+    Animated.spring(appearScale, {
       toValue: 1,
-      tension: 50,
-      friction: 5,
+      tension: 60,
+      friction: 7,
       useNativeDriver: true,
     }).start();
 
-    // Continuous pulse animation (for all users)
+    // Subtle breathing for ambient presence (very low amplitude, slow)
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnimation, {
-          toValue: 1.1,
-          duration: 1500,
+        Animated.timing(breath, {
+          toValue: 1,
+          duration: 4200,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.timing(pulseAnimation, {
-          toValue: 1,
-          duration: 1500,
+        Animated.timing(breath, {
+          toValue: 0,
+          duration: 4200,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
       ])
     ).start();
-
-    // Sparkle rotation animation (for all users)
-    Animated.loop(
-      Animated.timing(rotateAnimation, {
-        toValue: 1,
-        duration: 10000,
-        useNativeDriver: true,
-      })
-    ).start();
   }, []);
 
-  const rotateInterpolation = rotateAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const ringScale = breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] });
+  const ringOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.14] });
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        styles.container, 
-        { 
-          bottom, 
+        styles.container,
+        {
+          bottom,
           right,
-          transform: [
-            { scale: scaleAnimation },
-            { scale: pulseAnimation }
-          ]
-        }
+          transform: [{ scale: appearScale }, { scale: pressScale }],
+        },
       ]}
     >
-      <TouchableOpacity 
+      {/* Ambient breathing glow ring */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: -(SIZE * 0.12),
+          left: -(SIZE * 0.12),
+          width: SIZE * 1.24,
+          height: SIZE * 1.24,
+          borderRadius: (SIZE * 1.24) / 2,
+          opacity: ringOpacity,
+          transform: [{ scale: ringScale }],
+          backgroundColor: '#00E5FF',
+          zIndex: -1,
+        }}
+      />
+
+      <TouchableOpacity
         onPress={() => {
           if (onPress) {
             onPress();
           } else {
-            // Use global context - set current screen context
             setChatContext({ screen: 'global' });
             setShowAIChat(true);
           }
-        }} 
+        }}
+        onPressIn={() => {
+          Animated.spring(pressScale, {
+            toValue: 0.96,
+            useNativeDriver: true,
+            stiffness: 180,
+            damping: 18,
+            mass: 0.6,
+          }).start();
+        }}
+        onPressOut={() => {
+          Animated.spring(pressScale, {
+            toValue: 1,
+            useNativeDriver: true,
+            stiffness: 180,
+            damping: 18,
+            mass: 0.6,
+          }).start();
+        }}
         activeOpacity={0.9}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
+        {/* Gradient ring with circular logo inside */}
         <LinearGradient
-          colors={['#00E5FF', '#0891B2']}
+          colors={["#00E5FF", "#0891B2"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.button}
+          style={{
+            width: SIZE,
+            height: SIZE,
+            borderRadius: SIZE / 2,
+            padding: RING_PAD,
+            ...Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 7,
+              },
+              android: { elevation: 8 },
+            }),
+          }}
         >
-          {/* Sparkle decoration */}
-          <Animated.View 
-            style={[
-              styles.sparkle,
-              { transform: [{ rotate: rotateInterpolation }] }
-            ]}
+          <View
+            style={{
+              flex: 1,
+              borderRadius: (SIZE - RING_PAD * 2) / 2,
+              overflow: 'hidden',
+              backgroundColor: '#0B1220',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Sparkles size={16} color="#FFFFFF" style={{ opacity: 0.8 }} />
-          </Animated.View>
-          
-          {/* Main icon */}
-          <MessageCircle size={24} color="#FFFFFF" strokeWidth={2.5} />
-          
-          {/* User tier badge */}
-          <View style={styles.proBadge}>
-            <Text style={styles.proText}>{isPro ? 'PRO' : 'AI'}</Text>
+            <Image
+              // Static require ensures Metro bundles the asset
+              source={require('../../assets/images/icon.png')}
+              style={{
+                width: SIZE - 8,
+                height: SIZE - 8,
+                borderRadius: (SIZE - 8) / 2,
+                resizeMode: 'cover',
+              }}
+            />
+
+            {/* User tier badge */}
+            <View style={[styles.proBadge, { bottom: 3, right: 3 }]}> 
+              <Text style={styles.proText}>{isPro ? 'PRO' : 'AI'}</Text>
+            </View>
           </View>
         </LinearGradient>
       </TouchableOpacity>
-
-      {/* Glow effect */}
-      <Animated.View 
-        style={[
-          styles.glowEffect,
-          {
-            transform: [{ scale: pulseAnimation }],
-            opacity: pulseAnimation.interpolate({
-              inputRange: [1, 1.1],
-              outputRange: [0.3, 0.1],
-            })
-          }
-        ]}
-      />
     </Animated.View>
   );
 }
@@ -142,29 +183,6 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     zIndex: 999,
-  },
-  button: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  sparkle: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
   },
   proBadge: {
     position: 'absolute',
@@ -179,15 +197,5 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     color: '#0891B2',
-  },
-  glowEffect: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
-    backgroundColor: '#00E5FF',
-    borderRadius: 40,
-    zIndex: -1,
   },
 }); 
