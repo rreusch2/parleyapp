@@ -484,12 +484,15 @@ export default function HomeScreen() {
             </View>
             
             {/* Enhanced Stats Row with new order */}
-            <View style={isElite ? styles.eliteStatsContainer : styles.statsContainer}>
+            <View style={[
+              isElite ? styles.eliteStatsContainer : styles.statsContainer,
+              isElite && { backgroundColor: `${theme.accentPrimary}14`, borderColor: `${theme.accentPrimary}33`, shadowColor: theme.accentPrimary }
+            ]}>
               <View style={styles.statsRow}>
                 {/* Win Rate - First Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
                   <View style={styles.statIconContainer}>
-                    <Trophy size={20} color={isPro ? "#10B981" : "#64748B"} />
+                    <Trophy size={20} color={isPro ? (isElite ? theme.accentPrimary : "#10B981") : "#64748B"} />
                   </View>
                   <Text style={styles.statValue}>
                     {isPro ? (isElite ? '73%' : '73%') : '?'}
@@ -503,11 +506,15 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Daily Picks - Center Position (Highlighted) */}
-                <View style={[styles.statItem, styles.centerStatItem]}>
+                <View style={[
+                  styles.statItem, 
+                  styles.centerStatItem,
+                  isElite && { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+                ]}>
                   <View style={styles.centerStatIconContainer}>
-                    <Target size={24} color="#00E5FF" />
+                    <Target size={24} color={isElite ? theme.accentPrimary : "#00E5FF"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue, isElite && { color: theme.accentPrimary }]}>
                     {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel, isElite && styles.eliteCenterStatLabel]}>
@@ -523,9 +530,9 @@ export default function HomeScreen() {
                 {/* ROI - Third Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
                   <View style={styles.statIconContainer}>
-                    <TrendingUp size={20} color={isPro ? "#10B981" : "#64748B"} />
+                    <TrendingUp size={20} color={isPro ? (isElite ? theme.accentPrimary : "#10B981") : "#64748B"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? '#FFD700' : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? theme.accentPrimary : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
                     {isPro ? userStats.roi : '?'}
                   </Text>
                   <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
@@ -612,7 +619,7 @@ export default function HomeScreen() {
         {isPro ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary, textShadowColor: `${theme.accentPrimary}30`, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]}>
+              <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary, textShadowColor: `${theme.accentPrimary}4D`, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
             </View>
@@ -652,7 +659,7 @@ export default function HomeScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={theme.ctaGradient}
+                  colors={['#00E5FF', '#0EA5E9']}
                   style={styles.proViewAllGradient}
                 >
                   <Brain size={16} color="#000000" />
@@ -673,7 +680,7 @@ export default function HomeScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={theme.ctaGradient}
+                  colors={theme.ctaGradient as any}
                   style={styles.eliteViewAllGradient}
                 >
                   <Trophy size={16} color="#000000" />

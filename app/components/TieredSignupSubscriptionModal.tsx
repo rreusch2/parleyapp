@@ -238,9 +238,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 • 8 Expert Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 2 App Themes
-              </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
                 • Unlimited AI Chat
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
@@ -288,9 +285,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • 12 Pro Insights
-              </Text>
-              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • All 6 App Themes
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • Advanced Professor Lock

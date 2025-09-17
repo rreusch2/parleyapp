@@ -10,6 +10,7 @@ export function getRingColors(
   if (ringTheme === 'indigo') return ['#4F46E5', '#7C3AED'] as const;
   // auto -> tier-based
   if (isElite) return ['#8B5CF6', '#7C3AED'] as const;
-  if (isPro) return ['#F59E0B', '#D97706'] as const;
+  // Pro: switch from orange to cyan/teal to match Pro UI
+  if (isPro) return ['#00E5FF', '#0891B2'] as const;
   return ['#00E5FF', '#0891B2'] as const;
 }

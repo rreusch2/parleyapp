@@ -1,29 +1,24 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Lock, Crown } from 'lucide-react-native';
-import { ALL_THEMES, getThemeTokens, ThemeId, useUITheme, canUserAccessTheme } from '../services/uiThemeContext';
-import { useSubscription } from '../services/subscriptionContext';
+import { X } from 'lucide-react-native';
+import { AVAILABLE_ELITE_THEMES, getThemeTokens, ThemeId, useUITheme } from '../services/uiThemeContext';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onUpgradePress?: () => void;
 }
 
-export default function EliteThemeModal({ visible, onClose, onUpgradePress }: Props) {
+export default function EliteThemeModal({ visible, onClose }: Props) {
   const { themeId, setThemeId } = useUITheme();
-  const { isElite, isPro } = useSubscription();
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <LinearGradient colors={["#0EA5E9", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
-            <Text style={styles.headerTitle}>App Themes</Text>
-            <Text style={styles.headerSubtitle}>
-              {isElite ? 'Choose from all 6 premium themes' : isPro ? 'Choose from 2 Pro themes' : 'Upgrade to unlock premium themes'}
-            </Text>
+            <Text style={styles.headerTitle}>Elite Theme</Text>
+            <Text style={styles.headerSubtitle}>Personalize your Elite experience</Text>
             <TouchableOpacity onPress={onClose} style={styles.headerClose}>
               <X size={18} color="#FFFFFF" />
             </TouchableOpacity>
@@ -31,43 +26,24 @@ export default function EliteThemeModal({ visible, onClose, onUpgradePress }: Pr
 
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.grid}>
-              {ALL_THEMES.map((opt) => {
+              {AVAILABLE_ELITE_THEMES.map((opt) => {
                 const tokens = getThemeTokens(opt.id);
                 const selected = themeId === opt.id;
-                const canAccess = canUserAccessTheme(opt.id, isElite, isPro);
-                const isLocked = !canAccess;
-                
                 return (
                   <TouchableOpacity
                     key={opt.id}
-                    style={[styles.tile, selected && styles.tileSelected, isLocked && styles.tileLocked]}
+                    style={[styles.tile, selected && styles.tileSelected]}
                     activeOpacity={0.9}
-                    onPress={() => {
-                      if (isLocked && onUpgradePress) {
-                        onUpgradePress();
-                      } else if (canAccess) {
-                        setThemeId(opt.id);
-                      }
-                    }}
+                    onPress={() => setThemeId(opt.id)}
                   >
-                    <LinearGradient colors={tokens.headerGradient} style={[styles.tileGradient, isLocked && styles.tileGradientLocked]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                    <LinearGradient colors={tokens.headerGradient} style={styles.tileGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                       <View style={styles.tileHeader}>
-                        <Text style={[styles.tileTitle, { color: tokens.headerTextPrimary }, isLocked && styles.titleLocked]}>{opt.name}</Text>
-                        {isLocked && (
-                          <View style={styles.lockIcon}>
-                            <Lock size={14} color="rgba(255,255,255,0.6)" />
-                          </View>
-                        )}
+                        <Text style={[styles.tileTitle, { color: tokens.headerTextPrimary }]}>{opt.name}</Text>
                       </View>
-                      <LinearGradient colors={tokens.ctaGradient} style={[styles.ctaPreview, isLocked && styles.ctaPreviewLocked]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                        <Text style={[styles.ctaText, isLocked && styles.ctaTextLocked]}>Preview CTA</Text>
+                      <LinearGradient colors={tokens.ctaGradient} style={styles.ctaPreview} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                        <Text style={styles.ctaText}>Preview CTA</Text>
                       </LinearGradient>
                     </LinearGradient>
-                    {isLocked && (
-                      <View style={styles.lockOverlay}>
-                        <Lock size={20} color="rgba(255,255,255,0.8)" />
-                      </View>
-                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -75,25 +51,12 @@ export default function EliteThemeModal({ visible, onClose, onUpgradePress }: Pr
           </ScrollView>
 
           <View style={styles.footer}>
-            {!isElite && (
-              <View style={styles.upgradeNotice}>
-                <Crown size={16} color="#FFD700" />
-                <Text style={styles.upgradeText}>
-                  {isPro ? 'Elite tier unlocks 4 additional themes' : 'Pro tier unlocks 2 themes • Elite unlocks all 6'}
-                </Text>
-              </View>
-            )}
-            <View style={styles.footerButtons}>
-              <TouchableOpacity style={[styles.resetButton]} onPress={() => {
-                const defaultTheme = isElite ? 'elite_default' : isPro ? 'pro_default' : 'free_default';
-                setThemeId(defaultTheme);
-              }}>
-                <Text style={styles.resetText}>Reset to Default</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.closeText}>Done</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={[styles.resetButton]} onPress={() => setThemeId('elite_default')}>
+              <Text style={styles.resetText}>Reset to Default</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeText}>Done</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -155,37 +118,6 @@ const styles = StyleSheet.create({
   tileSelected: {
     borderColor: '#FFD700',
   },
-  tileLocked: {
-    opacity: 0.6,
-  },
-  tileGradientLocked: {
-    opacity: 0.7,
-  },
-  titleLocked: {
-    opacity: 0.7,
-  },
-  lockIcon: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 8,
-    padding: 4,
-  },
-  ctaPreviewLocked: {
-    opacity: 0.6,
-  },
-  ctaTextLocked: {
-    opacity: 0.8,
-  },
-  lockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
-  },
   tileGradient: {
     height: 140,
     padding: 10,
@@ -216,27 +148,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
-  },
-  upgradeNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-    padding: 8,
-    backgroundColor: 'rgba(255, 215, 0, 0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
-  },
-  upgradeText: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    flex: 1,
-  },
-  footerButtons: {
     flexDirection: 'row',
     gap: 10,
   },

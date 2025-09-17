@@ -5,7 +5,6 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -59,34 +58,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
     }
   };
 
-  const handlePersonalizedAvatar = async () => {
-    try {
-      setLoading('personalized');
-      // Create a unique, encoded Multiavatar URL from user data
-      const personalizedUrl = await avatarService.generatePersonalizedAvatar(userId, username, email);
-
-      // Best-effort prefetch so the image appears instantly when modal closes
-      try {
-        // @ts-ignore - prefetch exists on RN Image
-        await Image.prefetch?.(personalizedUrl);
-      } catch {}
-
-      // Persist to profile (DB) so it survives reloads
-      await avatarService.updateUserAvatar(userId, personalizedUrl);
-
-      // Update UI immediately and close modal
-      onAvatarSelected(personalizedUrl);
-      onClose();
-
-      // Friendly confirmation
-      Alert.alert('Avatar Updated', 'Your personal avatar has been set!');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create personalized avatar. Please try again.');
-      console.error('Error creating personalized avatar:', error);
-    } finally {
-      setLoading(null);
-    }
-  };
+  // Personalized avatar generation removed per latest design
 
   // We no longer filter by categories; emojis are now the primary quick-pick options
 
@@ -132,46 +104,8 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
         </LinearGradient>
 
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          {/* Personalized + Emoji Avatar Options */}
+          {/* Emoji Avatar Options */}
           <View style={{ padding: 20 }}>
-            {/* Personalized Avatar Button - COOL NEW FEATURE! */}
-            <TouchableOpacity
-              onPress={handlePersonalizedAvatar}
-              disabled={loading === 'personalized'}
-              style={{
-                backgroundColor: '#8B5CF6',
-                paddingVertical: 12,
-                paddingHorizontal: 20,
-                borderRadius: 8,
-                alignItems: 'center',
-                marginTop: 20,
-                borderWidth: 2,
-                borderColor: '#A78BFA',
-              }}
-            >
-              {loading === 'personalized' ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles-outline" size={20} color="#FFFFFF" style={{ marginBottom: 4 }} />
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontSize: 16,
-                    fontWeight: '600',
-                  }}>
-                    🎨 Create My Personal Avatar
-                  </Text>
-                  <Text style={{
-                    color: '#E0E7FF',
-                    fontSize: 12,
-                    marginTop: 2,
-                  }}>
-                    AI-generated just for you!
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
             <Text style={{
               color: '#8E8E93',
               fontSize: 14,
@@ -179,7 +113,7 @@ export const AvatarSelectionModal: React.FC<AvatarSelectionModalProps> = ({
               marginTop: 20,
               lineHeight: 20,
             }}>
-              Generate a unique avatar based on your username or pick a sports emoji below
+              Pick a sports emoji below
             </Text>
 
             {/* Emoji Grid */}

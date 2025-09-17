@@ -306,12 +306,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           <Text style={styles.featureValue}>Unlimited Access</Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>🎨 App Themes</Text>
-          <Text style={styles.featureValue}>
-            {selectedTier === 'pro' ? '2 Pro themes' : 'All 6 premium themes'}
-          </Text>
-        </View>
-        <View style={styles.featureRow}>
           <Text style={styles.featureLabel}>📊 Live Analytics</Text>
           <Text style={styles.featureValue}>Real-time Updates</Text>
         </View>
@@ -397,6 +391,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                     <Text style={styles.savingsText}>{savings}</Text>
                   </View>
                 )}
+                
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>

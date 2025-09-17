@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useUISettings, ChatBubbleAnimation, BubbleSize } from '../services/uiSettingsContext';
-import ChatBubblePreview from './ChatBubblePreview';
 import { X } from 'lucide-react-native';
 
 interface Props {
@@ -49,14 +48,7 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
     // setRespectReduceMotion,
     // setRingTheme,
   } = useUISettings();
-  const [exiting, setExiting] = useState(false);
-
-  // Fix auto-close on re-open when shimmer was selected: reset exit state on open
-  useEffect(() => {
-    if (visible) {
-      setExiting(false);
-    }
-  }, [visible]);
+  // Preview removed; no exit animation state required
 
   const animOptions = useMemo<ChatBubbleAnimation[]>(() => ['glow', 'pulse', 'shimmer', 'static'], []);
   const sizeOptions = useMemo<BubbleSize[]>(() => ['standard', 'compact', 'large'], []);
@@ -72,14 +64,6 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
               <X size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </LinearGradient>
-
-          {/* Live Preview */}
-          <View style={styles.previewArea}>
-            <Text style={styles.previewTitle}>Preview</Text>
-            <View style={styles.previewFrame}>
-              <ChatBubblePreview animateOut={exiting} onExited={onClose} />
-            </View>
-          </View>
 
           <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ padding: 16 }}>
             <Text style={styles.sectionTitle}>Animation</Text>
@@ -108,8 +92,8 @@ export default function ChatBubbleSettingsModal({ visible, onClose }: Props) {
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
-                setExiting(true);
-                // ChatBubblePreview will call onExited -> onClose
+                // Close immediately since preview has been removed
+                onClose();
               }}
             >
               <Text style={styles.closeText}>Done</Text>
@@ -156,24 +140,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
   },
-  previewArea: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
-  previewTitle: {
-    color: '#93C5FD',
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  previewFrame: {
-    height: 140,
-    backgroundColor: '#0A1220',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1F2937',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  
   sectionTitle: {
     color: '#93C5FD',
     fontWeight: '700',

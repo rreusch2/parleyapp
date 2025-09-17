@@ -223,15 +223,18 @@ export default function ProAIChat({
       setShowAdGateModal(false);
       const rewarded = rewardedRef.current;
       if (!rewarded) return;
-      if (!rewardedLoaded) {
-        rewarded.load();
-        setTimeout(() => {
-          try { rewarded.show(); } catch {}
-        }, 400);
-      } else {
-        rewarded.show();
+      // Show immediately if already loaded
+      if (rewardedLoaded) {
         setRewardedLoaded(false);
+        rewarded.show();
+        return;
       }
+      // Otherwise load and show once loaded
+      const off = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
+        setRewardedLoaded(false);
+        try { rewarded.show(); } finally { off(); }
+      });
+      rewarded.load();
     } catch (e) {
       console.warn('Error showing rewarded ad', e);
     }
@@ -267,6 +270,7 @@ export default function ProAIChat({
   // Ad-gated chat state (free users only)
   const [showAdGateModal, setShowAdGateModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const pendingMessageRef = useRef<string | null>(null);
   const [adProcessing, setAdProcessing] = useState(false);
   const [rewardedLoaded, setRewardedLoaded] = useState(false);
   const rewardedRef = useRef<ReturnType<typeof RewardedAd.createForAdRequest> | null>(null);
@@ -404,13 +408,20 @@ export default function ProAIChat({
         // Preload next ad
         setTimeout(() => rewarded.load(), 300);
       });
+      const onError = (e: any) => {
+        console.warn('Rewarded ad error', e);
+        // Optionally re-open modal so user can retry or upgrade
+        setShowAdGateModal(true);
+      };
+      const unsubscribeError = rewarded.addAdEventListener(AdEventType.ERROR, onError);
       unsubscribeEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, async () => {
         try {
           setAdProcessing(true);
           await adsService.grantExtraPick({ rewardItem: 'chat_send' });
-          if (pendingMessage) {
-            const toSend = pendingMessage;
+          const toSend = pendingMessageRef.current;
+          if (toSend && toSend.trim()) {
             setPendingMessage(null);
+            pendingMessageRef.current = null;
             await performSend(toSend);
           }
         } catch (e) {
@@ -428,7 +439,7 @@ export default function ProAIChat({
       if (unsubscribeClosed) unsubscribeClosed();
       if (unsubscribeEarned) unsubscribeEarned();
     };
-  }, [showAIChat, pendingMessage]);
+  }, [showAIChat]);
 
   // Enhanced search animations
   useEffect(() => {
@@ -489,7 +500,9 @@ export default function ProAIChat({
       return;
     }
     // Free user: show ad-gate modal
-    setPendingMessage(inputText.trim());
+    const msg = inputText.trim();
+    setPendingMessage(msg);
+    pendingMessageRef.current = msg;
     setShowAdGateModal(true);
   };
 

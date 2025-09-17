@@ -26,6 +26,17 @@ export interface ThemeTokens {
   ctaGradient: GradientColors; // for cards like "Football is Back" and action CTAs
   cardSurface: string; // fallback background for surfaces
   cardTextPrimary: string;
+  // Extended tokens for consistent UI surfaces and buttons
+  surfaceSecondary: string; // secondary surface for lists/cards
+  surfaceSecondaryText: string;
+  borderColor: string; // default subtle border for cards/lists
+  badgeBg: string;
+  badgeText: string;
+  buttonPrimaryBg: string; // solid button background (fallback when not using gradient)
+  buttonPrimaryText: string;
+  buttonPrimaryPressedBg: string;
+  buttonPrimaryDisabledBg: string;
+  buttonPrimaryDisabledText: string;
 }
 
 const THEMES: Record<ThemeId, ThemeTokens> = {
@@ -40,6 +51,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#1a1a2e', '#16213e'],
     cardSurface: '#111827',
     cardTextPrimary: '#FFFFFF',
+    surfaceSecondary: '#1E293B',
+    surfaceSecondaryText: '#E2E8F0',
+    borderColor: '#334155',
+    badgeBg: 'rgba(0,229,255,0.10)',
+    badgeText: '#00E5FF',
+    buttonPrimaryBg: '#00E5FF',
+    buttonPrimaryText: '#0F172A',
+    buttonPrimaryPressedBg: '#0EA5E9',
+    buttonPrimaryDisabledBg: '#334155',
+    buttonPrimaryDisabledText: '#94A3B8',
   },
   pro_default: {
     id: 'pro_default',
@@ -52,6 +73,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#00E5FF', '#0EA5E9'],
     cardSurface: '#0F172A',
     cardTextPrimary: '#FFFFFF',
+    surfaceSecondary: '#111827',
+    surfaceSecondaryText: '#E2E8F0',
+    borderColor: '#334155',
+    badgeBg: 'rgba(0,229,255,0.10)',
+    badgeText: '#00E5FF',
+    buttonPrimaryBg: '#00E5FF',
+    buttonPrimaryText: '#0F172A',
+    buttonPrimaryPressedBg: '#0EA5E9',
+    buttonPrimaryDisabledBg: '#334155',
+    buttonPrimaryDisabledText: '#94A3B8',
   },
   elite_default: {
     id: 'elite_default',
@@ -64,6 +95,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#8B5CF6', '#EC4899', '#F59E0B'],
     cardSurface: '#0B1220',
     cardTextPrimary: '#FFFFFF',
+    surfaceSecondary: '#0B1220',
+    surfaceSecondaryText: '#FFFFFF',
+    borderColor: 'rgba(255,215,0,0.30)',
+    badgeBg: 'rgba(255,215,0,0.12)',
+    badgeText: '#FFD700',
+    buttonPrimaryBg: '#FFD700',
+    buttonPrimaryText: '#0F172A',
+    buttonPrimaryPressedBg: '#F59E0B',
+    buttonPrimaryDisabledBg: '#334155',
+    buttonPrimaryDisabledText: '#94A3B8',
   },
   midnight_aqua: {
     id: 'midnight_aqua',
@@ -76,6 +117,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#0EA5E9', '#06B6D4'],
     cardSurface: '#0A1A2F',
     cardTextPrimary: '#E6FBFF',
+    surfaceSecondary: '#0A1A2F',
+    surfaceSecondaryText: '#E6FBFF',
+    borderColor: 'rgba(14,165,233,0.30)',
+    badgeBg: 'rgba(0,229,255,0.12)',
+    badgeText: '#00E5FF',
+    buttonPrimaryBg: '#00E5FF',
+    buttonPrimaryText: '#0F172A',
+    buttonPrimaryPressedBg: '#06B6D4',
+    buttonPrimaryDisabledBg: '#334155',
+    buttonPrimaryDisabledText: '#94A3B8',
   },
   sunset_gold: {
     id: 'sunset_gold',
@@ -88,6 +139,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#F59E0B', '#EA580C'],
     cardSurface: '#1F130A',
     cardTextPrimary: '#FFF7ED',
+    surfaceSecondary: '#1F130A',
+    surfaceSecondaryText: '#FFF7ED',
+    borderColor: 'rgba(245,158,11,0.30)',
+    badgeBg: 'rgba(245,158,11,0.15)',
+    badgeText: '#FFD700',
+    buttonPrimaryBg: '#FFD700',
+    buttonPrimaryText: '#1A1611',
+    buttonPrimaryPressedBg: '#F59E0B',
+    buttonPrimaryDisabledBg: '#3A2818',
+    buttonPrimaryDisabledText: 'rgba(255,247,237,0.7)',
   },
   neon_indigo: {
     id: 'neon_indigo',
@@ -100,6 +161,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#4F46E5', '#7C3AED'],
     cardSurface: '#161531',
     cardTextPrimary: '#EEF2FF',
+    surfaceSecondary: '#161531',
+    surfaceSecondaryText: '#EEF2FF',
+    borderColor: 'rgba(167,139,250,0.30)',
+    badgeBg: 'rgba(167,139,250,0.15)',
+    badgeText: '#A78BFA',
+    buttonPrimaryBg: '#7C3AED',
+    buttonPrimaryText: '#FFFFFF',
+    buttonPrimaryPressedBg: '#4F46E5',
+    buttonPrimaryDisabledBg: '#2B2955',
+    buttonPrimaryDisabledText: 'rgba(238,242,255,0.7)',
   },
   emerald_noir: {
     id: 'emerald_noir',
@@ -112,6 +183,16 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#065F46', '#10B981'],
     cardSurface: '#071A13',
     cardTextPrimary: '#ECFDF5',
+    surfaceSecondary: '#071A13',
+    surfaceSecondaryText: '#ECFDF5',
+    borderColor: 'rgba(52,211,153,0.30)',
+    badgeBg: 'rgba(16,185,129,0.15)',
+    badgeText: '#34D399',
+    buttonPrimaryBg: '#10B981',
+    buttonPrimaryText: '#06251B',
+    buttonPrimaryPressedBg: '#059669',
+    buttonPrimaryDisabledBg: '#0D2C22',
+    buttonPrimaryDisabledText: 'rgba(236,253,245,0.75)',
   },
   crimson_blaze: {
     id: 'crimson_blaze',
@@ -124,33 +205,26 @@ const THEMES: Record<ThemeId, ThemeTokens> = {
     ctaGradient: ['#EA580C', '#EF4444'],
     cardSurface: '#1A0B0F',
     cardTextPrimary: '#FFE4E6',
+    surfaceSecondary: '#1A0B0F',
+    surfaceSecondaryText: '#FFE4E6',
+    borderColor: 'rgba(239,68,68,0.30)',
+    badgeBg: 'rgba(239,68,68,0.15)',
+    badgeText: '#FFE4E6',
+    buttonPrimaryBg: '#EF4444',
+    buttonPrimaryText: '#1A0B0F',
+    buttonPrimaryPressedBg: '#B91C1C',
+    buttonPrimaryDisabledBg: '#3B0F14',
+    buttonPrimaryDisabledText: 'rgba(255,228,230,0.75)',
   },
 };
 
-export const AVAILABLE_PRO_THEMES: { id: ThemeId; name: string }[] = [
-  { id: 'pro_default', name: 'Pro Default' },
-  { id: 'midnight_aqua', name: 'Midnight Aqua' },
-];
-
 export const AVAILABLE_ELITE_THEMES: { id: ThemeId; name: string }[] = [
-  { id: 'pro_default', name: 'Pro Default' },
   { id: 'elite_default', name: 'Elite Default' },
   { id: 'midnight_aqua', name: 'Midnight Aqua' },
   { id: 'sunset_gold', name: 'Sunset Gold' },
   { id: 'neon_indigo', name: 'Neon Indigo' },
   { id: 'emerald_noir', name: 'Emerald Noir' },
   { id: 'crimson_blaze', name: 'Crimson Blaze' },
-];
-
-export const ALL_THEMES: { id: ThemeId; name: string; tier: 'free' | 'pro' | 'elite' }[] = [
-  { id: 'free_default', name: 'Free Default', tier: 'free' },
-  { id: 'pro_default', name: 'Pro Default', tier: 'pro' },
-  { id: 'midnight_aqua', name: 'Midnight Aqua', tier: 'pro' },
-  { id: 'elite_default', name: 'Elite Default', tier: 'elite' },
-  { id: 'sunset_gold', name: 'Sunset Gold', tier: 'elite' },
-  { id: 'neon_indigo', name: 'Neon Indigo', tier: 'elite' },
-  { id: 'emerald_noir', name: 'Emerald Noir', tier: 'elite' },
-  { id: 'crimson_blaze', name: 'Crimson Blaze', tier: 'elite' },
 ];
 
 export function getThemeTokens(id: ThemeId): ThemeTokens {
@@ -183,19 +257,8 @@ export function UIThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const activeTheme = useMemo<ThemeTokens>(() => {
-    if (isElite) {
-      // Elite users can use any theme
-      return THEMES[selectedThemeId] || THEMES.elite_default;
-    }
-    if (isPro) {
-      // Pro users can only use pro_default and midnight_aqua
-      const allowedProThemes: ThemeId[] = ['pro_default', 'midnight_aqua'];
-      if (allowedProThemes.includes(selectedThemeId)) {
-        return THEMES[selectedThemeId];
-      }
-      return THEMES.pro_default;
-    }
-    // Free users always get free_default
+    if (isElite) return THEMES[selectedThemeId] || THEMES.elite_default;
+    if (isPro) return THEMES.pro_default;
     return THEMES.free_default;
   }, [isElite, isPro, selectedThemeId]);
 
@@ -218,25 +281,4 @@ export function useUITheme() {
   const ctx = useContext(UIThemeContext);
   if (!ctx) throw new Error('useUITheme must be used within a UIThemeProvider');
   return ctx;
-}
-
-export function getAvailableThemesForTier(isElite: boolean, isPro: boolean) {
-  if (isElite) {
-    return AVAILABLE_ELITE_THEMES;
-  }
-  if (isPro) {
-    return AVAILABLE_PRO_THEMES;
-  }
-  return []; // Free users can't select themes
-}
-
-export function canUserAccessTheme(themeId: ThemeId, isElite: boolean, isPro: boolean): boolean {
-  const theme = ALL_THEMES.find(t => t.id === themeId);
-  if (!theme) return false;
-  
-  if (theme.tier === 'free') return true;
-  if (theme.tier === 'pro') return isPro || isElite;
-  if (theme.tier === 'elite') return isElite;
-  
-  return false;
 }
