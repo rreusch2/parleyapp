@@ -123,8 +123,17 @@ function parseDateSafe(input: string): Date {
     if (s.includes(' ') && !s.includes('T')) {
       s = s.replace(' ', 'T');
     }
-    // If no timezone info, default to UTC by appending 'Z'
-    const hasTZ = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s);
+    // Normalize timezone formats:
+    // - If ends with +HH (e.g. +00), convert to +HH:00
+    if (/[+-]\d{2}$/.test(s)) {
+      s = s + ':00';
+    }
+    // - If ends with +HHMM (e.g. +0000), convert to +HH:MM
+    if (/[+-]\d{4}$/.test(s)) {
+      s = s.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+    }
+    // If no timezone info at all, default to UTC by appending 'Z'
+    const hasTZ = /[zZ]|[+-]\d{2}(:?\d{2})$/.test(s);
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) && !hasTZ) {
       s += 'Z';
     }

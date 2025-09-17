@@ -28,6 +28,8 @@ interface Pick {
   reasoning: string;
   bet_type: string;
   sport: string;
+  event_time?: string;
+  created_at?: string;
 }
 
 interface TwoTabPredictionsLayoutProps {
@@ -340,7 +342,7 @@ What are your thoughts on this prediction?`;
       id: pick.id,
       match: pick.match_teams,
       sport: pick.sport,
-      eventTime: new Date().toISOString(),
+      eventTime: pick.event_time || pick.created_at || new Date().toISOString(),
       pick: pick.pick,
       odds: pick.odds,
       confidence: pick.confidence,
@@ -419,7 +421,7 @@ What are your thoughts on this prediction?`;
     odds: p.odds,
     confidence: p.confidence,
     sport: p.sport,
-    eventTime: new Date().toISOString(),
+    eventTime: p.event_time || p.created_at || new Date().toISOString(),
     reasoning: p.reasoning,
     value: p.value_percentage,
   });

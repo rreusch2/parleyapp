@@ -183,6 +183,13 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     setTimeout(() => {
       const kellyStake = calculateKellyStake(prediction);
       const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
+      // Normalize key factors to a safe short string (avoid crashes if string vs array)
+      const keyFactorsText = (() => {
+        const kf: any = (prediction as any).key_factors;
+        if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
+        if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
+        return '';
+      })();
       
       setAdvancedAnalysis({
         kellyStake: kellyStake,
@@ -192,7 +199,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
         factors: {
           predictiveAnalytics: `Win probability: ${prediction.confidence}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
           recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds}`,
-          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll. ${prediction.key_factors ? `Key factors: ${(prediction.key_factors as string[]).slice(0,2).join(', ')}.` : ''}`
+          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
         },
         toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
       });

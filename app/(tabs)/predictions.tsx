@@ -732,10 +732,10 @@ What are your thoughts on this prediction?`;
 
         {/* Rewarded Ad CTA: server-side only extras, base limits unaffected */}
         {!isPro && (
-          <View style={{ paddingHorizontal: normalize(16), marginTop: normalize(8) }}>
+          <View style={{ paddingHorizontal: normalize(16), marginTop: normalize(8), marginBottom: normalize(12) }}>
             <TouchableOpacity disabled={adProcessing || adRewardsRemaining <= 0} onPress={handleShowRewardedAd}>
               <LinearGradient
-                colors={adRewardsRemaining > 0 ? ['#00E5FF', '#0EA5E9'] : ['#475569', '#334155']}
+                colors={adRewardsRemaining > 0 ? ['#22c55e', '#16a34a'] : ['#64748B', '#475569']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={{

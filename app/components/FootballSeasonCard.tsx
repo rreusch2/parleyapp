@@ -78,7 +78,9 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
       case 'pro':
         return ['#1E40AF', '#7C3AED', '#0F172A'] as const;
       default:
-        return ['#0F766E', '#059669', '#064E3B'] as const;
+        // Free tier: switch from muted green to vibrant teal/blue for better harmony
+        // with the app's cool, modern palette
+        return ['#118AB2', '#00B4D8', '#0EA5E9'] as const;
     }
   };
 
@@ -89,7 +91,8 @@ const FootballSeasonCard: React.FC<FootballSeasonCardProps> = ({
       case 'pro':
         return '#00E5FF';
       default:
-        return '#10B981';
+        // Free tier accent: use vibrant teal to complement the new gradient
+        return '#00B4D8';
     }
   };
 

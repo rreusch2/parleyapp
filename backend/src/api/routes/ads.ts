@@ -67,30 +67,6 @@ router.post('/reward/grant', authenticateUser, async (req: AuthenticatedRequest,
 
     const { ad_unit_id, transaction_id, reward_item, reward_amount = 1 } = req.body || {};
 
-    // If this is a chat unlock reward, only audit it and do not affect pick counters
-    if (reward_item === 'chat_send') {
-      const now = new Date();
-      const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-      await supabaseAdmin
-        .from('ad_reward_grants')
-        .insert({
-          user_id: userId,
-          ad_network: 'admob',
-          ad_unit_id,
-          reward_item: 'chat_send',
-          reward_amount: reward_amount,
-          transaction_id: transaction_id || null,
-          verified: false,
-          expires_at: endOfDay.toISOString(),
-          metadata: { source: 'client_grant', context: 'chat' }
-        });
-
-      return res.json({
-        success: true,
-        message: 'Chat unlock granted.'
-      });
-    }
-
     // Get and possibly reset counters
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')

@@ -284,7 +284,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
       
       if (pos === 'QB') {
         availableProps = availableProps.filter(prop => 
-          ['passing_yards', 'passing_tds', 'completions', 'attempts', 'interceptions', 'rushing_yards', 'rushing_tds', 'rushing_attempts', 'fantasy_points'].includes(prop.key)
+          ['passing_yards', 'passing_tds', 'completions', 'attempts', 'interceptions', 'rushing_yards', 'rushing_tds', 'fantasy_points'].includes(prop.key)
         );
       } else if (['WR', 'TE'].includes(pos)) {
         availableProps = availableProps.filter(prop => 
@@ -576,9 +576,9 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
         if (!recentStatsError && recentStatsData && recentStatsData.length > 0) {
           formattedStats = recentStatsData.map(stat => ({
             game_date: stat.game_date,
-            opponent: stat.opponent,
+            opponent: stat.opponent || 'OPP',
             is_home: stat.is_home,
-            value: stat[selectedPropType] || 0,
+            value: Number(stat[selectedPropType]) || 0,
             game_result: stat.game_result
           }));
         }
@@ -845,9 +845,19 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   const renderChart = () => {
     if (gameStats.length === 0) return null;
 
-    const maxValue = Math.max(...gameStats.map(stat => stat.value), currentPropLine || 0) + 1;
-    const barWidth = (chartWidth - 60) / gameStats.length;
-    const barSpacing = barWidth * 0.8;
+    // Compute headroom to avoid clipped bars and add comfortable padding
+    const values = gameStats.map(stat => Number(stat.value) || 0);
+    const rawMax = Math.max(...values, currentPropLine || 0);
+    const maxValue = rawMax > 0 ? rawMax * 1.1 : 1; // 10% headroom
+
+    // Chart paddings
+    const topPadding = 16;
+    const leftPadding = 40;
+    const rightPadding = 20;
+    const drawableHeight = chartHeight - topPadding; // bottom area reserved for x-axis labels
+
+    const barWidth = (chartWidth - leftPadding - rightPadding) / gameStats.length;
+    const barSpacing = Math.max(6, barWidth * 0.8);
     
     return (
       <View style={{ alignItems: 'center', marginVertical: 20 }}>
@@ -873,11 +883,30 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             </SvgLinearGradient>
           </Defs>
 
+          {/* Subtle horizontal grid lines for readability */}
+          {Array.from({ length: 5 }).map((_, i) => {
+            const y = topPadding + (drawableHeight * (i / 4));
+            return (
+              <G key={`grid-${i}`}>
+                <Line
+                  x1={leftPadding - 10}
+                  y1={y}
+                  x2={chartWidth - rightPadding + 10}
+                  y2={y}
+                  stroke="#374151"
+                  strokeWidth={1}
+                  opacity={0.25}
+                />
+              </G>
+            );
+          })}
+
           {/* Draw bars */}
           {gameStats.map((stat, index) => {
-            const barHeight = (stat.value / maxValue) * chartHeight;
-            const x = 30 + index * barWidth;
-            const y = chartHeight - barHeight;
+            const statValue = Number(stat.value) || 0;
+            const barHeight = (statValue / maxValue) * drawableHeight;
+            const x = leftPadding + index * barWidth;
+            const y = Math.max(topPadding, chartHeight - barHeight);
             const isOver = currentPropLine ? stat.value > currentPropLine : false;
             
             return (
@@ -895,13 +924,13 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                 {/* Value label on top of bar */}
                 <SvgText
                   x={x + barSpacing / 2}
-                  y={y - 5}
+                  y={Math.max(topPadding + 12, y - 5)}
                   fontSize="12"
                   fill="#FFFFFF"
                   textAnchor="middle"
                   fontWeight="600"
                 >
-                  {stat.value}
+                  {selectedPropType === 'fantasy_points' ? statValue.toFixed(1) : statValue}
                 </SvgText>
                 
                 {/* Game identifier and opponent at bottom */}
@@ -912,10 +941,19 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                   fill="#6B7280"
                   textAnchor="middle"
                 >
-                  {(player?.sport === 'NFL' || player?.sport === 'College Football') && stat.week ? 
-                    `W${stat.week}` : 
-                    new Date(stat.game_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).replace(/\s/, '')
-                  }
+                  {(player?.sport === 'NFL' || player?.sport === 'College Football') && (stat.week !== undefined && stat.week !== null) ? (
+                    `W${stat.week}`
+                  ) : (() => {
+                    try {
+                      const d = new Date(stat.game_date);
+                      if (!isNaN(d.getTime())) {
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).replace(/\s/, '');
+                      }
+                      return `G${index + 1}`;
+                    } catch {
+                      return `G${index + 1}`;
+                    }
+                  })()}
                 </SvgText>
                 <SvgText
                   x={x + barSpacing / 2}
@@ -924,39 +962,39 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                   fill="#9CA3AF"
                   textAnchor="middle"
                 >
-                  {stat.is_home ? 'vs' : '@'} {stat.opponent.length > 3 ? stat.opponent.substring(0, 3) : stat.opponent}
+                  {stat.is_home ? 'vs' : '@'} {(stat.opponent && stat.opponent.length > 3) ? stat.opponent.substring(0, 3) : (stat.opponent || 'OPP')}
                 </SvgText>
               </G>
             );
           })}
 
           {/* Prop line */}
-          {currentPropLine && (
+          {(currentPropLine !== null && currentPropLine !== undefined) && (
             <G>
               <Line
-                x1={20}
-                y1={chartHeight - (currentPropLine / maxValue) * chartHeight}
-                x2={chartWidth - 20}
-                y2={chartHeight - (currentPropLine / maxValue) * chartHeight}
+                x1={leftPadding - 10}
+                y1={topPadding + drawableHeight - (Number(currentPropLine) / maxValue) * drawableHeight}
+                x2={chartWidth - rightPadding + 10}
+                y2={topPadding + drawableHeight - (Number(currentPropLine) / maxValue) * drawableHeight}
                 stroke="#F59E0B"
                 strokeWidth={2}
                 strokeDasharray="5,5"
               />
               <Circle
-                cx={chartWidth - 15}
-                cy={chartHeight - (currentPropLine / maxValue) * chartHeight}
+                cx={chartWidth - rightPadding + 5}
+                cy={topPadding + drawableHeight - (Number(currentPropLine) / maxValue) * drawableHeight}
                 r={4}
                 fill="#F59E0B"
               />
               <SvgText
-                x={chartWidth - 40}
-                y={chartHeight - (currentPropLine / maxValue) * chartHeight - 8}
+                x={chartWidth - rightPadding - 15}
+                y={topPadding + drawableHeight - (Number(currentPropLine) / maxValue) * drawableHeight - 8}
                 fontSize="12"
                 fill="#F59E0B"
                 textAnchor="end"
                 fontWeight="600"
               >
-                {currentPropLine}
+                {Number(currentPropLine) % 1 === 0 ? Number(currentPropLine).toString() : Number(currentPropLine).toFixed(1)}
               </SvgText>
             </G>
           )}
@@ -998,7 +1036,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
               backgroundColor: '#F59E0B',
               marginRight: 8
             }} />
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Prop Line ({currentPropLine})</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Prop Line ({currentPropLine !== null && currentPropLine !== undefined ? (Number(currentPropLine) % 1 === 0 ? Number(currentPropLine).toString() : Number(currentPropLine).toFixed(1)) : '-'})</Text>
           </View>
         </View>
       </View>
@@ -1765,7 +1803,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                     fontSize: 14,
                     fontWeight: '600'
                   }}>
-                    {stat.value}
+                    {selectedPropType === 'fantasy_points' ? (Number(stat.value) || 0).toFixed(1) : (Number.isInteger(stat.value) ? stat.value : (Number(stat.value) || 0).toFixed(1))}
                   </Text>
                 </View>
                 
