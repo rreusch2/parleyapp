@@ -146,6 +146,8 @@ module.exports = {
       admobAndroidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID,
       admobIosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID,
       admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
+      // Optional Elite preview video URL used in tiered subscription modals
+      elitePreviewVideoUrl: process.env.EXPO_PUBLIC_ELITE_PREVIEW_VIDEO_URL,
 
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"

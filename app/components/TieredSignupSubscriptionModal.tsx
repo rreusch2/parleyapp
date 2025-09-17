@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, FugazOne_400Regular } from '@expo-google-fonts/fugaz-one';
 import {
@@ -64,6 +66,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const { subscribe, restorePurchases } = useSubscription();
+  // Optional remote video URL for Elite preview (configure in app.json/app.config.ts under expo.extra.elitePreviewVideoUrl)
+  const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
 
   // Function to calculate original price (double current price for 50% off promo)
   const getOriginalPrice = (currentPrice: string): string => {
@@ -292,6 +296,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • Premium Analytics
               </Text>
+              <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
+                • Ultra Customization & Themes
+              </Text>
             </View>
             {/* Removed guarantee row to keep Pro/Elite cards the same height */}
             
@@ -498,11 +505,30 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             )}
             {selectedTier === 'elite' && (
               <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-                <Image
-                  source={require('../../assets/images/previews/elite-dashboard.png')}
-                  style={styles.tierScreenshot}
-                  resizeMode="cover"
-                />
+                {eliteVideoUri ? (
+                  <Video
+                    source={{ uri: eliteVideoUri }}
+                    style={styles.tierScreenshot}
+                    resizeMode={ResizeMode.COVER}
+                    shouldPlay
+                    isLooping
+                    isMuted
+                    usePoster
+                    posterSource={require('../../assets/images/previews/elite-dashboard.png')}
+                  />
+                ) : (
+                  <Image
+                    source={require('../../assets/images/previews/elite-dashboard.png')}
+                    style={styles.tierScreenshot}
+                    resizeMode="cover"
+                  />
+                )}
+                <View style={styles.eliteCustomizationNote}>
+                  <Text style={styles.eliteCustomizationTitle}>Elite Unlocks Ultra Customization</Text>
+                  <Text style={styles.eliteCustomizationText}>
+                    Switch between premium themes and personalize the look of your app with Elite. Make it yours.
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -945,6 +971,25 @@ const styles = StyleSheet.create({
     height: Math.min(screenHeight * 0.65, 640),
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  eliteCustomizationNote: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  eliteCustomizationTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  eliteCustomizationText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 16,
   },
   continueButton: {
     marginHorizontal: 20,

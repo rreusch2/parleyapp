@@ -199,9 +199,22 @@ class DatabaseClient:
             
             logger.info(f"Fetching games from UTC range ({start_iso}) to ({end_iso}) and filtering for local date {target_date}")
             
-            # Fetch games from all sports with player props support
+            # Fetch games from selected sports with player props support
             all_games = []
-            sports = ["Major League Baseball", "Women's National Basketball Association", "National Football League", "College Football"]
+            # Determine sport filter if provided
+            if hasattr(self, 'sport_filter') and getattr(self, 'sport_filter'):
+                sports = list(getattr(self, 'sport_filter'))
+                logger.info(f"🎯 Sport filter active (props): {sports}")
+            elif hasattr(self, 'nfl_only_mode') and getattr(self, 'nfl_only_mode'):
+                sports = ["National Football League"]
+                logger.info("🏈 NFL-only mode (props): Fetching NFL games only")
+            else:
+                sports = [
+                    "Major League Baseball",
+                    "Women's National Basketball Association",
+                    "National Football League",
+                    "College Football"
+                ]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -405,6 +418,8 @@ class IntelligentPlayerPropsAgent:
         # NFL week mode flag (disabled by default; can be enabled via CLI)
         # We are moving to AI-driven distribution instead of hard-coded NFL-day overrides.
         self.nfl_week_mode = False
+        # NFL-only mode flag
+        self.nfl_only_mode = False
     
     async def fetch_upcoming_games(self) -> List[Dict[str, Any]]:
         if self.nfl_week_mode:
@@ -469,6 +484,16 @@ class IntelligentPlayerPropsAgent:
             else:
                 logger.warning("🏀 WNBA-only mode requested but no WNBA games found!")
                 return {"WNBA": 0, "MLB": 0, "NFL": 0, "CFB": 0}
+
+        # NFL-ONLY MODE: Override all logic
+        if self.nfl_only_mode:
+            nfl_games = sport_counts.get("NFL", 0)
+            if nfl_games > 0:
+                logger.info(f"🏈 NFL-only mode: targeting {target_picks} NFL props from {nfl_games} games")
+                return {"NFL": target_picks, "MLB": 0, "WNBA": 0, "CFB": 0}
+            else:
+                logger.warning("🏈 NFL-only mode requested but no NFL games found!")
+                return {"NFL": 0, "MLB": 0, "WNBA": 0, "CFB": 0}
         
         # NFL SUNDAY PRIORITY DISTRIBUTION
         if self.nfl_week_mode and sport_counts["NFL"] > 0:
@@ -2369,6 +2394,10 @@ def parse_arguments():
                       help='Generate 5 best WNBA picks only (overrides --picks)')
     parser.add_argument('--nfl-week', action='store_true',
                       help='Generate 5 best NFL picks for the entire week ahead (Thu-Sun)')
+    parser.add_argument('--nfl-only', action='store_true',
+                      help='Generate picks for NFL games only (ignore other sports)')
+    parser.add_argument('--sport', type=str, choices=['NFL', 'MLB', 'WNBA', 'CFB'],
+                      help='Limit props to a single sport (overrides multi-sport distribution)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -2391,30 +2420,44 @@ async def main():
     else:
         target_date = datetime.now().date()
     
-    if args.wnba:
-        logger.info(f"🏀 Starting WNBA-Only Player Props Agent for {target_date}")
-        target_picks = 5
-    elif args.nfl_week:
-        logger.info(f"🏈 Starting NFL Week Player Props Agent for full week ahead")
-        target_picks = 5
-    else:
-        logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
-        target_picks = args.picks
+    logger.info(f"🤖 Starting Intelligent Player Props Agent for {target_date}")
+    target_picks = args.picks
     
     agent = IntelligentPlayerPropsAgent()
+    # Apply sport filters to agent and DB
+    try:
+        if hasattr(agent, 'db'):
+            # NFL-only flag
+            setattr(agent, 'nfl_only_mode', bool(args.nfl_only))
+            setattr(agent.db, 'nfl_only_mode', bool(args.nfl_only))
+            # Generic sport filter via --sport
+            if args.sport:
+                sport_map = {
+                    'NFL': 'National Football League',
+                    'MLB': 'Major League Baseball',
+                    'WNBA': "Women's National Basketball Association",
+                    'CFB': 'College Football'
+                }
+                full = sport_map.get(args.sport.upper())
+                if full:
+                    setattr(agent.db, 'sport_filter', [full])
+                    logger.info(f"🎯 Sport filter enabled (props): only '{full}' games will be used")
+                if args.sport.upper() == 'NFL':
+                    setattr(agent, 'nfl_only_mode', True)
+                    setattr(agent.db, 'nfl_only_mode', True)
+    except Exception as e:
+        logger.warning(f"Could not apply sport filters to props DB client: {e}")
     
-    # Set WNBA-only mode if flag is provided
-    agent.wnba_only_mode = args.wnba
-    
+    # EXACT pick target: honor requested --picks without escalation
+    target_picks = args.picks
     # Set NFL week mode if flag is provided
     agent.nfl_week_mode = args.nfl_week
     
     # Keep the requested target_picks exact; distribution will be decided intelligently later
     # (Legacy dynamic escalation removed to honor explicit --picks value.)
-    
     picks = await agent.generate_daily_picks(
-        target_picks=target_picks,
-        target_date=target_date
+        target_date=target_date,
+        target_picks=target_picks
     )
     
     if picks:

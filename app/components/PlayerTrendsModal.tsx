@@ -601,17 +601,24 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
 
   const fetchCurrentPropLine = async () => {
     if (!player) return;
+    // Do not fetch lines for fantasy points
+    if (selectedPropType === 'fantasy_points') {
+      setCurrentPropLine(null);
+      return;
+    }
 
     try {
       console.log('🔥 DEBUG: Fetching current prop line for:', player.name, selectedPropType);
       
-      // CRITICAL FIX: If we already have recent lines data, use the most recent line
-      // This ensures perfect synchronization between currentPropLine and recent lines
+      // Use recent lines if available and finite
       if (recentLines && recentLines.length > 0) {
-        const mostRecentLine = recentLines[0].line; // Recent lines are ordered newest first
-        console.log('🔥 DEBUG: Using most recent line from recentLines:', mostRecentLine);
-        setCurrentPropLine(mostRecentLine);
-        return;
+        const mostRecentLine = Number(recentLines[0].line); // Recent lines are ordered newest first
+        if (Number.isFinite(mostRecentLine)) {
+          console.log('🔥 DEBUG: Using most recent finite line from recentLines:', mostRecentLine);
+          setCurrentPropLine(mostRecentLine);
+          return;
+        }
+        console.warn('🔥 DEBUG: recentLines[0].line was not finite, falling back to DB query');
       }
 
       const sport = player.sport;
@@ -649,7 +656,8 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
         }
       };
 
-      const aliases = aliasMap[sport]?.[selectedPropType] || [selectedPropType];
+      const sportKey = String(sport).toLowerCase();
+      const aliases = aliasMap[sportKey]?.[selectedPropType] || [selectedPropType];
       console.log('🔥 DEBUG: Database aliases for', selectedPropType, ':', aliases);
 
       // Query player_prop_types to get the prop type ID
@@ -688,14 +696,19 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
         console.log('🔥 DEBUG: Odds query result:', oddsRows);
 
         if (oddsRows && oddsRows.length > 0) {
-          line = Number(oddsRows[0].line);
-          console.log('🔥 DEBUG: Found line from database:', line);
+          const parsed = Number(oddsRows[0].line);
+          if (Number.isFinite(parsed)) {
+            line = parsed;
+            console.log('🔥 DEBUG: Found line from database:', line);
+          } else {
+            console.warn('🔥 DEBUG: Odds line was not finite, skipping set');
+          }
         }
       }
 
       // REMOVED: Fallback mock lines that cause incorrect 1.5 defaults
       // Only set currentPropLine if we found actual data
-      if (line !== null) {
+      if (line !== null && Number.isFinite(line)) {
         setCurrentPropLine(line);
         console.log('🔥 DEBUG: Set currentPropLine to actual database value:', line);
       } else {
@@ -711,6 +724,11 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
 
   const fetchRecentLines = async () => {
     if (!player || !selectedPropType) return;
+    // Do not fetch recent lines for fantasy points
+    if (selectedPropType === 'fantasy_points') {
+      setRecentLines([]);
+      return;
+    }
 
     setLoadingLines(true);
     try {
@@ -907,7 +925,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
             const barHeight = (statValue / maxValue) * drawableHeight;
             const x = leftPadding + index * barWidth;
             const y = Math.max(topPadding, chartHeight - barHeight);
-            const isOver = currentPropLine ? stat.value > currentPropLine : false;
+            const isOver = selectedPropType === 'fantasy_points' ? true : (Number.isFinite(Number(currentPropLine)) ? statValue > Number(currentPropLine) : false);
             
             return (
               <G key={index}>
@@ -969,7 +987,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
           })}
 
           {/* Prop line */}
-          {(currentPropLine !== null && currentPropLine !== undefined) && (
+          {(selectedPropType !== 'fantasy_points' && currentPropLine !== null && currentPropLine !== undefined && Number.isFinite(Number(currentPropLine))) && (
             <G>
               <Line
                 x1={leftPadding - 10}
@@ -1004,9 +1022,15 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
         <View style={{
           flexDirection: 'row',
           justifyContent: 'center',
+          alignItems: 'center',
           marginTop: 16,
-          gap: 24
+          paddingHorizontal: 16,
+          gap: 16,
+          flexWrap: 'wrap',
+          alignSelf: 'center',
+          maxWidth: chartWidth
         }}>
+          {/* Always show value legend in green */}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{
               width: 16,
@@ -1015,29 +1039,35 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
               borderRadius: 4,
               marginRight: 8
             }} />
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Over Line</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>{selectedPropType === 'fantasy_points' ? 'Fantasy Value' : 'Over Line'}</Text>
           </View>
-          
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{
-              width: 16,
-              height: 16,
-              backgroundColor: '#6B7280',
-              borderRadius: 4,
-              marginRight: 8
-            }} />
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Under Line</Text>
-          </View>
-          
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={{
-              width: 16,
-              height: 2,
-              backgroundColor: '#F59E0B',
-              marginRight: 8
-            }} />
-            <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Prop Line ({currentPropLine !== null && currentPropLine !== undefined ? (Number(currentPropLine) % 1 === 0 ? Number(currentPropLine).toString() : Number(currentPropLine).toFixed(1)) : '-'})</Text>
-          </View>
+
+          {/* Show Under only when not fantasy */}
+          {selectedPropType !== 'fantasy_points' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 16,
+                height: 16,
+                backgroundColor: '#6B7280',
+                borderRadius: 4,
+                marginRight: 8
+              }} />
+              <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Under Line</Text>
+            </View>
+          )}
+
+          {/* Show Prop Line only if finite and not fantasy */}
+          {(selectedPropType !== 'fantasy_points' && currentPropLine !== null && currentPropLine !== undefined && Number.isFinite(Number(currentPropLine))) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{
+                width: 16,
+                height: 2,
+                backgroundColor: '#F59E0B',
+                marginRight: 8
+              }} />
+              <Text style={{ color: '#FFFFFF', fontSize: 14 }}>Prop Line ({Number(currentPropLine) % 1 === 0 ? Number(currentPropLine).toString() : Number(currentPropLine).toFixed(1)})</Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -1083,6 +1113,7 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
   };
 
   const renderRecentLines = () => {
+    if (selectedPropType === 'fantasy_points') return null;
     const selectedProp = propTypes.find(p => p.key === selectedPropType);
     if (!selectedProp) return null;
 
@@ -1791,7 +1822,9 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                 </View>
                 
                 <View style={{
-                  backgroundColor: currentPropLine && stat.value > currentPropLine ? '#10B981' : '#6B7280',
+                  backgroundColor: selectedPropType === 'fantasy_points'
+                    ? '#10B981'
+                    : (Number.isFinite(Number(currentPropLine)) && Number(stat.value) > Number(currentPropLine) ? '#10B981' : '#6B7280'),
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                   borderRadius: 6,
@@ -1807,22 +1840,28 @@ export default function PlayerTrendsModal({ visible, player, onClose }: PlayerTr
                   </Text>
                 </View>
                 
-                {stat.game_result && (
-                  <View style={{
-                    backgroundColor: stat.game_result === 'W' ? '#10B981' : '#DC2626',
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                    marginLeft: 8
-                  }}>
-                    <Text style={{
-                      color: '#FFFFFF',
-                      fontSize: 12,
-                      fontWeight: '600'
-                    }}>
-                      {stat.game_result}
-                    </Text>
-                  </View>
+                {/* Prop result indicator: show only when not fantasy and we have a finite currentPropLine */}
+                {(selectedPropType !== 'fantasy_points' && Number.isFinite(Number(currentPropLine))) && (
+                  (() => {
+                    const isOver = Number(stat.value) > Number(currentPropLine);
+                    return (
+                      <View style={{
+                        backgroundColor: isOver ? '#10B981' : '#DC2626',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 4,
+                        marginLeft: 8
+                      }}>
+                        <Text style={{
+                          color: '#FFFFFF',
+                          fontSize: 12,
+                          fontWeight: '600'
+                        }}>
+                          {isOver ? 'W' : 'L'}
+                        </Text>
+                      </View>
+                    );
+                  })()
                 )}
               </View>
             ))}
