@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { supabaseAdmin } from '../services/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
-const SPORTSDATA_API_KEY = 'd174f0ac08504e45806435851b5ab630';
+// Read API key from env (do NOT hardcode secrets). Set SPORTSDATA_API_KEY in backend/.env
+const SPORTSDATA_API_KEY = process.env.SPORTSDATA_API_KEY;
 const SPORTSDATA_BASE_URL = 'https://api.sportsdata.io/v3/nfl';
 
 interface SportsDataPlayer {
@@ -76,14 +78,30 @@ interface DatabasePlayer {
 }
 
 async function fetchSportsDataPlayers(): Promise<SportsDataPlayer[]> {
-  console.log('⚠️  Note: Using headshots data for player names since Players endpoint returns 0 results');
-  // Return empty array since we'll use headshots data for name updates
-  return [];
+  if (!SPORTSDATA_API_KEY) {
+    console.warn('⚠️ SPORTSDATA_API_KEY is not set. Skipping Players endpoint and relying on headshots.');
+    return [];
+  }
+  try {
+    console.log('🏈 Fetching NFL players from SportsData.io Players endpoint...');
+    // Full list of NFL players
+    const url = `${SPORTSDATA_BASE_URL}/scores/json/Players?key=${SPORTSDATA_API_KEY}`;
+    const response = await axios.get(url, { timeout: 60000 });
+    const players: SportsDataPlayer[] = response.data || [];
+    console.log(`✅ Fetched ${players.length} players from SportsData.io`);
+    return players;
+  } catch (error) {
+    console.warn('⚠️ Error fetching SportsData Players. Will fallback to headshots only.', error instanceof Error ? error.message : String(error));
+    return [];
+  }
 }
 
 async function fetchSportsDataHeadshots(): Promise<SportsDataHeadshot[]> {
   try {
     console.log('📸 Fetching NFL headshots from SportsData.io...');
+    if (!SPORTSDATA_API_KEY) {
+      throw new Error('SPORTSDATA_API_KEY is not set');
+    }
     const response = await axios.get(
       `${SPORTSDATA_BASE_URL}/headshots/json/Headshots?key=${SPORTSDATA_API_KEY}`
     );
@@ -102,8 +120,8 @@ async function getNFLPlayersFromDatabase(): Promise<DatabasePlayer[]> {
     const { data, error } = await supabaseAdmin
       .from('players')
       .select('id, external_player_id, name, position, team, sport, jersey_number, active')
-      .eq('sport', 'NFL')
-      .eq('active', true);
+      .eq('active', true)
+      .in('sport_key', ['nfl', 'americanfootball_nfl']);
 
     if (error) {
       console.error('❌ Error fetching database players:', error);
@@ -219,27 +237,179 @@ function normalizeTeamName(sportsDataTeam: string): string {
   return teamMap[sportsDataTeam] || sportsDataTeam;
 }
 
+function pickHeadshotUrl(h: SportsDataHeadshot | undefined): string | null {
+  if (!h) return null;
+  return (
+    h.PreferredHostedHeadshotUrl ||
+    h.HostedHeadshotNoBackgroundUrl ||
+    h.HostedHeadshotWithBackgroundUrl ||
+    h.UsaTodayHeadshotNoBackgroundUrl ||
+    h.UsaTodayHeadshotUrl ||
+    null
+  );
+}
+
+function isInitialDotFormat(n: string | null | undefined): boolean {
+  if (!n) return false;
+  return /^\s*[A-Za-z]\.[A-Za-z][A-Za-z'\-]*\s*$/.test(n);
+}
+
+async function upsertNFLPlayer(
+  playerIdStr: string,
+  fullName: string,
+  teamAbbr: string | undefined,
+  position: string | undefined,
+  jersey: number | undefined,
+  headshotUrl: string | null
+): Promise<void> {
+  const sport = 'NFL';
+  const sport_key = 'americanfootball_nfl';
+  const team = teamAbbr ? normalizeTeamName(teamAbbr) : '';
+
+  // Does a player with this external_player_id already exist?
+  const { data: existing, error: existingErr } = await supabaseAdmin
+    .from('players')
+    .select('id, name, player_key, sport_key')
+    .eq('external_player_id', playerIdStr)
+    .maybeSingle();
+
+  if (existingErr) {
+    console.error(`❌ Error checking existing player ${playerIdStr}:`, existingErr.message);
+    return;
+  }
+
+  if (existing) {
+    // Update in place to preserve FK references
+    const updatePayload: any = {
+      name: fullName,
+      player_name: fullName,
+      sport,
+      sport_key,
+      team,
+      position: position || null,
+      jersey_number: jersey ?? null,
+      active: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Standardize player_key if it looks legacy and not already set to stable scheme
+    const desiredKey = `nfl_${playerIdStr}`;
+    if (existing.player_key !== desiredKey) {
+      updatePayload.player_key = desiredKey;
+    }
+
+    const { error: updErr } = await supabaseAdmin
+      .from('players')
+      .update(updatePayload)
+      .eq('id', existing.id);
+
+    if (updErr) {
+      // If unique violation on player_key, retry without changing player_key
+      if (updErr.message && updErr.message.toLowerCase().includes('duplicate key')) {
+        console.warn(`⚠️ Player key conflict for ${playerIdStr}, updating without player_key`);
+        const { error: updRetryErr } = await supabaseAdmin
+          .from('players')
+          .update({ ...updatePayload, player_key: undefined })
+          .eq('id', existing.id);
+        if (updRetryErr) {
+          console.error(`❌ Update retry failed for ${playerIdStr}:`, updRetryErr.message);
+        }
+      } else {
+        console.error(`❌ Error updating player ${playerIdStr}:`, updErr.message);
+      }
+    } else {
+      console.log(`✅ Updated player ${fullName} (${playerIdStr})`);
+    }
+
+    // Ensure headshot present
+    if (headshotUrl) {
+      await insertPlayerHeadshot(existing.id, headshotUrl, fullName);
+    }
+    return;
+  }
+
+  // Insert new player
+  const newId = uuidv4();
+  const insertPayload: any = {
+    id: newId,
+    external_player_id: playerIdStr,
+    name: fullName,
+    player_name: fullName,
+    player_key: `nfl_${playerIdStr}`,
+    team,
+    sport,
+    sport_key,
+    position: position || null,
+    jersey_number: jersey ?? null,
+    active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error: insErr } = await supabaseAdmin
+    .from('players')
+    .insert(insertPayload);
+
+  if (insErr) {
+    if (insErr.message && insErr.message.toLowerCase().includes('duplicate key')) {
+      console.warn(`⚠️ Duplicate detected when inserting ${playerIdStr}. Attempting upsert-like update.`);
+      // Try update path if row somehow exists but was not fetched
+      const { data: row, error: getErr } = await supabaseAdmin
+        .from('players')
+        .select('id')
+        .eq('external_player_id', playerIdStr)
+        .maybeSingle();
+      if (!getErr && row) {
+        const { error: updErr2 } = await supabaseAdmin
+          .from('players')
+          .update({ ...insertPayload, id: undefined, created_at: undefined })
+          .eq('id', row.id);
+        if (updErr2) {
+          console.error(`❌ Failed to update existing duplicate for ${playerIdStr}:`, updErr2.message);
+        }
+      } else {
+        console.error(`❌ Could not resolve duplicate for ${playerIdStr}:`, getErr?.message);
+      }
+    } else {
+      console.error(`❌ Error inserting player ${playerIdStr}:`, insErr.message);
+    }
+  } else {
+    console.log(`🆕 Inserted new NFL player ${fullName} (${playerIdStr})`);
+    if (headshotUrl) {
+      await insertPlayerHeadshot(newId, headshotUrl, fullName);
+    }
+  }
+}
+
 async function fixNFLPlayerData(): Promise<void> {
   try {
     console.log('🚀 Starting NFL Player Data Fix...\n');
 
+    if (!SPORTSDATA_API_KEY) {
+      console.warn('⚠️ SPORTSDATA_API_KEY not set. Set it in backend/.env to enable full ingestion. Proceeding with limited mode.');
+    }
+
     // Step 1: Fetch data from both sources
-    const [sportsDataHeadshots, dbPlayers] = await Promise.all([
+    const [sportsDataPlayers, sportsDataHeadshots, dbPlayers] = await Promise.all([
+      fetchSportsDataPlayers(),
       fetchSportsDataHeadshots(),
       getNFLPlayersFromDatabase()
     ]);
 
-    // Create lookup map for headshots (which contains player names)
+    // Create lookup maps
     const sportsDataHeadshotMap = new Map<string, SportsDataHeadshot>();
-
-    // Map SportsData headshots by PlayerID
     sportsDataHeadshots.forEach(headshot => {
       sportsDataHeadshotMap.set(headshot.PlayerID.toString(), headshot);
     });
+    const sportsDataPlayerMap = new Map<string, SportsDataPlayer>();
+    sportsDataPlayers.forEach(p => {
+      sportsDataPlayerMap.set(p.PlayerID.toString(), p);
+    });
 
     console.log('\n📊 Data Summary:');
+    console.log(`- SportsData Players: ${sportsDataPlayers.length}`);
     console.log(`- SportsData Headshots: ${sportsDataHeadshots.length}`);
-    console.log(`- Database Players: ${dbPlayers.length}\n`);
+    console.log(`- Database Players (NFL sport_key in ['nfl','americanfootball_nfl'] & active): ${dbPlayers.length}\n`);
 
     // DEBUG: Check for Jaden Daniels specifically
     const jadenInSportsData = sportsDataHeadshots.find(h => 
@@ -272,60 +442,88 @@ async function fixNFLPlayerData(): Promise<void> {
       }
     }
 
-    // Step 2: Process player name updates and headshot inserts
+    // Step 2: Update existing DB players (fix abbreviated names, normalize sport_key)
     let nameUpdates = 0;
     let headshotInserts = 0;
+    let upsertsNew = 0;
     let skipped = 0;
 
     for (const dbPlayer of dbPlayers) {
       const sportsDataHeadshot = sportsDataHeadshotMap.get(dbPlayer.external_player_id);
-      
-      if (!sportsDataHeadshot) {
-        // Only log first 10 to avoid spam
-        if (skipped < 10) {
-          console.log(`⚠️  No SportsData headshot match for DB player: ${dbPlayer.name} (ID: ${dbPlayer.external_player_id})`);
+      const sportsDataPlayer = sportsDataPlayerMap.get(dbPlayer.external_player_id);
+
+      const fullNameFromSportsData = sportsDataPlayer
+        ? `${sportsDataPlayer.FirstName} ${sportsDataPlayer.LastName}`.trim()
+        : (sportsDataHeadshot?.Name || dbPlayer.name);
+
+      const needNameUpdate = isAbbreviatedName(dbPlayer.name) && fullNameFromSportsData && fullNameFromSportsData !== dbPlayer.name;
+
+      if (needNameUpdate || dbPlayer.sport !== 'NFL') {
+        const { error } = await supabaseAdmin
+          .from('players')
+          .update({
+            name: fullNameFromSportsData,
+            player_name: fullNameFromSportsData,
+            sport: 'NFL',
+            sport_key: 'americanfootball_nfl',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dbPlayer.id);
+
+        if (!error) {
+          if (needNameUpdate) nameUpdates++;
+        } else {
+          console.error(`❌ Failed updating player ${dbPlayer.name}:`, error.message);
         }
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      // Ensure headshot
+      const headshotUrl = pickHeadshotUrl(sportsDataHeadshot);
+      if (headshotUrl) {
+        await insertPlayerHeadshot(dbPlayer.id, headshotUrl, fullNameFromSportsData || dbPlayer.name);
+        headshotInserts++;
+        await new Promise(r => setTimeout(r, 50));
+      }
+    }
+
+    // Step 3: Insert missing players based on SportsData sources
+    // Build set of existing external IDs in DB for NFL
+    const existingIds = new Set(dbPlayers.map(p => p.external_player_id));
+
+    // Prefer Players dataset; fallback to headshots-only entries not present in Players
+    const candidateIds = new Set<string>();
+    sportsDataPlayers.forEach(p => candidateIds.add(p.PlayerID.toString()));
+    sportsDataHeadshots.forEach(h => candidateIds.add(h.PlayerID.toString()));
+
+    for (const playerIdStr of candidateIds) {
+      if (existingIds.has(playerIdStr)) continue; // already present
+
+      const p = sportsDataPlayerMap.get(playerIdStr);
+      const h = sportsDataHeadshotMap.get(playerIdStr);
+
+      const fullName = p ? `${p.FirstName} ${p.LastName}`.trim() : (h?.Name || '').trim();
+      if (!fullName) {
         skipped++;
         continue;
       }
 
-      // Check if we need to update the name
-      const isCurrentNameAbbreviated = isAbbreviatedName(dbPlayer.name);
-      const fullNameFromSportsData = sportsDataHeadshot.Name;
-      
-      if (isCurrentNameAbbreviated && fullNameFromSportsData && fullNameFromSportsData !== dbPlayer.name) {
-        console.log(`🔄 Name update needed: "${dbPlayer.name}" -> "${fullNameFromSportsData}"`);
-        await updatePlayerName(dbPlayer.id, fullNameFromSportsData, dbPlayer.name);
-        nameUpdates++;
-        
-        // Add a small delay to avoid overwhelming the database
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      const team = p?.Team || h?.Team || '';
+      const position = p?.Position || h?.Position || '';
+      const jersey = p?.Number || h?.Jersey;
+      const headshotUrl = pickHeadshotUrl(h);
 
-      // Check if we need to add a headshot - use the correct field names
-      const headshotUrl = sportsDataHeadshot.PreferredHostedHeadshotUrl || 
-                         sportsDataHeadshot.HostedHeadshotNoBackgroundUrl ||
-                         sportsDataHeadshot.HostedHeadshotWithBackgroundUrl;
-      
-      if (headshotUrl) {
-        const playerDisplayName = fullNameFromSportsData || dbPlayer.name;
-        await insertPlayerHeadshot(
-          dbPlayer.id, 
-          headshotUrl, 
-          playerDisplayName
-        );
-        headshotInserts++;
-        
-        // Add a small delay to avoid overwhelming the database
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      await upsertNFLPlayer(playerIdStr, fullName, team, position, jersey, headshotUrl);
+      upsertsNew++;
+      await new Promise(r => setTimeout(r, 50));
     }
 
-    console.log('\n🎉 NFL Player Data Fix Complete!');
+    console.log('\n🎉 NFL Player Data Fix & Ingestion Complete!');
     console.log(`✅ Player name updates: ${nameUpdates}`);
     console.log(`✅ Headshot inserts: ${headshotInserts}`);
-    console.log(`⚠️  Skipped (no SportsData match): ${skipped}`);
-    console.log(`📊 Total processed: ${dbPlayers.length}`);
+    console.log(`🆕 New/Upserted players: ${upsertsNew}`);
+    console.log(`⚠️ Skipped (insufficient data): ${skipped}`);
+    console.log(`📊 Total DB players processed: ${dbPlayers.length}`);
 
   } catch (error) {
     console.error('💥 Fatal error in fixNFLPlayerData:', error);
