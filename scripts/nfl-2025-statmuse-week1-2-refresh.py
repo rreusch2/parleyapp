@@ -12,6 +12,7 @@ import sys
 import logging
 import re
 import time
+import argparse
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple, Set
 import requests
@@ -40,6 +41,10 @@ class NFL2025Week12Refresh:
         self.updated = 0
         self.skipped = 0
         self.failed = 0
+        # Optional targeting configured by CLI
+        self.target_names: Set[str] = set()  # normalized lower-case full names
+        self.target_weeks: List[int] = []
+        self.force: bool = False
 
         # Position → [(stat_key, query_template)]
         self.position_queries: Dict[str, List[Tuple[str, str]]] = {
@@ -100,20 +105,61 @@ class NFL2025Week12Refresh:
         )
         return logging.getLogger(__name__)
 
-    def fetch_offensive_players(self) -> List[Dict[str, Any]]:
-        self.logger.info("Loading NFL offensive players from players table...")
-        resp = (
-            self.supabase
-            .table('players')
-            .select('*')
-            .eq('sport', 'NFL')
-            .range(0, 9999)
-            .execute()
-        )
-        all_players = resp.data or []
+    def fetch_offensive_players(self, page_size: int = 1000, max_pages: int = 20) -> List[Dict[str, Any]]:
+        self.logger.info("Loading NFL offensive players from players table (paginated)...")
+        all_players: List[Dict[str, Any]] = []
+        for i in range(max_pages):
+            start = i * page_size
+            end = start + page_size - 1
+            resp = (
+                self.supabase
+                .table('players')
+                .select('*')
+                .eq('sport', 'NFL')
+                .range(start, end)
+                .execute()
+            )
+            batch = resp.data or []
+            all_players.extend(batch)
+            if len(batch) < page_size:
+                break
         filtered = [p for p in all_players if p.get('position') in OFFENSIVE_POSITIONS]
         self.logger.info(f"Loaded {len(all_players)} players; offense-only = {len(filtered)}")
         return filtered
+
+    def fetch_players_by_names(self, names: Set[str]) -> List[Dict[str, Any]]:
+        """Fetch players by exact name match (case-insensitive) using ILIKE, offense-only."""
+        results: Dict[str, Dict[str, Any]] = {}
+        for name in names:
+            # Use ilike to match full name case-insensitive
+            resp = (
+                self.supabase
+                .table('players')
+                .select('*')
+                .eq('sport', 'NFL')
+                .filter('name', 'ilike', f"%{name}%")
+                .range(0, 200)
+                .execute()
+            )
+            for p in (resp.data or []):
+                if p.get('position') in OFFENSIVE_POSITIONS:
+                    results[p.get('id')] = p
+            # If not found, try exact case-sensitive fallback with title-cased name
+            if not resp.data:
+                exact = (
+                    self.supabase
+                    .table('players')
+                    .select('*')
+                    .eq('sport', 'NFL')
+                    .eq('name', name.title())
+                    .range(0, 50)
+                    .execute()
+                )
+                for p in (exact.data or []):
+                    if p.get('position') in OFFENSIVE_POSITIONS:
+                        results[p.get('id')] = p
+        self.logger.info(f"fetch_players_by_names matched {len(results)} offensive players for targets: {', '.join(names)}")
+        return list(results.values())
 
     def fetch_existing_player_weeks(self, season: int, weeks: List[int]) -> Set[Tuple[str, str]]:
         self.logger.info("Fetching existing player-week keys for 2025 weeks 1-2...")
@@ -143,28 +189,102 @@ class NFL2025Week12Refresh:
             if r.status_code == 200:
                 js = r.json()
                 if js.get('success'):
-                    return js.get('answer', '')
+                    # Prefer 'answer' but fall back to 'response' if present
+                    ans = js.get('answer')
+                    if not ans:
+                        ans = js.get('response', '')
+                    return ans
             return None
         except Exception:
             return None
 
     def extract_number(self, answer: Optional[str], stat_name: str) -> float:
+        """Extract a numeric value for a given stat from a free-form answer string.
+        Prefers stat-specific patterns/synonyms and validates against reasonable ranges.
+        """
         if not answer:
             return 0.0
-        low = answer.lower()
-        # Prefer direct numeric
-        pats = [
-            r'(\d+(?:\.\d+)?)',
-            rf'(\d+(?:\.\d+)?)\s+{re.escape(stat_name).replace('_',' ')}',
-            r'has\s+(\d+(?:\.\d+)?)',
+        txt = answer.lower()
+
+        # Reasonable ranges (min, max) to avoid catching years or unrelated numbers
+        ranges = {
+            'passing_yards': (0, 700),
+            'passing_touchdowns': (0, 10),
+            'passing_completions': (0, 60),
+            'passing_attempts': (0, 80),
+            'passing_interceptions': (0, 7),
+            'rushing_yards': (0, 300),
+            'rushing_touchdowns': (0, 6),
+            'receptions': (0, 20),
+            'targets': (0, 30),
+            'receiving_yards': (0, 300),
+            'receiving_touchdowns': (0, 6),
+            'field_goals_made': (0, 10),
+            'field_goals_attempted': (0, 10),
+            'extra_points_made': (0, 10),
+        }
+
+        synonyms = {
+            'passing_yards': ['passing yards', 'pass yards', 'yards passing'],
+            'passing_touchdowns': ['passing touchdowns', 'pass tds', 'touchdown passes', 'td passes'],
+            'passing_completions': ['completions', 'completed passes'],
+            'passing_attempts': ['attempts', 'pass attempts'],
+            'passing_interceptions': ['interceptions', 'ints', 'interception'],
+            'rushing_yards': ['rushing yards', 'rush yards', 'yards rushing'],
+            'rushing_touchdowns': ['rushing touchdowns', 'rush tds'],
+            'receptions': ['receptions', 'catches'],
+            'targets': ['targets'],
+            'receiving_yards': ['receiving yards', 'rec yards', 'yards receiving'],
+            'receiving_touchdowns': ['receiving touchdowns', 'rec tds'],
+            'field_goals_made': ['field goals made', 'fg made'],
+            'field_goals_attempted': ['field goal attempts', 'fg attempts'],
+            'extra_points_made': ['extra points', 'xp made'],
+        }
+
+        def in_range(val: float, key: str) -> bool:
+            lo, hi = ranges.get(key, (0, 10000))
+            return lo <= val <= hi
+
+        # 1) Try stat-specific labelled patterns first
+        for label in synonyms.get(stat_name, [stat_name.replace('_', ' ')]):
+            # patterns like "passing yards: 275" or "passing yards 275"
+            pats = [
+                rf"{re.escape(label)}\s*[:\-]?\s*(\d+(?:\.\d+)?)",
+                rf"(\d+(?:\.\d+)?)\s*{re.escape(label)}",
+            ]
+            for pat in pats:
+                m = re.search(pat, txt)
+                if m:
+                    try:
+                        v = float(m.group(1))
+                        if in_range(v, stat_name):
+                            return v
+                    except ValueError:
+                        pass
+
+        # 2) Try generic patterns that commonly appear (e.g., "has 7") near context
+        pats_generic = [
+            r"has\s+(\d+(?:\.\d+)?)",
         ]
-        for pat in pats:
-            m = re.search(pat, low)
+        for pat in pats_generic:
+            m = re.search(pat, txt)
             if m:
                 try:
-                    return float(m.group(1))
+                    v = float(m.group(1))
+                    if in_range(v, stat_name):
+                        return v
                 except ValueError:
-                    continue
+                    pass
+
+        # 3) Last resort: the first number that fits range
+        m = re.search(r"(\d+(?:\.\d+)?)", txt)
+        if m:
+            try:
+                v = float(m.group(1))
+                if in_range(v, stat_name):
+                    return v
+            except ValueError:
+                pass
         return 0.0
 
     def build_base_stats(self, player: Dict[str, Any], week: int) -> Dict[str, Any]:
@@ -247,6 +367,14 @@ class NFL2025Week12Refresh:
             val = self.extract_number(ans, stat_key)
             stats[stat_key] = val
             time.sleep(0.08)
+        # Fallback: ask for overall stats line once and try to extract all fields from it
+        fallback = self.query_statmuse(f"{name} stats Week {week} {SEASON}")
+        if fallback:
+            for stat_key, _ in qset:
+                if float(stats.get(stat_key, 0)) <= 0:
+                    v2 = self.extract_number(fallback, stat_key)
+                    if v2 > 0:
+                        stats[stat_key] = v2
         stats['fantasy_points'] = self.calc_fp(stats)
         stats['fantasy_points_ppr'] = self.calc_fp_ppr(stats)
         return stats
@@ -283,15 +411,21 @@ class NFL2025Week12Refresh:
 
     def run(self) -> None:
         self.logger.info("Starting NFL 2025 Week 1 & 2 offensive refresh via StatMuse...")
-        players = self.fetch_offensive_players()
-        existing_keys = self.fetch_existing_player_weeks(SEASON, WEEKS)
+        if self.target_names:
+            players = self.fetch_players_by_names(self.target_names)
+        else:
+            players = self.fetch_offensive_players()
+
+        weeks = self.target_weeks if self.target_weeks else WEEKS
+        existing_keys = self.fetch_existing_player_weeks(SEASON, weeks)
         target_pairs: List[Tuple[Dict[str, Any], int]] = []
+        force = bool(self.target_names) or self.force  # force when targeting or when --force specified
         for p in players:
             pid = p.get('id')
             if not pid:
                 continue
-            for wk in WEEKS:
-                if (pid, str(wk)) not in existing_keys:
+            for wk in weeks:
+                if force or (pid, str(wk)) not in existing_keys:
                     target_pairs.append((p, wk))
         self.logger.info(f"Missing player-week records to backfill: {len(target_pairs)}")
 
@@ -328,7 +462,22 @@ def main():
     print(f"Run at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
     try:
+        parser = argparse.ArgumentParser(description='NFL 2025 W1-W2 Offensive Refresh via StatMuse')
+        parser.add_argument('--names', type=str, help='Comma-separated list of exact player names to target (case-insensitive)')
+        parser.add_argument('--weeks', type=str, help='Comma-separated list of weeks to process (e.g., 1,2)')
+        parser.add_argument('--force', action='store_true', help='Force update even if a Week 1/2 row already exists')
+        args = parser.parse_args()
+
         r = NFL2025Week12Refresh()
+        if args.names:
+            r.target_names = {n.strip().lower() for n in args.names.split(',') if n.strip()}
+        if args.weeks:
+            try:
+                r.target_weeks = [int(w.strip()) for w in args.weeks.split(',') if w.strip()]
+            except ValueError:
+                r.target_weeks = []
+        if args.force:
+            r.force = True
         r.run()
         print("\n✅ Refresh completed!")
     except Exception as e:
