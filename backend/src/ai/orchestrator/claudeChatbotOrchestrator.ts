@@ -2,13 +2,14 @@ import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import { createLogger } from '../../utils/logger';
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
-import { webSearchPerformSearchTool } from '../tools/webSearch';
+// Replaced legacy web search with Browser Use microservice
 import { freeDataTeamNewsTool, freeDataInjuryReportsTool } from '../tools/freeDataSources';
 
 dotenv.config();
 
 const logger = createLogger('grokChatbot');
 const XAI_API_KEY = process.env.XAI_API_KEY;
+const BROWSER_AGENT_URL = process.env.BROWSER_AGENT_URL || 'http://localhost:8091';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -111,7 +112,7 @@ export class ChatbotOrchestrator {
         }
         
         // For tool usage, we can't stream until after tools are called
-        const response = await this.processWithTools(messages, needsTools.intent, toolsUsed, appData, request.context.userTier);
+        const response = await this.processWithTools(messages, needsTools.intent, toolsUsed, appData, request.context.userTier, onEvent);
         const responseText = this.extractResponseText(response);
         
         // Simulate streaming for tool responses
@@ -870,7 +871,7 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
   /**
    * Process message with tools (enhanced with more intelligence)
    */
-  private async processWithTools(messages: any[], intent: string, toolsUsed: string[], appData: any, userTier?: string) {
+  private async processWithTools(messages: any[], intent: string, toolsUsed: string[], appData: any, userTier?: string, onEvent?: (event: any) => void) {
     logger.info(`🔧 Using tools for intent: ${intent} (User tier: ${userTier})`);
     
     const isEliteUser = userTier === 'elite';
@@ -880,17 +881,22 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
       {
         type: "function" as const,
         function: {
-          name: "web_search",
-          description: "Search the web for current sports information, breaking news, trades, injuries, weather, or any real-time updates. Use specific queries with team names, player names, and relevant keywords.",
+          name: "browser_browse",
+          description: "Control a real Chromium browser via a Browser Use microservice to search, click, navigate, and extract info. Emits live events and returns a summary + links.",
           parameters: {
             type: "object",
             properties: {
-              query: {
+              task: {
                 type: "string",
-                description: "Specific search query with relevant keywords (e.g., 'Lakers injury report today', 'Yankees starting pitcher weather', 'NFL trade deadline news')"
+                description: "Concrete browsing task (e.g., 'Find latest Yankees injury report and summarize')"
+              },
+              domains: {
+                type: "array",
+                items: { type: "string" },
+                description: "Optional domain allowlist to constrain browsing"
               }
             },
-            required: ["query"]
+            required: ["task"]
           }
         }
       },
@@ -1125,10 +1131,21 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
         for (const toolCall of message.tool_calls) {
           let toolResult;
           
-          if (toolCall.function.name === 'web_search') {
-            toolsUsed.push('web_search');
+          if (toolCall.function.name === 'browser_browse') {
+            toolsUsed.push('browser_browse');
             const args = JSON.parse(toolCall.function.arguments);
-            toolResult = await webSearchPerformSearchTool(args.query);
+            const job = await this.browserStartJob(args.task, args.domains);
+            let result;
+            if (onEvent) {
+              try {
+                result = await this.browserStreamEvents(job.id, onEvent);
+              } catch (e) {
+                result = { summary: `Error during browsing: ${e instanceof Error ? e.message : String(e)}` };
+              }
+            } else {
+              result = await this.browserWaitForResult(job.id);
+            }
+            toolResult = result;
           } else if (toolCall.function.name === 'get_team_news') {
             toolsUsed.push('team_news');
             const args = JSON.parse(toolCall.function.arguments);
@@ -1314,6 +1331,83 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
         temperature: 0.7
       });
     }
+  }
+
+  // Browser Use microservice helpers
+  private getBrowserAgentBaseUrl(): string {
+    return BROWSER_AGENT_URL;
+  }
+
+  private async browserStartJob(task: string, domains?: string[]): Promise<{ id: string }> {
+    const base = this.getBrowserAgentBaseUrl();
+    const resp = await fetch(`${base}/jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task, domains, max_steps: 20 })
+    } as any);
+    if (!resp.ok) {
+      throw new Error(`Failed to start browser job: ${resp.status}`);
+    }
+    const data: any = await resp.json();
+    return { id: (data as { id: string }).id };
+  }
+
+  private async browserStreamEvents(jobId: string, onEvent: (event: any) => void, timeoutMs: number = 120000): Promise<any> {
+    const base = this.getBrowserAgentBaseUrl();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(`${base}/jobs/${jobId}/events`, { signal: controller.signal } as any);
+      if (!resp.ok || !resp.body) {
+        throw new Error(`SSE connection failed: ${resp.status}`);
+      }
+      const reader = (resp.body as any).getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResult: any = null;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const chunk = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const line = chunk.split('\n').find(l => l.startsWith('data: '));
+          if (!line) continue;
+          const jsonStr = line.slice(6);
+          try {
+            const evt = JSON.parse(jsonStr);
+            onEvent?.(evt);
+            if (evt.type === 'browser_done') {
+              finalResult = evt.result || { summary: 'Completed' };
+            }
+          } catch {}
+        }
+        if (finalResult) break;
+      }
+      return finalResult || { summary: 'Completed' };
+    } finally {
+      clearTimeout(timeout);
+      controller.abort();
+    }
+  }
+
+  private async browserWaitForResult(jobId: string, timeoutMs: number = 120000): Promise<any> {
+    const base = this.getBrowserAgentBaseUrl();
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const resp = await fetch(`${base}/jobs/${jobId}`);
+      if (resp.ok) {
+        const data: any = await resp.json();
+        if (data.status === 'completed') return data.result || { summary: 'Completed' };
+        if (data.status === 'error' || data.status === 'cancelled') {
+          throw new Error(data.result?.summary || data.status);
+        }
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    throw new Error('Browser job timed out');
   }
 
   /**
