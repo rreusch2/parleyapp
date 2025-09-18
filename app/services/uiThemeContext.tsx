@@ -256,16 +256,38 @@ export function UIThemeProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // If a previously saved Elite theme is present while user is Pro, coerce to allowed
+  useEffect(() => {
+    if (!isElite && isPro) {
+      const allowedPro: ThemeId[] = ['pro_default', 'midnight_aqua'];
+      if (!allowedPro.includes(selectedThemeId)) {
+        setSelectedThemeId('pro_default');
+      }
+    }
+  }, [isElite, isPro, selectedThemeId]);
+
   const activeTheme = useMemo<ThemeTokens>(() => {
-    if (isElite) return THEMES[selectedThemeId] || THEMES.elite_default;
-    if (isPro) return THEMES.pro_default;
+    if (isElite) {
+      return THEMES[selectedThemeId] || THEMES.elite_default;
+    }
+    if (isPro) {
+      const allowedPro: ThemeId[] = ['pro_default', 'midnight_aqua'];
+      const enforcedId: ThemeId = allowedPro.includes(selectedThemeId) ? selectedThemeId : 'pro_default';
+      return THEMES[enforcedId];
+    }
     return THEMES.free_default;
   }, [isElite, isPro, selectedThemeId]);
 
   const setThemeId = async (id: ThemeId) => {
-    setSelectedThemeId(id);
+    let nextId = id;
+    // Guard: Pro users may only select 'pro_default' or 'midnight_aqua'
+    if (!isElite && isPro) {
+      const allowedPro: ThemeId[] = ['pro_default', 'midnight_aqua'];
+      nextId = allowedPro.includes(id) ? id : 'pro_default';
+    }
+    setSelectedThemeId(nextId);
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, id);
+      await AsyncStorage.setItem(STORAGE_KEY, nextId);
     } catch {}
   };
 
