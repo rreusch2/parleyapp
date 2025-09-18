@@ -104,4 +104,4 @@ railway-credentials-secure.txt
 # Google OAuth credentials (NEVER COMMIT THESE!)
 email-automation/credentials.json
 client_secret_*.json
-**/credentials.json
+**/credentials.jsonpython-services/browser_agent_service
