@@ -124,10 +124,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (user) {
         console.log('✅ DEBUG: User found:', user.id);
         
-        // Check database for subscription info first - this is the source of truth
+        // Check database for subscription_tier first - this is the source of truth
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at, temporary_tier_active, temporary_tier, temporary_tier_expires_at, base_subscription_tier')
+          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at')
           .eq('id', user.id)
           .single();
         
@@ -135,69 +135,38 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         
         if (!profileError && profile) {
           console.log('🔄 DEBUG: Profile found:', profile);
-          // 1) Temporary Day Pass handling (takes precedence over welcome bonus)
-          const tmpActive = !!profile.temporary_tier_active;
-          const tmpTier: 'pro' | 'elite' | null = (profile.temporary_tier === 'pro' || profile.temporary_tier === 'elite') ? profile.temporary_tier : null;
-          const tmpExpiresAt = profile.temporary_tier_expires_at ? new Date(profile.temporary_tier_expires_at) : null;
-
-          if (tmpActive && tmpTier && tmpExpiresAt && now < tmpExpiresAt) {
-            console.log('🕒 Temporary tier active:', { tmpTier, expires: tmpExpiresAt.toISOString() });
-            const isEliteTmp = tmpTier === 'elite';
-            setIsElite(isEliteTmp);
-            setIsPro(true); // both tiers have Pro privileges
-            setSubscriptionTier(isEliteTmp ? 'elite' : 'pro');
-            await AsyncStorage.setItem('subscriptionStatus', isEliteTmp ? 'elite' : 'pro');
-            // Skip welcome bonus override when temporary pass is active
+          
+          // CRITICAL: Check if user has active welcome bonus
+          const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+          const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+          
+          console.log('🔄 DEBUG: Welcome bonus check:', { hasActiveWelcomeBonus, expires: welcomeBonusExpires });
+          
+          // CRITICAL FIX: Users with welcome bonus should ALWAYS be treated as Free tier
+          if (hasActiveWelcomeBonus) {
+            console.log('🎁 User has active welcome bonus - keeping as FREE tier');
+            setIsPro(false);
+            setIsElite(false);
+            setSubscriptionTier('free');
+            await AsyncStorage.setItem('subscriptionStatus', 'free');
+          } else if (profile.subscription_tier === 'elite') {
+            console.log('👑 User is Elite according to database');
+            setIsPro(true); // Elite users are also Pro
+            setIsElite(true);
+            setSubscriptionTier('elite');
+            await AsyncStorage.setItem('subscriptionStatus', 'elite');
+          } else if (profile.subscription_tier === 'pro') {
+            console.log('✅ User is Pro according to database');
+            setIsPro(true);
+            setIsElite(false);
+            setSubscriptionTier('pro');
+            await AsyncStorage.setItem('subscriptionStatus', 'pro');
           } else {
-            // If temporary tier has expired but still marked active, clear it and revert to base or free
-            if (tmpActive && tmpExpiresAt && now >= tmpExpiresAt) {
-              console.log('⏳ Temporary tier expired, clearing...');
-              try {
-                await supabase
-                  .from('profiles')
-                  .update({
-                    temporary_tier_active: false,
-                    temporary_tier: null,
-                    temporary_tier_expires_at: null,
-                    subscription_tier: profile.base_subscription_tier || 'free',
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('id', user.id);
-              } catch (clearErr) {
-                console.warn('Failed clearing expired temporary tier', clearErr);
-              }
-            }
-
-            // 2) Welcome bonus applies only when user is otherwise free
-            const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
-            const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
-            console.log('🔄 DEBUG: Welcome bonus check:', { hasActiveWelcomeBonus, expires: welcomeBonusExpires });
-
-            if (profile.subscription_tier === 'elite') {
-              console.log('👑 User is Elite according to database');
-              setIsPro(true);
-              setIsElite(true);
-              setSubscriptionTier('elite');
-              await AsyncStorage.setItem('subscriptionStatus', 'elite');
-            } else if (profile.subscription_tier === 'pro') {
-              console.log('✅ User is Pro according to database');
-              setIsPro(true);
-              setIsElite(false);
-              setSubscriptionTier('pro');
-              await AsyncStorage.setItem('subscriptionStatus', 'pro');
-            } else if (hasActiveWelcomeBonus) {
-              console.log('🎁 Active welcome bonus - treating as FREE tier for limits');
-              setIsPro(false);
-              setIsElite(false);
-              setSubscriptionTier('free');
-              await AsyncStorage.setItem('subscriptionStatus', 'free');
-            } else {
-              console.log('ℹ️ User is Free according to database');
-              setIsPro(false);
-              setIsElite(false);
-              setSubscriptionTier('free');
-              await AsyncStorage.setItem('subscriptionStatus', 'free');
-            }
+            console.log('ℹ️ User is Free according to database');
+            setIsPro(false);
+            setIsElite(false);
+            setSubscriptionTier('free');
+            await AsyncStorage.setItem('subscriptionStatus', 'free');
           }
         } else {
           console.log('⚠️ Could not fetch user profile, defaulting to Free');
@@ -207,43 +176,37 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         
                   // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
           try {
-            // Do not override DB state if a temporary Day Pass is currently active
-            const tmpActiveNow = !!(profile?.temporary_tier_active && profile?.temporary_tier_expires_at && new Date(profile.temporary_tier_expires_at) > now);
-            if (tmpActiveNow) {
-              console.log('⏭️ Skipping RevenueCat sync (temporary Day Pass active)');
-            } else {
-              console.log('🔄 DEBUG: Checking RevenueCat subscription...');
-              await revenueCatService.initialize();
-              const customerInfo = await revenueCatService.getCustomerInfo();
-              const hasActiveSubscription = customerInfo.entitlements.active.pro || customerInfo.entitlements.active.elite;
+            console.log('🔄 DEBUG: Checking RevenueCat subscription...');
+            await revenueCatService.initialize();
+            const customerInfo = await revenueCatService.getCustomerInfo();
+            const hasActiveSubscription = customerInfo.entitlements.active.pro || customerInfo.entitlements.active.elite;
+            
+            console.log('🔄 DEBUG: RevenueCat active subscription:', hasActiveSubscription);
+
+            if (hasActiveSubscription) {
+              const isElite = customerInfo.entitlements.active.elite;
+              const tier = isElite ? 'elite' : 'pro';
               
-              console.log('🔄 DEBUG: RevenueCat active subscription:', hasActiveSubscription);
+              // Only sync with RevenueCat if user doesn't have active welcome bonus
+              const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
+              const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
+              
+              if (!hasActiveWelcomeBonus && profile?.subscription_tier !== tier) {
+                console.log(`🔄 Syncing ${tier} status from RevenueCat to database`);
+                await supabase
+                  .from('profiles')
+                  .update({ subscription_tier: tier })
+                  .eq('id', user.id);
 
-              if (hasActiveSubscription) {
-                const isElite = customerInfo.entitlements.active.elite;
-                const tier = isElite ? 'elite' : 'pro';
-                
-                // Only sync with RevenueCat if user doesn't have active welcome bonus
-                const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
-                const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
-                
-                if (!hasActiveWelcomeBonus && profile?.subscription_tier !== tier) {
-                  console.log(`🔄 Syncing ${tier} status from RevenueCat to database`);
-                  await supabase
-                    .from('profiles')
-                    .update({ subscription_tier: tier })
-                    .eq('id', user.id);
-
-                  if (tier === 'elite') {
-                    setIsElite(true);
-                    setIsPro(true); // Elite includes Pro
-                  } else {
-                    setIsPro(true);
-                    setIsElite(false);
-                  }
-                  
-                  await AsyncStorage.setItem('subscriptionStatus', tier);
+                if (tier === 'elite') {
+                  setIsElite(true);
+                  setIsPro(true); // Elite includes Pro
+                } else {
+                  setIsPro(true);
+                  setIsElite(false);
                 }
+                
+                await AsyncStorage.setItem('subscriptionStatus', tier);
               }
             }
           } catch (rcError) {
@@ -276,37 +239,6 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         return false;
       }
       console.log('✅ DEBUG: User found:', user.id);
-
-      // Handle Pro Day Pass specially (non-renewing 24h access)
-      if (planId === 'pro_daypass') {
-        console.log('🎯 DEBUG: Processing Pro Day Pass purchase...');
-        // Complete the purchase in RevenueCat
-        const purchaseResult = await revenueCatService.purchasePackage('pro_daypass');
-        if (!purchaseResult.success) {
-          if (purchaseResult.error !== 'cancelled') {
-            Alert.alert('Purchase Failed', purchaseResult.error || 'Unable to activate Pro Day Pass');
-          }
-          return false;
-        }
-
-        // Activate temporary PRO tier in Supabase via RPC
-        const { error: activationError } = await supabase.rpc('activate_pro_daypass', { user_id_param: user.id });
-        if (activationError) {
-          console.error('Pro Day Pass activation error:', activationError);
-          Alert.alert('Activation Error', 'Your payment succeeded but activation failed. Please tap Restore Purchases.');
-          return false;
-        }
-
-        // Update local state immediately
-        setIsPro(true);
-        setIsElite(false);
-        setSubscriptionTier('pro');
-        await AsyncStorage.setItem('subscriptionStatus', 'pro');
-
-        // UX feedback
-        Alert.alert('🎉 Pro Day Pass Activated!', 'You now have Pro access for 24 hours. Enjoy premium picks and analytics!', [{ text: 'Awesome' }]);
-        return true;
-      }
 
       // Handle Elite Day Pass specially
       if (planId === 'elite_daypass') {

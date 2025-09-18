@@ -41,7 +41,6 @@ import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
 import EliteThemeModal from '../components/EliteThemeModal';
 import EliteThemeQuickPicker from '../components/EliteThemeQuickPicker';
-import ProThemeQuickPicker from '../components/ProThemeQuickPicker';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
@@ -100,7 +99,6 @@ export default function HomeScreen() {
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
-  const [proThemeQuickVisible, setProThemeQuickVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -432,7 +430,7 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={(isElite || isPro) ? theme.headerGradient : (['#1E293B', '#334155', '#0F172A'] as const)}
+          colors={isElite ? theme.headerGradient : (isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] as const : ['#1E293B', '#334155', '#0F172A'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -460,27 +458,9 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
           ) : isPro ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
-              <View style={[styles.proBadge, { marginRight: 8 }]}>
-                <Crown size={14} color="#00E5FF" />
-                <Text style={styles.proBadgeText}>PRO</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setProThemeQuickVisible(true)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 14,
-                  backgroundColor: `${theme.accentPrimary}1A`,
-                  borderWidth: 1,
-                  borderColor: `${theme.accentPrimary}33`
-                }}
-              >
-                <Palette size={14} color={theme.headerTextPrimary} />
-                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '700', color: theme.headerTextPrimary }}>Theme</Text>
-              </TouchableOpacity>
+            <View style={styles.proBadge}>
+              <Crown size={14} color="#00E5FF" />
+              <Text style={styles.proBadgeText}>PRO</Text>
             </View>
           ) : null}
 
@@ -596,18 +576,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : null}
         </LinearGradient>
-
-        {/* Theme Pickers */}
-        <EliteThemeQuickPicker
-          visible={eliteThemeQuickVisible}
-          onClose={() => setEliteThemeQuickVisible(false)}
-          onOpenFull={() => setEliteThemeModalVisible(true)}
-        />
-        <ProThemeQuickPicker
-          visible={proThemeQuickVisible}
-          onClose={() => setProThemeQuickVisible(false)}
-          onUpgrade={openSubscriptionModal}
-        />
 
         {/* Football Season Announcement Card - For all tiers */}
         <FootballSeasonCard 

@@ -405,6 +405,7 @@ function getSubscriptionTier(productId: string): string {
     'com.parleyapp.pro_yearly': 'pro',
     'com.parleyapp.pro_daypass': 'pro',
     'com.parleyapp.prodaypass': 'pro', // Correct day pass product ID
+    'com.parleyapp.elitedaypass': 'elite', // Elite Day Pass (iOS/Android shared id)
     'pro_weekly': 'pro', // Android
     'pro_monthly': 'pro', // Android
     'pro_yearly': 'pro', // Android
@@ -416,7 +417,8 @@ function getSubscriptionTier(productId: string): string {
     'com.parleyapp.elite_yearly': 'elite',
     'elite_weekly': 'elite', // Android
     'elite_monthly': 'elite', // Android
-    'elite_yearly': 'elite' // Android
+    'elite_yearly': 'elite', // Android
+    'elite_daypass': 'elite' // Android plan mapping safeguard
   };
   
   const tier = tierMapping[productId];

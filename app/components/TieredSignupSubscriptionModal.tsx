@@ -99,19 +99,27 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const handleSubscribe = async () => {
     try {
       setLoading(true);
+      
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
-
-      // IMPORTANT: Use centralized subscribe() to avoid duplicate purchases and to handle Day Pass logic
+      
       const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
-
+      
       if (success) {
-        console.log('✅ Purchase flow completed successfully (signup modal).');
+        console.log('✅ Purchase completed successfully!');
+        // Close modal immediately and let the dashboard update
+        if (onSubscribe) {
+          await onSubscribe(selectedPlan, selectedTier);
+        }
         onClose();
+      } else {
+        console.log('ℹ️ User cancelled purchase or it failed');
+        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
       }
+      
     } catch (error: any) {
-      console.error('❌ Subscription error (signup modal):', error);
-      const message = error?.message || 'Unable to process purchase. Please try again.';
-      Alert.alert('Purchase Error', message);
+      console.error('❌ Subscription error:', error);
+      const errorMessage = error?.message || 'Unable to process purchase. Please try again.';
+      Alert.alert('Purchase Error', errorMessage);
     } finally {
       setLoading(false);
     }

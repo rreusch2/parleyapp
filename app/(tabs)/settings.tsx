@@ -61,7 +61,6 @@ import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
 import EliteThemeModal from '../components/EliteThemeModal';
-import ProThemeQuickPicker from '../components/ProThemeQuickPicker';
 
 interface UserProfile {
   id: string;
@@ -108,7 +107,6 @@ export default function SettingsScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showEliteThemeModal, setShowEliteThemeModal] = useState(false);
-  const [showProThemeQuick, setShowProThemeQuick] = useState(false);
 
   // Auth state - check if user has Apple auth and/or password
   const [hasAppleAuth, setHasAppleAuth] = useState(false);
@@ -942,16 +940,14 @@ export default function SettingsScreen() {
       icon: User,
       iconColor: '#00E5FF',
       items: [
-        // App Themes control (Elite: full modal, Pro: quick picker with limited choices)
-        ...((isElite || isPro) ? [{
-          id: 'app_theme',
-          title: 'App Theme',
+        // Elite-only App Themes control at the very top per design
+        ...(!isElite ? [] : [{
+          id: 'elite_theme',
+          title: 'App Themes',
           type: 'link',
-          subtitle: isElite ? 'Customize Elite theme colors' : 'Choose Midnight Aqua or Pro Default',
-          action: () => {
-            if (isElite) setShowEliteThemeModal(true); else setShowProThemeQuick(true);
-          }
-        }] : []),
+          subtitle: 'Customize Elite theme colors',
+          action: () => setShowEliteThemeModal(true)
+        }]),
         { 
           id: 'subscription', 
           title: 'Subscription', 
@@ -1376,13 +1372,6 @@ export default function SettingsScreen() {
       <EliteThemeModal
         visible={showEliteThemeModal}
         onClose={() => setShowEliteThemeModal(false)}
-      />
-
-      {/* Pro Theme Quick Picker (Pro-only) */}
-      <ProThemeQuickPicker
-        visible={showProThemeQuick}
-        onClose={() => setShowProThemeQuick(false)}
-        onUpgrade={openSubscriptionModal}
       />
 
       {/* Change Password Modal */}

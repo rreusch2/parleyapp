@@ -9,7 +9,7 @@ import json
 import os
 import random
 import argparse
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time, timedelta, timezone
 from supabase import create_client, Client
 import logging
 from dotenv import load_dotenv
@@ -38,79 +38,109 @@ class EnhancedInsightsGenerator:
         self.statmuse_url = os.getenv('STATMUSE_URL', 'http://localhost:5001')
         self.user_id = "admin_insights_generator"
         
-        # Available insight categories with descriptions
+        # Available insight categories with descriptions (expanded cross-sport)
         self.available_categories = {
-            'weather': 'Weather conditions affecting games (rain, wind, temperature)',
-            'injury': 'Player injuries, returns, and lineup impacts',
-            'pitcher': 'Starting pitcher analysis, matchups, and performance',
-            'bullpen': 'Relief pitcher situations, workload, and effectiveness', 
+            'weather': 'Weather conditions that materially affect games (extreme only)',
+            'injury': 'Player injuries, returns, and lineup/rotation impacts',
+            'pitcher': 'Starting pitcher analysis, matchups, and performance (MLB)',
+            'bullpen': 'Relief pitcher situations, workload, and effectiveness (MLB)', 
             'trends': 'Team and player performance trends and patterns',
-            'matchup': 'Head-to-head analysis and game-specific factors',
+            'matchup': 'Head-to-head analysis, style clashes, and game context',
+            'pace': 'Tempo/pace implications (NBA/WNBA/CFB/NFL)',
+            'offense': 'Offensive strengths/weaknesses and scheme tendencies',
+            'defense': 'Defensive strengths/weaknesses and matchups',
+            'coaching': 'Coaching tendencies, travel, scheduling and rest factors',
+            'line_movement': 'Market/line movement and consensus positioning',
             'research': 'General research insights and analytics',
             'intro': 'Introductory messages and greetings'
         }
 
-    def fetch_upcoming_games_with_odds(self):
-        """Fetch the actual upcoming games with odds from Games tab data source"""
+        # Track active sports for the current run
+        self.active_sports: set[str] = set()
+        # Map verbose sport names to short keys for prompts/logging
+        self.sport_short_map = {
+            'Major League Baseball': 'MLB',
+            "Women's National Basketball Association": 'WNBA',
+            'National Football League': 'NFL',
+            'College Football': 'CFB',
+            'Ultimate Fighting Championship': 'UFC'
+        }
+
+    def fetch_upcoming_games_with_odds(self, target_date_obj: date | None = None):
+        """Fetch upcoming games with odds, scoped to a specific date if provided.
+
+        If target_date_obj is provided, we fetch games from [00:00, 24:00) UTC on that calendar date.
+        Otherwise, we fetch the next 2 days of scheduled games from now.
+        """
         try:
             logger.info("📊 Fetching upcoming games with odds...")
             
-            # Get upcoming games with odds (next 2 days)
-            result = self.supabase.table('sports_events').select(
-                'id, home_team, away_team, start_time, sport, metadata'
-            ).gte(
-                'start_time', datetime.now().isoformat()
-            ).lte(
-                'start_time', (datetime.now() + timedelta(days=2)).isoformat()
-            ).eq(
-                'status', 'scheduled'
-            ).order('start_time').limit(15).execute()
+            query = self.supabase.table('sports_events').select(
+                'id, home_team, away_team, start_time, sport, league, sport_key, metadata, status'
+            )
+
+            if target_date_obj:
+                # UTC day window for the specified date
+                start_dt = datetime.combine(target_date_obj, time(0, 0, tzinfo=timezone.utc))
+                end_dt = start_dt + timedelta(days=1)
+                query = query.gte('start_time', start_dt.isoformat()).lt('start_time', end_dt.isoformat())
+                logger.info(f"🗓️ Target date window UTC: {start_dt.isoformat()} → {end_dt.isoformat()}")
+            else:
+                # Default: next 2 days from now
+                now_dt = datetime.now(timezone.utc)
+                query = query.gte('start_time', now_dt.isoformat()).lte('start_time', (now_dt + timedelta(days=2)).isoformat())
+
+            result = query.eq('status', 'scheduled').order('start_time').limit(50).execute()
             
             if not result.data:
                 logger.warning("No upcoming games found")
                 return []
             
             games_with_odds = []
+            self.active_sports = set()
             for game in result.data:
                 # Check if game has odds data from TheOdds API
+                bookmakers = []
+                sample_odds = {}
                 if (game.get('metadata') and 
+                    isinstance(game.get('metadata'), dict) and
                     game['metadata'].get('full_data') and 
+                    isinstance(game['metadata']['full_data'], dict) and
                     game['metadata']['full_data'].get('bookmakers')):
-                    
-                    bookmakers = game['metadata']['full_data']['bookmakers']
-                    
-                    # Extract sample odds for context
-                    sample_odds = {}
-                    if bookmakers and len(bookmakers) > 0:
-                        primary_book = bookmakers[0]
-                        if primary_book.get('markets'):
-                            # Get moneyline, spread, total
-                            for market in primary_book['markets']:
-                                if market['key'] == 'h2h':
-                                    sample_odds['moneyline'] = {
-                                        'home': next((o['price'] for o in market['outcomes'] if o['name'] == game['home_team']), None),
-                                        'away': next((o['price'] for o in market['outcomes'] if o['name'] == game['away_team']), None)
-                                    }
-                                elif market['key'] == 'spreads':
-                                    sample_odds['spread'] = {
-                                        'home': next((f"{o['point']}" for o in market['outcomes'] if o['name'] == game['home_team']), None),
-                                        'away': next((f"{o['point']}" for o in market['outcomes'] if o['name'] == game['away_team']), None)
-                                    }
-                                elif market['key'] == 'totals':
-                                    sample_odds['total'] = {
-                                        'over': next((f"O{o['point']}" for o in market['outcomes'] if o['name'] == 'Over'), None),
-                                        'under': next((f"U{o['point']}" for o in market['outcomes'] if o['name'] == 'Under'), None)
-                                    }
-                    
-                    games_with_odds.append({
-                        'id': game['id'],
-                        'home_team': game['home_team'],
-                        'away_team': game['away_team'],
-                        'start_time': game['start_time'],
-                        'sport': game['sport'],
-                        'bookmaker_count': len(bookmakers),
-                        'sample_odds': sample_odds
-                    })
+                    bookmakers = game['metadata']['full_data']['bookmakers'] or []
+                    if bookmakers:
+                        primary_book = bookmakers[0] or {}
+                        markets = primary_book.get('markets') or []
+                        for market in markets:
+                            key = market.get('key')
+                            outcomes = market.get('outcomes') or []
+                            if key == 'h2h':
+                                sample_odds['moneyline'] = {
+                                    'home': next((o.get('price') for o in outcomes if o.get('name') == game.get('home_team')), None),
+                                    'away': next((o.get('price') for o in outcomes if o.get('name') == game.get('away_team')), None)
+                                }
+                            elif key == 'spreads':
+                                sample_odds['spread'] = {
+                                    'home': next((f"{o.get('point')}" for o in outcomes if o.get('name') == game.get('home_team')), None),
+                                    'away': next((f"{o.get('point')}" for o in outcomes if o.get('name') == game.get('away_team')), None)
+                                }
+                            elif key == 'totals':
+                                sample_odds['total'] = {
+                                    'over': next((f"O{o.get('point')}" for o in outcomes if o.get('name') == 'Over'), None),
+                                    'under': next((f"U{o.get('point')}" for o in outcomes if o.get('name') == 'Under'), None)
+                                }
+
+                sport_name = game.get('sport') or 'Unknown'
+                self.active_sports.add(sport_name)
+                games_with_odds.append({
+                    'id': game['id'],
+                    'home_team': game['home_team'],
+                    'away_team': game['away_team'],
+                    'start_time': game['start_time'],
+                    'sport': sport_name,
+                    'bookmaker_count': len(bookmakers),
+                    'sample_odds': sample_odds
+                })
             
             logger.info(f"✅ Found {len(games_with_odds)} upcoming games with odds")
             return games_with_odds
@@ -120,11 +150,21 @@ class EnhancedInsightsGenerator:
             return []
 
     def create_professor_lock_research_prompt(self, games):
-        """Create a prompt for Professor Lock to decide what to research"""
+        """Create a multi-sport research planning prompt for Professor Lock"""
         
-        prompt = f"""🎯 Professor Lock, I've got {len(games)} upcoming MLB games with live betting odds. I want you to pick 3-5 of the most interesting matchups and decide what specific insights would be valuable to research about them.
+        # Build sport breakdown
+        by_sport: dict[str, int] = {}
+        for g in games:
+            by_sport[g['sport']] = by_sport.get(g['sport'], 0) + 1
 
-📊 **UPCOMING GAMES WITH ODDS:**
+        breakdown_lines = [f"- {self.sport_short_map.get(s, s)}: {c} games" for s, c in sorted(by_sport.items(), key=lambda x: -x[1])]
+
+        prompt = f"""🎯 Professor Lock, I've got {len(games)} upcoming games across multiple sports with live betting odds. I want you to determine an intelligent cross-sport research plan and proposed distribution for EXACTLY 12 high-value insights.
+
+📊 **SPORTS BREAKDOWN:**
+{chr(10).join(breakdown_lines)}
+
+📊 **UPCOMING GAMES WITH ODDS (first 10 by time):**
 
 """
         
@@ -132,7 +172,8 @@ class EnhancedInsightsGenerator:
             start_time = datetime.fromisoformat(game['start_time'].replace('Z', '+00:00'))
             game_time = start_time.strftime('%I:%M %p ET')
             
-            prompt += f"{i}. **{game['away_team']} @ {game['home_team']}** - {game_time}\n"
+            short_sport = self.sport_short_map.get(game['sport'], game['sport'])
+            prompt += f"{i}. **{game['away_team']} @ {game['home_team']}** - {game_time} ({short_sport})\n"
             prompt += f"   📚 {game['bookmaker_count']} sportsbooks tracking this game\n"
             
             if game['sample_odds']:
@@ -156,33 +197,20 @@ class EnhancedInsightsGenerator:
             prompt += "\n"
         
         prompt += f"""\n🧠 **YOUR MISSION:**
-1. **Pick 7-10 most interesting matchups** from above (consider rivalry, odds, timing, etc.)
-2. **For each game you pick, tell me what specific research would be valuable**
+1. Propose an explicit distribution for EXACTLY 12 insights across the active sports above (use JSON like {{"MLB":4,"WNBA":3,"NFL":3,"CFB":2}}). Prioritize sports with more games today and higher information value. Ensure at least 1 per active sport when sensible.
+2. Select the most interesting matchups to research for each sport per your distribution.
+3. For each sport, list concrete research angles and the exact StatMuse and web queries you would run.
 
-**IMPORTANT:** We need enough material to generate 15+ insights for Elite user tier, so analyze more games!
-
-Examples of good research angles:
-- Weather conditions for outdoor games (rain/wind impacts)
-- Key player injury updates or returns
-- Starting pitcher analysis (recent form, career vs opponent)
-- Bullpen situations (overworked relievers, fresh arms)
-- Team momentum (recent win/loss streaks)
-- Historical head-to-head trends
-- Lineup changes or key player rest days
-- Home field advantages or travel factors
-- StatMuse queries for specific player/team stats
-- Recent performance trends and analytics
+**IMPORTANT QUALITY RULES:**
+- Weather insights ONLY if materially impactful (e.g., sustained winds > 15 mph, >30% precipitation, extreme temps). Skip light/no-impact weather.
+- Avoid generic boilerplate. Focus on edges: injuries, lineup/rotation changes, pace/tempo, coaching tendencies, travel/rest, bullpen fatigue, line movement.
+- Use sport-aware angles (e.g., pitchers/bullpen for MLB; pace/usage for WNBA; QB/offensive line/coverage shells for NFL; explosive plays/tempo for CFB; style clash/reach/grappling vs striking for UFC).
 
 🔍 **FORMAT YOUR RESPONSE:**
-For each game you select, tell me:
-- Why this matchup is interesting
-- What specific StatMuse queries to run (player stats, team records, etc.)
-- What web searches to perform for current intel
-- What information would give bettors an edge
+- Start with a JSON line for DISTRIBUTION only.
+- Then, by sport, list matchups and the exact research you will run (StatMuse queries + web searches).
 
-**Don't give betting picks** - just tell me what intelligence to gather!
-
-Let's find some real insights that matter!"""
+Do NOT produce betting picks. This is a research plan only."""
 
         return prompt
 
@@ -255,31 +283,22 @@ Let's find some real insights that matter!"""
 📊 **STATMUSE DATA GATHERED:**
 {statmuse_data}
 
-Now EXECUTE additional web research! Use your web search tool to find current information about:
-- Weather conditions for today's outdoor games
-- Latest injury reports and player updates  
-- Starting pitcher analysis and recent form
-- Lineup changes and roster moves
-- Any breaking news affecting today's games
-- Recent team performance trends
+Now EXECUTE targeted web research to validate and enrich the plan. Focus on:
+- Only materially impactful weather (see thresholds above)
+- Latest injury reports, lineup/rotation changes and usage trends
+- Pace/tempo and style matchups by sport
+- Coaching/rest/travel effects
+- Bullpen workloads (MLB) and market/line movement where notable
 
-After gathering ALL the intel (StatMuse + web search), give me AT LEAST 15 actionable insights that bettors should know about today's games.
+After gathering ALL the intel (StatMuse + web search), produce EXACTLY 12 high-value insights across the proposed sport distribution.
 
-**IMPORTANT FORMAT REQUIREMENTS:**
-- Each insight must be a standalone analysis
-- NO greetings or welcome messages
-- NO concluding statements
-- Focus on INSIGHTS, not betting picks
-- Keep each insight focused and specific
-- I need at least 15 insights total to serve Elite users (12) and Pro users (8)
+**STRICT FORMAT REQUIREMENTS:**
+- Output a numbered list of 12 insights total
+- Each insight 1–3 sentences, specific and actionable
+- No greetings, no conclusions, no meta commentary
+- Insights only (no bets). Each item should stand on its own
 
-**Examples of good insights:**
-- "Rain expected in Philadelphia could favor under bets due to reduced offensive production"
-- "Yankees ace returning from injury makes first start in 3 weeks against weak Boston lineup"
-- "Tigers bullpen overworked after 12-inning game yesterday, creating late-inning vulnerability"
-- "StatMuse shows this pitcher allows 40% more home runs on the road than at home"
-
-**TARGET: AT LEAST 15 PURE INSIGHTS** - Elite users need 12, so generate extras for quality selection!"""
+Aim for professional, information-dense insights that give bettors an edge."""
 
             url = f"{self.backend_url}/api/ai/chat"
             
@@ -458,6 +477,16 @@ Make these insights shine with proper presentation!"""
                 category = 'trends'
             elif any(word in insight_lower for word in ['matchup', 'vs', 'against', 'head-to-head']):
                 category = 'matchup'
+            elif any(word in insight_lower for word in ['pace', 'tempo']):
+                category = 'pace'
+            elif any(word in insight_lower for word in ['coach', 'coaching', 'scheme', 'play-calling']):
+                category = 'coaching'
+            elif any(word in insight_lower for word in ['line move', 'line movement', 'steam', 'consensus', 'odds moved', 'market']):
+                category = 'line_movement'
+            elif any(word in insight_lower for word in ['offense', 'qb', 'quarterback', 'rushing', 'passing', 'receiving', 'touchdown', 'points per possession']):
+                category = 'offense'
+            elif any(word in insight_lower for word in ['defense', 'defensive', 'coverage', 'pressure rate', 'sack rate']):
+                category = 'defense'
             
             enhanced_insights.append({
                 'title': title,
@@ -519,35 +548,57 @@ Make these insights shine with proper presentation!"""
             insights.append(line)
             logger.info(f"✅ Parsed insight: {line[:80]}…")
 
-            # Hard-stop when we reach 15 insights (need at least 12 for Elite users)
-            if len(insights) >= 15:
+            # Hard-stop when we reach 12 insights (Elite users need 12; Pro uses top 8)
+            if len(insights) >= 12:
                 break
 
         logger.info(f"📊 Extracted {len(insights)} raw insights from research")
         return insights
 
-    def execute_statmuse_queries(self, research_plan):
-        """Extract and execute StatMuse queries from research plan"""
+    def execute_statmuse_queries(self, research_plan, max_queries: int = 4):
+        """Derive sport-aware StatMuse queries from the plan via LLM and execute a few of them."""
         try:
-            logger.info("📊 Executing StatMuse queries from research plan...")
-            
-            # Generate intelligent StatMuse queries based on research plan
-            statmuse_queries = [
-                "What MLB teams have the best home record this season?",
-                "Which MLB pitchers have allowed the most home runs in their last 5 starts?",
-                "What teams have the highest scoring average in day games vs night games?",
-                "Which MLB bullpens have pitched the most innings in the last 7 days?",
-                "What teams perform best as road underdogs this season?"
-            ]
-            
+            logger.info("📊 Executing StatMuse queries from research plan (multi-sport)...")
+
+            active_short = sorted({self.sport_short_map.get(s, s) for s in self.active_sports})
+            derive_prompt = (
+                "You are generating StatMuse-style queries to support a research plan across these sports: "
+                f"{', '.join(active_short)}.\n"
+                "Given the plan below, output a pure JSON array of up to "
+                f"{max_queries} queries (strings only). Focus on quantitative, directly queryable facts.\n\n"
+                f"PLAN:\n{research_plan}\n\nJSON only:"
+            )
+
+            url = f"{self.backend_url}/api/ai/chat"
+            payload = {
+                "message": derive_prompt,
+                "userId": self.user_id,
+                "context": {"screen": "admin_statmuse_deriver", "userTier": "pro", "maxPicks": 10},
+                "conversationHistory": []
+            }
+            queries: list[str] = []
+            try:
+                resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=45)
+                if resp.status_code == 200:
+                    txt = resp.json().get('response', '[]')
+                    queries = json.loads(txt)
+                    if not isinstance(queries, list):
+                        queries = []
+                else:
+                    logger.warning(f"Failed to derive queries: {resp.status_code}")
+            except Exception as der_e:
+                logger.warning(f"Query derivation error: {der_e}")
+
             statmuse_results = []
-            for query in statmuse_queries[:3]:  # Limit to 3 queries to avoid timeout
+            for query in (queries or [])[:max_queries]:
+                if not isinstance(query, str):
+                    continue
                 result = self.query_statmuse(query)
                 if result:
                     statmuse_results.append(f"Q: {query}\nA: {result}\n")
-            
+
             return "\n".join(statmuse_results) if statmuse_results else "StatMuse data not available"
-            
+
         except Exception as e:
             logger.error(f"StatMuse execution error: {e}")
             return "StatMuse data not available"
@@ -716,7 +767,7 @@ Generate ONE {style} greeting - just the message, nothing else:"""
         
         try:
             # Step 1: Get upcoming games with odds
-            games = self.fetch_upcoming_games_with_odds()
+            games = self.fetch_upcoming_games_with_odds(target_date_obj)
             if not games:
                 logger.error("No upcoming games with odds found")
                 return False

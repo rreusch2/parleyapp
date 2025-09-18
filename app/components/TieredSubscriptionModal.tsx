@@ -70,6 +70,52 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   // Optional remote video URL for Elite preview; set in app config (app.json/app.config.ts -> expo.extra.elitePreviewVideoUrl)
   const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
+
+  // Dynamic pricing fetched from Supabase for display-only purposes
+  interface DbPricingEntry {
+    price: number;
+    currency: string;
+    periodLabel?: string | null;
+    disclosure?: string | null;
+    strikeMultiplier?: number | null;
+  }
+  const [dbPricing, setDbPricing] = useState<Record<string, DbPricingEntry>>({});
+
+  const formatPrice = (amount: number, _currency: string = 'USD') => {
+    // Keep it simple for RN (avoid Intl differences); currency is USD in our app
+    if (isNaN(amount)) return '';
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const getDisclosure = (planKey: string, fallback: string) => {
+    return dbPricing[planKey]?.disclosure || fallback;
+  };
+
+  const fetchSubscriptionPricing = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_pricing')
+        .select('plan_key, display_price, currency_code, period_label, apple_disclosure, show_in_modals');
+      if (error) {
+        console.warn('⚠️ subscription_pricing fetch error (using fallbacks):', error.message);
+        return; // fallbacks will be used
+      }
+      const map: Record<string, DbPricingEntry> = {};
+      (data || []).forEach((row: any) => {
+        if (row?.show_in_modals === false) return;
+        map[row.plan_key] = {
+          price: Number(row.display_price),
+          currency: row.currency_code || 'USD',
+          periodLabel: row.period_label || null,
+          disclosure: row.apple_disclosure || null,
+          strikeMultiplier: null,
+        };
+      });
+      setDbPricing(map);
+    } catch (e) {
+      console.warn('⚠️ Failed to load subscription pricing (using fallbacks):', e);
+    }
+  };
   
   const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
@@ -85,6 +131,8 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      // Fetch dynamic pricing for display
+      fetchSubscriptionPricing();
       setIsInitialized(false);
       setTimeout(() => setIsInitialized(true), 100);
     }
@@ -110,19 +158,21 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       
       // Track subscription intent with Facebook Analytics (Add to Cart event)
       try {
-        const planPrices = {
-          'pro_weekly': 9.99,
-          'pro_monthly': 19.99,
-          'pro_yearly': 199.99,
-          'pro_lifetime': 349.99,
-          'pro_daypass': 4.99,
-          'elite_weekly': 14.99,
-          'elite_monthly': 29.99,
-          'elite_yearly': 199.99,
-          'elite_daypass': 8.99
+        // Fallbacks if DB pricing hasn't loaded yet
+        const planPrices: Record<string, number> = {
+          pro_weekly: 12.49,
+          pro_monthly: 24.99,
+          pro_yearly: 199.99,
+          pro_lifetime: 349.99,
+          pro_daypass: 4.99,
+          elite_weekly: 14.99,
+          elite_monthly: 29.99,
+          elite_yearly: 199.99,
+          elite_daypass: 8.99,
         };
-        
-        const price = planPrices[selectedPlan] || 0;
+
+        const dynamic = dbPricing[selectedPlan]?.price;
+        const price = (typeof dynamic === 'number' ? dynamic : planPrices[selectedPlan]) || 0;
         facebookAnalyticsService.trackAddToCart(selectedTier, price, {
           subscription_plan: selectedPlan,
           subscription_tier: selectedTier
@@ -316,7 +366,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         {selectedTier === 'elite' && (
           <View style={styles.featureRow}>
             <Text style={styles.featureLabel}>🎨 Ultra Customization</Text>
-            <Text style={styles.featureValuePremium}>Custom themes and personalized UI</Text>
+            <Text style={styles.featureValuePremium}>Custom themes</Text>
           </View>
         )}
         {selectedTier === 'elite' && (
@@ -381,6 +431,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             price = `$${pricing.lifetime}`;
             period = 'one time';
             savings = 'Best Value';
+          }
+
+          // Override price/period with DB values if available
+          if (dbPricing[plan]) {
+            price = formatPrice(dbPricing[plan].price, dbPricing[plan].currency);
+            if (dbPricing[plan].periodLabel) {
+              period = dbPricing[plan].periodLabel as string;
+            }
           }
 
           return (
@@ -533,44 +591,44 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$12.49 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_weekly', '$12.49 per week, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$24.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_monthly', '$24.99 per month, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_yearly', '$199.99 per year, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Pro Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>$4.99 one-time purchase (24 hours)</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_daypass', '$4.99 one-time purchase (24 hours)')}</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_weekly', '$14.99 per week, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_monthly', '$29.99 per month, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_yearly', '$199.99 per year, auto-renewable')}</Text>
                   </View>
 
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Elite Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>$8.99 one-time purchase (24 hours), non-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_daypass', '$8.99 one-time purchase (24 hours), non-renewable')}</Text>
                   </View>
                 </>
               )}

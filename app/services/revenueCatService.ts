@@ -422,13 +422,13 @@ class RevenueCatService {
       if (!user) {
         throw new Error('User not authenticated');
       }
-
-      // IMPORTANT: Day Passes are handled via RPCs that set temporary tiers.
-      // Skip DB sync here to avoid clobbering temporary_tier changes.
-      if (planId && planId.includes('daypass')) {
-        console.log('⏭️ Skipping RevenueCat DB sync for daypass purchase; handled via RPC.');
-        return;
-      }
+      // Fetch current profile to protect temporary/day-pass states and handle day passes explicitly
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('subscription_plan_type, subscription_expires_at, temporary_tier_active, temporary_tier_expires_at, welcome_bonus_claimed, welcome_bonus_expires_at, subscription_tier')
+        .eq('id', user.id)
+        .single();
+      const now = new Date();
 
       console.log('🔍 Checking user entitlements:', {
         allEntitlements: Object.keys(customerInfo.entitlements.all),
@@ -522,6 +522,54 @@ class RevenueCatService {
         });
       }
 
+      // Special handling for non-renewable Day Pass and temporary tiers
+      if (!hasActiveSubscription) {
+        const hasActiveDayPass = currentProfile?.subscription_plan_type === 'daypass'
+          && currentProfile?.subscription_expires_at
+          && new Date(currentProfile.subscription_expires_at) > now;
+
+        const hasActiveTempTier = currentProfile?.temporary_tier_active === true
+          && currentProfile?.temporary_tier_expires_at
+          && new Date(currentProfile.temporary_tier_expires_at) > now;
+
+        // If a Day Pass was just purchased, activate it directly in the DB (RevenueCat won't carry an entitlement)
+        if (planId && planId.includes('daypass')) {
+          const tierFromPlan = planId.startsWith('elite_') ? 'elite' : 'pro';
+          const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+          const productIdForPlan = PRODUCT_IDENTIFIERS[planId] || null;
+
+          const { error: daypassError } = await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: tierFromPlan,
+              subscription_status: 'active',
+              subscription_plan_type: 'daypass',
+              subscription_product_id: productIdForPlan,
+              subscription_expires_at: expiresAt,
+              subscription_started_at: now.toISOString(),
+              max_daily_picks: tierFromPlan === 'elite' ? 30 : 20,
+              // Ensure welcome bonus never masks paid access
+              welcome_bonus_claimed: false,
+              welcome_bonus_expires_at: null,
+              updated_at: now.toISOString(),
+            })
+            .eq('id', user.id);
+
+          if (daypassError) {
+            console.error('❌ Failed to activate Day Pass in DB:', daypassError);
+          } else {
+            console.log('✅ Day Pass activated in DB', { tier: tierFromPlan, expiresAt });
+          }
+          return; // Do not continue with RC-driven update logic for day pass
+        }
+
+        // If there's already an active Day Pass or temporary tier, do NOT downgrade
+        if (hasActiveDayPass || hasActiveTempTier) {
+          console.log('ℹ️ Temporary access active; skipping RevenueCat downgrade.');
+          return;
+        }
+      }
+
       // Determine subscription tier based on product ID - FIXED Elite detection
       let subscriptionTier = 'free';
       let maxDailyPicks = 2; // Default for free
@@ -562,8 +610,6 @@ class RevenueCatService {
         updateData.subscription_plan_type = subscriptionPlanType;
         updateData.subscription_product_id = subscriptionProductId;
         updateData.auto_renew_enabled = autoRenewEnabled;
-        // Persist the user's base renewable tier for Day Pass reversion logic
-        updateData.base_subscription_tier = subscriptionTier; // 'pro' or 'elite'
         updateData.subscription_renewed_at = new Date().toISOString();
         
         // Set subscription_started_at only if it's a new subscription
@@ -584,7 +630,8 @@ class RevenueCatService {
         updateData.auto_renew_enabled = null;
       }
       
-      // Update user profile
+      // Update user profile. If there is no active RC subscription AND no planId AND no temporary access,
+      // this will (by design) reflect RC status. Day Pass/temporary tiers are protected above.
       const { error } = await supabase
         .from('profiles')
         .update(updateData)
