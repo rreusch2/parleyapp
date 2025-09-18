@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, TouchableWithoutFeedback } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 import { AVAILABLE_ELITE_THEMES, getThemeTokens, ThemeId, useUITheme } from '../services/uiThemeContext';
@@ -15,6 +15,10 @@ export default function EliteThemeModal({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
+        {/* Transparent touch area above the sheet to close modal */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.touchOutsideArea} />
+        </TouchableWithoutFeedback>
         <View style={styles.sheet}>
           <LinearGradient colors={["#0EA5E9", "#0369A1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
             <Text style={styles.headerTitle}>Elite Theme</Text>
@@ -67,8 +71,12 @@ export default function EliteThemeModal({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'transparent',
     justifyContent: 'flex-end',
+  },
+  touchOutsideArea: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   sheet: {
     backgroundColor: '#0B1220',
@@ -76,6 +84,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     overflow: 'hidden',
     maxHeight: '86%',
+    ...Platform.select({ ios: { paddingBottom: 22 }, android: { paddingBottom: 12 }, default: { paddingBottom: 12 } })
   },
   header: {
     paddingHorizontal: 16,
@@ -150,6 +159,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.1)',
     flexDirection: 'row',
     gap: 10,
+    ...Platform.select({ ios: { paddingBottom: 20 }, android: { paddingBottom: 12 }, default: { paddingBottom: 12 } })
   },
   resetButton: {
     backgroundColor: 'transparent',

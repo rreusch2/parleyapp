@@ -279,9 +279,12 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
 
             {prediction.value && prediction.value > 0 && (
               <View style={styles.valueSection}>
-                <View style={styles.valueIndicator}>
-                  <Target size={16} color="#10B981" />
-                  <Text style={styles.valueText}>+{prediction.value}% Edge</Text>
+                <View style={[
+                  styles.valueIndicator,
+                  { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+                ]}>
+                  <Target size={16} color={theme.accentPrimary} />
+                  <Text style={[styles.valueText, { color: theme.accentPrimary }]}>+{prediction.value}% Edge</Text>
                 </View>
               </View>
             )}
@@ -307,11 +310,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 </View>
                 <View style={styles.premiumStat}>
                   <Shield size={14} color="#10B981" />
-                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate && prediction.roi_estimate > 0 ? `+${parseFloat(prediction.roi_estimate.toString()).toFixed(1)}%` : 'Calculating...'}</Text>
-                </View>
-                <View style={styles.premiumStat}>
-                  <Activity size={14} color="#8B5CF6" />
-                  <Text style={styles.premiumStatText}>EV: {prediction.expected_value ? `${prediction.expected_value > 0 ? '+' : ''}${prediction.expected_value.toFixed(1)}%` : 'Positive'}</Text>
+                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate ? `+${parseFloat(prediction.roi_estimate.toString()).toFixed(1)}%` : 'Calculating...'}</Text>
                 </View>
               </View>
             </View>
@@ -579,10 +578,14 @@ const styles = StyleSheet.create({
   valueIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   valueText: {
     fontSize: 14,
-    color: '#10B981',
+    color: '#E2E8F0',
     fontWeight: '600',
     marginLeft: 6,
   },

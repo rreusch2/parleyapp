@@ -40,6 +40,7 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
 import EliteThemeModal from '../components/EliteThemeModal';
+import EliteThemeQuickPicker from '../components/EliteThemeQuickPicker';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
@@ -97,6 +98,7 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string>('');
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
+  const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -438,7 +440,8 @@ export default function HomeScreen() {
           {isElite ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
               <TouchableOpacity
-                onPress={() => setEliteThemeModalVisible(true)}
+                onPress={() => setEliteThemeQuickVisible(true)}
+                onLongPress={() => setEliteThemeModalVisible(true)}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -450,8 +453,8 @@ export default function HomeScreen() {
                   borderColor: `${theme.accentPrimary}33`
                 }}
               >
-                <Palette size={14} color={theme.accentPrimary} />
-                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '700', color: theme.accentPrimary }}>Theme</Text>
+                <Palette size={14} color={theme.headerTextPrimary} />
+                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '700', color: theme.headerTextPrimary }}>Theme</Text>
               </TouchableOpacity>
             </View>
           ) : isPro ? (
@@ -512,9 +515,9 @@ export default function HomeScreen() {
                   isElite && { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
                 ]}>
                   <View style={styles.centerStatIconContainer}>
-                    <Target size={24} color={isElite ? theme.accentPrimary : "#00E5FF"} />
+                    <Target size={24} color={isElite ? theme.headerTextPrimary : "#00E5FF"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue, isElite && { color: theme.accentPrimary }]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue, isElite && { color: theme.headerTextPrimary }]}>
                     {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel, isElite && styles.eliteCenterStatLabel]}>
@@ -530,14 +533,14 @@ export default function HomeScreen() {
                 {/* ROI - Third Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
                   <View style={styles.statIconContainer}>
-                    <TrendingUp size={20} color={isPro ? (isElite ? theme.accentPrimary : "#10B981") : "#64748B"} />
+                    <TrendingUp size={20} color={isPro ? (isElite ? theme.headerTextPrimary : "#10B981") : "#64748B"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? theme.accentPrimary : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
-                    {isPro ? userStats.roi : '?'}
-                  </Text>
-                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
-                  {!isPro && (
-                    <View style={styles.lockOverlay}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? theme.headerTextPrimary : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                  {isPro ? userStats.roi : '?'}
+                </Text>
+                <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
+                {!isPro && (
+                  <View style={styles.lockOverlay}>
                       <Lock size={16} color="#64748B" />
                     </View>
                   )}
@@ -864,6 +867,15 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Elite Theme Quick Picker (tap) and Full Modal (long-press or from quick picker) */}
+        {isElite && (
+          <EliteThemeQuickPicker
+            visible={eliteThemeQuickVisible}
+            onClose={() => setEliteThemeQuickVisible(false)}
+            onOpenFull={() => setEliteThemeModalVisible(true)}
+          />
+        )}
 
         {/* Elite Theme Modal */}
         {isElite && (

@@ -33,6 +33,7 @@ import {
   Lock
 } from 'lucide-react-native';
 import { useSubscription } from '../services/subscriptionContext';
+import { useUITheme } from '../services/uiThemeContext';
 
 interface DailyInsight {
   id: string;
@@ -69,6 +70,7 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
   const [lastGenerated, setLastGenerated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { isPro, isElite, isLoading: subLoading, openSubscriptionModal } = useSubscription();
+  const { theme } = useUITheme();
 
   useEffect(() => {
     if (!subLoading) {
@@ -402,19 +404,29 @@ const DailyProfessorInsights: React.FC<DailyProfessorInsightsProps> = ({ sport =
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Brain size={24} color="#00E5FF" />
+          <Brain size={24} color={isElite ? theme.accentPrimary : '#00E5FF'} />
           <Text style={styles.title}>Daily AI Insights</Text>
-          <View style={styles.proBadge}>
-            <Crown size={12} color="#0F172A" />
-            <Text style={styles.proText}>PRO</Text>
-          </View>
+          {(isPro || isElite) && (
+            <View
+              style={[
+                styles.proBadge,
+                {
+                  backgroundColor: isElite ? theme.accentPrimary : '#00E5FF',
+                  borderColor: isElite ? `${theme.accentPrimary}55` : 'rgba(255,255,255,0.2)',
+                },
+              ]}
+            >
+              <Crown size={12} color="#0F172A" />
+              <Text style={styles.proText}>{isElite ? 'ELITE' : 'PRO'}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, isElite && { color: theme.headerTextSecondary }]}>
             {sport} • Research-backed intelligence
           </Text>
           {lastGenerated && (
-            <Text style={styles.timeStamp}>
+            <Text style={[styles.timeStamp, isElite && { color: theme.headerTextSecondary }]}>
               {formatTimeAgo(lastGenerated)}
             </Text>
           )}
@@ -597,6 +609,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   proText: {
     color: '#0F172A',

@@ -423,6 +423,13 @@ class RevenueCatService {
         throw new Error('User not authenticated');
       }
 
+      // IMPORTANT: Day Passes are handled via RPCs that set temporary tiers.
+      // Skip DB sync here to avoid clobbering temporary_tier changes.
+      if (planId && planId.includes('daypass')) {
+        console.log('⏭️ Skipping RevenueCat DB sync for daypass purchase; handled via RPC.');
+        return;
+      }
+
       console.log('🔍 Checking user entitlements:', {
         allEntitlements: Object.keys(customerInfo.entitlements.all),
         activeEntitlements: Object.keys(customerInfo.entitlements.active),
@@ -555,6 +562,8 @@ class RevenueCatService {
         updateData.subscription_plan_type = subscriptionPlanType;
         updateData.subscription_product_id = subscriptionProductId;
         updateData.auto_renew_enabled = autoRenewEnabled;
+        // Persist the user's base renewable tier for Day Pass reversion logic
+        updateData.base_subscription_tier = subscriptionTier; // 'pro' or 'elite'
         updateData.subscription_renewed_at = new Date().toISOString();
         
         // Set subscription_started_at only if it's a new subscription

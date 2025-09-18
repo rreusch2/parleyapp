@@ -227,7 +227,7 @@ export default function AboutModal({ visible, onClose }: AboutModalProps) {
 
                      {/* Footer */}
            <View style={styles.footer}>
-             <Text style={styles.copyrightText}>© 2025 Predictive Play Inc.</Text>
+             <Text style={styles.copyrightText}>© Predictive Play LLC</Text>
              <Text style={styles.taglineText}>
                Powered by AI. Built by Professionals. Trusted by Winners.
              </Text>

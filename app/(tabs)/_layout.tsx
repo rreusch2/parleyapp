@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, useColorScheme, Text, Dimensions, Platform } from 'react-native';
-import { Settings, Calendar, Zap, Home, TrendingUp } from 'lucide-react-native';
+import { Settings, Calendar, DollarSign, Home, TrendingUp } from 'lucide-react-native';
 import { AIChatProvider } from '@/app/services/aiChatContext';
 import FloatingAIChatButton from '@/app/components/FloatingAIChatButton';
 import ProAIChat from '@/app/components/ProAIChat';
@@ -71,7 +71,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="predictions"
         options={{
-          title: 'Predictions',
+          title: 'Picks',
           headerTitle: () => (
             <View>
               <Text style={{ 
@@ -80,12 +80,12 @@ export default function TabLayout() {
                 fontSize: isTablet ? 28 : 24, 
                 textAlign: 'center' 
               }}>
-                Predictions
+                Picks
               </Text>
             </View>
           ),
           tabBarIcon: ({ color, size }) => (
-            <Zap size={iconSize} color={color} />
+            <DollarSign size={iconSize} color={color} />
           ),
         }}
       />

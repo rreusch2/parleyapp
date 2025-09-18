@@ -55,7 +55,6 @@ import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
 import * as Clipboard from 'expo-clipboard';
-import TieredSignupSubscriptionModal from '../components/TieredSignupSubscriptionModal';
 import ChatBubbleSettingsModal from '../components/ChatBubbleSettingsModal';
 import { useUISettings } from '../services/uiSettingsContext';
 import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
@@ -106,8 +105,6 @@ export default function SettingsScreen() {
   const [showUserPreferencesModal, setShowUserPreferencesModal] = useState(false);
   const [showChatBubbleSettings, setShowChatBubbleSettings] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  // DEV: show signup paywall without creating a new account
-  const [showSignupPaywall, setShowSignupPaywall] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showEliteThemeModal, setShowEliteThemeModal] = useState(false);
 
@@ -796,66 +793,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Forgot password handler
-  const handleForgotPassword = async () => {
-    Alert.alert(
-      'Reset Password',
-      'Enter your email address to receive a password reset link.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          onPress: () => {
-            Alert.prompt(
-              'Reset Password',
-              'Enter your email address:',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Send Reset Link',
-                  onPress: async (email) => {
-                    if (!email || !email.trim()) {
-                      Alert.alert('Error', 'Please enter your email address.');
-                      return;
-                    }
-
-                    // Basic email validation
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(email.trim())) {
-                      Alert.alert('Error', 'Please enter a valid email address');
-                      return;
-                    }
-
-                    try {
-                      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                        redirectTo: 'https://iriaegoipkjtktitpary.supabase.co/auth/v1/verify?type=recovery',
-                      });
-
-                      if (error) {
-                        Alert.alert('Error', error.message);
-                        return;
-                      }
-
-                      Alert.alert(
-                        'Reset Link Sent!',
-                        'Check your email for a password reset link. The link will redirect you to a secure page where you can reset your password.',
-                        [{ text: 'OK' }]
-                      );
-                    } catch (error: any) {
-                      Alert.alert('Error', error.message || 'Failed to send reset email');
-                    }
-                  }
-                }
-              ],
-              'plain-text',
-              '',
-              'email-address'
-            );
-          }
-        }
-      ]
-    );
-  };
+  // Forgot password flow removed per design; users can use platform account recovery
 
   // Handler for link items
   const handleLinkPress = (itemId: string) => {
@@ -872,9 +810,7 @@ export default function SettingsScreen() {
         setShowSetUsernameModal(true);
         break;
 
-      case 'forgot_password':
-        handleForgotPassword();
-        break;
+      
       
       case 'help':
         setShowHelpCenterModal(true);
@@ -986,6 +922,20 @@ export default function SettingsScreen() {
 
   const settingsSections = [
     {
+      title: 'Rate & Review',
+      icon: Star,
+      iconColor: '#F59E0B',
+      items: [
+        { 
+          id: 'review_app', 
+          title: 'Review Our App ⭐', 
+          type: 'link',
+          subtitle: 'Help others discover Predictive Play',
+          action: handleReviewApp
+        }
+      ]
+    },
+    {
       title: 'Account',
       icon: User,
       iconColor: '#00E5FF',
@@ -1007,15 +957,6 @@ export default function SettingsScreen() {
           action: handleManageSubscription
         },
         {
-          id: 'open_signup_paywall_dev',
-          title: 'Open Signup Paywall (DEV)',
-          type: 'link',
-          subtitle: 'Temporarily show the signup paywall for testing',
-          badge: 'DEV',
-          badgeColor: '#3B82F6',
-          action: () => setShowSignupPaywall(true),
-        },
-        {
           id: 'avatar',
           title: 'Edit Avatar',
           type: 'link',
@@ -1028,20 +969,24 @@ export default function SettingsScreen() {
           type: 'link',
           subtitle: 'Sports, betting style & pick distribution',
           action: () => setShowUserPreferencesModal(true)
-        },
-        {
-          id: 'restore',
-          title: 'Restore Purchases',
-          type: 'link',
-          action: async () => {
-            try {
-              await restorePurchases();
-              Alert.alert('Success', 'Purchases restored successfully!');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to restore purchases. Please try again.');
-            }
-          }
         }
+      ]
+    },
+    {
+      title: 'Appearance & UI',
+      icon: Sparkles,
+      iconColor: '#0EA5E9',
+      items: [
+        {
+          id: 'chat_bubble_customization',
+          title: 'Chat Bubble',
+          type: 'link',
+          subtitle: `${
+            chatBubbleAnimation === 'glow' ? 'Subtle Glow' : chatBubbleAnimation === 'pulse' ? 'Gentle Pulse' : chatBubbleAnimation === 'shimmer' ? 'Logo Shimmer' : 'Static'
+          } • ${bubbleSize === 'compact' ? 'Compact' : 'Standard'}${respectReduceMotion ? ' • Reduce Motion' : ''}`,
+          action: () => setShowChatBubbleSettings(true)
+        },
+        // Moved App Themes to Account section per design
       ]
     },
     {
@@ -1076,37 +1021,7 @@ export default function SettingsScreen() {
         }
       ]
     },
-    {
-      title: 'Notifications',
-      icon: Bell,
-      iconColor: '#F59E0B',
-      items: [
-        {
-          id: 'push_alerts',
-          title: 'Push Alerts',
-          type: 'toggle',
-          value: pushAlertsEnabled,
-          onToggle: handleTogglePushAlerts,
-        },
-      ]
-    },
-    {
-      title: 'Appearance & UI',
-      icon: Sparkles,
-      iconColor: '#0EA5E9',
-      items: [
-        {
-          id: 'chat_bubble_customization',
-          title: 'Chat Bubble',
-          type: 'link',
-          subtitle: `${
-            chatBubbleAnimation === 'glow' ? 'Subtle Glow' : chatBubbleAnimation === 'pulse' ? 'Gentle Pulse' : chatBubbleAnimation === 'shimmer' ? 'Logo Shimmer' : 'Static'
-          } • ${bubbleSize === 'compact' ? 'Compact' : 'Standard'}${respectReduceMotion ? ' • Reduce Motion' : ''}`,
-          action: () => setShowChatBubbleSettings(true)
-        },
-        // Moved App Themes to Account section per design
-      ]
-    },
+    
     {
       title: 'Security',
       icon: Shield,
@@ -1132,11 +1047,6 @@ export default function SettingsScreen() {
           id: 'password',
           title: 'Change Password',
           type: 'link'
-        }, {
-          id: 'forgot_password',
-          title: 'Forgot Password',
-          type: 'link',
-          subtitle: 'Reset your password via email'
         }] : [])),
         
         // Payment History removed per requirements
@@ -1148,12 +1058,18 @@ export default function SettingsScreen() {
       icon: HelpCircle,
       iconColor: '#8B5CF6',
       items: [
-        { 
-          id: 'review_app', 
-          title: 'Review Our App ⭐', 
+        {
+          id: 'restore',
+          title: 'Restore Purchases',
           type: 'link',
-          subtitle: 'Help others discover Predictive Play',
-          action: handleReviewApp
+          action: async () => {
+            try {
+              await restorePurchases();
+              Alert.alert('Success', 'Purchases restored successfully!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+            }
+          }
         },
         { id: 'help', title: 'Help Center', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
@@ -1431,8 +1347,8 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <View style={styles.versionInfo}>
-        <Text style={styles.versionText}>Predictive Play v1.0.0</Text>
-        <Text style={styles.copyrightText}> 2025 Predictive Play Inc.</Text>
+        <Text style={styles.versionText}>Predictive Play v1.4.0</Text>
+        <Text style={styles.copyrightText}> Predictive Play LLC</Text>
       </View>
 
       {/* Avatar Selection Modal */}
@@ -1772,12 +1688,7 @@ export default function SettingsScreen() {
         userId={userProfile?.id || ''}
       />
 
-      {/* DEV: Signup Paywall (Tiered) */}
-      <TieredSignupSubscriptionModal
-        visible={showSignupPaywall}
-        onClose={() => setShowSignupPaywall(false)}
-        onContinueFree={() => setShowSignupPaywall(false)}
-      />
+      
     </ScrollView>
   );
 }

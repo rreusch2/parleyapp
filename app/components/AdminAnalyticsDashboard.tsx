@@ -16,6 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import TieredSignupSubscriptionModal from './TieredSignupSubscriptionModal';
 import { supabase } from '../services/api/supabaseClient';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -63,6 +64,7 @@ export default function AdminAnalyticsDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<'7days' | '30days' | '90days' | 'all'>('30days');
   const [exportLoading, setExportLoading] = useState(false);
+  const [showSignupPaywall, setShowSignupPaywall] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -738,7 +740,22 @@ export default function AdminAnalyticsDashboard() {
               <Text style={styles.exportButtonText}>📊 Export Report</Text>
             )}
           </TouchableOpacity>
+
+          {/* DEV: Open Signup Paywall */}
+          <TouchableOpacity 
+            style={[styles.exportButton]}
+            onPress={() => setShowSignupPaywall(true)}
+          >
+            <Text style={styles.exportButtonText}>🧪 Open Signup Paywall (DEV)</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* DEV: Signup Paywall (Tiered) */}
+        <TieredSignupSubscriptionModal
+          visible={showSignupPaywall}
+          onClose={() => setShowSignupPaywall(false)}
+          onContinueFree={() => setShowSignupPaywall(false)}
+        />
       </ScrollView>
     </SafeAreaView>
   );

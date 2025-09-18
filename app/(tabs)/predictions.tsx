@@ -42,7 +42,30 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
-import { RewardedAd, RewardedAdEventType, TestIds, AdEventType } from 'react-native-google-mobile-ads';
+// Platform-specific AdMob imports
+let RewardedAd: any, RewardedAdEventType: any, TestIds: any, AdEventType: any;
+
+if (Platform.OS !== 'web') {
+  try {
+    const AdMob = require('react-native-google-mobile-ads');
+    RewardedAd = AdMob.RewardedAd;
+    RewardedAdEventType = AdMob.RewardedAdEventType;
+    TestIds = AdMob.TestIds;
+    AdEventType = AdMob.AdEventType;
+  } catch (error) {
+    // Fallback for missing package
+    RewardedAd = { createForAdRequest: () => ({ addAdEventListener: () => () => {}, load: () => {}, show: () => {} }) };
+    RewardedAdEventType = { LOADED: 'loaded', EARNED_REWARD: 'earned_reward' };
+    TestIds = { REWARDED: 'test-rewarded-id' };
+    AdEventType = { CLOSED: 'closed' };
+  }
+} else {
+  // Web fallbacks
+  RewardedAd = { createForAdRequest: () => ({ addAdEventListener: () => () => {}, load: () => {}, show: () => {} }) };
+  RewardedAdEventType = { LOADED: 'loaded', EARNED_REWARD: 'earned_reward' };
+  TestIds = { REWARDED: 'test-rewarded-id' };
+  AdEventType = { CLOSED: 'closed' };
+}
 import { adsService } from '../services/api/adsService';
 import { useUITheme } from '../services/uiThemeContext';
 

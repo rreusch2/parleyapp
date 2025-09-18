@@ -11,6 +11,7 @@ import {
   Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUITheme } from '../services/uiThemeContext';
 import { 
   Brain, 
   TrendingUp, 
@@ -69,6 +70,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
   showViewAllButton,
   onViewAllPress
 }) => {
+  const { theme } = useUITheme();
   const [picks, setPicks] = useState<AIPrediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPicks, setExpandedPicks] = useState<Set<string>>(new Set());
@@ -222,7 +224,13 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
     return (
       <TouchableOpacity
         key={pick.id}
-        style={[styles.pickCard, isTopPick && styles.topPickCard]}
+        style={[
+          styles.pickCard,
+          isTopPick && [
+            styles.topPickCard,
+            { borderColor: theme.borderColor, shadowColor: theme.accentPrimary }
+          ]
+        ]}
         onPress={() => toggleExpanded(pick.id)}
         activeOpacity={0.8}
       >
@@ -235,9 +243,12 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
         >
           {/* Top Pick Badge - Moved to avoid overlap */}
           {isTopPick && (
-            <View style={styles.topPickBadge}>
-              <Trophy size={12} color="#FFD700" />
-              <Text style={styles.topPickText}>TOP {index + 1}</Text>
+            <View style={[
+              styles.topPickBadge,
+              { backgroundColor: theme.badgeBg, shadowColor: theme.badgeText }
+            ]}>
+              <Trophy size={12} color={theme.badgeText} />
+              <Text style={[styles.topPickText, { color: theme.badgeText }]}>TOP {index + 1}</Text>
               <Animated.View
                 style={[
                   styles.sparkle,
@@ -252,7 +263,7 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                   },
                 ]}
               >
-                <Flame size={10} color="#FFD700" />
+                <Flame size={10} color={theme.badgeText} />
               </Animated.View>
             </View>
           )}
@@ -264,20 +275,32 @@ const ProAIPicksDisplay: React.FC<ProAIPicksDisplayProps> = ({
                 <Text style={styles.matchTeams} numberOfLines={2}>
                   {pick.match_teams}
                 </Text>
-                <View style={styles.pickTypeContainer}>
-                  <View style={styles.sportBadge}>
-                    <Text style={styles.pickType}>{pick.bet_type}</Text>
-                    {pick.league && (
-                      <Text style={styles.leagueBadge}>{pick.league}</Text>
-                    )}
+                <View style={styles.chipsRow}>
+                  <View style={[
+                    styles.chip,
+                    { backgroundColor: `${theme.accentPrimary}20`, borderColor: `${theme.accentPrimary}44` }
+                  ]}>
+                    <Text style={[styles.chipText, { color: theme.accentPrimary }]}>{pick.bet_type}</Text>
                   </View>
-                  {pick.eventTime && (
-                    <View style={styles.gameTimeContainer}>
-                      <Clock size={14} color="#00E5FF" />
-                      <Text style={styles.gameTime}>{formatEventTime(pick.eventTime)}</Text>
+                  {pick.league && (
+                    <View style={[styles.chip, styles.chipNeutral]}>
+                      <Text style={styles.chipText}>{(pick.league || '').toUpperCase()}</Text>
                     </View>
                   )}
-                  <Text style={styles.timeAgo}>{formatTimeAgo(pick.created_at)}</Text>
+                  {pick.eventTime && (
+                    <View style={[
+                      styles.chip,
+                      { backgroundColor: `${theme.accentPrimary}20`, borderColor: `${theme.accentPrimary}44` }
+                    ]}>
+                      <Clock size={12} color={theme.accentPrimary} />
+                      <Text style={[styles.chipText, { color: theme.accentPrimary, marginLeft: 4 }]}>
+                        {formatEventTime(pick.eventTime)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={[styles.chip, styles.chipNeutral]}>
+                    <Text style={styles.chipText}>{formatTimeAgo(pick.created_at)}</Text>
+                  </View>
                 </View>
               </View>
             </View>
@@ -602,6 +625,32 @@ const styles = StyleSheet.create({
   timeAgo: {
     color: '#64748B',
     fontSize: 12,
+  },
+  // Cleaned chips row replacing the older pickType/league/time layout
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginRight: 6,
+    marginTop: 2,
+  },
+  chipNeutral: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)'
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#E5E7EB'
   },
   pickHeaderRight: {
     alignItems: 'flex-end',

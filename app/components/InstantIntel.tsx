@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUITheme } from '../services/uiThemeContext';
 import { instantIntelService } from '../services/api/instantIntelService';
 
 interface QueryResult {
@@ -24,6 +25,7 @@ interface QueryResult {
 }
 
 export default function InstantIntel() {
+  const { theme } = useUITheme();
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -136,39 +138,42 @@ export default function InstantIntel() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[
+      styles.container,
+      { backgroundColor: theme.cardSurface, borderColor: theme.borderColor }
+    ]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <LinearGradient
-            colors={['#3B82F6', '#8B5CF6']}
+            colors={theme.ctaGradient as any}
             style={styles.iconGradient}
           >
             <Ionicons name="flash" size={20} color="white" />
           </LinearGradient>
           <View style={styles.headerText}>
-            <Text style={styles.title}>Instant Intel</Text>
-            <Text style={styles.subtitle}>Ask anything about sports stats</Text>
+            <Text style={[styles.title, { color: theme.cardTextPrimary }]}>Instant Intel</Text>
+            <Text style={[styles.subtitle, { color: theme.surfaceSecondaryText }]}>Ask anything about sports stats</Text>
           </View>
         </View>
       </View>
 
       {/* Search Input */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <View style={[styles.searchInputContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderColor }]}>
+          <Ionicons name="search" size={20} color={theme.surfaceSecondaryText} style={styles.searchIcon} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             placeholder="Ask about player stats, team records, or league leaders..."
-            placeholderTextColor="#64748B"
-            style={styles.textInput}
+            placeholderTextColor={theme.surfaceSecondaryText}
+            style={[styles.textInput, { color: theme.cardTextPrimary }]}
             onSubmitEditing={() => executeQuery(query)}
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
           />
           {loading ? (
-            <ActivityIndicator size="small" color="#00E5FF" />
+            <ActivityIndicator size="small" color={theme.accentPrimary} />
           ) : (
             <TouchableOpacity
               onPress={() => executeQuery(query)}
@@ -178,7 +183,7 @@ export default function InstantIntel() {
               <Ionicons 
                 name="arrow-forward-circle" 
                 size={24} 
-                color={query.trim() ? "#00E5FF" : "#64748B"} 
+                color={query.trim() ? theme.accentPrimary : theme.surfaceSecondaryText} 
               />
             </TouchableOpacity>
           )}
@@ -195,7 +200,7 @@ export default function InstantIntel() {
             style={styles.quickActionButton}
           >
             <LinearGradient
-              colors={['#00E5FF', '#0891B2']}
+              colors={[theme.accentPrimary, theme.accentSecondary] as any}
               style={styles.quickActionGradient}
             >
               <Ionicons name={action.icon} size={20} color="white" />
@@ -207,18 +212,18 @@ export default function InstantIntel() {
 
       {/* Suggestions */}
       {showSuggestions && !result && !loading && (
-        <View style={styles.suggestionsContainer}>
+        <View style={[styles.suggestionsContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderColor }]}>
           <ScrollView showsVerticalScrollIndicator={false} style={styles.suggestionsScroll}>
             {Object.entries(querySuggestions).map(([category, suggestions]) => (
               <View key={category} style={styles.suggestionCategory}>
-                <Text style={styles.categoryTitle}>{category}</Text>
+                <Text style={[styles.categoryTitle, { color: theme.accentPrimary }]}>{category}</Text>
                 {suggestions.map((suggestion, index) => (
                   <TouchableOpacity
                     key={index}
                     onPress={() => handleSuggestionSelect(suggestion)}
-                    style={styles.suggestionButton}
+                    style={[styles.suggestionButton, { backgroundColor: theme.cardSurface, borderColor: theme.borderColor }]}
                   >
-                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                    <Text style={[styles.suggestionText, { color: theme.cardTextPrimary }]}>{suggestion}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -230,15 +235,18 @@ export default function InstantIntel() {
       {/* Recent Queries */}
       {!showSuggestions && !result && !loading && recentQueries.length > 0 && (
         <View style={styles.recentContainer}>
-          <Text style={styles.recentTitle}>Recent Searches</Text>
+          <Text style={[styles.recentTitle, { color: theme.surfaceSecondaryText }]}>Recent Searches</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {recentQueries.map((recentQuery, index) => (
               <TouchableOpacity
                 key={index}
                 onPress={() => handleSuggestionSelect(recentQuery)}
-                style={styles.recentTag}
+                style={[
+                  styles.recentTag,
+                  { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+                ]}
               >
-                <Text style={styles.recentTagText}>
+                <Text style={[styles.recentTagText, { color: theme.accentPrimary }]}>
                   {recentQuery.length > 30 ? `${recentQuery.substring(0, 30)}...` : recentQuery}
                 </Text>
               </TouchableOpacity>
@@ -249,9 +257,9 @@ export default function InstantIntel() {
 
       {/* Loading State */}
       {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color="#3B82F6" />
-          <Text style={styles.loadingText}>Getting your sports intel...</Text>
+        <View style={[styles.loadingContainer, { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }]}>
+          <ActivityIndicator size="small" color={theme.accentPrimary} />
+          <Text style={[styles.loadingText, { color: theme.accentPrimary }]}>Getting your sports intel...</Text>
         </View>
       )}
 
@@ -268,9 +276,9 @@ export default function InstantIntel() {
               <View style={styles.resultContent}>
                 <Ionicons name="checkmark-circle" size={20} color="#10B981" style={styles.resultIcon} />
                 <View style={styles.resultTextContainer}>
-                  <Text style={styles.successText}>{result.answer}</Text>
+                  <Text style={[styles.successText]}>{result.answer}</Text>
                   {result.cached && (
-                    <Text style={styles.cachedText}>⚡ Cached result</Text>
+                    <Text style={[styles.cachedText]}>⚡ Cached result</Text>
                   )}
                 </View>
               </View>
@@ -280,8 +288,8 @@ export default function InstantIntel() {
               <View style={styles.resultContent}>
                 <Ionicons name="alert-circle" size={20} color="#EF4444" style={styles.resultIcon} />
                 <View style={styles.resultTextContainer}>
-                  <Text style={styles.errorText}>{result.error}</Text>
-                  <Text style={styles.errorHint}>
+                  <Text style={[styles.errorText]}>{result.error}</Text>
+                  <Text style={[styles.errorHint]}>
                     Try asking about specific players, teams, or stats like "Aaron Judge home runs" or "Yankees record this season"
                   </Text>
                 </View>

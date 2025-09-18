@@ -16,7 +16,6 @@ import {
 import { Video, ResizeMode } from 'expo-av';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFonts, FugazOne_400Regular } from '@expo-google-fonts/fugaz-one';
 import {
   X,
   Crown,
@@ -59,7 +58,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onSubscribe,
   onContinueFree,
 }) => {
-  const [fugazLoaded] = useFonts({ FugazOne_400Regular });
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
   const [loading, setLoading] = useState(false);
@@ -101,51 +99,19 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const handleSubscribe = async () => {
     try {
       setLoading(true);
-      
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
-      
-      const result = await revenueCatService.purchasePackage(selectedPlan);
-      
-      if (result.success) {
-        console.log('✅ Purchase completed successfully!');
-        
-        // Close modal immediately and let the dashboard update
-        if (onSubscribe) {
-          await onSubscribe(selectedPlan, selectedTier);
-        }
+
+      // IMPORTANT: Use centralized subscribe() to avoid duplicate purchases and to handle Day Pass logic
+      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+
+      if (success) {
+        console.log('✅ Purchase flow completed successfully (signup modal).');
         onClose();
-      } else {
-        if (result.error === 'cancelled') {
-          console.log('ℹ️ User cancelled purchase');
-        } else {
-          console.error('❌ Purchase failed with error:', result.error);
-          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
-        }
       }
-      
     } catch (error: any) {
-      console.error('❌ Subscription error:', error);
-      
-      let errorMessage = 'Unable to process purchase. Please try again.';
-      
-      if (error && typeof error === 'object') {
-        const errorStr = error.message || error.toString() || '';
-        
-        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
-          console.log('ℹ️ User cancelled purchase');
-          return;
-        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
-          errorMessage = 'This subscription is not available right now. Please try again later.';
-        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
-          errorMessage = 'Please check your internet connection and try again.';
-        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
-          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-      }
-      
-      Alert.alert('Purchase Error', errorMessage);
+      console.error('❌ Subscription error (signup modal):', error);
+      const message = error?.message || 'Unable to process purchase. Please try again.';
+      Alert.alert('Purchase Error', message);
     } finally {
       setLoading(false);
     }
@@ -465,10 +431,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </View>
               <Text style={styles.headerTitleLine1}>Welcome to</Text>
               <Text
-                style={[
-                  styles.headerTitleLine2,
-                  fugazLoaded && { fontFamily: 'FugazOne_400Regular', fontWeight: 'normal' },
-                ]}
+                style={styles.headerTitleLine2}
               >
                 {'Predictive\u00A0Play'}
               </Text>

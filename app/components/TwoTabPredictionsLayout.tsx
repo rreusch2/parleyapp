@@ -30,6 +30,8 @@ interface Pick {
   sport: string;
   event_time?: string;
   created_at?: string;
+  // Add ROI estimate which is stored as text/number in DB
+  roi_estimate?: number | string;
 }
 
 interface TwoTabPredictionsLayoutProps {
@@ -424,6 +426,10 @@ What are your thoughts on this prediction?`;
     eventTime: p.event_time || p.created_at || new Date().toISOString(),
     reasoning: p.reasoning,
     value: p.value_percentage,
+    // Pass through ROI so the card can render it instead of "Calculating..."
+    roi_estimate: p.roi_estimate !== undefined && p.roi_estimate !== null
+      ? parseFloat(String(p.roi_estimate))
+      : undefined,
   });
 
   const renderPicks = (picks: Pick[], isLoading: boolean, type: string) => {

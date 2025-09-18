@@ -159,6 +159,30 @@ class OddsApiService {
     return [];
   }
 
+  // Get live scores for a sport (optionally filtered by eventIds)
+  async getScores(
+    sport: string,
+    options?: { daysFrom?: number; dateFormat?: 'iso' | 'unix'; eventIds?: string[] }
+  ) {
+    try {
+      const params: any = {
+        apiKey: this.config.apiKey,
+        daysFrom: options?.daysFrom ?? 2,
+        dateFormat: options?.dateFormat ?? 'iso'
+      };
+
+      if (options?.eventIds && options.eventIds.length > 0) {
+        params.eventIds = options.eventIds.join(',');
+      }
+
+      const response = await this.axiosInstance.get(`/sports/${sport}/scores`, { params });
+      return response.data;
+    } catch (error) {
+      logger.error(`Error fetching scores for ${sport}:`, error);
+      throw error;
+    }
+  }
+
   // Helper to find best odds across bookmakers
   findBestOdds(gameOdds: GameOdds, marketKey: string) {
     let bestOdds: any = null;
