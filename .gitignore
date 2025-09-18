@@ -105,3 +105,4 @@ railway-credentials-secure.txt
 email-automation/credentials.json
 client_secret_*.json
 **/credentials.jsonpython-services/browser_agent_service
+python-services/browser_agent_service/
