@@ -95,7 +95,6 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
             } catch (e) {
               console.warn('Realtime handler error', e);
             }
-          }
           })
           .subscribe((status: string) => {
             console.log('📡 Realtime channel status:', status);
@@ -116,138 +115,109 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const checkSubscriptionStatus = async () => {
     console.log('🔄 DEBUG: checkSubscriptionStatus called');
-    
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      
-      console.log('🔄 DEBUG: Getting user from Supabase...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        console.log('✅ DEBUG: User found:', user.id);
-        
-        // Check database for subscription_tier first - this is the source of truth
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at, subscription_plan_type, subscription_expires_at, temporary_tier_active, temporary_tier, temporary_tier_expires_at')
-          .eq('id', user.id)
-          .single();
-        
-        const now = new Date(); // Define now here for use throughout the function
-        
-        if (!profileError && profile) {
-          console.log('🔄 DEBUG: Profile found:', profile);
-          
-          // 1) Temporary tier (database RPC) takes absolute precedence
-          const tempExpires = profile.temporary_tier_expires_at ? new Date(profile.temporary_tier_expires_at) : null;
-          const isTempActive = profile.temporary_tier_active && tempExpires && now < tempExpires;
-
-          if (isTempActive) {
-            const tier = profile.temporary_tier === 'elite' ? 'elite' : 'pro';
-            console.log('🏁 Active Temporary Tier detected → forcing paid tier:', tier);
-            setIsPro(true);
-            setIsElite(tier === 'elite');
-            setSubscriptionTier(tier as 'pro' | 'elite');
-            await AsyncStorage.setItem('subscriptionStatus', tier);
-          } else {
-            // 2) Plan type daypass fallback (server purchases endpoint)
-            const subExpires = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
-            const isDayPassActive = profile.subscription_plan_type === 'daypass' && subExpires && now < subExpires;
-
-            if (isDayPassActive) {
-            const tier = profile.subscription_tier === 'elite' ? 'elite' : 'pro';
-            console.log('🏁 Active Day Pass detected in DB → forcing paid tier:', tier);
-            setIsPro(true);
-            setIsElite(tier === 'elite');
-            setSubscriptionTier(tier as 'pro' | 'elite');
-            await AsyncStorage.setItem('subscriptionStatus', tier);
-          } else {
-          // CRITICAL: Check if user has active welcome bonus
-          const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
-          const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
-          
-          console.log('🔄 DEBUG: Welcome bonus check:', { hasActiveWelcomeBonus, expires: welcomeBonusExpires });
-          
-          // CRITICAL FIX: Users with welcome bonus should ALWAYS be treated as Free tier
-          if (hasActiveWelcomeBonus) {
-            console.log('🎁 User has active welcome bonus - keeping as FREE tier');
-            setIsPro(false);
-            setIsElite(false);
-            setSubscriptionTier('free');
-            await AsyncStorage.setItem('subscriptionStatus', 'free');
-          } else if (profile.subscription_tier === 'elite') {
-            console.log('👑 User is Elite according to database');
-            setIsPro(true); // Elite users are also Pro
-            setIsElite(true);
-            setSubscriptionTier('elite');
-            await AsyncStorage.setItem('subscriptionStatus', 'elite');
-          } else if (profile.subscription_tier === 'pro') {
-            console.log('✅ User is Pro according to database');
-            setIsPro(true);
-            setIsElite(false);
-            setSubscriptionTier('pro');
-            await AsyncStorage.setItem('subscriptionStatus', 'pro');
-          } else {
-            console.log('ℹ️ User is Free according to database');
-            setIsPro(false);
-            setIsElite(false);
-            setSubscriptionTier('free');
-            await AsyncStorage.setItem('subscriptionStatus', 'free');
-          }
-          }
-        } else {
-          console.log('⚠️ Could not fetch user profile, defaulting to Free');
-          setIsPro(false);
-          await AsyncStorage.setItem('subscriptionStatus', 'free');
-        }
-        
-                  // Also check with RevenueCat for subscription validation (but don't override welcome bonus users)
-          try {
-            console.log('🔄 DEBUG: Checking RevenueCat subscription...');
-            await revenueCatService.initialize();
-            const customerInfo = await revenueCatService.getCustomerInfo();
-            const hasActiveSubscription = customerInfo.entitlements.active.pro || customerInfo.entitlements.active.elite;
-            
-            console.log('🔄 DEBUG: RevenueCat active subscription:', hasActiveSubscription);
-
-            if (hasActiveSubscription) {
-              const isElite = customerInfo.entitlements.active.elite;
-              const tier = isElite ? 'elite' : 'pro';
-              
-              // Only sync with RevenueCat if user doesn't have active welcome bonus
-              const welcomeBonusExpires = profile?.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
-              const hasActiveWelcomeBonus = profile?.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
-              
-              if (!hasActiveWelcomeBonus && profile?.subscription_tier !== tier) {
-                console.log(`🔄 Syncing ${tier} status from RevenueCat to database`);
-                await supabase
-                  .from('profiles')
-                  .update({ subscription_tier: tier })
-                  .eq('id', user.id);
-
-                if (tier === 'elite') {
-                  setIsElite(true);
-                  setIsPro(true); // Elite includes Pro
-                } else {
-                  setIsPro(true);
-                  setIsElite(false);
-                }
-                
-                await AsyncStorage.setItem('subscriptionStatus', tier);
-              }
-            }
-          } catch (rcError) {
-            console.log('⚠️ RevenueCat check failed, using database status:', rcError);
-            // Continue with database status
-          }
-      } else {
-        console.log('❌ DEBUG: No user found, setting isPro to false');
+      if (!user) {
+        console.log('❌ DEBUG: No user found, defaulting to Free');
         setIsPro(false);
+        setIsElite(false);
+        setSubscriptionTier('free');
+        await AsyncStorage.setItem('subscriptionStatus', 'free');
+        return;
+      }
+
+      console.log('✅ DEBUG: User found:', user.id);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at, subscription_plan_type, subscription_expires_at, temporary_tier_active, temporary_tier, temporary_tier_expires_at')
+        .eq('id', user.id)
+        .single();
+
+      const now = new Date();
+
+      if (profile) {
+        // 1) Temporary tier (RPC day pass) takes precedence
+        const tempActive = !!(profile.temporary_tier_active && profile.temporary_tier_expires_at && new Date(profile.temporary_tier_expires_at) > now);
+        if (tempActive) {
+          const tier = profile.temporary_tier === 'elite' ? 'elite' : 'pro';
+          console.log('🏁 Temporary Tier active →', tier);
+          setIsPro(true);
+          setIsElite(tier === 'elite');
+          setSubscriptionTier(tier as 'pro' | 'elite');
+          await AsyncStorage.setItem('subscriptionStatus', tier);
+        } else {
+          // 2) Purchases endpoint fallback (plan_type daypass)
+          const dayPassActive = !!(profile.subscription_plan_type === 'daypass' && profile.subscription_expires_at && new Date(profile.subscription_expires_at) > now);
+          if (dayPassActive) {
+            const tier = profile.subscription_tier === 'elite' ? 'elite' : 'pro';
+            console.log('🏁 Day Pass active →', tier);
+            setIsPro(true);
+            setIsElite(tier === 'elite');
+            setSubscriptionTier(tier as 'pro' | 'elite');
+            await AsyncStorage.setItem('subscriptionStatus', tier);
+          } else {
+            // 3) Welcome bonus (never overrides paid access)
+            const welcomeActive = !!(profile.welcome_bonus_claimed && profile.welcome_bonus_expires_at && new Date(profile.welcome_bonus_expires_at) > now);
+            if (welcomeActive) {
+              console.log('🎁 Welcome bonus active → FREE tier');
+              setIsPro(false);
+              setIsElite(false);
+              setSubscriptionTier('free');
+              await AsyncStorage.setItem('subscriptionStatus', 'free');
+            } else if (profile.subscription_tier === 'elite') {
+              setIsPro(true);
+              setIsElite(true);
+              setSubscriptionTier('elite');
+              await AsyncStorage.setItem('subscriptionStatus', 'elite');
+            } else if (profile.subscription_tier === 'pro') {
+              setIsPro(true);
+              setIsElite(false);
+              setSubscriptionTier('pro');
+              await AsyncStorage.setItem('subscriptionStatus', 'pro');
+            } else {
+              setIsPro(false);
+              setIsElite(false);
+              setSubscriptionTier('free');
+              await AsyncStorage.setItem('subscriptionStatus', 'free');
+            }
+          }
+        }
+      } else {
+        console.log('⚠️ No profile found → FREE tier');
+        setIsPro(false);
+        setIsElite(false);
+        setSubscriptionTier('free');
         await AsyncStorage.setItem('subscriptionStatus', 'free');
       }
-    } catch (error) {
-      console.error('❌ DEBUG: Error checking subscription:', error);
-      console.error('❌ DEBUG: Error details:', JSON.stringify(error, null, 2));
+
+      // RevenueCat sync (non-authoritative when day pass or welcome bonus active)
+      try {
+        await revenueCatService.initialize();
+        const customerInfo = await revenueCatService.getCustomerInfo();
+        const hasAny = Object.keys(customerInfo.entitlements.active).length > 0;
+        if (hasAny) {
+          const eliteEnt = Object.values(customerInfo.entitlements.active).find((e: any) => e?.productIdentifier?.includes('allstar') || e?.productIdentifier === 'com.parleyapp.elitedaypass');
+          const tier = eliteEnt ? 'elite' : 'pro';
+          const welcomeActive = !!(profile?.welcome_bonus_claimed && profile?.welcome_bonus_expires_at && new Date(profile?.welcome_bonus_expires_at) > now);
+          const dayPassActive = !!(profile?.subscription_plan_type === 'daypass' && profile?.subscription_expires_at && new Date(profile?.subscription_expires_at) > now);
+          if (!welcomeActive && !dayPassActive && profile?.subscription_tier !== tier) {
+            console.log(`🔄 Syncing ${tier} from RevenueCat`);
+            await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', user.id);
+            setIsPro(true);
+            setIsElite(tier === 'elite');
+            setSubscriptionTier(tier as 'pro' | 'elite');
+            await AsyncStorage.setItem('subscriptionStatus', tier);
+          }
+        }
+      } catch (rcErr) {
+        console.log('⚠️ RevenueCat check failed:', rcErr);
+      }
+    } catch (err) {
+      console.error('❌ DEBUG: Error checking subscription:', err);
       setIsPro(false);
+      setIsElite(false);
+      setSubscriptionTier('free');
       await AsyncStorage.setItem('subscriptionStatus', 'free');
     } finally {
       setIsLoading(false);
