@@ -977,9 +977,12 @@ export default function SignupScreen() {
         onClose={() => {
           setShowSubscriptionModal(false);
           // If user is Pro or Elite (including day passes), skip welcome wheel
+          // The subscription context will have updated isPro/isElite after successful purchase
           if (isPro || isElite || hasSubscribedToPro) {
+            console.log('🎯 User has subscription - navigating to app. isPro:', isPro, 'isElite:', isElite, 'hasSubscribedToPro:', hasSubscribedToPro);
             router.replace('/(tabs)');
           } else {
+            console.log('🎯 User has no subscription - showing welcome wheel. isPro:', isPro, 'isElite:', isElite, 'hasSubscribedToPro:', hasSubscribedToPro);
             setShowSpinningWheel(true);
           }
         }}
