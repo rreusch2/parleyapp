@@ -441,7 +441,8 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
         backgroundColor: 'transparent',
         backgroundGradientFrom: 'rgba(15, 23, 42, 0.8)',
         backgroundGradientTo: 'rgba(30, 41, 59, 0.8)',
-        decimalPlaces: isDecimalData ? 3 : 0,
+        // Use 3 decimals for BA-style rates, otherwise 1 to avoid long decimals
+        decimalPlaces: isDecimalData ? 3 : 1,
         color: (opacity = 1) => `rgba(226, 232, 240, ${opacity})`,
         labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
         style: {
@@ -597,9 +598,12 @@ export default function TrendModal({ visible, trend, onClose }: TrendModalProps)
             let formattedValue = String(value);
             if (typeof value === 'number') {
               if (key.includes('ba') || key.includes('avg') || key.includes('rate')) {
-                formattedValue = value < 1 ? value.toFixed(3) : value.toString();
+                formattedValue = value < 1 ? value.toFixed(3) : value.toFixed(1);
+              } else if (key.toLowerCase().includes('fantasy')) {
+                formattedValue = value.toFixed(1);
               } else {
-                formattedValue = value.toString();
+                // For counts that are not integers, show 1 decimal to reduce clutter
+                formattedValue = Number.isInteger(value) ? value.toString() : value.toFixed(1);
               }
             }
 

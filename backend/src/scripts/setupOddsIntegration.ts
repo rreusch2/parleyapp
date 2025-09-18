@@ -713,7 +713,7 @@ async function storePlayerPropsData(propsData: PlayerPropsData, eventId: string,
   console.log(`✅ Processed ${completeProps.length} complete player props for event ${eventId}`);
 }
 
-async function fetchPlayerPropsForAllGames(): Promise<void> {
+async function fetchPlayerPropsForAllGames(extendedNflWeek = false, nflAheadDaysArg?: number): Promise<void> {
   console.log('\n🎯 Fetching player props for upcoming games...');
   
   // Import centralized multi-sport configuration
@@ -727,6 +727,11 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
   
   let totalPropsFound = 0;
   
+  // Determine extended window days from arg or env
+  const nflAheadDays = typeof nflAheadDaysArg === 'number' && !Number.isNaN(nflAheadDaysArg)
+    ? nflAheadDaysArg
+    : Number(process.env.NFL_AHEAD_DAYS || 7);
+
   // Process each active sport
   for (const sportConfig of activeSports) {
     // Skip sports that don't have prop markets (like UFC)
@@ -737,21 +742,28 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
     
     console.log(`\n📊 Fetching ${sportConfig.sportName} player props...`);
     
-    // Calculate the date window for today (from now) through the end of tomorrow
+    // Calculate the date window
     const now = new Date();
-    const tomorrowEnd = new Date(now);
-    tomorrowEnd.setDate(now.getDate() + 1);
-    tomorrowEnd.setUTCHours(23, 59, 59, 999);
+    let windowEnd = new Date(now);
+    let windowLabel = 'today and tomorrow';
+    if (extendedNflWeek && sportConfig.sportKey === 'NFL') {
+      windowEnd.setUTCDate(now.getUTCDate() + nflAheadDays);
+      windowEnd.setUTCHours(23, 59, 59, 999);
+      windowLabel = `next ${nflAheadDays} days`;
+    } else {
+      windowEnd.setUTCDate(now.getUTCDate() + 1);
+      windowEnd.setUTCHours(23, 59, 59, 999);
+    }
 
-    // Get upcoming games for this sport from the database (only today + tomorrow)
+    // Get upcoming games for this sport from the database (respect window)
     // Use the sport name (not the TheOdds key) to match database records
     const { data: games, error: gamesError } = await supabaseAdmin
       .from('sports_events')
       .select('id, external_event_id, sport, home_team, away_team, start_time')
       .eq('sport', sportConfig.sportName)
       .gte('start_time', now.toISOString())
-      .lt('start_time', tomorrowEnd.toISOString())
-      .limit(10); // Limit to avoid rate limits
+      .lt('start_time', windowEnd.toISOString())
+      .limit((extendedNflWeek && sportConfig.sportKey === 'NFL') ? Number(process.env.NFL_PROPS_LIMIT || 50) : 10); // Dynamic limit for NFL week
     
     if (gamesError) {
       console.error(`❌ Error fetching ${sportConfig.sportName} games:`, gamesError.message);
@@ -763,7 +775,7 @@ async function fetchPlayerPropsForAllGames(): Promise<void> {
       continue;
     }
     
-    console.log(`📊 Found ${games.length} upcoming ${sportConfig.sportName} games, fetching props...`);
+    console.log(`📊 Found ${games.length} upcoming ${sportConfig.sportName} games (${windowLabel}), fetching props...`);
     
     let propsFound = 0;
     
@@ -876,16 +888,29 @@ async function main(): Promise<void> {
   // Check for NFL week flag
   const args = process.argv.slice(2);
   const extendedNflWeek = args.includes('--nfl-week');
+  // Optional: --nfl-days=NUM to override default window
+  let nflAheadDaysArg: number | undefined = undefined;
+  const nflDaysArg = args.find(a => a.startsWith('--nfl-days='));
+  if (nflDaysArg) {
+    const val = Number(nflDaysArg.split('=')[1]);
+    if (!Number.isNaN(val) && val > 0) {
+      nflAheadDaysArg = val;
+    }
+  }
   
   // Fetch new games and basic odds
   console.log('\n📊 Fetching games and basic odds from TheOdds API...');
   if (extendedNflWeek) {
-    console.log('🏈 NFL Week Mode: Extended fetch through Sunday Sept 8th for NFL games');
+    console.log(`🏈 NFL Week Mode: Extended fetch for NFL games${nflAheadDaysArg ? ` (next ${nflAheadDaysArg} days)` : ''}`);
+  }
+  // If user provided days, propagate via env var so fetchTheOddsGames uses it
+  if (extendedNflWeek && typeof nflAheadDaysArg === 'number') {
+    process.env.NFL_AHEAD_DAYS = String(nflAheadDaysArg);
   }
   const gameCount = await fetchAllGameData(extendedNflWeek);
   
   // Fetch player props for those games
-  await fetchPlayerPropsForAllGames();
+  await fetchPlayerPropsForAllGames(extendedNflWeek, nflAheadDaysArg);
   
   // Check games and props after fetch
   console.log('\n🔄 Checking data after fetch...');

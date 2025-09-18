@@ -62,7 +62,8 @@ export const getSportsEvents = async (req: Request, res: Response) => {
     }
 
     // Limit to upcoming games for today and tomorrow only (unless specific dates provided)
-    if (!start_date && !end_date) {
+    // IMPORTANT: Only apply default 'scheduled' filter when no explicit status is provided
+    if (!start_date && !end_date && !status) {
       const now = new Date();
       const today = new Date(now);
       today.setUTCHours(0, 0, 0, 0);
@@ -79,7 +80,7 @@ export const getSportsEvents = async (req: Request, res: Response) => {
       query = query
         .gte('start_time', today.toISOString())
         .lt('start_time', dayAfterTomorrow.toISOString())
-        .eq('status', 'scheduled'); // Only show scheduled games
+        .eq('status', 'scheduled'); // Only show scheduled games by default
     }
 
     // Paginate results
@@ -94,16 +95,62 @@ export const getSportsEvents = async (req: Request, res: Response) => {
 
     if (error) throw error;
 
+    // Normalize sport names for consistent frontend display
+    const normalizedData = data?.map(game => {
+      let normalizedSport = game.sport;
+      let normalizedLeague = game.league;
+
+      // Map database sport names to frontend-expected names
+      switch (game.sport) {
+        case "Women's National Basketball Association":
+          normalizedSport = "WNBA";
+          normalizedLeague = "WNBA";
+          break;
+        case "Ultimate Fighting Championship":
+          normalizedSport = "UFC";
+          normalizedLeague = "UFC";
+          break;
+        case "Major League Baseball":
+          normalizedSport = "MLB";
+          normalizedLeague = "MLB";
+          break;
+        case "National Football League":
+          normalizedSport = "NFL";
+          normalizedLeague = "NFL";
+          break;
+        case "College Football":
+          normalizedSport = "NCAAF";
+          normalizedLeague = "NCAAF";
+          break;
+        case "Mixed Martial Arts":
+        case "MMA":
+          normalizedSport = "MMA";
+          normalizedLeague = "MMA";
+          break;
+        default:
+          // Keep original values for already normalized sports
+          normalizedSport = game.sport;
+          normalizedLeague = game.league || game.sport;
+      }
+
+      return {
+        ...game,
+        sport: normalizedSport,
+        league: normalizedLeague
+      };
+    }) || [];
+
     // Log the results for debugging
     console.log('Query results:', {
       total: count,
-      filtered: data?.length,
-      leagues: data?.map(game => game.league),
-      dates: data?.map(game => game.start_time)
+      filtered: normalizedData?.length,
+      leagues: normalizedData?.map(game => game.league),
+      sports: normalizedData?.map(game => game.sport),
+      dates: normalizedData?.map(game => game.start_time)
     });
 
     res.json({
-      data: data || [],
+      data: normalizedData,
       pagination: {
         page,
         limit,

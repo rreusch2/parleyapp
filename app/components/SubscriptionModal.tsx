@@ -298,7 +298,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                           )}
                         </View>
                         <View style={styles.priceContainer}>
-                          <Text style={styles.planPrice}>$12.49</Text>
+                          <Text style={styles.planPrice}>$9.99</Text>
                           <Text style={styles.planPeriod}>per week</Text>
                         </View>
                         <Text style={styles.billingDetails}>$1.78 per day</Text>
@@ -508,15 +508,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                   const planInfo = {
                     weekly: {
                       title: 'Weekly Pro Subscription',
-                      price: '$12.49 per week, auto-renewable',
+                      price: '$9.99 per week, auto-renewable',
                     },
                     monthly: {
                       title: 'Monthly Pro Subscription',
-                      price: '$24.99 per month, auto-renewable',
+                      price: '$19.99 per month, auto-renewable',
                     },
                     yearly: {
                       title: 'Yearly Pro Subscription',
-                      price: '$199.99 per year, auto-renewable',
+                      price: '$149.99 per year, auto-renewable',
                     },
                     lifetime: {
                       title: 'Lifetime Pro Purchase',

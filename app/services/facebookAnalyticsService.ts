@@ -50,12 +50,35 @@ class FacebookAnalyticsService {
         return;
       }
 
+      // Initialize Facebook SDK as early as possible (required on iOS >= v9)
+      // This aligns with react-native-fbsdk-next guidance and ensures AEM & app events work
+      try {
+        // Set identity info (optional but helps ensure the correct app config)
+        if (Settings.setAppID) {
+          Settings.setAppID('1019527860059930');
+        }
+        if (Settings.setAppName) {
+          Settings.setAppName('Predictive Play');
+        }
+        if (Settings.initializeSDK) {
+          Settings.initializeSDK();
+        }
+      } catch (e) {
+        console.warn('⚠️ FB Settings initializeSDK failed (continuing):', e);
+      }
+
       // Enable auto-logging of app events
       Settings.setAutoLogAppEventsEnabled(true);
       
       // Enable advertiser tracking (iOS 14.5+)
       if (Platform.OS === 'ios') {
-        Settings.setAdvertiserTrackingEnabled(true);
+        // Must be called AFTER user grants ATT. We request ATT in app/_layout.tsx.
+        // If user denied, the SDK will ignore enabling.
+        try {
+          Settings.setAdvertiserTrackingEnabled(true);
+        } catch (e) {
+          console.warn('⚠️ Unable to enable advertiser tracking (ATT likely denied):', e);
+        }
       }
 
       this.isInitialized = true;

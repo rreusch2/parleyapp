@@ -31,8 +31,16 @@ module.exports = {
         "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
         // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.
         "SKAdNetworkItems": [
-          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" },
-          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" }
+          { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" }, // Meta Primary
+          { "SKAdNetworkIdentifier": "n38lu8286q.skadnetwork" }, // Meta Secondary
+          { "SKAdNetworkIdentifier": "cstr6suwn9.skadnetwork" }, // Meta Additional
+          { "SKAdNetworkIdentifier": "424m5254lk.skadnetwork" }, // Meta Additional
+          { "SKAdNetworkIdentifier": "wzmmz9fp6w.skadnetwork" }, // Meta Extended
+          { "SKAdNetworkIdentifier": "hs6bdukanm.skadnetwork" }, // Meta Extended
+          { "SKAdNetworkIdentifier": "c6k4g5qg8m.skadnetwork" }, // Meta Extended
+          { "SKAdNetworkIdentifier": "9rd848q2bz.skadnetwork" }, // Meta Extended
+          { "SKAdNetworkIdentifier": "4fzdc2evr5.skadnetwork" }, // Meta Extended
+          { "SKAdNetworkIdentifier": "t38b2kh725.skadnetwork" }, // Meta Extended
         ],
         // App Transport Security - CRITICAL for Railway API access
         "NSAppTransportSecurity": {
@@ -92,6 +100,13 @@ module.exports = {
       "expo-apple-authentication",
       "expo-asset",
       [
+        "react-native-google-mobile-ads",
+        {
+          iosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || "ca-app-pub-3940256099942544~1458002511", // Test ID fallback
+          androidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || "ca-app-pub-3940256099942544~3347511713" // Test ID fallback
+        }
+      ],
+      [
         "react-native-appsflyer",
         {
           "devKey": "NgBrVqoMhaRVeeaekgT9xX",
@@ -104,7 +119,18 @@ module.exports = {
         {
           "appID": "1019527860059930",
           "displayName": "Predictive Play",
-          "scheme": "predictiveplay"
+          // Facebook App Client Token (required by the plugin). Store in env if possible.
+          // You can set EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN in your environment.
+          "clientToken": process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || process.env.FACEBOOK_CLIENT_TOKEN || "YOUR_FB_CLIENT_TOKEN",
+          // IMPORTANT: This scheme should be fb[app-id] for Facebook SDK deep linking
+          "scheme": "fb1019527860059930",
+          // Recommended flags
+          "advertiserIDCollectionEnabled": true,
+          "autoLogAppEventsEnabled": true,
+          // We'll initialize the SDK in JS after ATT consent
+          "isAutoInitEnabled": false,
+          // iOS tracking prompt text
+          "iosUserTrackingPermission": "We use your data to deliver more relevant ads and to measure campaign performance."
         }
       ]
     ],
@@ -117,6 +143,11 @@ module.exports = {
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
       revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
+      admobAndroidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID,
+      admobIosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID,
+      admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
+      // Optional Elite preview video URL used in tiered subscription modals
+      elitePreviewVideoUrl: process.env.EXPO_PUBLIC_ELITE_PREVIEW_VIDEO_URL,
 
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"

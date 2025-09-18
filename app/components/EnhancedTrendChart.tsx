@@ -70,10 +70,11 @@ export default function EnhancedTrendChart({ data, playerName }: EnhancedTrendCh
   }
 
   const games = data.recent_games.slice(0, 10); // Show last 10 games
-  const maxValue = Math.max(
-    ...games.map(game => game.actual_value),
-    data.ai_prediction_line
-  ) + 1;
+  const rawMax = Math.max(
+    ...games.map(game => Number(game.actual_value) || 0),
+    Number(data.ai_prediction_line) || 0
+  );
+  const maxValue = rawMax > 0 ? rawMax * 1.1 : 1; // add 10% headroom
   
   const minValue = 0;
   const valueRange = maxValue - minValue;
@@ -85,14 +86,15 @@ export default function EnhancedTrendChart({ data, playerName }: EnhancedTrendCh
   
   // Calculate positions
   const getYPosition = (value: number) => {
-    return chartHeight - 40 - ((value - minValue) / valueRange) * (chartHeight - 80);
+    const clamped = Math.max(minValue, Math.min(maxValue, value));
+    return chartHeight - 40 - ((clamped - minValue) / valueRange) * (chartHeight - 80);
   };
   
   const getXPosition = (index: number) => {
     return chartPadding + index * (barWidth + barSpacing) + barWidth / 2;
   };
   
-  const aiLineY = getYPosition(data.ai_prediction_line);
+  const aiLineY = getYPosition(Number(data.ai_prediction_line) || 0);
   
   const renderStatCards = () => (
     <View style={styles.statsContainer}>
@@ -155,6 +157,24 @@ export default function EnhancedTrendChart({ data, playerName }: EnhancedTrendCh
               <Rect x="4" width="4" height="1" fill="transparent" />
             </Pattern>
           </Defs>
+
+          {/* Subtle horizontal grid lines for readability */}
+          {Array.from({ length: 5 }).map((_, i) => {
+            const y = 20 + ((chartHeight - 80) * (i / 4));
+            return (
+              <G key={`grid-${i}`}>
+                <Line
+                  x1={10}
+                  y1={y + 20}
+                  x2={actualChartWidth - 10}
+                  y2={y + 20}
+                  stroke="#E5E7EB"
+                  strokeWidth={1}
+                  opacity={0.2}
+                />
+              </G>
+            );
+          })}
           
           {/* AI Prediction Line (Dotted) */}
           <Line
@@ -175,13 +195,14 @@ export default function EnhancedTrendChart({ data, playerName }: EnhancedTrendCh
             fontWeight="600"
             textAnchor="end"
           >
-            AI Line: {data.ai_prediction_line}
+            AI Line: {Number(data.ai_prediction_line) % 1 === 0 ? Number(data.ai_prediction_line).toString() : Number(data.ai_prediction_line).toFixed(1)}
           </SvgText>
           
           {/* Performance Bars */}
           {games.map((game, index) => {
             const x = getXPosition(index);
-            const barHeight = ((game.actual_value - minValue) / valueRange) * (chartHeight - 80);
+            const val = Number(game.actual_value) || 0;
+            const barHeight = ((val - minValue) / valueRange) * (chartHeight - 80);
             const barY = chartHeight - 40 - barHeight;
             
             // Determine bar color based on performance vs AI line
@@ -204,13 +225,13 @@ export default function EnhancedTrendChart({ data, playerName }: EnhancedTrendCh
                 {/* Value Label on Bar */}
                 <SvgText
                   x={x}
-                  y={barY - 5}
+                  y={Math.max(14, barY - 5)}
                   fill="#FFFFFF"
                   fontSize="10"
                   fontWeight="600"
                   textAnchor="middle"
                 >
-                  {game.actual_value}
+                  {Number.isInteger(val) ? val.toString() : val.toFixed(1)}
                 </SvgText>
                 
                 {/* Opponent Label */}

@@ -8,7 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Animated,
-  Alert
+  
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -31,9 +31,10 @@ import {
   Calculator,
   MessageCircle
 } from 'lucide-react-native';
-import { AIPrediction } from '@/app/services/api/aiService';
-import { useSubscription } from '@/app/services/subscriptionContext';
+import { AIPrediction } from '../services/api/aiService';
+import { useSubscription } from '../services/subscriptionContext';
 import { formatEventTime } from '../utils/timeFormat';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -58,7 +59,8 @@ interface AdvancedAnalysis {
 }
 
 export default function EnhancedPredictionCard({ prediction, index, onAnalyze, welcomeBonusActive = false }: Props) {
-  const { isPro, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, openSubscriptionModal } = useSubscription();
+  const { theme } = useUITheme();
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedAnalysis | null>(null);
@@ -66,7 +68,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   const [showFullReasoning, setShowFullReasoning] = useState(false);
 
   React.useEffect(() => {
-    if (isPro) {
+    if (isPro || isElite) {
       // Animate premium glow effect
       Animated.loop(
         Animated.sequence([
@@ -83,7 +85,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
         ])
       ).start();
     }
-  }, [isPro]);
+  }, [isPro, isElite]);
 
   const getConfidenceColor = (confidence?: number) => {
     if (!confidence || typeof confidence !== 'number') return '#8B5CF6';
@@ -174,32 +176,20 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   };
 
   const handleAdvancedAnalysis = async () => {
-    const hasAnalysisAccess = isPro || welcomeBonusActive;
-    
-    if (!hasAnalysisAccess) {
-      Alert.alert(
-        'Premium Feature 🌟',
-        welcomeBonusActive ? 
-          'Welcome bonus expired! Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!' :
-          'Unlock advanced AI analysis, Kelly Criterion calculations, and multi-tool insights with Pro!',
-        [
-          { text: 'Later', style: 'cancel' },
-          { 
-            text: 'Upgrade to Pro', 
-            onPress: openSubscriptionModal,
-            style: 'default'
-          }
-        ]
-      );
-      return;
-    }
-
+    // Free users now have access to the analysis modal as well
     setIsLoadingAnalysis(true);
     
-    // Calculate real analytics from prediction data
+    // Calculate analytics from prediction data
     setTimeout(() => {
       const kellyStake = calculateKellyStake(prediction);
       const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
+      // Normalize key factors to a safe short string (avoid crashes if string vs array)
+      const keyFactorsText = (() => {
+        const kf: any = (prediction as any).key_factors;
+        if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
+        if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
+        return '';
+      })();
       
       setAdvancedAnalysis({
         kellyStake: kellyStake,
@@ -209,7 +199,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
         factors: {
           predictiveAnalytics: `Win probability: ${prediction.confidence}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
           recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds}`,
-          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll. ${prediction.key_factors ? `Key factors: ${(prediction.key_factors as string[]).slice(0,2).join(', ')}.` : ''}`
+          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
         },
         toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
       });
@@ -233,11 +223,14 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
           style={styles.gradient}
         >
           {/* Premium Glow Effect */}
-          {isPro && (
+          {(isPro || isElite) && (
             <Animated.View 
               style={[
                 styles.premiumGlow, 
-                { opacity: glowOpacity }
+                { 
+                  opacity: glowOpacity,
+                  borderColor: isElite ? theme.accentPrimary : '#00E5FF'
+                }
               ]} 
             />
           )}
@@ -255,7 +248,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
               <Text style={styles.matchTitle}>{prediction.match || (prediction as any).match_teams || 'Unknown Match'}</Text>
               <View style={styles.timeContainer}>
                 <Clock size={12} color="#94A3B8" />
-                <Text style={styles.eventTime}>{formatEventTime(prediction.eventTime || (prediction as any).event_time)}</Text>
+                <Text style={styles.eventTime}>{formatEventTime(prediction.eventTime || (prediction as any).event_time || (prediction as any).created_at)}</Text>
               </View>
             </View>
             
@@ -280,26 +273,29 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
           <View style={styles.predictionContent}>
             <View style={styles.pickSection}>
               <Text style={styles.pickLabel}>AI Prediction</Text>
-              <Text style={styles.pickValue}>{prediction.pick || 'Loading...'}</Text>
+              <Text style={[styles.pickValue, isElite && { color: theme.accentPrimary }]}>{prediction.pick || 'Loading...'}</Text>
               <Text style={styles.oddsText}>Odds: {formatOdds(prediction.odds)}</Text>
             </View>
 
             {prediction.value && prediction.value > 0 && (
               <View style={styles.valueSection}>
-                <View style={styles.valueIndicator}>
-                  <Target size={16} color="#10B981" />
-                  <Text style={styles.valueText}>+{prediction.value}% Edge</Text>
+                <View style={[
+                  styles.valueIndicator,
+                  { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+                ]}>
+                  <Target size={16} color={theme.accentPrimary} />
+                  <Text style={[styles.valueText, { color: theme.accentPrimary }]}>+{prediction.value}% Edge</Text>
                 </View>
               </View>
             )}
           </View>
 
           {/* Premium Features Section */}
-          {(isPro || welcomeBonusActive) ? (
-                          <View style={[styles.premiumSection, welcomeBonusActive && !isPro && styles.bonusSection]}>
+          {(isPro || isElite || welcomeBonusActive) ? (
+            <View style={[styles.premiumSection, welcomeBonusActive && !isPro && styles.bonusSection]}> 
               <View style={styles.premiumBadge}>
-                <Crown size={12} color="#00E5FF" />
-                <Text style={styles.premiumBadgeText}>
+                <Crown size={12} color={isElite ? theme.accentPrimary : '#00E5FF'} />
+                <Text style={[styles.premiumBadgeText, isElite && { color: theme.accentPrimary }]}>
                   {isPro ? "PRO INSIGHTS" : "BONUS INSIGHTS"}
                 </Text>
                 {welcomeBonusActive && !isPro && (
@@ -309,16 +305,12 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
               
               <View style={styles.premiumStats}>
                 <View style={styles.premiumStat}>
-                  <Brain size={14} color="#00E5FF" />
+                  <Brain size={14} color={isElite ? theme.accentPrimary : '#00E5FF'} />
                   <Text style={styles.premiumStatText}>AI: {prediction.confidence}% Confident</Text>
                 </View>
                 <View style={styles.premiumStat}>
                   <Shield size={14} color="#10B981" />
-                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate && prediction.roi_estimate > 0 ? `+${parseFloat(prediction.roi_estimate.toString()).toFixed(1)}%` : 'Calculating...'}</Text>
-                </View>
-                <View style={styles.premiumStat}>
-                  <Activity size={14} color="#8B5CF6" />
-                  <Text style={styles.premiumStatText}>EV: {prediction.expected_value ? `${prediction.expected_value > 0 ? '+' : ''}${prediction.expected_value.toFixed(1)}%` : 'Positive'}</Text>
+                  <Text style={styles.premiumStatText}>ROI: {prediction.roi_estimate ? `+${parseFloat(prediction.roi_estimate.toString()).toFixed(1)}%` : 'Calculating...'}</Text>
                 </View>
               </View>
             </View>
@@ -341,17 +333,17 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                 `${(prediction.reasoning || 'AI analysis pending...').substring(0, 100)}...`
               }
             </Text>
-            {(isPro || welcomeBonusActive) && (prediction.reasoning?.length || 0) > 200 && (
+            {(isPro || isElite || welcomeBonusActive) && (prediction.reasoning?.length || 0) > 200 && (
               <TouchableOpacity 
                 onPress={() => setShowFullReasoning(!showFullReasoning)}
                 style={styles.showMoreButton}
               >
-                <Text style={styles.showMoreText}>
+                <Text style={[styles.showMoreText, isElite && { color: theme.accentPrimary }]}>
                   {showFullReasoning ? 'Show Less' : 'Show More'}
                 </Text>
                 <ChevronRight 
                   size={14} 
-                  color="#00E5FF" 
+                  color={isElite ? theme.accentPrimary : '#00E5FF'} 
                   style={{ transform: [{ rotate: showFullReasoning ? '-90deg' : '90deg' }] }}
                 />
               </TouchableOpacity>
@@ -363,29 +355,31 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
             <TouchableOpacity 
               style={[
                 styles.actionButton, 
-                (isPro || welcomeBonusActive) && styles.actionButtonPro
+                (isPro || isElite || welcomeBonusActive) && styles.actionButtonPro,
+                isElite && (isPro || welcomeBonusActive) && { borderColor: theme.accentPrimary, backgroundColor: `${theme.accentPrimary}1A` }
               ]}
               onPress={handleAdvancedAnalysis}
               disabled={isLoadingAnalysis}
             >
               {isLoadingAnalysis ? (
-                <Activity size={16} color="#00E5FF" style={{ transform: [{ rotate: '45deg' }] }} />
+                <Activity size={16} color={isElite ? theme.accentPrimary : '#00E5FF'} style={{ transform: [{ rotate: '45deg' }] }} />
               ) : (
-                <Eye size={16} color="#00E5FF" />
+                <Eye size={16} color={isElite ? theme.accentPrimary : '#00E5FF'} />
               )}
               <Text style={styles.actionButtonText}>
-                {(isPro || welcomeBonusActive) ? 'Advanced Analysis' : 'View Analysis'}
+                {(isPro || isElite || welcomeBonusActive) ? 'Advanced Analysis' : 'View Analysis'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={[
                 styles.actionButton, 
-                (isPro || welcomeBonusActive) && styles.actionButtonPro
+                (isPro || isElite || welcomeBonusActive) && styles.actionButtonPro,
+                isElite && (isPro || welcomeBonusActive) && { borderColor: theme.accentPrimary, backgroundColor: `${theme.accentPrimary}1A` }
               ]}
               onPress={onAnalyze}
             >
-              <MessageCircle size={16} color="#8B5CF6" />
+              <MessageCircle size={16} color={isElite ? theme.accentPrimary : '#8B5CF6'} />
               <Text style={styles.actionButtonText}>AI Chat</Text>
             </TouchableOpacity>
           </View>
@@ -421,20 +415,20 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
                   {/* Kelly Criterion Section */}
                   <View style={styles.analysisSection}>
                     <View style={styles.sectionHeader}>
-                      <Calculator size={20} color="#00E5FF" />
+                      <Calculator size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
                       <Text style={styles.sectionTitle}>Kelly Criterion Analysis</Text>
                     </View>
-                    <View style={styles.kellyStats}>
+                    <View style={[styles.kellyStats, isElite && { backgroundColor: `${theme.accentPrimary}1A` }]}>
                       <View style={styles.kellyStat}>
-                        <Text style={styles.kellyValue}>{advancedAnalysis.kellyStake}%</Text>
+                        <Text style={[styles.kellyValue, isElite && { color: theme.accentPrimary }]}>{advancedAnalysis.kellyStake}%</Text>
                         <Text style={styles.kellyLabel}>Optimal Stake</Text>
                       </View>
                       <View style={styles.kellyStat}>
-                        <Text style={styles.kellyValue}>+{advancedAnalysis.expectedValue}%</Text>
+                        <Text style={[styles.kellyValue, isElite && { color: theme.accentPrimary }]}>+{advancedAnalysis.expectedValue}%</Text>
                         <Text style={styles.kellyLabel}>Expected Value</Text>
                       </View>
                       <View style={styles.kellyStat}>
-                        <Text style={styles.kellyValue}>{advancedAnalysis.winProbability}%</Text>
+                        <Text style={[styles.kellyValue, isElite && { color: theme.accentPrimary }]}>{advancedAnalysis.winProbability}%</Text>
                         <Text style={styles.kellyLabel}>Win Probability</Text>
                       </View>
                     </View>
@@ -584,10 +578,14 @@ const styles = StyleSheet.create({
   valueIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   valueText: {
     fontSize: 14,
-    color: '#10B981',
+    color: '#E2E8F0',
     fontWeight: '600',
     marginLeft: 6,
   },

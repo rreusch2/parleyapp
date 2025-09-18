@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,8 @@ import {
   Calendar,
   Lock,
   Shield,
-  Trophy
+  Trophy,
+  Palette
 } from 'lucide-react-native';
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
 import { FacebookPixel } from '../services/analytics';
@@ -38,6 +39,8 @@ import { useSubscription } from '../services/subscriptionContext';
 import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
+import EliteThemeModal from '../components/EliteThemeModal';
+import EliteThemeQuickPicker from '../components/EliteThemeQuickPicker';
 import NewsFeed from '../components/NewsFeed';
 import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
@@ -49,15 +52,22 @@ import { listMedia } from '../services/api/mediaService';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
+import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
+import AnimatedSplash from '../components/AnimatedSplash';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { isPro, isElite, subscriptionTier, openSubscriptionModal, eliteFeatures } = useSubscription();
+  const { theme } = useUITheme();
   const { openChatWithContext, setSelectedPick } = useAIChat();
   const { trackPositiveInteraction } = useReview();
+  const { isLoading: optimizedLoading, loadData } = useOptimizedLoading({ 
+    timeout: 8000, 
+    enableProgress: false 
+  });
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [todaysPicks, setTodaysPicks] = useState<AIPrediction[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
     todayPicks: 0,
@@ -87,42 +97,49 @@ export default function HomeScreen() {
   });
   const [userId, setUserId] = useState<string>('');
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
+  const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
+  const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
     
-    const loadData = async () => {
+    const initializeDashboard = async () => {
       if (!isMounted) return;
       
-      try {
-        await loadInitialData(abortController.signal);
+      // Use optimized loading with concurrent operations
+      const operations = [
+        // Data fetching operations
+        () => fetchTodaysPicks(abortController.signal),
+        () => fetchUserStats(abortController.signal),
+        () => fetchUserPreferencesData(abortController.signal),
+        () => loadMediaItems(abortController.signal),
         
-        // Track prediction view for AppsFlyer/TikTok optimization
-        try {
-          await appsFlyerService.trackPredictionView();
-        } catch (error) {
-          console.error('Failed to track prediction view:', error);
+        // Analytics tracking (non-critical)
+        async () => {
+          try {
+            await appsFlyerService.trackPredictionView();
+          } catch (err) {
+            console.error('Analytics tracking failed:', err);
+          }
+        },
+        async () => {
+          try {
+            facebookAnalyticsService.trackViewContent('Daily AI Picks', {
+              content_category: 'predictions',
+              user_tier: subscriptionTier,
+              picks_count: todaysPicks.length
+            });
+          } catch (err) {
+            console.error('Facebook Analytics failed:', err);
+          }
         }
-        
-        // Track daily picks view with Facebook Analytics
-        try {
-          facebookAnalyticsService.trackViewContent('Daily AI Picks', {
-            content_category: 'predictions',
-            user_tier: subscriptionTier,
-            picks_count: todaysPicks.length
-          });
-        } catch (error) {
-          console.error('Failed to track view content with Facebook Analytics:', error);
-        }
-      } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error('Failed to load dashboard data:', error);
-        }
-      }
+      ];
+
+      await loadData(operations);
     };
     
-    loadData();
+    initializeDashboard();
     const stopAnimation = startSparkleAnimation();
     
     return () => {
@@ -130,7 +147,7 @@ export default function HomeScreen() {
       abortController.abort();
       if (stopAnimation) stopAnimation();
     };
-  }, [isPro]); // Added isPro to dependencies
+  }, [isPro, loadData]); // Added loadData to dependencies
 
   const startSparkleAnimation = () => {
     const animation = Animated.loop(
@@ -157,77 +174,44 @@ export default function HomeScreen() {
     };
   };
 
-  const loadInitialData = async (signal?: AbortSignal) => {
+  // Helper functions for optimized loading
+  const fetchUserPreferencesData = useCallback(async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
     
-    setLoading(true);
-    try {
-      // Check if user is new first
-      if (signal?.aborted) return;
-      const newUserStatus = await aiService.isNewUser();
-      if (signal?.aborted) return;
-      setIsNewUser(newUserStatus);
+    const newUserStatus = await aiService.isNewUser();
+    if (signal?.aborted) return;
+    setIsNewUser(newUserStatus);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (signal?.aborted) return;
+    
+    if (user) {
+      setUserId(user.id);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('sport_preferences, betting_style, risk_tolerance')
+        .eq('id', user.id)
+        .single();
       
-      // Fetch user preferences for Elite features
-      if (signal?.aborted) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (signal?.aborted) return;
-      
-      if (user) {
-        setUserId(user.id);
-        if (signal?.aborted) return;
-        
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences, betting_style, risk_tolerance')
-          .eq('id', user.id)
-          .single();
-        
-        if (signal?.aborted) return;
-        
-        if (profile) {
-          setUserPreferences({
-            sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
-            bettingStyle: profile.betting_style || 'balanced',
-            riskTolerance: profile.risk_tolerance || 'medium'
-          });
-        }
-      }
-      
-      // Load data with cancellation support
-      if (signal?.aborted) return;
-      
-      // Use Promise.allSettled instead of Promise.all to prevent cascading failures
-      const results = await Promise.allSettled([
-        fetchTodaysPicks(signal),
-        fetchUserStats(signal)
-      ]);
-      
-      // Log any failures but don't crash
-      results.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.error(`Data loading failed for operation ${index}:`, result.reason);
-        }
-      });
-
-      // Load media items (separately to keep code simple)
-      try {
-        const items = await listMedia();
-        if (!signal?.aborted) setMediaItems(items);
-      } catch (err) {
-        if (!signal?.aborted) console.error('Failed to load media items:', err);
-      }
-      
-    } catch (error) {
-      if (!signal?.aborted) {
-        console.error('Error loading initial data:', error);
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
+      if (profile && !signal?.aborted) {
+        setUserPreferences({
+          sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false },
+          bettingStyle: profile.betting_style || 'balanced',
+          riskTolerance: profile.risk_tolerance || 'medium'
+        });
       }
     }
-  };
+  }, []);
+
+  const loadMediaItems = useCallback(async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    try {
+      const items = await listMedia();
+      if (!signal?.aborted) setMediaItems(items);
+    } catch (err) {
+      if (!signal?.aborted) console.error('Failed to load media items:', err);
+    }
+  }, []);
 
 
 
@@ -339,7 +323,14 @@ export default function HomeScreen() {
     const abortController = new AbortController();
     
     try {
-      await loadInitialData(abortController.signal);
+      const operations = [
+        () => fetchTodaysPicks(abortController.signal),
+        () => fetchUserStats(abortController.signal),
+        () => fetchUserPreferencesData(abortController.signal),
+        () => loadMediaItems(abortController.signal)
+      ];
+      
+      await loadData(operations);
     } catch (error) {
       if (!abortController.signal.aborted) {
         console.error('Refresh failed:', error);
@@ -389,19 +380,13 @@ export default function HomeScreen() {
     return '#00E5FF'; // Changed from red to cyan for better UX
   };
 
-  const sparkleOpacity = sparkleAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.4, 1],
-  });
+  // sparkleAnimation is used for subtle header animations; no separate opacity needed here
 
-  if (loading) {
+  if (optimizedLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Animated.View style={{ opacity: sparkleOpacity }}>
-          <Sparkles size={40} color="#00E5FF" />
-        </Animated.View>
-        <Text style={styles.loadingText}>Loading your dashboard...</Text>
-      </View>
+      <AnimatedSplash 
+        variant={isElite ? 'elite' : (isPro ? 'pro' : 'free')} 
+      />
     );
   }
 
@@ -445,21 +430,32 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <LinearGradient
-          colors={isElite ? ['#8B5CF6', '#EC4899', '#F59E0B'] : isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] : ['#1E293B', '#334155', '#0F172A']}
+          colors={isElite ? theme.headerGradient : (isPro ? ['#1E40AF', '#7C3AED', '#0F172A'] as const : ['#1E293B', '#334155', '#0F172A'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
           {/* Background Pattern */}
           <View style={styles.headerPattern} />
-
           {isElite ? (
-            <View style={styles.eliteBadge}>
-              <Crown size={16} color="#FFD700" />
-              <Text style={styles.eliteBadgeText}>ELITE</Text>
-              <Animated.View style={[styles.eliteSparkle, { opacity: sparkleAnimation }]}>
-                <Text style={styles.sparkleEmoji}>✨</Text>
-              </Animated.View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => setEliteThemeQuickVisible(true)}
+                onLongPress={() => setEliteThemeModalVisible(true)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 14,
+                  backgroundColor: `${theme.accentPrimary}1A`,
+                  borderWidth: 1,
+                  borderColor: `${theme.accentPrimary}33`
+                }}
+              >
+                <Palette size={14} color={theme.headerTextPrimary} />
+                <Text style={{ marginLeft: 6, fontSize: 12, fontWeight: '700', color: theme.headerTextPrimary }}>Theme</Text>
+              </TouchableOpacity>
             </View>
           ) : isPro ? (
             <View style={styles.proBadge}>
@@ -479,8 +475,8 @@ export default function HomeScreen() {
                   </View>
                 )}
                 <View style={styles.brandTextContainer}>
-                  <Text style={styles.welcomeText}>Welcome back!</Text>
-                  <Text style={styles.headerTitle}>
+                  <Text style={[styles.welcomeText, isElite && { color: theme.headerTextSecondary }]}>Welcome back!</Text>
+                  <Text style={[styles.headerTitle, isElite && { color: theme.headerTextPrimary }]}>
                     {isElite ? 'Elite Dashboard' : isPro ? 'Pro Dashboard' : 'Predictive Play'}
                   </Text>
                 </View>
@@ -491,12 +487,15 @@ export default function HomeScreen() {
             </View>
             
             {/* Enhanced Stats Row with new order */}
-            <View style={isElite ? styles.eliteStatsContainer : styles.statsContainer}>
+            <View style={[
+              isElite ? styles.eliteStatsContainer : styles.statsContainer,
+              isElite && { backgroundColor: `${theme.accentPrimary}14`, borderColor: `${theme.accentPrimary}33`, shadowColor: theme.accentPrimary }
+            ]}>
               <View style={styles.statsRow}>
                 {/* Win Rate - First Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
                   <View style={styles.statIconContainer}>
-                    <Trophy size={20} color={isPro ? "#10B981" : "#64748B"} />
+                    <Trophy size={20} color={isPro ? (isElite ? theme.accentPrimary : "#10B981") : "#64748B"} />
                   </View>
                   <Text style={styles.statValue}>
                     {isPro ? (isElite ? '73%' : '73%') : '?'}
@@ -510,11 +509,15 @@ export default function HomeScreen() {
                 </View>
 
                 {/* Daily Picks - Center Position (Highlighted) */}
-                <View style={[styles.statItem, styles.centerStatItem]}>
+                <View style={[
+                  styles.statItem, 
+                  styles.centerStatItem,
+                  isElite && { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+                ]}>
                   <View style={styles.centerStatIconContainer}>
-                    <Target size={24} color="#00E5FF" />
+                    <Target size={24} color={isElite ? theme.headerTextPrimary : "#00E5FF"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue]}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, styles.centerStatValue, isElite && { color: theme.headerTextPrimary }]}>
                     {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel, isElite && styles.eliteCenterStatLabel]}>
@@ -530,14 +533,14 @@ export default function HomeScreen() {
                 {/* ROI - Third Position */}
                 <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
                   <View style={styles.statIconContainer}>
-                    <TrendingUp size={20} color={isPro ? "#10B981" : "#64748B"} />
+                    <TrendingUp size={20} color={isPro ? (isElite ? theme.headerTextPrimary : "#10B981") : "#64748B"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? '#FFD700' : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
-                    {isPro ? userStats.roi : '?'}
-                  </Text>
-                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
-                  {!isPro && (
-                    <View style={styles.lockOverlay}>
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? theme.headerTextPrimary : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
+                  {isPro ? userStats.roi : '?'}
+                </Text>
+                <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
+                {!isPro && (
+                  <View style={styles.lockOverlay}>
                       <Lock size={16} color="#64748B" />
                     </View>
                   )}
@@ -619,7 +622,7 @@ export default function HomeScreen() {
         {isPro ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, isElite && styles.eliteSectionTitle]}>
+              <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary, textShadowColor: `${theme.accentPrimary}4D`, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]}>
                 {isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}
               </Text>
             </View>
@@ -680,7 +683,7 @@ export default function HomeScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={['#FFD700', '#FFA500']}
+                  colors={theme.ctaGradient as any}
                   style={styles.eliteViewAllGradient}
                 >
                   <Trophy size={16} color="#000000" />
@@ -864,6 +867,23 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Elite Theme Quick Picker (tap) and Full Modal (long-press or from quick picker) */}
+        {isElite && (
+          <EliteThemeQuickPicker
+            visible={eliteThemeQuickVisible}
+            onClose={() => setEliteThemeQuickVisible(false)}
+            onOpenFull={() => setEliteThemeModalVisible(true)}
+          />
+        )}
+
+        {/* Elite Theme Modal */}
+        {isElite && (
+          <EliteThemeModal
+            visible={eliteThemeModalVisible}
+            onClose={() => setEliteThemeModalVisible(false)}
+          />
+        )}
 
       </ScrollView>
       
@@ -1489,5 +1509,28 @@ const styles = StyleSheet.create({
   eliteCenterStatLabel: {
     color: '#0F172A', // Even darker for better contrast on the center stat
     fontWeight: '700',
+  },
+  
+  // Progress indicator styles for optimized loading
+  progressContainer: {
+    marginTop: 20,
+    width: '80%',
+    backgroundColor: 'rgba(100, 116, 139, 0.2)',
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#00E5FF',
+    borderRadius: 10,
+  },
+  progressText: {
+    position: 'absolute',
+    top: -25,
+    right: 0,
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

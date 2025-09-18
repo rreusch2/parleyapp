@@ -57,33 +57,8 @@ export async function savePushTokenToProfile(token: string, userId: string) {
     if (error) console.error('Error saving push token', error);
     else console.log('📲 Push token saved to Supabase');
 
-    // Automatic daily reminder at 9 AM local
-    await scheduleDailyReminder(9, 0);
   } catch (err) {
     console.error('Error in savePushTokenToProfile', err);
   }
 }
-
-/**
- * Schedules a daily local reminder at the provided hour/minute (24-h clock).
- */
-export async function scheduleDailyReminder(hour = 9, minute = 0) {
-  try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '🚀 Today’s AI Picks Are Ready!',
-        body: 'Open Predictive Play to see the best value bets.',
-        sound: 'default',
-      },
-      trigger: {
-        hour,
-        minute,
-        repeats: true,
-      },
-    });
-    console.log('⏰ Daily reminder scheduled');
-  } catch (error) {
-    console.error('Error scheduling daily reminder', error);
-  }
-} 
+ 

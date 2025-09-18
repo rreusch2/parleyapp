@@ -232,6 +232,8 @@ export default function ProAIChat({
   const [messageAnimation] = useState(new Animated.Value(0));
   const [welcomeAnimation] = useState(new Animated.Value(0));
   const [buttonScaleAnimation] = useState(new Animated.Value(1));
+  const [showQuickPrompts, setShowQuickPrompts] = useState(false);
+  const [quickPromptAnim] = useState(new Animated.Value(0));
 
   // Add keyboard listeners with height detection
   useEffect(() => {
@@ -315,6 +317,21 @@ export default function ProAIChat({
       }
     }
   }, [showAIChat, isPro, messages.length]);
+
+  // Animate quick prompts open/close and auto-close on keyboard
+  useEffect(() => {
+    Animated.timing(quickPromptAnim, {
+      toValue: showQuickPrompts && !keyboardVisible ? 1 : 0,
+      duration: 220,
+      useNativeDriver: false,
+    }).start();
+  }, [showQuickPrompts, keyboardVisible]);
+
+  useEffect(() => {
+    if (keyboardVisible && showQuickPrompts) {
+      setShowQuickPrompts(false);
+    }
+  }, [keyboardVisible]);
 
   // Pre-fill input with custom prompt when chat opens
   useEffect(() => {
@@ -1062,9 +1079,14 @@ export default function ProAIChat({
           </LinearGradient>
         )}
 
-        {/* Enhanced Quick Actions */}
-        {messages.length <= 1 && !keyboardVisible && (
-          <View style={styles.quickActionsContainer}>
+        {/* Enhanced Quick Actions (toggleable) */}
+        {showQuickPrompts && !keyboardVisible && (
+          <Animated.View
+            style={[
+              styles.quickActionsContainer,
+              { opacity: quickPromptAnim, transform: [{ scaleY: quickPromptAnim }] }
+            ]}
+          >
             <Text style={styles.quickActionsTitle}>{isElite ? 'Elite Tools' : 'Quick Actions'}</Text>
             <ScrollView 
               horizontal 
@@ -1107,24 +1129,13 @@ export default function ProAIChat({
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+          </Animated.View>
         )}
 
-        {/* Enhanced AI Disclaimer */}
-        <View style={styles.disclaimerContainer}>
-          <LinearGradient
-            colors={['rgba(100, 116, 139, 0.1)', 'rgba(100, 116, 139, 0.05)']}
-            style={styles.disclaimerGradient}
-          >
-            <Shield size={14} color="#64748B" />
-            <Text style={styles.disclaimerText}>
-              AI analysis for entertainment. Always bet responsibly.
-            </Text>
-          </LinearGradient>
-        </View>
+        {/* Disclaimer removed per UX request */}
 
         {/* Enhanced Input */}
-        <Pressable onPress={() => Keyboard.dismiss()} style={{ flex: 1 }}>
+        <Pressable onPress={() => Keyboard.dismiss()}>
           <View style={[
             styles.inputContainer, 
             keyboardVisible && Platform.OS === 'ios' && { paddingBottom: 0 }
@@ -1141,6 +1152,14 @@ export default function ProAIChat({
               blurOnSubmit={false}
               onSubmitEditing={sendMessage}
             />
+            {/* Quick Prompts Toggle */}
+            <TouchableOpacity
+              style={[styles.promptsButton, showQuickPrompts && styles.promptsButtonActive]}
+              onPress={() => setShowQuickPrompts(prev => !prev)}
+              accessibilityLabel="Toggle quick prompts"
+            >
+              <Sparkles size={20} color={showQuickPrompts ? '#0F172A' : '#FBBF24'} />
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.sendButton, 
@@ -1495,6 +1514,26 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: 'rgba(51, 65, 85, 0.5)',
     shadowOpacity: 0,
+  },
+  promptsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(251, 191, 36, 0.15)', // amber
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.35)',
+  },
+  promptsButtonActive: {
+    backgroundColor: '#FBBF24',
+    borderColor: '#FBBF24',
+    shadowColor: '#FBBF24',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
   },
   charCount: {
     fontSize: 11,

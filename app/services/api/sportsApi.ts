@@ -35,6 +35,26 @@ class SportsApi {
     } : {};
   }
 
+  // Get live scores for given event IDs within a league (uses backend proxy to The Odds API)
+  async getLiveScores(league: string, eventIds: string[], daysFrom: number = 2) {
+    try {
+      const headers = await this.getAuthHeader();
+      const response = await this.api.get('/sports-events/live-scores', {
+        params: {
+          league,
+          eventIds: eventIds.join(','),
+          daysFrom
+        },
+        headers,
+        validateStatus: (status) => status < 500
+      });
+      return response.data as { success: boolean; data: Record<string, any>; count: number };
+    } catch (error) {
+      console.error('Error fetching live scores:', error);
+      throw error;
+    }
+  }
+
   async getGames(params?: GetGamesParams) {
     try {
       const headers = await this.getAuthHeader();

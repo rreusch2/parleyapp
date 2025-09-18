@@ -12,8 +12,8 @@ export function formatEventTime(eventTimeString?: string): string {
   }
 
   try {
-    // Parse the database timestamp
-    const date = new Date(eventTimeString);
+    // Parse the database timestamp with safe normalization
+    const date = parseDateSafe(eventTimeString);
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
@@ -43,7 +43,7 @@ export function formatGameTime(dateString: string): string {
   }
   
   try {
-    const date = new Date(dateString);
+    const date = parseDateSafe(dateString);
     if (isNaN(date.getTime())) {
       return 'TBD';
     }
@@ -69,7 +69,7 @@ export function formatEventTimeWithDate(eventTimeString?: string): string {
   }
 
   try {
-    const date = new Date(eventTimeString);
+    const date = parseDateSafe(eventTimeString);
     
     if (isNaN(date.getTime())) {
       return 'TBD';
@@ -100,11 +100,45 @@ export function isEventToday(eventTimeString?: string): boolean {
   }
 
   try {
-    const eventDate = new Date(eventTimeString);
+    const eventDate = parseDateSafe(eventTimeString);
     const today = new Date();
     
     return eventDate.toDateString() === today.toDateString();
   } catch (error) {
     return false;
+  }
+}
+
+/**
+ * Safely parse common DB timestamp formats into Date
+ * Handles:
+ * - "YYYY-MM-DD HH:mm:ss+00" -> replace space with 'T'
+ * - Missing timezone -> append 'Z' to treat as UTC
+ */
+function parseDateSafe(input: string): Date {
+  try {
+    let s = (input || '').trim();
+    if (!s) return new Date('Invalid');
+    // Normalize space-separated date/time to ISO 'T'
+    if (s.includes(' ') && !s.includes('T')) {
+      s = s.replace(' ', 'T');
+    }
+    // Normalize timezone formats:
+    // - If ends with +HH (e.g. +00), convert to +HH:00
+    if (/[+-]\d{2}$/.test(s)) {
+      s = s + ':00';
+    }
+    // - If ends with +HHMM (e.g. +0000), convert to +HH:MM
+    if (/[+-]\d{4}$/.test(s)) {
+      s = s.replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+    }
+    // If no timezone info at all, default to UTC by appending 'Z'
+    const hasTZ = /[zZ]|[+-]\d{2}(:?\d{2})$/.test(s);
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s) && !hasTZ) {
+      s += 'Z';
+    }
+    return new Date(s);
+  } catch (e) {
+    return new Date('Invalid');
   }
 }

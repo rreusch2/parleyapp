@@ -89,6 +89,52 @@ export const userApi = {
   },
 };
 
+export interface AdminUserSummary {
+  id: string;
+  username: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  subscription_tier: 'free' | 'pro' | 'elite';
+  subscription_plan_type: string | null;
+  subscription_status: 'active' | 'inactive' | 'cancelled' | 'expired' | 'past_due' | null;
+  subscription_expires_at: string | null;
+  created_at: string;
+  is_active: boolean;
+  welcome_bonus_claimed?: boolean;
+  revenuecat_customer_id?: string | null;
+  phone_number?: string | null;
+}
+
+export const adminApi = {
+  listUsers: async (params: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    tier?: '' | 'free' | 'pro' | 'elite';
+    plan?: '' | 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'admin_manual';
+    sortBy?: string; // e.g. 'created_at_desc'
+  } = {}) => {
+    const response = await apiClient.get('/admin/users', { params });
+    return response.data as {
+      users: AdminUserSummary[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+    };
+  },
+
+  updateUserTier: async (userId: string, tier: 'free' | 'pro' | 'elite') => {
+    const response = await apiClient.patch(`/admin/users/${userId}/tier`, { tier });
+    return response.data;
+  },
+
+  clearPhone: async (userId: string) => {
+    const response = await apiClient.patch(`/admin/users/${userId}/clear-phone`);
+    return response.data;
+  },
+};
+
 export const trendsApi = {
   getPlayerProps: async (sport: string, tier: string = 'pro', minStreak?: number) => {
     const params: any = { tier };

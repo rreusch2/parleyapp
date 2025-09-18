@@ -29,6 +29,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_daypass: 'com.parleyapp.prodaypass',
     pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect)
+    elite_daypass: 'com.parleyapp.elitedaypass',
     elite_weekly: 'com.parleyapp.allstarweekly',
     elite_monthly: 'com.parleyapp.allstarmonthly', 
     elite_yearly: 'com.parleyapp.allstaryearly',
@@ -46,6 +47,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
     pro_daypass: 'com.parleyapp.prodaypass',
     pro_lifetime: 'com.parleyapp.premium_lifetime',
     // Elite Tier (matching App Store Connect base IDs)
+    elite_daypass: 'com.parleyapp.elitedaypass',
     elite_weekly: 'com.parleyapp.allstarweekly:weekly-elite2025',
     elite_monthly: 'com.parleyapp.allstarmonthly:monthly-elite2025',
     elite_yearly: 'com.parleyapp.allstaryearly:yearly-elite2025',
@@ -59,7 +61,7 @@ const PRODUCT_IDENTIFIERS = Platform.select({
 
 // Subscription tiers and plans
 export type SubscriptionTier = 'free' | 'pro' | 'elite';
-export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'pro_lifetime' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
+export type SubscriptionPlan = 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass' | 'pro_lifetime' | 'elite_daypass' | 'elite_weekly' | 'elite_monthly' | 'elite_yearly';
 
 // Tier configuration
 export const SUBSCRIPTION_TIERS = {
@@ -76,7 +78,7 @@ export const SUBSCRIPTION_TIERS = {
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: false,
-    pricing: { weekly: 9.99, monthly: 19.99, yearly: 149.99, daypass: 4.99, lifetime: 349.99 }
+    pricing: { weekly: 9.99, monthly: 19.99, yearly: 199.99, daypass: 4.99, lifetime: 349.99 }
   },
   elite: { 
     picks: 30, 
@@ -84,7 +86,7 @@ export const SUBSCRIPTION_TIERS = {
     chatMessages: 'unlimited' as const,
     playOfTheDay: true,
     advancedProfessorLock: true,
-    pricing: { weekly: 14.99, monthly: 29.99, yearly: 199.99 }
+    pricing: { daypass: 8.99, weekly: 14.99, monthly: 29.99, yearly: 199.99 }
   },
 
 };
@@ -458,6 +460,12 @@ class RevenueCatService {
         }
       }
 
+      // If this is a Day Pass purchase, skip client-side DB mutation and let server-side RPC handle it
+      if (planId && planId.includes('daypass')) {
+        console.log('⏭️ Day Pass detected (planId). Skipping client-side DB update; server RPC will persist state.');
+        return;
+      }
+
       // Determine subscription plan type from product identifier or planId
       let subscriptionPlanType: string | null = null;
       let subscriptionProductId: string | null = null;
@@ -468,6 +476,11 @@ class RevenueCatService {
       if (hasActiveSubscription && activeEntitlement) {
         // Get product identifier from active entitlement
         subscriptionProductId = activeEntitlement.productIdentifier;
+        // If the product itself is a day pass, let server RPC handle DB writes
+        if (subscriptionProductId && subscriptionProductId.includes('daypass')) {
+          console.log('⏭️ Day Pass detected (productId). Skipping client-side DB update; server RPC will persist state.');
+          return;
+        }
         
         // Map product ID to plan type
         const productToPlanMap: { [key: string]: string } = {
@@ -491,7 +504,8 @@ class RevenueCatService {
           } else if (planId.includes('lifetime')) {
             subscriptionPlanType = 'lifetime';
           } else if (planId.includes('daypass')) {
-            subscriptionPlanType = 'weekly'; // Map daypass to weekly for constraint compliance
+            // Day pass handled by server RPC
+            subscriptionPlanType = 'daypass';
           }
         }
         
@@ -518,8 +532,8 @@ class RevenueCatService {
       let maxDailyPicks = 2; // Default for free
       
       if (hasActiveSubscription && subscriptionProductId) {
-        // Check if it's an Elite subscription (contains 'allstar')
-        if (subscriptionProductId.includes('allstar')) {
+        // Check if it's an Elite subscription (contains 'allstar') or Elite Day Pass product ID
+        if (subscriptionProductId.includes('allstar') || subscriptionProductId === 'com.parleyapp.elitedaypass') {
           subscriptionTier = 'elite';
           maxDailyPicks = 30;
         } else {

@@ -11,7 +11,10 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+import Constants from 'expo-constants';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
 import Colors from '../constants/Colors';
@@ -61,10 +64,58 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   referralBonusType = 'free_trial',
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro');
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime');
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly');
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  // Optional remote video URL for Elite preview; set in app config (app.json/app.config.ts -> expo.extra.elitePreviewVideoUrl)
+  const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
+
+  // Dynamic pricing fetched from Supabase for display-only purposes
+  interface DbPricingEntry {
+    price: number;
+    currency: string;
+    periodLabel?: string | null;
+    disclosure?: string | null;
+    strikeMultiplier?: number | null;
+  }
+  const [dbPricing, setDbPricing] = useState<Record<string, DbPricingEntry>>({});
+
+  const formatPrice = (amount: number, _currency: string = 'USD') => {
+    // Keep it simple for RN (avoid Intl differences); currency is USD in our app
+    if (isNaN(amount)) return '';
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const getDisclosure = (planKey: string, fallback: string) => {
+    return dbPricing[planKey]?.disclosure || fallback;
+  };
+
+  const fetchSubscriptionPricing = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_pricing')
+        .select('plan_key, display_price, currency_code, period_label, apple_disclosure, show_in_modals');
+      if (error) {
+        console.warn('⚠️ subscription_pricing fetch error (using fallbacks):', error.message);
+        return; // fallbacks will be used
+      }
+      const map: Record<string, DbPricingEntry> = {};
+      (data || []).forEach((row: any) => {
+        if (row?.show_in_modals === false) return;
+        map[row.plan_key] = {
+          price: Number(row.display_price),
+          currency: row.currency_code || 'USD',
+          periodLabel: row.period_label || null,
+          disclosure: row.apple_disclosure || null,
+          strikeMultiplier: null,
+        };
+      });
+      setDbPricing(map);
+    } catch (e) {
+      console.warn('⚠️ Failed to load subscription pricing (using fallbacks):', e);
+    }
+  };
   
   const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
@@ -80,6 +131,8 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   useEffect(() => {
     if (visible) {
       initializeIAP();
+      // Fetch dynamic pricing for display
+      fetchSubscriptionPricing();
       setIsInitialized(false);
       setTimeout(() => setIsInitialized(true), 100);
     }
@@ -105,17 +158,21 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       
       // Track subscription intent with Facebook Analytics (Add to Cart event)
       try {
-        const planPrices = {
-          'pro_weekly': 12.49,
-          'pro_monthly': 24.99,
-          'pro_yearly': 199.99,
-          'pro_lifetime': 349.99,
-          'elite_weekly': 14.99,
-          'elite_monthly': 29.99,
-          'elite_yearly': 199.99
+        // Fallbacks if DB pricing hasn't loaded yet
+        const planPrices: Record<string, number> = {
+          pro_weekly: 9.99,
+          pro_monthly: 24.99,
+          pro_yearly: 199.99,
+          pro_lifetime: 349.99,
+          pro_daypass: 4.99,
+          elite_weekly: 14.99,
+          elite_monthly: 29.99,
+          elite_yearly: 199.99,
+          elite_daypass: 8.99,
         };
-        
-        const price = planPrices[selectedPlan] || 0;
+
+        const dynamic = dbPricing[selectedPlan]?.price;
+        const price = (typeof dynamic === 'number' ? dynamic : planPrices[selectedPlan]) || 0;
         facebookAnalyticsService.trackAddToCart(selectedTier, price, {
           subscription_plan: selectedPlan,
           subscription_tier: selectedTier
@@ -164,9 +221,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_lifetime');
+      setSelectedPlan('pro_weekly');
     } else if (tier === 'elite') {
-      setSelectedPlan('elite_weekly');
+      setSelectedPlan('elite_daypass');
     }
   };
 
@@ -181,7 +238,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const openTermsOfService = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    const url = 'https://www.predictive-play.com/terms';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -196,7 +253,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const openPrivacyPolicy = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    const url = 'https://www.predictive-play.com/privacy';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -243,7 +300,15 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
   const renderTierComparison = () => (
     <View style={styles.tierComparisonContainer}>
-      <Text style={styles.chooseYourPlanTitle}>Choose Your Plan</Text>
+      <View style={styles.urgencyContainer}>
+        <View style={styles.urgencyBadge}>
+          <Text style={styles.urgencyText}>⚡ Limited Time: 50% OFF All Plans</Text>
+        </View>
+      </View>
+      <Text style={styles.chooseYourPlanTitle}>Choose Your Winning Plan</Text>
+      <View style={styles.socialProofContainer}>
+        <Text style={styles.socialProofText}>🏆 Join 10,000+ Winning Bettors</Text>
+      </View>
       
       {/* Tier Selection Tabs */}
       <View style={styles.tierTabsContainer}>
@@ -279,39 +344,51 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       {/* Tier Features Comparison */}
       <View style={styles.featuresComparisonContainer}>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily AI Picks</Text>
+          <Text style={styles.featureLabel}>💎 Daily AI Picks</Text>
           <Text style={styles.featureValue}>
-            {selectedTier === 'pro' ? '20 picks' : '30 picks'}
+            {selectedTier === 'pro' ? '20 winning picks' : '30 winning picks'}
           </Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily Insights</Text>
+          <Text style={styles.featureLabel}>🧠 Expert Insights</Text>
           <Text style={styles.featureValue}>
-            {selectedTier === 'pro' ? '8 insights' : '12 insights'}
+            {selectedTier === 'pro' ? '8 daily insights' : '12 daily insights'}
           </Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Professor Lock Chat</Text>
-          <Text style={styles.featureValue}>Unlimited</Text>
+          <Text style={styles.featureLabel}>💬 AI Chat Support</Text>
+          <Text style={styles.featureValue}>Unlimited Access</Text>
         </View>
         <View style={styles.featureRow}>
-          <Text style={styles.featureLabel}>Daily AI Predictions</Text>
-          <Text style={styles.featureValue}>✓ Included</Text>
+          <Text style={styles.featureLabel}>📊 Live Analytics</Text>
+          <Text style={styles.featureValue}>Real-time Updates</Text>
         </View>
         {selectedTier === 'elite' && (
           <View style={styles.featureRow}>
-            <Text style={styles.featureLabel}>🔒 Lock of the Day</Text>
-            <Text style={styles.featureValuePremium}>✓ Elite Exclusive</Text>
+            <Text style={styles.featureLabel}>🎨 Ultra Customization</Text>
+            <Text style={styles.featureValuePremium}>Custom themes</Text>
           </View>
         )}
+        {selectedTier === 'elite' && (
+          <View style={styles.featureRow}>
+            <Text style={styles.featureLabel}>🔒 Guaranteed Lock</Text>
+            <Text style={styles.featureValuePremium}>Daily Sure Bet</Text>
+          </View>
+        )}
+        <View style={styles.guaranteeRow}>
+          <Shield size={14} color="#10B981" />
+          <Text style={styles.guaranteeText}>30-Day Success Guarantee</Text>
+        </View>
       </View>
+      
+      
     </View>
   );
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
-      : ['elite_weekly', 'elite_monthly', 'elite_yearly'];
+      : ['elite_daypass', 'elite_weekly', 'elite_monthly', 'elite_yearly'];
 
     return (
       <View style={styles.planOptionsContainer}>
@@ -335,7 +412,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             planName = 'Monthly';
             price = `$${pricing.monthly}`;
             period = 'per month';
-            savings = 'Save 17%';
+            savings = null;
             isTrialEligible = true;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
@@ -343,14 +420,25 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             period = 'per year';
             savings = 'Save 50%';
           } else if (plan.includes('daypass')) {
-            planName = 'Day Pass';
+            planName = selectedTier === 'elite' ? 'Elite Day Pass' : 'Day Pass';
             price = `$${pricing.daypass}`;
-            period = 'one day';
+            period = selectedTier === 'elite' ? '24 hours' : 'one day';
+            if (selectedTier === 'elite') {
+              savings = 'Try Elite';
+            }
           } else if (plan.includes('lifetime')) {
             planName = 'Lifetime';
             price = `$${pricing.lifetime}`;
             period = 'one time';
             savings = 'Best Value';
+          }
+
+          // Override price/period with DB values if available
+          if (dbPricing[plan]) {
+            price = formatPrice(dbPricing[plan].price, dbPricing[plan].currency);
+            if (dbPricing[plan].periodLabel) {
+              period = dbPricing[plan].periodLabel as string;
+            }
           }
 
           return (
@@ -372,14 +460,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   </View>
                 )}
                 
-                {isTrialEligible && (
-                  <View style={[styles.trialBadge, isSelected && styles.trialBadgeSelected]}>
-                    <Gift size={10} color={isSelected ? '#0F172A' : '#F59E0B'} />
-                    <Text style={[styles.trialText, isSelected && styles.trialTextSelected]}>
-                      3-DAY FREE
-                    </Text>
-                  </View>
-                )}
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
@@ -407,7 +487,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {/* Remove duplicate trial text to fix overlap - badge is enough */}
                   </View>
                 </View>
               </LinearGradient>
@@ -437,11 +516,14 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <X size={24} color="#94A3B8" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Upgrade to Premium</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Image source={require('../../assets/images/icon.png')} style={styles.headerLogo} />
+              <Text style={[styles.headerTitle, { marginLeft: 8 }]}>Upgrade to Premium</Text>
+            </View>
             <View style={styles.headerSpacer} />
           </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
             {/* Referral Bonus Banner */}
             {renderReferralBonus()}
             
@@ -451,28 +533,46 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             {/* Plan Options */}
             {renderPlanOptions()}
 
-            {/* Subscribe Button */}
-            <TouchableOpacity
-              style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
-              onPress={handleSubscribe}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
-                style={styles.subscribeButtonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+            {/* Tier Screenshot Preview below plan options */}
+            {selectedTier === 'pro' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/pro-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+            {selectedTier === 'elite' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                {eliteVideoUri ? (
+                  <Video
+                    source={{ uri: eliteVideoUri }}
+                    style={styles.tierScreenshot}
+                    resizeMode={ResizeMode.COVER}
+                    shouldPlay
+                    isLooping
+                    isMuted
+                    usePoster
+                    posterSource={require('../../assets/images/previews/elite-dashboard.png')}
+                  />
                 ) : (
-                  <>
-                    <Crown size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeButtonText}>
-                      Start {selectedTier === 'pro' ? 'Pro' : 'Elite'} Subscription
-                    </Text>
-                  </>
+                  <Image
+                    source={require('../../assets/images/previews/elite-dashboard.png')}
+                    style={styles.tierScreenshot}
+                    resizeMode="cover"
+                  />
                 )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <View style={styles.eliteCustomizationNote}>
+                  <Text style={styles.eliteCustomizationTitle}>Elite Unlocks Ultra Customization</Text>
+                  <Text style={styles.eliteCustomizationText}>
+                    Personalize your experience with custom app themes, colorways, and layout tweaks designed for power users.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* (Subscribe button moved to floating footer) */}
 
             <TouchableOpacity
               style={styles.restoreButton}
@@ -491,41 +591,44 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_weekly', '$9.99 per week, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_monthly', '$24.99 per month, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_yearly', '$149.99 per year, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Pro Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>$4.99 one-time purchase (24 hours)</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_daypass', '$4.99 one-time purchase (24 hours)')}</Text>
                   </View>
                 </>
               ) : (
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$14.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_weekly', '$14.99 per week, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_monthly', '$29.99 per month, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_yearly', '$199.99 per year, auto-renewable')}</Text>
+                  </View>
+
+                  <View style={styles.subscriptionOption}>
+                    <Text style={styles.subscriptionInfoTitle}>Elite Day Pass</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('elite_daypass', '$8.99 one-time purchase (24 hours), non-renewable')}</Text>
                   </View>
                 </>
               )}
@@ -535,34 +638,40 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
               </View>
               
               <View style={styles.termsLinksRow}>
-                <TouchableOpacity style={styles.linkButton} onPress={() => {
-                  // Add terms of service handler
-                }}>
+                <TouchableOpacity style={styles.linkButton} onPress={openTermsOfService}>
                   <Text style={styles.linkText}>Terms of Service</Text>
                 </TouchableOpacity>
                 <Text style={styles.subscriptionInfoText}> and </Text>
-                <TouchableOpacity style={styles.linkButton} onPress={() => {
-                  // Add privacy policy handler  
-                }}>
+                <TouchableOpacity style={styles.linkButton} onPress={openPrivacyPolicy}>
                   <Text style={styles.linkText}>Privacy Policy</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Footer Links */}
-            <View style={styles.footer}>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity onPress={openTermsOfService}>
-                  <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </TouchableOpacity>
-                <Text style={styles.legalSeparator}> • </Text>
-                <TouchableOpacity onPress={openPrivacyPolicy}>
-                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
           </ScrollView>
         </LinearGradient>
+
+        {/* Floating CTA */}
+        <View style={styles.floatingFooter}>
+          <TouchableOpacity
+            style={[styles.floatingCTAButton, loading && styles.subscribeButtonDisabled]}
+            onPress={handleSubscribe}
+            disabled={loading}
+          >
+            <LinearGradient
+              colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
+              style={styles.floatingCTAButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.floatingCTAButtonText}>
+                  🚀 Start Winning Now - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -599,8 +708,38 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  headerLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+  },
   scrollView: {
     flex: 1,
+  },
+  tierScreenshot: {
+    width: '100%',
+    height: Math.min(screenHeight * 0.65, 640),
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  eliteCustomizationNote: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  eliteCustomizationTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  eliteCustomizationText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 16,
   },
   tierComparisonContainer: {
     paddingHorizontal: 20,
@@ -826,6 +965,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 8,
   },
+  floatingFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 18 : 12,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
+    paddingTop: 0,
+  },
+  floatingCTAButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  floatingCTAButtonGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  floatingCTAButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   footer: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -983,6 +1145,149 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
     opacity: 0.9,
+  },
+  // New conversion-optimized styles
+  urgencyContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  urgencyBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  urgencyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  socialProofContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  socialProofText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    textAlign: 'center',
+  },
+  guaranteeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  guaranteeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+    marginLeft: 6,
+  },
+  popularBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  popularBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#FFFFFF',
+  },
+  popularText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
+    marginLeft: 4,
+  },
+  popularTextSelected: {
+    color: '#0F172A',
+  },
+  valuePropositionContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  valuePropositionText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  previewSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  previewContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  previewImageContainer: {
+    flex: 1,
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+  },
+  previewImageDimmed: {
+    opacity: 0.6,
+  },
+  previewOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 8,
+    opacity: 0.8,
+  },
+  previewOverlayActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    opacity: 1,
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  previewFeature: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
 

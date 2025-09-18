@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Link } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { supabase } from '../services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail } from 'lucide-react-native';
 
@@ -24,15 +24,26 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
     try {
       setLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'com.predictiveplay.mobile://reset-password',
+        redirectTo: 'https://iriaegoipkjtktitpary.supabase.co/auth/v1/verify?type=recovery',
       });
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Check your email for a password reset link!');
+      Alert.alert(
+        'Success', 
+        'Check your email for a password reset link! The link will redirect you to a secure page where you can reset your password.',
+        [{ text: 'OK' }]
+      );
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {

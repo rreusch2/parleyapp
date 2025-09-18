@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ParleyApp Bulk Email System
-Sends emails to all users from predictiveplay2025@gmail.com using Gmail API
+Sends emails to all users from support@predictive-play.com using Gmail API
 """
 
 import os
@@ -29,7 +29,7 @@ from supabase import create_client, Client
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 # Email configuration
-SENDER_EMAIL = "predictiveplay2025@gmail.com"
+SENDER_EMAIL = "support@predictive-play.com"
 SENDER_NAME = "ParleyApp Team"
 
 # Rate limiting (Gmail API limits)

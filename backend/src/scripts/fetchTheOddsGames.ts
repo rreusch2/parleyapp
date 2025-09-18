@@ -75,14 +75,18 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     const now = new Date();
     let endDate = new Date();
     
-    // Check if we should extend range for NFL week (Thu-Sun)
+    // Check if we should extend range for NFL week (next N days, default 7)
     if (extendedRange && sportInfo.key === 'americanfootball_nfl') {
-      // Extend to Sunday Sept 14, 2025 for NFL games (Week 2 includes Thursday 9/11)
-      endDate = new Date('2025-09-14T23:59:59Z');
-      console.log(`🏈 NFL Week Mode: Extended range through Sunday Sept 14th, 2025 (includes Thursday 9/11)`);
+      const extendedDays = Number(process.env.NFL_AHEAD_DAYS || 7);
+      endDate = new Date(now);
+      endDate.setUTCDate(now.getUTCDate() + extendedDays);
+      endDate.setUTCHours(23, 59, 59, 999);
+      console.log(`🏈 NFL Week Mode: Extended range ${extendedDays} days ahead through ${endDate.toISOString()}`);
     } else {
       // Default: today and tomorrow only
-      endDate.setDate(now.getDate() + 1);
+      endDate = new Date(now);
+      endDate.setUTCDate(now.getUTCDate() + 1);
+      endDate.setUTCHours(23, 59, 59, 999);
     }
     
     // Format dates in the required format YYYY-MM-DDTHH:MM:SSZ using UTC consistently
@@ -105,7 +109,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     });
 
     const games = response.data as GameData[];
-    console.log(`✅ Found ${games.length} ${sportInfo.name} games for today and tomorrow`);
+    console.log(`✅ Found ${games.length} ${sportInfo.name} games in selected window`);
     
     // Process each game
     for (const game of games) {
@@ -282,7 +286,8 @@ async function processOddsData(game: GameData, eventId: string): Promise<void> {
 export async function fetchAllGameData(extendedNflWeek = false): Promise<number> {
   console.log('🚀 Starting TheOdds API data fetch...');
   if (extendedNflWeek) {
-    console.log('🏈 NFL Week Mode: Will fetch NFL games through Sunday Sept 8th');
+    const days = Number(process.env.NFL_AHEAD_DAYS || 7);
+    console.log(`🏈 NFL Week Mode: Will fetch NFL games for the next ${days} days`);
   }
   
   let totalGames = 0;

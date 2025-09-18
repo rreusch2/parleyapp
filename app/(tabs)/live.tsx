@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -42,6 +42,7 @@ import { aiService, AIPrediction } from '../services/api/aiService';
 import { useSubscription } from '../services/subscriptionContext';
 
 import { useAIChat } from '../services/aiChatContext';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -93,6 +94,7 @@ interface EnhancedSportsEvent extends SportsEvent {
 export default function GamesScreen() {
   const router = useRouter();
   const { isPro, isElite, proFeatures, openSubscriptionModal } = useSubscription();
+  const { theme } = useUITheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveGames, setLiveGames] = useState<EnhancedSportsEvent[]>([]);
@@ -107,6 +109,10 @@ export default function GamesScreen() {
 
   const { openChatWithContext } = useAIChat();
   const [selectedBooks, setSelectedBooks] = useState<Record<string, string>>({});
+  const [liveScores, setLiveScores] = useState<Record<string, any>>({});
+  const livePollRef = useRef<any>(null);
+  // Helper to consistently reference the event identifier used by The Odds API
+  const getEventKey = (game: EnhancedSportsEvent) => (game as any).external_event_id || game.id;
 
 
   const sportFilters = [
@@ -437,6 +443,63 @@ export default function GamesScreen() {
     fetchGames();
   }, [selectedSport]);
 
+  // Poll live scores for games that are starting or in progress
+  useEffect(() => {
+    // Clear any existing interval
+    if (livePollRef.current) {
+      clearInterval(livePollRef.current as unknown as number);
+      livePollRef.current = null;
+    }
+
+    // Identify candidate games to track (within -15m to +6h window)
+    const now = Date.now();
+    const candidates = upcomingGames.filter(g => {
+      const t = new Date(g.start_time).getTime();
+      return t >= (now - 15 * 60 * 1000) && t <= (now + 6 * 60 * 60 * 1000);
+    });
+
+    if (candidates.length === 0) {
+      return; // nothing to poll
+    }
+
+    // Group event IDs by league for efficient backend calls
+    const byLeague: Record<string, string[]> = {};
+    for (const g of candidates) {
+      const league = (g.league || 'MLB').toUpperCase();
+      const id = getEventKey(g);
+      if (!id) continue;
+      byLeague[league] = byLeague[league] || [];
+      byLeague[league].push(id);
+    }
+
+    const fetchAllLive = async () => {
+      try {
+        const entries = Object.entries(byLeague);
+        const results = await Promise.all(entries.map(([league, ids]) => sportsApi.getLiveScores(league, ids, 2)));
+        const merged: Record<string, any> = { ...liveScores };
+        results.forEach(r => {
+          if (r?.success && r.data) {
+            Object.assign(merged, r.data);
+          }
+        });
+        setLiveScores(merged);
+      } catch (err) {
+        console.error('Live scores poll failed:', err);
+      }
+    };
+
+    // Initial fetch immediately, then poll every 45 seconds (API limit friendly)
+    fetchAllLive();
+    livePollRef.current = setInterval(fetchAllLive, 45000) as unknown as NodeJS.Timeout;
+
+    return () => {
+      if (livePollRef.current) {
+        clearInterval(livePollRef.current as unknown as number);
+        livePollRef.current = null;
+      }
+    };
+  }, [upcomingGames, selectedSport]);
+
   const formatGameTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', {
@@ -453,6 +516,29 @@ export default function GamesScreen() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  // Determine if a game should be shown in LIVE mode
+  const isGameLiveNow = (game: EnhancedSportsEvent) => {
+    const live = liveScores[getEventKey(game)];
+    if (live?.status === 'live') return true;
+    if (live?.status === 'completed') return false;
+    const now = Date.now();
+    const start = new Date(game.start_time).getTime();
+    // Consider live from a couple minutes before start until 6 hours after
+    return now >= (start - 2 * 60 * 1000) && now <= (start + 6 * 60 * 60 * 1000);
+  };
+
+  const getLiveScoreValues = (game: EnhancedSportsEvent) => {
+    const live = liveScores[getEventKey(game)];
+    const away = live?.away?.score ?? (typeof game.stats?.away_score === 'number' ? game.stats?.away_score : undefined);
+    const home = live?.home?.score ?? (typeof game.stats?.home_score === 'number' ? game.stats?.home_score : undefined);
+    return {
+      awayScore: typeof away === 'number' ? away : undefined,
+      homeScore: typeof home === 'number' ? home : undefined,
+      lastUpdate: live?.lastUpdate || null,
+      status: live?.status || null
+    };
   };
 
   const getFilteredGames = () => {
@@ -490,6 +576,8 @@ export default function GamesScreen() {
       acc[game.league] = (acc[game.league] || 0) + 1;
       return acc;
     }, {} as Record<string, number>));
+    // Hide completed games if live scores indicate final
+    filtered = filtered.filter(g => liveScores[getEventKey(g)]?.status !== 'completed');
 
     return filtered;
   };
@@ -585,6 +673,8 @@ export default function GamesScreen() {
   const renderEnhancedGameCard = (game: EnhancedSportsEvent) => {
     const selectedBookData = getSelectedBookOdds(game);
     const availableBooks = game.odds?.books || [];
+    const liveView = isGameLiveNow(game);
+    const liveVals = getLiveScoreValues(game);
 
     return (
       <TouchableOpacity 
@@ -610,6 +700,12 @@ export default function GamesScreen() {
               <View style={styles.leagueBadge}>
                 <Text style={styles.leagueText}>{game.league}</Text>
               </View>
+              {liveView && (
+                <View style={styles.liveBadge}>
+                  <View style={styles.liveIndicator} />
+                  <Text style={styles.liveText}>LIVE</Text>
+                </View>
+              )}
               {game.hasAiPick && (
                 <View style={styles.aiIndicator}>
                   <Brain size={12} color="#00E5FF" />
@@ -618,7 +714,29 @@ export default function GamesScreen() {
             </View>
           </View>
 
-          {/* Teams and Odds Grid - Conditional layout for MMA vs other sports */}
+          {/* Teams and Odds Grid OR Live Scoreboard */}
+          {liveView ? (
+            <View style={styles.scoreboardContainer}>
+              <View style={styles.scoreRow}>
+                <Text style={styles.scoreTeamName}>{game.away_team}</Text>
+                <Text style={styles.scoreValue}>{
+                  typeof liveVals.awayScore === 'number' ? liveVals.awayScore : '-'
+                }</Text>
+              </View>
+              <View style={styles.scoreRow}>
+                <Text style={styles.scoreTeamName}>{game.home_team}</Text>
+                <Text style={styles.scoreValue}>{
+                  typeof liveVals.homeScore === 'number' ? liveVals.homeScore : '-'
+                }</Text>
+              </View>
+              <View style={styles.scoreMetaRow}>
+                <Text style={styles.scoreMetaText}>
+                  {liveVals.status === 'completed' ? 'Final' : 'In Progress'}
+                  {liveVals.lastUpdate ? ` • Updated ${new Date(liveVals.lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                </Text>
+              </View>
+            </View>
+          ) : (
           <View style={styles.teamsOddsContainer}>
             {/* Column Headers - Different for MMA */}
             <View style={styles.oddsHeaders}>
@@ -718,9 +836,10 @@ export default function GamesScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          )}
 
-          {/* Sportsbook Selector */}
-          {availableBooks.length > 1 && (
+          {/* Sportsbook Selector (hide during live) */}
+          {!liveView && availableBooks.length > 1 && (
             <View style={styles.sportsbookSelector}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bookScrollView}>
                 {/* For Free users: only show FanDuel. For Pro users: show all books */}
@@ -813,15 +932,15 @@ export default function GamesScreen() {
       >
         {/* Header Stats */}
         <LinearGradient
-          colors={isPro ? ['#7C3AED', '#1E40AF'] : ['#1E293B', '#334155']}
+          colors={isElite ? theme.headerGradient : (isPro ? ['#7C3AED', '#1E40AF'] as const : ['#1E293B', '#334155'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerStats}
         >
           {isElite && (
-            <View style={[styles.proBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' }]}>
-              <Crown size={16} color="#FFD700" />
-              <Text style={[styles.proBadgeText, { color: '#FFD700' }]}>✨ ELITE MEMBER ✨</Text>
+            <View style={[styles.proBadge, { backgroundColor: `${theme.accentPrimary}33`, borderColor: theme.accentPrimary }]}> 
+              <Crown size={16} color={theme.accentPrimary} />
+              <Text style={[styles.proBadgeText, { color: theme.accentPrimary }]}>✨ ELITE MEMBER ✨</Text>
             </View>
           )}
           {isPro && !isElite && (
@@ -832,22 +951,28 @@ export default function GamesScreen() {
           )}
 
           <View style={styles.statsRow}>
-            <View style={styles.dualStatCard}>
-              <Calendar size={22} color="#00E5FF" />
-              <Text style={styles.dualStatValue}>{gameStats.total}</Text>
-              <Text style={styles.dualStatLabel}>Games Available{'\n'}Today & Tomorrow</Text>
+            <View style={[
+              styles.dualStatCard,
+              { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+            ]}>
+              <Calendar size={22} color={isElite ? theme.accentPrimary : '#00E5FF'} />
+              <Text style={[styles.dualStatValue, { color: theme.headerTextPrimary }]}>{gameStats.total}</Text>
+              <Text style={[styles.dualStatLabel, { color: theme.headerTextSecondary }]}>Games Available{'\n'}Today & Tomorrow</Text>
             </View>
             
-            <View style={styles.dualStatCardSecondary}>
-              <Clock size={22} color="#8B5CF6" />
-              <Text style={styles.dualStatValueSecondary}>
+            <View style={[
+              styles.dualStatCardSecondary,
+              { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }
+            ]}>
+              <Clock size={22} color={isElite ? theme.accentPrimary : '#8B5CF6'} />
+              <Text style={[styles.dualStatValueSecondary, { color: theme.headerTextPrimary }]}>
                 {new Date().toLocaleDateString('en-US', { 
                   weekday: 'short', 
                   month: 'short', 
                   day: 'numeric' 
                 })}
               </Text>
-              <Text style={styles.dualStatLabel}>
+              <Text style={[styles.dualStatLabel, { color: theme.headerTextSecondary }]}>
                 {new Date().toLocaleTimeString('en-US', {
                   hour: 'numeric',
                   minute: '2-digit',
@@ -908,13 +1033,15 @@ export default function GamesScreen() {
               key={sport.id}
               style={[
                 styles.filterChip,
-                selectedSport === sport.id && styles.filterChipActive
+                selectedSport === sport.id && styles.filterChipActive,
+                isElite && selectedSport === sport.id && { backgroundColor: theme.accentPrimary, borderWidth: 1, borderColor: theme.accentPrimary }
               ]}
               onPress={() => setSelectedSport(sport.id)}
             >
               <Text style={[
                 styles.filterChipText,
-                selectedSport === sport.id && styles.filterChipTextActive
+                selectedSport === sport.id && styles.filterChipTextActive,
+                isElite && selectedSport === sport.id && { color: '#0F172A' }
               ]}>
                 {sport.name}
               </Text>
@@ -1573,6 +1700,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: normalize(8),
   },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: normalize(8),
+    paddingVertical: normalize(4),
+    borderRadius: normalize(6),
+  },
+  liveIndicator: {
+    width: normalize(6),
+    height: normalize(6),
+    borderRadius: normalize(3),
+    backgroundColor: '#EF4444',
+    marginRight: normalize(6),
+  },
+  liveText: {
+    color: '#EF4444',
+    fontSize: normalize(11),
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   leagueBadge: {
     backgroundColor: 'rgba(0, 229, 255, 0.15)',
     paddingHorizontal: normalize(8),
@@ -1591,6 +1739,44 @@ const styles = StyleSheet.create({
   },
   teamsOddsContainer: {
     marginBottom: normalize(16),
+  },
+  scoreboardContainer: {
+    marginBottom: normalize(12),
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+    borderRadius: normalize(12),
+    padding: normalize(12),
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: normalize(6),
+  },
+  scoreTeamName: {
+    color: '#E2E8F0',
+    fontSize: normalize(14),
+    fontWeight: '600',
+    flex: 1,
+  },
+  scoreValue: {
+    color: '#FFFFFF',
+    fontSize: normalize(18),
+    fontWeight: '800',
+    width: normalize(40),
+    textAlign: 'right',
+  },
+  scoreMetaRow: {
+    marginTop: normalize(8),
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(100, 116, 139, 0.2)',
+    paddingTop: normalize(8),
+  },
+  scoreMetaText: {
+    color: '#94A3B8',
+    fontSize: normalize(11),
+    textAlign: 'right',
   },
   oddsHeaders: {
     flexDirection: 'row',

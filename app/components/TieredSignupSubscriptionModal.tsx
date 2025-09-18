@@ -11,7 +11,10 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   X,
@@ -56,11 +59,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onContinueFree,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_lifetime'); // Default to Pro lifetime
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const { subscribeToPro, restorePurchases } = useSubscription();
+  const { subscribe, restorePurchases } = useSubscription();
+  // Optional remote video URL for Elite preview (configure in app.json/app.config.ts under expo.extra.elitePreviewVideoUrl)
+  const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
 
   // Function to calculate original price (double current price for 50% off promo)
   const getOriginalPrice = (currentPrice: string): string => {
@@ -96,24 +101,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       setLoading(true);
       
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
-      
-      const result = await revenueCatService.purchasePackage(selectedPlan);
-      
-      if (result.success) {
-        console.log('✅ Purchase completed successfully!');
-        
-        // Close modal immediately and let the dashboard update
-        if (onSubscribe) {
-          await onSubscribe(selectedPlan, selectedTier);
-        }
+      // Use subscription context to avoid duplicate purchase calls and to persist day pass on server
+      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+      if (success) {
+        console.log('✅ Purchase completed successfully via context!');
         onClose();
-      } else {
-        if (result.error === 'cancelled') {
-          console.log('ℹ️ User cancelled purchase');
-        } else {
-          console.error('❌ Purchase failed with error:', result.error);
-          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
-        }
       }
       
     } catch (error: any) {
@@ -148,9 +140,9 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
     setSelectedTier(tier);
     // Set default plan for the selected tier
     if (tier === 'pro') {
-      setSelectedPlan('pro_lifetime');
+      setSelectedPlan('pro_weekly');
     } else if (tier === 'elite') {
-      setSelectedPlan('elite_yearly');
+      setSelectedPlan('elite_daypass');
     }
   };
 
@@ -165,7 +157,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   const openTermsOfService = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/terms.html';
+    const url = 'https://www.predictive-play.com/terms';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -180,7 +172,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   const openPrivacyPolicy = async () => {
-    const url = 'https://rreusch2.github.io/ppwebsite/privacy.html';
+    const url = 'https://www.predictive-play.com/privacy';
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -196,13 +188,18 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
   const renderTierComparison = () => (
     <View style={styles.tierComparisonContainer}>
-      <Text style={styles.chooseYourPlanTitle}>🚀 Choose Your Plan</Text>
+      <Text style={styles.chooseYourPlanTitle}>🚀 Choose Your Winning Plan</Text>
+      <View style={styles.urgencyContainer}>
+        <View style={styles.urgencyBadge}>
+          <Text style={styles.urgencyText}>⚡ Limited Time: 50% OFF All Plans</Text>
+        </View>
+      </View>
       
       {/* Tier Selection Cards */}
       <View style={styles.tierCardsContainer}>
         {/* Pro Tier Card */}
         <TouchableOpacity
-          style={[styles.tierCard, selectedTier === 'pro' && styles.tierCardSelected]}
+          style={[styles.tierCard, styles.tierCardLeft, selectedTier === 'pro' && styles.tierCardSelected]}
           onPress={() => handleTierSelection('pro')}
         >
           <LinearGradient
@@ -224,30 +221,34 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             
             <View style={styles.tierFeatures}>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 20 Daily AI Picks
+                • 20 Winning AI Picks
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • 8 Daily Insights
+                • 8 Expert Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • Unlimited Chat
+                • Unlimited AI Chat
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'pro' && styles.tierFeatureSelected]}>
-                • Daily AI Predictions
+                • Live Analytics
               </Text>
             </View>
             
-            {selectedTier === 'pro' && (
-              <View style={styles.selectedIndicator}>
-                <Check size={16} color="#1D4ED8" />
-              </View>
-            )}
+            <View>
+              {selectedTier === 'pro' ? (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#1D4ED8" />
+                </View>
+              ) : (
+                <View style={styles.selectedIndicatorPlaceholder} />
+              )}
+            </View>
           </LinearGradient>
         </TouchableOpacity>
 
         {/* Elite Tier Card */}
         <TouchableOpacity
-          style={[styles.tierCard, selectedTier === 'elite' && styles.tierCardSelected]}
+          style={[styles.tierCard, styles.tierCardRight, selectedTier === 'elite' && styles.tierCardSelected]}
           onPress={() => handleTierSelection('elite')}
         >
           <LinearGradient
@@ -269,10 +270,10 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             
             <View style={styles.tierFeatures}>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 30 Daily AI Picks
+                • 30 Elite AI Picks
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 12 Daily Insights
+                • 12 Pro Insights
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
                 • Advanced Professor Lock
@@ -281,15 +282,20 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 • Premium Analytics
               </Text>
               <Text style={[styles.tierFeature, selectedTier === 'elite' && styles.tierFeatureSelected]}>
-                • 🔒 Lock of the Day
+                • Ultra Customization & Themes
               </Text>
             </View>
+            {/* Removed guarantee row to keep Pro/Elite cards the same height */}
             
-            {selectedTier === 'elite' && (
-              <View style={styles.selectedIndicator}>
-                <Check size={16} color="#7C3AED" />
-              </View>
-            )}
+            <View>
+              {selectedTier === 'elite' ? (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#7C3AED" />
+                </View>
+              ) : (
+                <View style={styles.selectedIndicatorPlaceholder} />
+              )}
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -298,8 +304,8 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
-      ? ['pro_yearly', 'pro_monthly', 'pro_weekly', 'pro_daypass', 'pro_lifetime']
-      : ['elite_yearly', 'elite_monthly', 'elite_weekly'];
+      ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
+      : ['elite_daypass', 'elite_weekly', 'elite_monthly', 'elite_yearly'];
 
     return (
       <View style={styles.planOptionsContainer}>
@@ -324,7 +330,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             planName = 'Monthly';
             price = `$${pricing.monthly}`;
             period = 'per month';
-            savings = 'Save 17%';
+            savings = null;
             isTrialEligible = true;
           } else if (plan.includes('yearly')) {
             planName = 'Yearly';
@@ -332,9 +338,12 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             period = 'per year';
             savings = 'Save 50%';
           } else if (plan.includes('daypass')) {
-            planName = 'Day Pass';
-            price = '$4.99';
-            period = 'for 24 hours';
+            planName = selectedTier === 'elite' ? 'Elite Day Pass' : 'Day Pass';
+            price = `$${pricing.daypass}`;
+            period = selectedTier === 'elite' ? '24 hours' : 'for 24 hours';
+            if (selectedTier === 'elite') {
+              savings = 'Try Elite';
+            }
           } else if (plan.includes('lifetime')) {
             planName = 'Lifetime';
             price = `$${pricing.lifetime}`;
@@ -356,19 +365,23 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 style={styles.planGradient}
               >
                 {savings && (
-                  <View style={styles.savingsBadge}>
-                    <Text style={styles.savingsText}>{savings}</Text>
-                  </View>
-                )}
-                
-                {isTrialEligible && (
-                  <View style={[styles.trialBadge, isSelected && styles.trialBadgeSelected]}>
-                    <Gift size={10} color={isSelected ? '#0F172A' : '#F59E0B'} />
-                    <Text style={[styles.trialText, isSelected && styles.trialTextSelected]}>
-                      3-DAY FREE
+                  <View
+                    style={[
+                      styles.savingsBadge,
+                      selectedTier === 'pro' ? styles.savingsBadgePro : styles.savingsBadgeElite,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.savingsText,
+                        { color: selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
+                      ]}
+                    >
+                      {savings}
                     </Text>
                   </View>
                 )}
+                
                 
                 <View style={styles.planHeader}>
                   <View style={styles.planInfo}>
@@ -396,11 +409,6 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                       <Text style={styles.planPrice}>{price}</Text>
                       <Text style={styles.planPeriod}>{period}</Text>
                     </View>
-                    {isTrialEligible && (
-                      <Text style={styles.trialDetails}>
-                        3-day FREE trial, then {price}/{period.split(' ')[1]}
-                      </Text>
-                    )}
                   </View>
                 </View>
               </LinearGradient>
@@ -434,16 +442,25 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
             {/* Main Header */}
             <View style={styles.headerContent}>
-              <View style={styles.crownContainer}>
-                <Crown size={42} color="#F59E0B" />
-                <View style={styles.crownGlow} />
+              <View style={styles.logoContainer}>
+                <Image source={require('../../assets/images/icon.png')} style={styles.appLogo} />
               </View>
-              <Text style={styles.headerTitle}>🚀 Welcome to Predictive Play!</Text>
-              <Text style={styles.headerSubtitle}>
-                Join elite bettors using AI-powered predictions
+              <Text style={styles.headerTitleLine1}>Welcome to</Text>
+              <Text
+                style={styles.headerTitleLine2}
+              >
+                {'Predictive\u00A0Play'}
+              </Text>
+              <Text
+                style={[
+                  styles.headerSocialProof,
+                  { color: selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6' },
+                ]}
+              >
+                Join 10,000+ Elite Winners
               </Text>
             </View>
 
@@ -453,33 +470,49 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             {/* Plan Options */}
             {renderPlanOptions()}
 
-            {/* Subscribe Button */}
-            <TouchableOpacity
-              style={[styles.subscribeButton, loading && styles.subscribeButtonDisabled]}
-              onPress={handleSubscribe}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
-                style={styles.subscribeButtonGradient}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Crown size={20} color="#FFFFFF" />
-                    <Text style={styles.subscribeButtonText}>
-                      Start {selectedTier === 'pro' ? 'Pro' : 'Elite'} Experience
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
             {/* Continue Free Button */}
             <TouchableOpacity style={styles.continueButton} onPress={onContinueFree}>
-              <Text style={styles.continueButtonText}>Continue with Free (2 picks daily)</Text>
+              <Text style={styles.continueButtonText}>Skip Upgrade (Limited to 2 picks daily)</Text>
             </TouchableOpacity>
+
+            {/* Tier Screenshot Preview below Skip */}
+            {selectedTier === 'pro' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                <Image
+                  source={require('../../assets/images/previews/pro-dashboard.png')}
+                  style={styles.tierScreenshot}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
+            {selectedTier === 'elite' && (
+              <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+                {eliteVideoUri ? (
+                  <Video
+                    source={{ uri: eliteVideoUri }}
+                    style={styles.tierScreenshot}
+                    resizeMode={ResizeMode.COVER}
+                    shouldPlay
+                    isLooping
+                    isMuted
+                    usePoster
+                    posterSource={require('../../assets/images/previews/elite-dashboard.png')}
+                  />
+                ) : (
+                  <Image
+                    source={require('../../assets/images/previews/elite-dashboard.png')}
+                    style={styles.tierScreenshot}
+                    resizeMode="cover"
+                  />
+                )}
+                <View style={styles.eliteCustomizationNote}>
+                  <Text style={styles.eliteCustomizationTitle}>Elite Unlocks Ultra Customization</Text>
+                  <Text style={styles.eliteCustomizationText}>
+                    Switch between premium themes and personalize the look of your app with Elite. Make it yours.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Restore Purchases */}
             <TouchableOpacity style={styles.restoreButton} onPress={restorePurchases}>
@@ -501,8 +534,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$19.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
+                    <Text style={styles.subscriptionInfoText}>$24.99 per month, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -525,12 +557,16 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Monthly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$29.99 per month, auto-renewable</Text>
-                    <Text style={styles.trialInfoText}>3-day free trial included</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Elite Subscription</Text>
                     <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                  </View>
+
+                  <View style={styles.subscriptionOption}>
+                    <Text style={styles.subscriptionInfoTitle}>Elite Day Pass</Text>
+                    <Text style={styles.subscriptionInfoText}>$8.99 one-time purchase (24 hours), non-renewable</Text>
                   </View>
                 </>
               )}
@@ -550,20 +586,30 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
               </View>
             </View>
 
-            {/* Footer Links */}
-            <View style={styles.footer}>
-              <View style={styles.legalLinks}>
-                <TouchableOpacity onPress={openTermsOfService}>
-                  <Text style={styles.legalLinkText}>Terms of Service</Text>
-                </TouchableOpacity>
-                <Text style={styles.legalSeparator}> • </Text>
-                <TouchableOpacity onPress={openPrivacyPolicy}>
-                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            
           </ScrollView>
         </LinearGradient>
+        {/* Floating CTA */}
+        <View style={styles.floatingFooter}>
+          <TouchableOpacity
+            style={[styles.floatingCTAButton, loading && styles.subscribeButtonDisabled]}
+            onPress={handleSubscribe}
+            disabled={loading}
+          >
+            <LinearGradient
+              colors={selectedTier === 'pro' ? ['#3B82F6', '#1D4ED8'] : ['#8B5CF6', '#7C3AED']}
+              style={styles.floatingCTAButtonGradient}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.floatingCTAButtonText}>
+                  🚀 Start Winning Now - {selectedTier === 'pro' ? 'Pro' : 'Elite'}
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -615,11 +661,26 @@ const styles = StyleSheet.create({
     opacity: 0.2,
     zIndex: -1,
   },
-  headerTitle: {
-    fontSize: 28,
+  logoContainer: {
+    marginBottom: 16,
+  },
+  appLogo: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+  },
+  headerTitleLine1: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  headerTitleLine2: {
+    fontSize: 30,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
+    marginTop: 2,
     marginBottom: 8,
   },
   headerSubtitle: {
@@ -627,6 +688,13 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  headerSocialProof: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 0,
   },
   tierComparisonContainer: {
     paddingHorizontal: 20,
@@ -641,12 +709,16 @@ const styles = StyleSheet.create({
   },
   tierCardsContainer: {
     flexDirection: 'row',
-    gap: 12,
   },
   tierCard: {
     flex: 1,
     borderRadius: 16,
-    overflow: 'hidden',
+  },
+  tierCardLeft: {
+    marginRight: 6,
+  },
+  tierCardRight: {
+    marginLeft: 6,
   },
   tierCardSelected: {
     shadowColor: '#000',
@@ -659,7 +731,10 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     position: 'relative',
-    minHeight: 200,
+    minHeight: 240,
+    paddingBottom: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   mostPopularBadge: {
     position: 'absolute',
@@ -760,6 +835,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
+    borderWidth: 1,
+  },
+  savingsBadgePro: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+  },
+  savingsBadgeElite: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
   },
   savingsText: {
     fontSize: 10,
@@ -835,6 +919,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  selectedIndicatorPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginLeft: 8,
+    opacity: 0,
+  },
   subscribeButton: {
     marginHorizontal: 20,
     marginBottom: 16,
@@ -856,6 +947,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     marginLeft: 8,
+  },
+  tierScreenshot: {
+    width: '100%',
+    height: Math.min(screenHeight * 0.65, 640),
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  eliteCustomizationNote: {
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  eliteCustomizationTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  eliteCustomizationText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 16,
   },
   continueButton: {
     marginHorizontal: 20,
@@ -891,6 +1007,29 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     marginHorizontal: 4,
+  },
+  floatingFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'ios' ? 14 : 10,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'ios' ? 16 : 12,
+    paddingTop: 4,
+  },
+  floatingCTAButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  floatingCTAButtonGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  floatingCTAButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   appleRequiredInfo: {
     marginTop: 20,
@@ -990,6 +1129,185 @@ const styles = StyleSheet.create({
   planNameWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Conversion optimization styles
+  urgencyContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  urgencyBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  urgencyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  socialProofContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  socialProofText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    textAlign: 'center',
+  },
+  guaranteeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  guaranteeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10B981',
+    marginLeft: 4,
+  },
+  popularBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  popularBadgeSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#FFFFFF',
+  },
+  popularBadgePro: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+  },
+  popularBadgeElite: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
+  },
+  popularText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
+    marginLeft: 4,
+  },
+  popularTextSelected: {
+    color: '#0F172A',
+  },
+  valuePropositionContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  valuePropositionText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  valuePropositionPillPro: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  valuePropositionPillElite: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: '#8B5CF6',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  valuePropositionTextPro: {
+    color: '#3B82F6',
+    fontWeight: '700',
+  },
+  valuePropositionTextElite: {
+    color: '#8B5CF6',
+    fontWeight: '700',
+  },
+  previewSection: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  previewTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  previewContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  previewImageContainer: {
+    flex: 1,
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+  },
+  previewImageDimmed: {
+    opacity: 0.6,
+  },
+  previewOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 8,
+    opacity: 0.8,
+  },
+  previewOverlayActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.9)',
+    opacity: 1,
+  },
+  previewLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  previewFeature: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 2,
   },
 });
 

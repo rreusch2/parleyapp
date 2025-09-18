@@ -20,6 +20,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import PlayerTrendsModal from '../components/PlayerTrendsModal';
 import TeamTrendsModal from '../components/TeamTrendsModal';
 import AIReportModal from '../components/AIReportModal';
+import { useSubscription } from '../services/subscriptionContext';
+import { useUITheme } from '../services/uiThemeContext';
 
 interface Player {
   id: string;
@@ -53,6 +55,8 @@ interface TeamSearchResult extends Team {
 type SearchMode = 'players' | 'teams';
 
 export default function TrendsScreen() {
+  const { isElite } = useSubscription();
+  const { theme } = useUITheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('players');
   const [playerResults, setPlayerResults] = useState<PlayerSearchResult[]>([]);
@@ -70,6 +74,7 @@ export default function TrendsScreen() {
   const [aiReportModalVisible, setAiReportModalVisible] = useState(false);
   const searchRef = useRef<TextInput>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const compactMode = keyboardVisible || searchQuery.trim().length > 0;
 
   const sports = [
     { key: 'all', name: 'All', icon: '🏆' },
@@ -345,46 +350,39 @@ export default function TrendsScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
       <View style={{ flex: 1, padding: 20, paddingTop: 10 }}>
-        {/* Header */}
-        <Text style={{ 
-          fontSize: 28, 
-          fontWeight: 'bold', 
-          color: '#FFFFFF',
-          marginBottom: 32
-        }}>
-          Trends Analysis
-        </Text>
 
+        {!compactMode && (
         <TouchableOpacity
           onPress={() => setAiReportModalVisible(true)}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            backgroundColor: isElite ? `${theme.accentPrimary}1A` : 'rgba(59, 130, 246, 0.2)',
             borderWidth: 1,
-            borderColor: '#3B82F6',
+            borderColor: isElite ? `${theme.accentPrimary}33` : '#3B82F6',
             paddingHorizontal: 20,
             paddingVertical: 14,
             borderRadius: 16,
             marginBottom: 20,
-            shadowColor: '#3B82F6',
+            shadowColor: isElite ? theme.accentPrimary : '#3B82F6',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.2,
             shadowRadius: 4,
             elevation: 3
           }}
         >
-          <Ionicons name="sparkles" size={20} color="#3B82F6" style={{ marginRight: 8 }} />
+          <Ionicons name="sparkles" size={20} color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginRight: 8 }} />
           <Text style={{
-            color: '#3B82F6',
+            color: isElite ? theme.accentPrimary : '#3B82F6',
             fontSize: 16,
             fontWeight: '600'
           }}>
             Daily AI Sports Report
           </Text>
-          <Ionicons name="chevron-forward" size={16} color="#3B82F6" style={{ marginLeft: 8 }} />
+          <Ionicons name="chevron-forward" size={16} color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginLeft: 8 }} />
         </TouchableOpacity>
+        )}
 
         {/* Search Mode Toggle */}
         <View style={{
@@ -392,7 +390,7 @@ export default function TrendsScreen() {
           backgroundColor: '#1F2937',
           borderRadius: 12,
           padding: 4,
-          marginBottom: 20,
+          marginBottom: 12,
           borderWidth: 1,
           borderColor: '#374151'
         }}>
@@ -400,13 +398,14 @@ export default function TrendsScreen() {
             onPress={() => {
               setSearchMode('players');
               setSearchQuery('');
+              searchRef.current?.focus();
             }}
             style={{
               flex: 1,
               paddingVertical: 10,
               paddingHorizontal: 16,
               borderRadius: 8,
-              backgroundColor: searchMode === 'players' ? '#3B82F6' : 'transparent',
+              backgroundColor: searchMode === 'players' ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
               alignItems: 'center'
             }}
           >
@@ -422,13 +421,14 @@ export default function TrendsScreen() {
             onPress={() => {
               setSearchMode('teams');
               setSearchQuery('');
+              searchRef.current?.focus();
             }}
             style={{
               flex: 1,
               paddingVertical: 10,
               paddingHorizontal: 16,
               borderRadius: 8,
-              backgroundColor: searchMode === 'teams' ? '#3B82F6' : 'transparent',
+              backgroundColor: searchMode === 'teams' ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
               alignItems: 'center'
             }}
           >
@@ -443,6 +443,7 @@ export default function TrendsScreen() {
         </View>
 
         {/* Sport Filter Chips - Animated and Compact */}
+        {!compactMode && (
         <Animated.View style={{ opacity: fadeAnim }}>
           <View style={{ 
             flexDirection: 'row', 
@@ -458,10 +459,10 @@ export default function TrendsScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: 6,
                   borderRadius: 16,
-                  backgroundColor: selectedSport === sport.key ? '#3B82F6' : '#1F2937',
+                  backgroundColor: selectedSport === sport.key ? (isElite ? theme.accentPrimary : '#3B82F6') : '#1F2937',
                   borderWidth: 1,
-                  borderColor: selectedSport === sport.key ? '#60A5FA' : '#374151',
-                  shadowColor: selectedSport === sport.key ? '#3B82F6' : 'transparent',
+                  borderColor: selectedSport === sport.key ? (isElite ? `${theme.accentPrimary}66` : '#60A5FA') : '#374151',
+                  shadowColor: selectedSport === sport.key ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
                   shadowOffset: { width: 0, height: 2 },
                   shadowOpacity: selectedSport === sport.key ? 0.3 : 0,
                   shadowRadius: 4,
@@ -479,6 +480,7 @@ export default function TrendsScreen() {
             ))}
           </View>
         </Animated.View>
+        )}
 
         {/* Enhanced Search Bar */}
         <View style={{
@@ -486,7 +488,7 @@ export default function TrendsScreen() {
           borderRadius: 16,
           marginBottom: keyboardVisible ? 12 : 20,
           borderWidth: 1.5,
-          borderColor: searchQuery.length > 0 ? '#3B82F6' : '#374151',
+          borderColor: searchQuery.length > 0 ? (isElite ? theme.accentPrimary : '#3B82F6') : '#374151',
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
@@ -502,7 +504,7 @@ export default function TrendsScreen() {
             <Ionicons 
               name="search" 
               size={20} 
-              color={searchQuery.length > 0 ? '#3B82F6' : '#9CA3AF'} 
+              color={searchQuery.length > 0 ? (isElite ? theme.accentPrimary : '#3B82F6') : '#9CA3AF'} 
               style={{ marginRight: 12 }} 
             />
             <TextInput
@@ -543,7 +545,7 @@ export default function TrendsScreen() {
               </TouchableOpacity>
             )}
             {isSearching && (
-              <ActivityIndicator size="small" color="#3B82F6" style={{ marginLeft: 8 }} />
+              <ActivityIndicator size="small" color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginLeft: 8 }} />
             )}
           </View>
         </View>
@@ -575,6 +577,7 @@ export default function TrendsScreen() {
           style={{ flex: 1 }} 
           showsVerticalScrollIndicator={false} 
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -583,6 +586,7 @@ export default function TrendsScreen() {
               colors={['#3B82F6']}
             />
           }
+          contentContainerStyle={{ paddingBottom: 24 }}
           contentInsetAdjustmentBehavior="automatic"
         >
           {searchQuery.length >= 2 && getCurrentResults().length > 0 && !isSearching && (
@@ -727,14 +731,14 @@ export default function TrendsScreen() {
                         </Text>
                         {index === 0 && playerResults.length > 1 && (
                           <View style={{
-                            backgroundColor: '#059669',
+                            backgroundColor: isElite ? `${theme.accentPrimary}33` : '#059669',
                             paddingHorizontal: 6,
                             paddingVertical: 2,
                             borderRadius: 8,
                             marginLeft: 8
                           }}>
                             <Text style={{
-                              color: '#FFFFFF',
+                              color: isElite ? theme.accentPrimary : '#FFFFFF',
                               fontSize: 10,
                               fontWeight: '600'
                             }}>

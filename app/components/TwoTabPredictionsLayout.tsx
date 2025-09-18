@@ -15,6 +15,8 @@ import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
+import { useUITheme } from '../services/uiThemeContext';
+import { AIPrediction } from '../services/api/aiService';
 
 interface Pick {
   id: string;
@@ -26,6 +28,10 @@ interface Pick {
   reasoning: string;
   bet_type: string;
   sport: string;
+  event_time?: string;
+  created_at?: string;
+  // Add ROI estimate which is stored as text/number in DB
+  roi_estimate?: number | string;
 }
 
 interface TwoTabPredictionsLayoutProps {
@@ -40,6 +46,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { openChatWithContext } = useAIChat();
+  const { theme } = useUITheme();
   
   // Extract Elite status from user prop
   const isElite = user?.isElite || false;
@@ -337,7 +344,7 @@ What are your thoughts on this prediction?`;
       id: pick.id,
       match: pick.match_teams,
       sport: pick.sport,
-      eventTime: new Date().toISOString(),
+      eventTime: pick.event_time || pick.created_at || new Date().toISOString(),
       pick: pick.pick,
       odds: pick.odds,
       confidence: pick.confidence,
@@ -369,9 +376,9 @@ What are your thoughts on this prediction?`;
         activeTab === tab && [
           styles.activeTabButton,
           isElite && {
-            backgroundColor: '#FFD700',
-            borderColor: '#FFD700',
-            shadowColor: '#FFD700'
+            backgroundColor: theme.accentPrimary,
+            borderColor: theme.accentPrimary,
+            shadowColor: theme.accentPrimary
           }
         ]
       ]}
@@ -398,7 +405,7 @@ What are your thoughts on this prediction?`;
       {count > 0 && (
         <View style={[
           styles.countBadge,
-          isElite && { backgroundColor: '#FFD700', shadowColor: '#FFD700' }
+          isElite && { backgroundColor: theme.accentPrimary, shadowColor: theme.accentPrimary }
         ]}>
           <Text style={[
             styles.countText,
@@ -408,6 +415,22 @@ What are your thoughts on this prediction?`;
       )}
     </TouchableOpacity>
   );
+
+  const toAIPrediction = (p: Pick): AIPrediction => ({
+    id: p.id,
+    match: p.match_teams,
+    pick: p.pick,
+    odds: p.odds,
+    confidence: p.confidence,
+    sport: p.sport,
+    eventTime: p.event_time || p.created_at || new Date().toISOString(),
+    reasoning: p.reasoning,
+    value: p.value_percentage,
+    // Pass through ROI so the card can render it instead of "Calculating..."
+    roi_estimate: p.roi_estimate !== undefined && p.roi_estimate !== null
+      ? parseFloat(String(p.roi_estimate))
+      : undefined,
+  });
 
   const renderPicks = (picks: Pick[], isLoading: boolean, type: string) => {
     if (isLoading) {
@@ -453,7 +476,7 @@ What are your thoughts on this prediction?`;
         {picks.map((pick, index) => (
           <EnhancedPredictionCard
             key={pick.id}
-            prediction={pick}
+            prediction={toAIPrediction(pick)}
             index={index}
             onAnalyze={() => handlePickAnalyze(pick)}
           />
@@ -466,9 +489,7 @@ What are your thoughts on this prediction?`;
     <View style={styles.container}>
       {/* Enhanced Premium Header */}
       <LinearGradient
-        colors={isElite 
-          ? ['#FFD700', '#FFA500', '#FF8C00'] 
-          : ['#1E40AF', '#7C3AED', '#0F172A']}
+        colors={isElite ? theme.headerGradient : ['#1E40AF', '#7C3AED', '#0F172A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -480,12 +501,11 @@ What are your thoughts on this prediction?`;
           {/* Centered Title Section */}
           <View style={styles.titleSection}>
             <View style={styles.titleContainer}>
-              <Crown size={20} color={isElite ? '#FFD700' : '#00E5FF'} />
+              <Crown size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
               <View style={styles.titleTextContainer}>
-                <Text style={styles.headerTitle}>{isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}</Text>
-                
+                <Text style={[styles.headerTitle, isElite && { color: theme.headerTextPrimary }]}>{isElite ? 'Elite AI Predictions' : 'Pro AI Predictions'}</Text>
               </View>
-              <Sparkles size={20} color={isElite ? '#FFD700' : '#00E5FF'} />
+              <Sparkles size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
             </View>
           </View>
           
@@ -493,9 +513,9 @@ What are your thoughts on this prediction?`;
           <View style={[
             styles.statsRow,
             isElite && {
-              backgroundColor: 'rgba(255, 215, 0, 0.12)',
-              borderColor: 'rgba(255, 215, 0, 0.25)',
-              shadowColor: '#FFD700'
+              backgroundColor: `${theme.accentPrimary}1F`,
+              borderColor: `${theme.accentPrimary}33`,
+              shadowColor: theme.accentPrimary
             }
           ]}>
             <View style={styles.statItem}>
@@ -509,7 +529,7 @@ What are your thoughts on this prediction?`;
             </View>
             <View style={[
               styles.statDivider,
-              isElite && { backgroundColor: 'rgba(255, 215, 0, 0.3)' }
+              isElite && { backgroundColor: `${theme.accentPrimary}4D` }
             ]} />
             <View style={styles.statItem}>
               <Text style={[
@@ -524,7 +544,7 @@ What are your thoughts on this prediction?`;
             </View>
             <View style={[
               styles.statDivider,
-              isElite && { backgroundColor: 'rgba(255, 215, 0, 0.3)' }
+              isElite && { backgroundColor: `${theme.accentPrimary}4D` }
             ]} />
             <View style={styles.statItem}>
               <Text style={[

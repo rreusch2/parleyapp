@@ -42,14 +42,41 @@ import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
+// Platform-specific AdMob imports
+let RewardedAd: any, RewardedAdEventType: any, TestIds: any, AdEventType: any;
+
+if (Platform.OS !== 'web') {
+  try {
+    const AdMob = require('react-native-google-mobile-ads');
+    RewardedAd = AdMob.RewardedAd;
+    RewardedAdEventType = AdMob.RewardedAdEventType;
+    TestIds = AdMob.TestIds;
+    AdEventType = AdMob.AdEventType;
+  } catch (error) {
+    // Fallback for missing package
+    RewardedAd = { createForAdRequest: () => ({ addAdEventListener: () => () => {}, load: () => {}, show: () => {} }) };
+    RewardedAdEventType = { LOADED: 'loaded', EARNED_REWARD: 'earned_reward' };
+    TestIds = { REWARDED: 'test-rewarded-id' };
+    AdEventType = { CLOSED: 'closed' };
+  }
+} else {
+  // Web fallbacks
+  RewardedAd = { createForAdRequest: () => ({ addAdEventListener: () => () => {}, load: () => {}, show: () => {} }) };
+  RewardedAdEventType = { LOADED: 'loaded', EARNED_REWARD: 'earned_reward' };
+  TestIds = { REWARDED: 'test-rewarded-id' };
+  AdEventType = { CLOSED: 'closed' };
+}
+import { adsService } from '../services/api/adsService';
+import { useUITheme } from '../services/uiThemeContext';
 
 
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function PredictionsScreen() {
-  const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, subscribeToPro, openSubscriptionModal } = useSubscription();
+  const { isPro, isElite, subscriptionTier, proFeatures, eliteFeatures, openSubscriptionModal } = useSubscription();
   const { openChatWithContext, setSelectedPick } = useAIChat();
+  const { theme } = useUITheme();
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,6 +89,8 @@ export default function PredictionsScreen() {
   const [welcomeBonusActive, setWelcomeBonusActive] = useState(false);
   const [welcomeBonusExpires, setWelcomeBonusExpires] = useState<string | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
+  // Backend-provided daily pick limit for display
+  const [apiDailyPickLimit, setApiDailyPickLimit] = useState<number | null>(null);
   
   // Elite user preferences for filtering predictions
   const [userPreferences, setUserPreferences] = useState<any>({
@@ -70,13 +99,98 @@ export default function PredictionsScreen() {
   });
   const [userId, setUserId] = useState<string>('');
   const [showEliteDistribution, setShowEliteDistribution] = useState(false);
+  // Rewarded ad state (server-side extras only)
+  const [adDailyLimit, setAdDailyLimit] = useState<number>(5);
+  const [adRewardsUsed, setAdRewardsUsed] = useState<number>(0);
+  const [adRewardsRemaining, setAdRewardsRemaining] = useState<number>(5);
+  const [rewardedLoaded, setRewardedLoaded] = useState(false);
+  const [adProcessing, setAdProcessing] = useState(false);
+  const rewardedRef = React.useRef<ReturnType<typeof RewardedAd.createForAdRequest> | null>(null);
 
   useEffect(() => {
     loadUserPreferences();
     loadPredictions();
   }, [isPro, isElite]); // Added isElite to dependencies to re-render when subscription changes
 
-  
+  // Load ad reward counters after we know the user
+  useEffect(() => {
+    const run = async () => {
+      if (!userId) return;
+      const status = await adsService.getRewardStatus();
+      if (status) {
+        setAdDailyLimit(status.dailyLimit);
+        setAdRewardsUsed(status.usedClientCounter);
+        setAdRewardsRemaining(status.remaining);
+      }
+    };
+    run();
+  }, [userId]);
+
+  // Setup Rewarded Ad lifecycle (server-side verification via SSV userId)
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!userId) return; // wait for auth
+
+    const adUnitId = __DEV__ ? TestIds.REWARDED : (process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID as string);
+    const rewarded = RewardedAd.createForAdRequest(adUnitId || TestIds.REWARDED, {
+      serverSideVerificationOptions: {
+        userId: userId,
+        customData: 'extra_pick'
+      }
+    });
+    rewardedRef.current = rewarded;
+
+    const unsubscribeLoaded = rewarded.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      setRewardedLoaded(true);
+    });
+    const unsubscribeClosed = rewarded.addAdEventListener(AdEventType.CLOSED, () => {
+      // Preload next after close
+      setTimeout(() => rewarded.load(), 300);
+    });
+    const unsubscribeEarned = rewarded.addAdEventListener(RewardedAdEventType.EARNED_REWARD, async () => {
+      try {
+        setAdProcessing(true);
+        // Tell backend to grant 1 extra pick for today (server-side limit enforced)
+        await adsService.grantExtraPick({ adUnitId });
+        // Refresh counters and picks
+        const status = await adsService.getRewardStatus();
+        if (status) {
+          setAdDailyLimit(status.dailyLimit);
+          setAdRewardsUsed(status.usedClientCounter);
+          setAdRewardsRemaining(status.remaining);
+        }
+        await loadPredictions();
+      } catch (e) {
+        console.warn('Failed to process rewarded ad grant', e);
+      } finally {
+        setAdProcessing(false);
+      }
+    });
+
+    // Start loading immediately
+    rewarded.load();
+    return () => {
+      unsubscribeLoaded();
+      unsubscribeClosed();
+      unsubscribeEarned();
+    };
+  }, [userId]);
+
+  const handleShowRewardedAd = () => {
+    try {
+      if (Platform.OS === 'web') return;
+      const rewarded = rewardedRef.current;
+      if (!rewarded) return;
+      if (!rewardedLoaded) {
+        rewarded.load();
+        return;
+      }
+      rewarded.show();
+      setRewardedLoaded(false); // will reload on close
+    } catch (e) {
+      console.warn('Error showing rewarded ad', e);
+    }
+  };
 
   const loadUserPreferences = async () => {
     try {
@@ -303,6 +417,11 @@ export default function PredictionsScreen() {
             
             setIsNewUser(isNewUserScenario);
             setWelcomeBonusActive(bonusActiveFromAPI);
+            // NEW: capture API-provided limits and ad reward counters
+            if (typeof data.metadata.dailyPickLimit === 'number') {
+              setApiDailyPickLimit(data.metadata.dailyPickLimit);
+            }
+            // ad metadata ignored in this build; backend still limits results
             
             console.log(`📊 Predictions API Metadata:`, JSON.stringify(data.metadata, null, 2));
             
@@ -365,16 +484,8 @@ export default function PredictionsScreen() {
         filtered = filtered.filter(p => p.sport.toLowerCase() === selectedSport.toLowerCase());
       }
     } else {
-      // NEW: For free users, show all picks if they're new users OR have welcome bonus active
-      // Otherwise limit to 2 picks
-      const hasExtendedAccess = isNewUser || welcomeBonusActive;
-      
-      if (!hasExtendedAccess) {
-        const basePickLimit = 2;
-        const totalPickLimit = basePickLimit;
-        filtered = filtered.slice(0, totalPickLimit);
-      }
-      // If new user or welcome bonus is active, show all picks returned by backend (usually 5)
+      // Free users: rely entirely on backend limiting (2 or 5, plus any extras)
+      // No client-side slicing to avoid zero-pick issues
     }
 
     return filtered;
@@ -462,22 +573,18 @@ What are your thoughts on this prediction?`;
       >
         {/* Header Stats */}
         <LinearGradient
-          colors={isElite ? ['#FFD700', '#FFA500', '#FF8C00'] : isPro ? ['#7C3AED', '#1E40AF'] : ['#334155', '#1E293B']}
+          colors={isElite ? theme.ctaGradient : (isPro ? ['#7C3AED', '#1E40AF'] as const : ['#334155', '#1E293B'] as const)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerStats}
         >
           {isElite && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={[styles.proBadge, { backgroundColor: 'rgba(255, 215, 0, 0.2)', borderColor: '#FFD700' }]}>
-                <Crown size={16} color="#FFD700" />
-                <Text style={[styles.proBadgeText, { color: '#FFD700' }]}>✨ ELITE MEMBER ✨</Text>
-              </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' }}>
               <TouchableOpacity
                 style={styles.eliteSettingsButton}
                 onPress={() => setShowEliteDistribution(true)}
               >
-                <Settings size={20} color="#FFD700" />
+                <Settings size={20} color={theme.accentPrimary} />
               </TouchableOpacity>
             </View>
           )}
@@ -491,17 +598,15 @@ What are your thoughts on this prediction?`;
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Activity size={20} color="#00E5FF" />
-              <Text style={[styles.statValue, isElite && { color: '#FFD700' }]}>
+              <Text style={[styles.statValue, isElite && { color: theme.accentPrimary }]}> 
                 {isElite ? `${predictions.length}/30` :
                  isPro ? predictions.length : 
-                 (isNewUser || welcomeBonusActive) ? `${predictions.length}/5` : 
-                 `${Math.min(predictions.length, 2)}/2`}
+                 (typeof apiDailyPickLimit === 'number' ? `${Math.min(predictions.length, apiDailyPickLimit)}/${apiDailyPickLimit}` : `${Math.min(predictions.length, (isNewUser || welcomeBonusActive) ? 5 : 2)}/${(isNewUser || welcomeBonusActive) ? 5 : 2}`)}
               </Text>
-              <Text style={[styles.statLabel, isElite && { color: '#FFD700' }]}>
+              <Text style={[styles.statLabel, isElite && { color: theme.accentPrimary }]}>
                 {isElite ? 'Elite Picks' :
                  isPro ? 'Total Picks' : 
-                 isNewUser ? 'Welcome Picks' :
-                 welcomeBonusActive ? 'Bonus Picks' : 
+                 (isNewUser || welcomeBonusActive) ? 'Welcome/Bonus Picks' : 
                  'Daily Picks'}
               </Text>
               {(isNewUser || welcomeBonusActive) && !isPro && (
@@ -646,14 +751,39 @@ What are your thoughts on this prediction?`;
               </View>
             </View>
           </View>
-        ) : (
-          <View style={styles.filterSection}>
-            <View style={styles.lockedFilters}>
-              <Lock size={20} color="#64748B" />
-              <Text style={styles.lockedFiltersText}>
-                Advanced filters available with Pro
-              </Text>
-            </View>
+        ) : null}
+
+        {/* Rewarded Ad CTA: server-side only extras, base limits unaffected */}
+        {!isPro && (
+          <View style={{ paddingHorizontal: normalize(16), marginTop: normalize(8), marginBottom: normalize(12) }}>
+            <TouchableOpacity disabled={adProcessing || adRewardsRemaining <= 0} onPress={handleShowRewardedAd}>
+              <LinearGradient
+                colors={adRewardsRemaining > 0 ? ['#22c55e', '#16a34a'] : ['#64748B', '#475569']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  paddingVertical: normalize(14),
+                  paddingHorizontal: normalize(16),
+                  borderRadius: normalize(14),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.12)'
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Zap size={18} color="#FFFFFF" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: normalize(14) }}>
+                    {adProcessing ? 'Processing...' : 'Watch an ad to unlock 1 extra pick'}
+                  </Text>
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.9)', marginTop: normalize(6), fontSize: normalize(12) }}>
+                  {adRewardsRemaining > 0
+                    ? `You can unlock up to ${adDailyLimit} extra picks per day • Remaining today: ${adRewardsRemaining}`
+                    : 'Daily limit reached • Come back tomorrow for more extra picks'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1170,17 +1300,6 @@ const styles = StyleSheet.create({
   },
   
   // Welcome Bonus Styles
-  bonusBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0, 229, 255, 0.2)',
-    borderRadius: normalize(12),
-    padding: normalize(4),
-  },
-  bonusText: {
-    fontSize: normalize(12),
-  },
   bonusTimer: {
     marginTop: normalize(12),
     backgroundColor: 'rgba(0, 229, 255, 0.1)',

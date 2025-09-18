@@ -35,6 +35,8 @@ import {
   Flame
 } from 'lucide-react-native';
 import { NewsItem } from './NewsFeed';
+import { useSubscription } from '../services/subscriptionContext';
+import { useUITheme } from '../services/uiThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -56,6 +58,8 @@ const safeStringify = (value: any): string => {
 };
 
 export default function NewsModal({ visible, onClose, newsItem }: NewsModalProps) {
+  const { isElite } = useSubscription();
+  const { theme } = useUITheme();
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -192,7 +196,7 @@ export default function NewsModal({ visible, onClose, newsItem }: NewsModalProps
             <View style={styles.headerActions}>
               <TouchableOpacity onPress={handleBookmark} style={styles.actionButton}>
                 {isBookmarked ? (
-                  <BookmarkCheck size={20} color="#00E5FF" />
+                  <BookmarkCheck size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
                 ) : (
                   <Bookmark size={20} color="#94A3B8" />
                 )}
@@ -222,7 +226,7 @@ export default function NewsModal({ visible, onClose, newsItem }: NewsModalProps
               <View style={styles.badgeContainer}>
                 <View style={styles.typeBadge}>
                   {getNewsIcon(newsItem.type)}
-                  <Text style={styles.typeText}>{newsItem.type.toUpperCase()}</Text>
+                  <Text style={[styles.typeText, isElite && { color: theme.accentPrimary }]}>{newsItem.type.toUpperCase()}</Text>
                 </View>
                 
                 {Boolean(newsItem.relevantToBets) && (
@@ -236,7 +240,7 @@ export default function NewsModal({ visible, onClose, newsItem }: NewsModalProps
               {/* Sport Info */}
               <View style={styles.sportInfo}>
                 <Text style={styles.sportEmoji}>{getSportEmoji(newsItem.sport)}</Text>
-                <Text style={styles.sportText}>{safeStringify(newsItem.sport)}</Text>
+                <Text style={[styles.sportText, isElite && { color: theme.accentPrimary }]}>{safeStringify(newsItem.sport)}</Text>
                 {newsItem.team && (
                   <>
                     <Text style={styles.separator}>•</Text>
@@ -294,9 +298,9 @@ export default function NewsModal({ visible, onClose, newsItem }: NewsModalProps
             {/* Footer */}
             {newsItem.sourceUrl && (
               <View style={styles.footer}>
-                <TouchableOpacity onPress={handleExternalLink} style={styles.readMoreButton}>
-                  <Text style={styles.readMoreText}>Read Full Article</Text>
-                  <ExternalLink size={14} color="#00E5FF" />
+                <TouchableOpacity onPress={handleExternalLink} style={[styles.readMoreButton, isElite && { backgroundColor: `${theme.accentPrimary}1A`, borderColor: `${theme.accentPrimary}33` }]}>
+                  <Text style={[styles.readMoreText, isElite && { color: theme.accentPrimary }]}>Read Full Article</Text>
+                  <ExternalLink size={14} color={isElite ? theme.accentPrimary : '#00E5FF'} />
                 </TouchableOpacity>
               </View>
             )}
