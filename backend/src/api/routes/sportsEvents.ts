@@ -130,10 +130,23 @@ router.get('/live-scores', async (req, res) => {
       // Expected Odds API shape: { id, sport_key, sport_title, commence_time, completed, scores: [{name, score}], last_update }
       const home = item.scores?.[0] || null;
       const away = item.scores?.[1] || null;
+
+      // Determine status conservatively using commence_time
+      const commenceTime = item.commence_time ? new Date(item.commence_time).getTime() : null;
+      const nowTs = Date.now();
+      let mappedStatus: 'scheduled' | 'live' | 'completed' = 'scheduled';
+      if (item.completed) {
+        mappedStatus = 'completed';
+      } else if (commenceTime !== null && nowTs >= commenceTime) {
+        mappedStatus = 'live';
+      } else {
+        mappedStatus = 'scheduled';
+      }
+
       scoresMap[item.id] = {
         eventId: item.id,
-        completed: !!item.completed,
-        status: item.completed ? 'completed' : 'live',
+        completed: mappedStatus === 'completed',
+        status: mappedStatus,
         lastUpdate: item.last_update || null,
         commence_time: item.commence_time,
         home: home ? { name: home.name, score: Number(home.score) } : null,

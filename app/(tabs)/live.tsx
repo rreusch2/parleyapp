@@ -88,6 +88,7 @@ interface EnhancedSportsEvent extends SportsEvent {
   home_team: string;
   away_team: string;
   start_time: string;
+  status?: 'scheduled' | 'live' | 'completed' | 'postponed' | 'cancelled';
   stats?: any;
 }
 
@@ -164,13 +165,15 @@ export default function GamesScreen() {
         }
       }
       
-      const response = await sportsApi.getGames(
-        leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 }
-      );
+      // Fetch scheduled and live in parallel to ensure persistence across restarts
+      const [scheduledResp, liveResp] = await Promise.all([
+        sportsApi.getGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 }),
+        sportsApi.getLiveGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 })
+      ]);
 
-      // Extract games from the paginated response
-      const games = response.data.data || [];
-      console.log('Fetched games:', games.length);
+      const scheduledGames = scheduledResp.data.data || [];
+      const liveGamesData = (liveResp.data.data || []) as EnhancedSportsEvent[];
+      console.log('Fetched scheduled:', scheduledGames.length, 'live:', liveGamesData.length);
 
       // Filter for upcoming games (scheduled status for next 7 days to include NFL preseason)
       const today = new Date();
@@ -179,7 +182,7 @@ export default function GamesScreen() {
       
       const now = new Date();
       
-      const upcomingGamesList = games.filter(game => {
+      const upcomingGamesList = scheduledGames.filter(game => {
         const gameDate = new Date(game.start_time);
         const gameStartTime = gameDate.getTime();
         const currentTime = now.getTime();
@@ -188,7 +191,7 @@ export default function GamesScreen() {
         
         // Game must be scheduled AND either:
         // 1. Game is in the future (hasn't started yet)
-        // 2. Game is within 30 minutes of start time (buffer for live games)
+        // 2. Game is within 30 minutes of start time (buffer for late API flips)
         // 3. Game is within the next 7 days (to show NFL preseason Aug 7-8)
         return game.status === 'scheduled' && 
                gameStartTime <= nextWeek.getTime() && 
@@ -221,16 +224,19 @@ export default function GamesScreen() {
       
       console.log('Total upcoming games (next 7 days):', enhancedGames.length);
 
+      // Persist live games: trust DB state for live list
+      const enhancedLiveGames: EnhancedSportsEvent[] = liveGamesData.map(g => ({ ...g }));
+
       setUpcomingGames(enhancedGames);
-      setLiveGames([]); // Clear live games
-      setCompletedGames([]); // Clear completed games
+      setLiveGames(enhancedLiveGames);
+      setCompletedGames([]); // Clear completed games (handled elsewhere)
       
       // Update stats
       const aiPickCount = enhancedGames.filter(g => g.hasAiPick).length;
       setGameStats({
-        total: enhancedGames.length,
+        total: enhancedGames.length + enhancedLiveGames.length,
         withAI: aiPickCount,
-        live: 0 // Would be calculated from live games
+        live: enhancedLiveGames.length
       });
       
     } catch (error: any) {
@@ -451,12 +457,14 @@ export default function GamesScreen() {
       livePollRef.current = null;
     }
 
-    // Identify candidate games to track (within -15m to +6h window)
+    // Identify candidate games to track (within -15m to +6h window) plus current lives
     const now = Date.now();
-    const candidates = upcomingGames.filter(g => {
+    const upcomingCandidates = upcomingGames.filter(g => {
       const t = new Date(g.start_time).getTime();
       return t >= (now - 15 * 60 * 1000) && t <= (now + 6 * 60 * 60 * 1000);
     });
+    const liveCandidates = liveGames;
+    const candidates = [...upcomingCandidates, ...liveCandidates];
 
     if (candidates.length === 0) {
       return; // nothing to poll
@@ -520,13 +528,16 @@ export default function GamesScreen() {
 
   // Determine if a game should be shown in LIVE mode
   const isGameLiveNow = (game: EnhancedSportsEvent) => {
+    // Persist across restarts using DB status first
+    if (game.status === 'live') return true;
+    if (game.status === 'completed') return false;
     const live = liveScores[getEventKey(game)];
-    if (live?.status === 'live') return true;
     if (live?.status === 'completed') return false;
+    if (live?.status === 'live') return true;
     const now = Date.now();
     const start = new Date(game.start_time).getTime();
-    // Consider live from a couple minutes before start until 6 hours after
-    return now >= (start - 2 * 60 * 1000) && now <= (start + 6 * 60 * 60 * 1000);
+    // Only switch to live at/after scheduled start; keep up to 6 hours after
+    return now >= start && now <= (start + 6 * 60 * 60 * 1000);
   };
 
   const getLiveScoreValues = (game: EnhancedSportsEvent) => {
@@ -542,7 +553,16 @@ export default function GamesScreen() {
   };
 
   const getFilteredGames = () => {
-    let filtered = upcomingGames;
+    // Merge scheduled and live, de-duplicate by external_event_id/id
+    const allGames = [...upcomingGames, ...liveGames];
+    const seen = new Set<string>();
+    let filtered = allGames.filter(g => {
+      const key = getEventKey(g);
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     if (selectedSport !== 'all') {
       // Map frontend sport filters to backend league values (same as fetchGames)
@@ -576,8 +596,8 @@ export default function GamesScreen() {
       acc[game.league] = (acc[game.league] || 0) + 1;
       return acc;
     }, {} as Record<string, number>));
-    // Hide completed games if live scores indicate final
-    filtered = filtered.filter(g => liveScores[getEventKey(g)]?.status !== 'completed');
+    // Hide completed games if either live scores or DB indicate final
+    filtered = filtered.filter(g => (liveScores[getEventKey(g)]?.status ?? g.status) !== 'completed');
 
     return filtered;
   };
