@@ -179,7 +179,7 @@ class ReferralService {
 
       // Calculate 25% discount prices
       const originalPrices = {
-        weekly: 12.49,
+        weekly: 9.99,
         monthly: 24.99,
         yearly: 199.99,
         lifetime: 349.99

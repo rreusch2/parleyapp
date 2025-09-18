@@ -48,7 +48,7 @@ router.get('/stats', async (req: express.Request, res: express.Response) => {
 
     // Calculate estimated monthly revenue
     const monthlyRevenue = (
-      (weeklySubs * 12.49 * 4.33) + // Weekly * 4.33 weeks per month
+      (weeklySubs * 9.99 * 4.33) + // Weekly * 4.33 weeks per month
       (monthlySubs * 24.99) +
       (yearlySubs * 199.99 / 12) + // Yearly divided by 12 months
       (lifetimeSubs * 349.99 / 60) // Lifetime spread over 5 years (60 months)

@@ -102,23 +102,47 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
       
-      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+      const result = await revenueCatService.purchasePackage(selectedPlan);
       
-      if (success) {
+      if (result.success) {
         console.log('✅ Purchase completed successfully!');
+        
         // Close modal immediately and let the dashboard update
         if (onSubscribe) {
           await onSubscribe(selectedPlan, selectedTier);
         }
         onClose();
       } else {
-        console.log('ℹ️ User cancelled purchase or it failed');
-        Alert.alert('Purchase Error', 'Unable to process purchase. Please try again.');
+        if (result.error === 'cancelled') {
+          console.log('ℹ️ User cancelled purchase');
+        } else {
+          console.error('❌ Purchase failed with error:', result.error);
+          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
+        }
       }
       
     } catch (error: any) {
       console.error('❌ Subscription error:', error);
-      const errorMessage = error?.message || 'Unable to process purchase. Please try again.';
+      
+      let errorMessage = 'Unable to process purchase. Please try again.';
+      
+      if (error && typeof error === 'object') {
+        const errorStr = error.message || error.toString() || '';
+        
+        if (errorStr.includes('cancelled') || errorStr.includes('canceled')) {
+          console.log('ℹ️ User cancelled purchase');
+          return;
+        } else if (errorStr.includes('not available') || errorStr.includes('unavailable')) {
+          errorMessage = 'This subscription is not available right now. Please try again later.';
+        } else if (errorStr.includes('Network') || errorStr.includes('network')) {
+          errorMessage = 'Please check your internet connection and try again.';
+        } else if (errorStr.includes('payment') || errorStr.includes('Payment')) {
+          errorMessage = 'Payment processing failed. Please check your payment method and try again.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+      }
+      
       Alert.alert('Purchase Error', errorMessage);
     } finally {
       setLoading(false);
@@ -518,7 +542,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$12.49 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -528,7 +552,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$199.99 per year, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$149.99 per year, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>

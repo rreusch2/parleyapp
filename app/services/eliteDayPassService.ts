@@ -23,18 +23,25 @@ class EliteDayPassService {
         };
       }
 
-      // RevenueCat service updates the DB for day pass. Read back expiration from profile.
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('subscription_expires_at')
-        .eq('id', userId)
-        .single();
+      // If purchase successful, activate the temporary Elite tier
+      const { error: activationError } = await supabase
+        .rpc('activate_elite_daypass', { user_id_param: userId });
 
-      const expiresAt = profile?.subscription_expires_at || new Date(Date.now() + 24*60*60*1000).toISOString();
+      if (activationError) {
+        console.error('Elite Day Pass activation error:', activationError);
+        return {
+          success: false,
+          error: 'Failed to activate Elite Day Pass'
+        };
+      }
+
+      // Get the expiration time
+      const expirationTime = new Date();
+      expirationTime.setHours(expirationTime.getHours() + 24);
 
       return {
         success: true,
-        expiresAt,
+        expiresAt: expirationTime.toISOString()
       };
 
     } catch (error) {

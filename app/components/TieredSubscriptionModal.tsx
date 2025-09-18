@@ -152,15 +152,25 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const handleSubscribe = async () => {
+    if (loading) {
+      console.log('⚠️ Subscription already in progress, ignoring duplicate call');
+      return;
+    }
+    
     try {
       setLoading(true);
-      console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
+      console.log(`🔥 Attempting to subscribe to ${selectedPlan} with tier ${selectedTier}`);
       
-      // Track subscription intent with Facebook Analytics (Add to Cart event)
+      // Prevent double-tap for day passes
+      if (selectedPlan === 'elite_daypass' || selectedPlan === 'pro_daypass') {
+        console.log('🎯 Processing day pass purchase, preventing double-tap');
+      }
+      
+      // Track Facebook Analytics Add to Cart event)
       try {
         // Fallbacks if DB pricing hasn't loaded yet
         const planPrices: Record<string, number> = {
-          pro_weekly: 12.49,
+          pro_weekly: 9.99,
           pro_monthly: 24.99,
           pro_yearly: 199.99,
           pro_lifetime: 349.99,
@@ -591,7 +601,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_weekly', '$12.49 per week, auto-renewable')}</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_weekly', '$9.99 per week, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -601,7 +611,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Yearly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_yearly', '$199.99 per year, auto-renewable')}</Text>
+                    <Text style={styles.subscriptionInfoText}>{getDisclosure('pro_yearly', '$149.99 per year, auto-renewable')}</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>

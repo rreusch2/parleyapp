@@ -26,6 +26,8 @@ import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import appsFlyerService from '../services/appsFlyerService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
+import { dayPassService } from '../services/dayPassService';
+import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
 
 
 export default function SignupScreen() {
@@ -240,13 +242,55 @@ export default function SignupScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleSubscribe = async (planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass') => {
+  const handleSubscriptionSuccess = async (planId: SubscriptionPlan | 'pro_daypass' | 'elite_daypass', tier: 'pro' | 'elite') => {
     try {
-      console.log(`🚀 User attempting to subscribe to ${planId} plan`);
       setLoading(true);
-
-      // Use RevenueCat for purchase processing
-      const revenueCatService = (await import('../services/revenueCatService')).default;
+      console.log(`🔥 User attempting to subscribe to ${planId} plan with tier ${tier}`);
+      
+      // Check if this is a day pass
+      const isDayPass = planId === 'elite_daypass' || planId === 'pro_daypass';
+      
+      if (isDayPass) {
+        console.log('🎯 Processing day pass purchase in signup flow...');
+        
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          throw new Error('User not found');
+        }
+        
+        // Map to correct product ID
+        const productId = planId === 'pro_daypass' ? 'com.parleyapp.prodaypass' : 'com.parleyapp.elitedaypass';
+        const dayPassTier = planId === 'elite_daypass' ? 'elite' : 'pro';
+        
+        // Use day pass service
+        const dayPassResult = await dayPassService.purchaseDayPass(user.id, productId, dayPassTier);
+        
+        if (dayPassResult.success) {
+          console.log('✅ User successfully purchased day pass!');
+          setHasSubscribedToPro(true); // Mark that user has paid (bypass wheel)
+          
+          // Update subscription status
+          await checkSubscriptionStatus();
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          Alert.alert(
+            `🎉 ${dayPassTier === 'elite' ? 'Elite' : 'Pro'} Day Pass Activated!`,
+            `You have ${dayPassTier === 'elite' ? 'Elite' : 'Pro'} access for 24 hours!`,
+            [{ 
+              text: 'Let\'s Go!', 
+              onPress: () => {
+                setShowSubscriptionModal(false);
+                // Navigate directly to app without showing spinning wheel
+                router.replace('/(tabs)');
+              }
+            }]
+          );
+          return;
+        } else {
+          throw new Error(dayPassResult.error || 'Day pass activation failed');
+        }
+      }
       
       console.log('🔄 Processing subscription with RevenueCat...');
       
@@ -259,7 +303,7 @@ export default function SignupScreen() {
       const result = await revenueCatService.purchasePackage(planId);
       
       if (result.success) {
-        console.log('✅ User successfully subscribed to Pro!');
+        console.log('✅ User successfully subscribed!');
         setHasSubscribedToPro(true); // Mark that user has subscribed
         
         // Add debug logging after successful purchase
