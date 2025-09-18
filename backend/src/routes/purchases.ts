@@ -203,6 +203,17 @@ router.post('/verify', async (req, res) => {
     
     // Handle day pass expiration (24 hours)
     if (productId.includes('daypass') || productId === 'com.parleyapp.prodaypass') {
+      // Preserve previous tier so we can revert after day pass expiry
+      try {
+        const { data: currentProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('subscription_tier, base_subscription_tier')
+          .eq('id', userId)
+          .single();
+        updateData.base_subscription_tier = currentProfile?.subscription_tier || currentProfile?.base_subscription_tier || 'free';
+      } catch (e) {
+        console.warn('⚠️ Failed to fetch current profile for base tier preservation:', e);
+      }
       const dayPassExpiration = new Date();
       dayPassExpiration.setHours(dayPassExpiration.getHours() + 24);
       updateData.subscription_expires_at = dayPassExpiration.toISOString();
@@ -414,6 +425,7 @@ function getSubscriptionTier(productId: string): string {
     'com.parleyapp.elite_weekly': 'elite',
     'com.parleyapp.elite_monthly': 'elite',
     'com.parleyapp.elite_yearly': 'elite',
+    'com.parleyapp.elitedaypass': 'elite',
     'elite_weekly': 'elite', // Android
     'elite_monthly': 'elite', // Android
     'elite_yearly': 'elite' // Android

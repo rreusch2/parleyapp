@@ -152,21 +152,11 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   };
 
   const handleSubscribe = async () => {
-    if (loading) {
-      console.log('⚠️ Subscription already in progress, ignoring duplicate call');
-      return;
-    }
-    
     try {
       setLoading(true);
-      console.log(`🔥 Attempting to subscribe to ${selectedPlan} with tier ${selectedTier}`);
+      console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
       
-      // Prevent double-tap for day passes
-      if (selectedPlan === 'elite_daypass' || selectedPlan === 'pro_daypass') {
-        console.log('🎯 Processing day pass purchase, preventing double-tap');
-      }
-      
-      // Track Facebook Analytics Add to Cart event)
+      // Track subscription intent with Facebook Analytics (Add to Cart event)
       try {
         // Fallbacks if DB pricing hasn't loaded yet
         const planPrices: Record<string, number> = {

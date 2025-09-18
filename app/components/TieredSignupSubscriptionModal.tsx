@@ -101,24 +101,11 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       setLoading(true);
       
       console.log('🔄 Starting subscription purchase for:', selectedPlan, selectedTier);
-      
-      const result = await revenueCatService.purchasePackage(selectedPlan);
-      
-      if (result.success) {
-        console.log('✅ Purchase completed successfully!');
-        
-        // Close modal immediately and let the dashboard update
-        if (onSubscribe) {
-          await onSubscribe(selectedPlan, selectedTier);
-        }
+      // Use subscription context to avoid duplicate purchase calls and to persist day pass on server
+      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+      if (success) {
+        console.log('✅ Purchase completed successfully via context!');
         onClose();
-      } else {
-        if (result.error === 'cancelled') {
-          console.log('ℹ️ User cancelled purchase');
-        } else {
-          console.error('❌ Purchase failed with error:', result.error);
-          Alert.alert('Purchase Error', result.error || 'Unable to process purchase. Please try again.');
-        }
       }
       
     } catch (error: any) {

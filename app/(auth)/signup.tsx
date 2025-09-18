@@ -26,8 +26,6 @@ import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import appsFlyerService from '../services/appsFlyerService';
 import facebookAnalyticsService from '../services/facebookAnalyticsService';
-import { dayPassService } from '../services/dayPassService';
-import revenueCatService, { SubscriptionPlan } from '../services/revenueCatService';
 
 
 export default function SignupScreen() {
@@ -59,7 +57,7 @@ export default function SignupScreen() {
   
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { checkSubscriptionStatus } = useSubscription();
+  const { checkSubscriptionStatus, isPro, isElite } = useSubscription();
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
@@ -242,55 +240,13 @@ export default function SignupScreen() {
     router.replace('/(tabs)');
   };
 
-  const handleSubscriptionSuccess = async (planId: SubscriptionPlan | 'pro_daypass' | 'elite_daypass', tier: 'pro' | 'elite') => {
+  const handleSubscribe = async (planId: 'weekly' | 'monthly' | 'yearly' | 'lifetime' | 'pro_weekly' | 'pro_monthly' | 'pro_yearly' | 'pro_daypass') => {
     try {
+      console.log(`🚀 User attempting to subscribe to ${planId} plan`);
       setLoading(true);
-      console.log(`🔥 User attempting to subscribe to ${planId} plan with tier ${tier}`);
-      
-      // Check if this is a day pass
-      const isDayPass = planId === 'elite_daypass' || planId === 'pro_daypass';
-      
-      if (isDayPass) {
-        console.log('🎯 Processing day pass purchase in signup flow...');
-        
-        // Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          throw new Error('User not found');
-        }
-        
-        // Map to correct product ID
-        const productId = planId === 'pro_daypass' ? 'com.parleyapp.prodaypass' : 'com.parleyapp.elitedaypass';
-        const dayPassTier = planId === 'elite_daypass' ? 'elite' : 'pro';
-        
-        // Use day pass service
-        const dayPassResult = await dayPassService.purchaseDayPass(user.id, productId, dayPassTier);
-        
-        if (dayPassResult.success) {
-          console.log('✅ User successfully purchased day pass!');
-          setHasSubscribedToPro(true); // Mark that user has paid (bypass wheel)
-          
-          // Update subscription status
-          await checkSubscriptionStatus();
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          Alert.alert(
-            `🎉 ${dayPassTier === 'elite' ? 'Elite' : 'Pro'} Day Pass Activated!`,
-            `You have ${dayPassTier === 'elite' ? 'Elite' : 'Pro'} access for 24 hours!`,
-            [{ 
-              text: 'Let\'s Go!', 
-              onPress: () => {
-                setShowSubscriptionModal(false);
-                // Navigate directly to app without showing spinning wheel
-                router.replace('/(tabs)');
-              }
-            }]
-          );
-          return;
-        } else {
-          throw new Error(dayPassResult.error || 'Day pass activation failed');
-        }
-      }
+
+      // Use RevenueCat for purchase processing
+      const revenueCatService = (await import('../services/revenueCatService')).default;
       
       console.log('🔄 Processing subscription with RevenueCat...');
       
@@ -303,7 +259,7 @@ export default function SignupScreen() {
       const result = await revenueCatService.purchasePackage(planId);
       
       if (result.success) {
-        console.log('✅ User successfully subscribed!');
+        console.log('✅ User successfully subscribed to Pro!');
         setHasSubscribedToPro(true); // Mark that user has subscribed
         
         // Add debug logging after successful purchase
@@ -1020,12 +976,11 @@ export default function SignupScreen() {
         visible={showSubscriptionModal}
         onClose={() => {
           setShowSubscriptionModal(false);
-          // Show spinning wheel for free users
-          if (!hasSubscribedToPro) {
-            setShowSpinningWheel(true);
-          } else {
-            // Go straight to the app for Pro subscribers
+          // If user is Pro or Elite (including day passes), skip welcome wheel
+          if (isPro || isElite || hasSubscribedToPro) {
             router.replace('/(tabs)');
+          } else {
+            setShowSpinningWheel(true);
           }
         }}
         onSubscribe={handleSubscribe}

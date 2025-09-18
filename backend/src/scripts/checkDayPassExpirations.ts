@@ -24,12 +24,12 @@ export async function checkAndProcessDayPassExpirations(): Promise<void> {
     console.log('🔍 Checking for expired Pro Day Pass subscriptions...');
     const now = new Date().toISOString();
 
-    // Find users with expired day pass subscriptions
+    // Find users with expired day pass subscriptions (Pro or Elite)
     const { data: expiredUsers, error: fetchError } = await supabaseAdmin
       .from('profiles')
-      .select('id, email, subscription_tier, subscription_plan_type, subscription_expires_at, subscription_started_at')
+      .select('id, email, subscription_tier, subscription_plan_type, subscription_expires_at, subscription_started_at, base_subscription_tier')
       .eq('subscription_plan_type', 'daypass')
-      .eq('subscription_tier', 'pro')
+      .in('subscription_tier', ['pro', 'elite'])
       .not('subscription_expires_at', 'is', null)
       .lt('subscription_expires_at', now);
 
@@ -50,11 +50,11 @@ export async function checkAndProcessDayPassExpirations(): Promise<void> {
       try {
         console.log(`⏰ Processing expired day pass for user: ${user.email} (expires: ${user.subscription_expires_at})`);
         
-        // Revert user to free tier
+        // Revert user to their base subscription tier (default to free)
         const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update({
-            subscription_tier: 'free',
+            subscription_tier: (user as any).base_subscription_tier || 'free',
             subscription_status: 'inactive',
             subscription_plan_type: null,
             subscription_product_id: null,
@@ -68,7 +68,7 @@ export async function checkAndProcessDayPassExpirations(): Promise<void> {
           continue;
         }
 
-        console.log(`✅ Successfully reverted ${user.email} from Pro Day Pass to Free tier`);
+        console.log(`✅ Successfully reverted ${user.email} from Day Pass to base tier`);
         
         // Log the action for audit purposes
         await logDayPassExpiration(user);

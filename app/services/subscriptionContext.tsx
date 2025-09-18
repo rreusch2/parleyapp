@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { revenueCatService, SubscriptionPlan } from './revenueCatService';
+import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
-import { dayPassService } from './dayPassService';
+import { Alert, Platform } from 'react-native';
+import facebookAnalyticsService from './facebookAnalyticsService';
+import eliteDayPassService from './eliteDayPassService';
+
 
 interface SubscriptionContextType {
   isPro: boolean;
@@ -13,7 +15,7 @@ interface SubscriptionContextType {
   isLoading: boolean;
   showSubscriptionModal: boolean;
   checkSubscriptionStatus: () => Promise<void>;
-  subscribe: (planId: SubscriptionPlan | 'dailypasspro' | 'pro_daypass', tier: 'pro' | 'elite') => Promise<boolean>;
+  subscribe: (planId: SubscriptionPlan, tier: 'pro' | 'elite') => Promise<boolean>;
   openSubscriptionModal: () => void;
   closeSubscriptionModal: () => void;
   restorePurchases: () => Promise<void>;
@@ -93,6 +95,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
             } catch (e) {
               console.warn('Realtime handler error', e);
             }
+          }
           })
           .subscribe((status: string) => {
             console.log('📡 Realtime channel status:', status);
@@ -123,17 +126,41 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         console.log('✅ DEBUG: User found:', user.id);
         
         // Check database for subscription_tier first - this is the source of truth
-        const { data: profile, error } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at, temporary_tier_active, temporary_tier, temporary_tier_expires_at')
+          .select('subscription_tier, welcome_bonus_claimed, welcome_bonus_expires_at, subscription_plan_type, subscription_expires_at, temporary_tier_active, temporary_tier, temporary_tier_expires_at')
           .eq('id', user.id)
           .single();
         
         const now = new Date(); // Define now here for use throughout the function
         
-        if (!error && profile) {
+        if (!profileError && profile) {
           console.log('🔄 DEBUG: Profile found:', profile);
           
+          // 1) Temporary tier (database RPC) takes absolute precedence
+          const tempExpires = profile.temporary_tier_expires_at ? new Date(profile.temporary_tier_expires_at) : null;
+          const isTempActive = profile.temporary_tier_active && tempExpires && now < tempExpires;
+
+          if (isTempActive) {
+            const tier = profile.temporary_tier === 'elite' ? 'elite' : 'pro';
+            console.log('🏁 Active Temporary Tier detected → forcing paid tier:', tier);
+            setIsPro(true);
+            setIsElite(tier === 'elite');
+            setSubscriptionTier(tier as 'pro' | 'elite');
+            await AsyncStorage.setItem('subscriptionStatus', tier);
+          } else {
+            // 2) Plan type daypass fallback (server purchases endpoint)
+            const subExpires = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+            const isDayPassActive = profile.subscription_plan_type === 'daypass' && subExpires && now < subExpires;
+
+            if (isDayPassActive) {
+            const tier = profile.subscription_tier === 'elite' ? 'elite' : 'pro';
+            console.log('🏁 Active Day Pass detected in DB → forcing paid tier:', tier);
+            setIsPro(true);
+            setIsElite(tier === 'elite');
+            setSubscriptionTier(tier as 'pro' | 'elite');
+            await AsyncStorage.setItem('subscriptionStatus', tier);
+          } else {
           // CRITICAL: Check if user has active welcome bonus
           const welcomeBonusExpires = profile.welcome_bonus_expires_at ? new Date(profile.welcome_bonus_expires_at) : null;
           const hasActiveWelcomeBonus = profile.welcome_bonus_claimed && welcomeBonusExpires && now < welcomeBonusExpires;
@@ -147,42 +174,25 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
             setIsElite(false);
             setSubscriptionTier('free');
             await AsyncStorage.setItem('subscriptionStatus', 'free');
+          } else if (profile.subscription_tier === 'elite') {
+            console.log('👑 User is Elite according to database');
+            setIsPro(true); // Elite users are also Pro
+            setIsElite(true);
+            setSubscriptionTier('elite');
+            await AsyncStorage.setItem('subscriptionStatus', 'elite');
+          } else if (profile.subscription_tier === 'pro') {
+            console.log('✅ User is Pro according to database');
+            setIsPro(true);
+            setIsElite(false);
+            setSubscriptionTier('pro');
+            await AsyncStorage.setItem('subscriptionStatus', 'pro');
           } else {
-            console.log('✅ DEBUG: User found, checking subscription_tier:', profile.subscription_tier);
-            console.log('🔍 DEBUG: Temporary tier info:', {
-              temporary_tier_active: profile.temporary_tier_active,
-              temporary_tier: profile.temporary_tier,
-              temporary_tier_expires_at: profile.temporary_tier_expires_at
-            });
-            
-            if (DEV_CONFIG.FORCE_PRO_STATUS || DEV_CONFIG.ENABLE_TEST_PRO_SUBSCRIPTION) {
-              console.log('🔧 DEBUG: Development mode - forcing Pro status');
-              setIsPro(true);
-              setSubscriptionTier('pro');
-              await AsyncStorage.setItem('subscriptionStatus', 'pro');
-            } else {
-              // Check for active temporary tier (day pass)
-              const tempExpiry = profile.temporary_tier_expires_at ? new Date(profile.temporary_tier_expires_at) : null;
-              const hasTempTier = profile.temporary_tier_active && tempExpiry && tempExpiry > now;
-              
-              // Use temporary tier if active, otherwise use regular subscription_tier
-              const effectiveTier = hasTempTier ? profile.temporary_tier : profile.subscription_tier;
-              const tier = effectiveTier as 'free' | 'pro' | 'elite';
-              
-              console.log('📊 DEBUG: Effective tier:', tier, hasTempTier ? '(day pass)' : '(subscription)');
-              setSubscriptionTier(tier);
-              
-              if (tier === 'elite') {
-                setIsElite(true);
-                setIsPro(true); // Elite includes Pro
-              } else if (tier === 'pro') {
-                setIsPro(true);
-                setIsElite(false);
-              } else {
-                setIsPro(false);
-                setIsElite(false);
-              }
-            }
+            console.log('ℹ️ User is Free according to database');
+            setIsPro(false);
+            setIsElite(false);
+            setSubscriptionTier('free');
+            await AsyncStorage.setItem('subscriptionStatus', 'free');
+          }
           }
         } else {
           console.log('⚠️ Could not fetch user profile, defaulting to Free');
@@ -244,7 +254,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   };
   
-    const subscribe = async (planId: SubscriptionPlan | 'dailypasspro' | 'pro_daypass', tier: 'pro' | 'elite'): Promise<boolean> => {
+    const subscribe = async (planId: SubscriptionPlan, tier: 'pro' | 'elite'): Promise<boolean> => {
     console.log(`🔥 DEBUG: subscribe called with planId: ${planId} and tier: ${tier}`);
     
     try {
@@ -256,45 +266,78 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       console.log('✅ DEBUG: User found:', user.id);
 
-      // Handle Day Passes specially
-      if (planId === 'elite_daypass' || planId === 'dailypasspro' || planId === 'pro_daypass') {
-        console.log('🎯 DEBUG: Processing Day Pass purchase...');
-        const isDayPassElite = planId === 'elite_daypass';
-        const dayPassTier = isDayPassElite ? 'elite' : 'pro';
-        
-        // Map to correct product ID
-        const productId = planId === 'dailypasspro' ? 'com.parleyapp.prodaypass' : 
-                         planId === 'pro_daypass' ? 'com.parleyapp.prodaypass' :
-                         'com.parleyapp.elitedaypass';
-        
-        const dayPassResult = await dayPassService.purchaseDayPass(user.id, productId, dayPassTier);
+      // Handle Pro Day Pass specially (non-renewable, 24h access)
+      if (planId === 'pro_daypass') {
+        console.log('🎯 DEBUG: Processing Pro Day Pass purchase...');
+        // Complete purchase via RevenueCat first
+        const purchaseResult = await revenueCatService.purchasePackage('pro_daypass');
+        if (!purchaseResult.success) {
+          Alert.alert('Purchase Failed', purchaseResult.error || 'Unable to activate Pro Day Pass');
+          return false;
+        }
+
+        // Persist 24h Pro access on the server (RPC)
+        try {
+          const { error: activationError } = await supabase.rpc('activate_pro_daypass', { user_id_param: user.id });
+          if (activationError) {
+            console.error('Pro Day Pass activation error:', activationError);
+            Alert.alert('Activation Error', 'Purchase succeeded but activation failed. Please use Restore Purchases.');
+            return false;
+          }
+        } catch (e) {
+          console.error('RPC error during Pro Day Pass activation:', e);
+          Alert.alert('Activation Error', 'Purchase succeeded but activation failed. Please use Restore Purchases.');
+          return false;
+        }
+
+        // Update local state immediately
+        setIsPro(true);
+        setIsElite(false);
+        setSubscriptionTier('pro');
+        await AsyncStorage.setItem('subscriptionStatus', 'pro');
+
+        // Track purchase
+        try { facebookAnalyticsService.trackPurchase(4.99, 'USD'); } catch {}
+
+        // Success message
+        Alert.alert(
+          '🎉 Pro Day Pass Activated!',
+          'You now have Pro access for 24 hours. Enjoy 20 daily picks and premium features!',
+          [{ text: 'Get Started', style: 'default' }]
+        );
+
+        // Ensure downstream UI reflects DB
+        await checkSubscriptionStatus();
+        return true;
+      }
+
+      // Handle Elite Day Pass specially
+      if (planId === 'elite_daypass') {
+        console.log('🎯 DEBUG: Processing Elite Day Pass purchase...');
+        const dayPassResult = await eliteDayPassService.purchaseEliteDayPass(user.id);
         
         if (dayPassResult.success) {
-          console.log(`✅ ${dayPassTier} Day Pass activated successfully!`);
+          console.log('✅ Elite Day Pass activated successfully!');
           
           // Update local state immediately
           setIsPro(true);
-          setIsElite(isDayPassElite);
-          setSubscriptionTier(dayPassTier);
-          await AsyncStorage.setItem('subscriptionStatus', dayPassTier);
+          setIsElite(true);
+          setSubscriptionTier('elite');
+          await AsyncStorage.setItem('subscriptionStatus', 'elite');
           
           // Track the purchase
-          const price = isDayPassElite ? 8.99 : 4.99;
-          // Track purchase if analytics available
-          // facebookAnalyticsService?.trackPurchase(price, 'USD');
+          facebookAnalyticsService.trackPurchase(8.99, 'USD');
           
           // Show success message
           Alert.alert(
-            `🎉 ${isDayPassElite ? 'Elite' : 'Pro'} Day Pass Activated!`,
-            `You now have ${isDayPassElite ? 'Elite' : 'Pro'} access for 24 hours!`,
+            '🎉 Elite Day Pass Activated!',
+            `You now have Elite access for 24 hours. Enjoy premium features, advanced analytics, and priority support!`,
             [{ text: 'Get Started', style: 'default' }]
           );
           
           return true;
         } else {
-          if (dayPassResult.error !== 'Purchase cancelled') {
-            Alert.alert('Purchase Failed', dayPassResult.error || 'Unable to activate Day Pass');
-          }
+          Alert.alert('Purchase Failed', dayPassResult.error || 'Unable to activate Elite Day Pass');
           return false;
         }
       }

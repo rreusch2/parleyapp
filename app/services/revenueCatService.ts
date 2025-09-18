@@ -460,6 +460,12 @@ class RevenueCatService {
         }
       }
 
+      // If this is a Day Pass purchase, skip client-side DB mutation and let server-side RPC handle it
+      if (planId && planId.includes('daypass')) {
+        console.log('⏭️ Day Pass detected (planId). Skipping client-side DB update; server RPC will persist state.');
+        return;
+      }
+
       // Determine subscription plan type from product identifier or planId
       let subscriptionPlanType: string | null = null;
       let subscriptionProductId: string | null = null;
@@ -470,6 +476,11 @@ class RevenueCatService {
       if (hasActiveSubscription && activeEntitlement) {
         // Get product identifier from active entitlement
         subscriptionProductId = activeEntitlement.productIdentifier;
+        // If the product itself is a day pass, let server RPC handle DB writes
+        if (subscriptionProductId && subscriptionProductId.includes('daypass')) {
+          console.log('⏭️ Day Pass detected (productId). Skipping client-side DB update; server RPC will persist state.');
+          return;
+        }
         
         // Map product ID to plan type
         const productToPlanMap: { [key: string]: string } = {
@@ -493,7 +504,8 @@ class RevenueCatService {
           } else if (planId.includes('lifetime')) {
             subscriptionPlanType = 'lifetime';
           } else if (planId.includes('daypass')) {
-            subscriptionPlanType = 'weekly'; // Map daypass to weekly for constraint compliance
+            // Day pass handled by server RPC
+            subscriptionPlanType = 'daypass';
           }
         }
         
@@ -520,8 +532,8 @@ class RevenueCatService {
       let maxDailyPicks = 2; // Default for free
       
       if (hasActiveSubscription && subscriptionProductId) {
-        // Check if it's an Elite subscription (contains 'allstar')
-        if (subscriptionProductId.includes('allstar')) {
+        // Check if it's an Elite subscription (contains 'allstar') or Elite Day Pass product ID
+        if (subscriptionProductId.includes('allstar') || subscriptionProductId === 'com.parleyapp.elitedaypass') {
           subscriptionTier = 'elite';
           maxDailyPicks = 30;
         } else {
