@@ -221,27 +221,8 @@ export default function GamesScreen() {
       
       console.log('Total upcoming games (next 7 days):', enhancedGames.length);
 
-      // Separate games by their current status
-      const now = Date.now();
-      const liveGamesList: EnhancedSportsEvent[] = [];
-      const upcomingGamesList: EnhancedSportsEvent[] = [];
-      
-      enhancedGames.forEach(game => {
-        const gameKey = getEventKey(game);
-        const liveData = liveScores[gameKey];
-        
-        // If we have live data indicating the game is live or has scores, it's live
-        if (liveData?.status === 'live' || 
-            (liveData?.home?.score !== undefined || liveData?.away?.score !== undefined)) {
-          liveGamesList.push(game);
-        } else {
-          // Otherwise it's upcoming
-          upcomingGamesList.push(game);
-        }
-      });
-      
-      setUpcomingGames(upcomingGamesList);
-      setLiveGames(liveGamesList);
+      setUpcomingGames(enhancedGames);
+      setLiveGames([]); // Clear live games
       setCompletedGames([]); // Clear completed games
       
       // Update stats
@@ -249,7 +230,7 @@ export default function GamesScreen() {
       setGameStats({
         total: enhancedGames.length,
         withAI: aiPickCount,
-        live: liveGamesList.length
+        live: 0 // Would be calculated from live games
       });
       
     } catch (error: any) {
@@ -470,22 +451,16 @@ export default function GamesScreen() {
       livePollRef.current = null;
     }
 
-    // Identify candidate games to track - more conservative window
+    // Identify candidate games to track (within -15m to +6h window)
     const now = Date.now();
     const candidates = upcomingGames.filter(g => {
       const t = new Date(g.start_time).getTime();
-      // Only track games from 5 minutes before start to 6 hours after
-      // This prevents tracking games that are hours away
-      return t >= (now - 5 * 60 * 1000) && t <= (now + 6 * 60 * 60 * 1000);
+      return t >= (now - 15 * 60 * 1000) && t <= (now + 6 * 60 * 60 * 1000);
     });
 
     if (candidates.length === 0) {
       return; // nothing to poll
     }
-
-    console.log(`🔄 Tracking ${candidates.length} games for live scores:`, 
-      candidates.map(g => `${g.away_team} @ ${g.home_team} at ${formatGameTime(g.start_time)}`)
-    );
 
     // Group event IDs by league for efficient backend calls
     const byLeague: Record<string, string[]> = {};
@@ -501,29 +476,13 @@ export default function GamesScreen() {
       try {
         const entries = Object.entries(byLeague);
         const results = await Promise.all(entries.map(([league, ids]) => sportsApi.getLiveScores(league, ids, 2)));
-        
-        setLiveScores(prevScores => {
-          const merged: Record<string, any> = { ...prevScores };
-          results.forEach(r => {
-            if (r?.success && r.data) {
-              Object.assign(merged, r.data);
-            }
-          });
-          
-          // Log updates for debugging
-          const newLiveGames = Object.keys(merged).filter(key => merged[key]?.status === 'live');
-          const completedGames = Object.keys(merged).filter(key => merged[key]?.status === 'completed');
-          
-          if (newLiveGames.length > 0 || completedGames.length > 0) {
-            console.log('📊 Live scores update:', {
-              live: newLiveGames.length,
-              completed: completedGames.length,
-              timestamp: new Date().toLocaleTimeString()
-            });
+        const merged: Record<string, any> = { ...liveScores };
+        results.forEach(r => {
+          if (r?.success && r.data) {
+            Object.assign(merged, r.data);
           }
-          
-          return merged;
         });
+        setLiveScores(merged);
       } catch (err) {
         console.error('Live scores poll failed:', err);
       }
@@ -562,28 +521,12 @@ export default function GamesScreen() {
   // Determine if a game should be shown in LIVE mode
   const isGameLiveNow = (game: EnhancedSportsEvent) => {
     const live = liveScores[getEventKey(game)];
-    
-    // First priority: Use actual API status if available
     if (live?.status === 'live') return true;
     if (live?.status === 'completed') return false;
-    
-    // Second priority: Check if game has actual live scores (indicates it started)
-    if (live?.home?.score !== undefined || live?.away?.score !== undefined) {
-      return true;
-    }
-    
-    // Third priority: Only use time-based logic as fallback for games that should have started
     const now = Date.now();
     const start = new Date(game.start_time).getTime();
-    const fifteenMinutesAfterStart = start + (15 * 60 * 1000);
-    
-    // Only consider live if:
-    // 1. Game start time has passed by at least 15 minutes (gives buffer for actual start)
-    // 2. AND it's within 6 hours of start time (reasonable game duration)
-    // 3. AND no explicit 'completed' status from API
-    return now >= fifteenMinutesAfterStart && 
-           now <= (start + 6 * 60 * 60 * 1000) && 
-           live?.status !== 'completed';
+    // Consider live from a couple minutes before start until 6 hours after
+    return now >= (start - 2 * 60 * 1000) && now <= (start + 6 * 60 * 60 * 1000);
   };
 
   const getLiveScoreValues = (game: EnhancedSportsEvent) => {
@@ -599,8 +542,7 @@ export default function GamesScreen() {
   };
 
   const getFilteredGames = () => {
-    // Combine upcoming and live games for display
-    let allGames = [...upcomingGames, ...liveGames];
+    let filtered = upcomingGames;
 
     if (selectedSport !== 'all') {
       // Map frontend sport filters to backend league values (same as fetchGames)
@@ -617,41 +559,27 @@ export default function GamesScreen() {
         leagueToMatch = 'ncaaf';
       }
       
-      allGames = allGames.filter(game => game.league.toLowerCase() === leagueToMatch);
+      filtered = filtered.filter(game => game.league.toLowerCase() === leagueToMatch);
     }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      allGames = allGames.filter(game => 
+      filtered = filtered.filter(game => 
         game.home_team.toLowerCase().includes(query) ||
         game.away_team.toLowerCase().includes(query) ||
         game.league.toLowerCase().includes(query)
       );
     }
 
-    console.log(`🔍 Filtered games for sport '${selectedSport}':`, allGames.length);
-    console.log('Games by league:', allGames.reduce((acc, game) => {
+    console.log(`🔍 Filtered games for sport '${selectedSport}':`, filtered.length);
+    console.log('Games by league:', filtered.reduce((acc, game) => {
       acc[game.league] = (acc[game.league] || 0) + 1;
       return acc;
     }, {} as Record<string, number>));
-    
     // Hide completed games if live scores indicate final
-    const filtered = allGames.filter(g => {
-      const liveData = liveScores[getEventKey(g)];
-      return liveData?.status !== 'completed';
-    });
+    filtered = filtered.filter(g => liveScores[getEventKey(g)]?.status !== 'completed');
 
-    // Sort games: live games first, then by start time
-    return filtered.sort((a, b) => {
-      const aIsLive = isGameLiveNow(a);
-      const bIsLive = isGameLiveNow(b);
-      
-      if (aIsLive && !bIsLive) return -1;
-      if (!aIsLive && bIsLive) return 1;
-      
-      // Both live or both upcoming - sort by start time
-      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
-    });
+    return filtered;
   };
 
   // Helper function to get best odds for a market
@@ -803,8 +731,7 @@ export default function GamesScreen() {
               </View>
               <View style={styles.scoreMetaRow}>
                 <Text style={styles.scoreMetaText}>
-                  {liveVals.status === 'completed' ? 'Final' : 
-                   liveVals.status === 'live' ? 'Live' : 'In Progress'}
+                  {liveVals.status === 'completed' ? 'Final' : 'In Progress'}
                   {liveVals.lastUpdate ? ` • Updated ${new Date(liveVals.lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                 </Text>
               </View>
