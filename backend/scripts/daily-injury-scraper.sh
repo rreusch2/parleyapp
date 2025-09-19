@@ -11,7 +11,7 @@ if [ -f .env ]; then
     export $(cat .env | xargs)
 fi
 
-# Run the injury update
+# Run the injury update yuhhhh
 echo "$(date): Starting injury scraper..."
 npx ts-node src/scripts/dailyInjuryUpdate.ts
 
