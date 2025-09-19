@@ -547,23 +547,28 @@ export default function ProAIChat({
                 flatListRef.current?.scrollToEnd({ animated: true });
               }, 100);
             } else if (data.type === 'browser_started') {
+              console.log('🌐 Browser started event received:', data);
               setIsBrowsing(true);
               setBrowseSteps([]);
               setBrowseFrames([]);
               setActiveBrowseJobId(data.jobId || null);
             } else if (data.type === 'browser_action') {
+              console.log('🌐 Browser action event received:', data);
               if (data.text) {
                 setBrowseSteps(prev => [...prev, String(data.text)].slice(-10));
               }
             } else if (data.type === 'browser_frame') {
+              console.log('🌐 Browser frame event received:', data);
               if (data.url) {
                 setBrowseFrames(prev => [...prev, String(data.url)].slice(-10));
               }
             } else if (data.type === 'browser_error') {
+              console.log('🌐 Browser error event received:', data);
               if (data.message) {
                 setBrowseSteps(prev => [...prev, `Error: ${String(data.message)}`].slice(-10));
               }
             } else if (data.type === 'browser_done') {
+              console.log('🌐 Browser done event received:', data);
               setIsBrowsing(false);
               setActiveBrowseJobId(null);
             } else if (data.type === 'chunk') {
@@ -732,87 +737,9 @@ export default function ProAIChat({
   });
 
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
-    // Enhanced search bubble
+    // OLD SEARCH BUBBLE REMOVED - Browser overlay handles this now
     if (item.isSearching) {
-      return (
-        <Animated.View 
-          style={[
-            styles.messageContainer, 
-            styles.aiMessage,
-            {
-              opacity: Animated.add(0.8, Animated.multiply(searchOpacity, 0.2)),
-              transform: [{
-                translateY: searchAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -2]
-                })
-              }]
-            }
-          ]}
-        >
-          <View style={styles.aiIcon}>
-            <Animated.View style={{ 
-              opacity: searchOpacity,
-              transform: [{ scale: searchScale }]
-            }}>
-              <Search size={18} color="#00E5FF" />
-            </Animated.View>
-          </View>
-          <Animated.View 
-            style={[
-              styles.searchBubbleMessage,
-              { transform: [{ scale: searchScale }] }
-            ]}
-          >
-            <LinearGradient
-              colors={['rgba(0, 229, 255, 0.15)', 'rgba(14, 165, 233, 0.15)']}
-              style={styles.searchBubbleGradient}
-            >
-              <View style={styles.searchBubbleContent}>
-                <View style={styles.searchBubbleHeader}>
-                  <Animated.View style={{ opacity: searchOpacity }}>
-                    {item.searchType === 'news_search' ? (
-                      <AlertCircle size={16} color="#FF6B6B" />
-                    ) : item.searchType === 'team_analysis' ? (
-                      <Target size={16} color="#4ECDC4" />
-                    ) : item.searchType === 'odds_lookup' ? (
-                      <BarChart size={16} color="#45B7D1" />
-                    ) : item.searchType === 'insights_analysis' ? (
-                      <Lightbulb size={16} color="#FFA726" />
-                    ) : (
-                      <Globe size={16} color="#00E5FF" />
-                    )}
-                  </Animated.View>
-                  <Text style={styles.searchBubbleTitle}>
-                    {item.searchType === 'news_search' ? 'Breaking News Scan' : 
-                     item.searchType === 'team_analysis' ? 'Team Intel Gathering' :
-                     item.searchType === 'odds_lookup' ? 'Live Odds Check' :
-                     item.searchType === 'insights_analysis' ? 'Insights Analysis' :
-                     'Web Search'}
-                  </Text>
-                </View>
-                <Text style={styles.searchBubbleQuery}>
-                  {item.searchQuery}
-                </Text>
-                <View style={styles.searchBubbleDots}>
-                  <Animated.View style={[styles.searchBubbleDot, { 
-                    opacity: dotAnimation1,
-                    transform: [{ scale: dotAnimation1 }]
-                  }]} />
-                  <Animated.View style={[styles.searchBubbleDot, { 
-                    opacity: dotAnimation2,
-                    transform: [{ scale: dotAnimation2 }]
-                  }]} />
-                  <Animated.View style={[styles.searchBubbleDot, { 
-                    opacity: dotAnimation3,
-                    transform: [{ scale: dotAnimation3 }]
-                  }]} />
-                </View>
-              </View>
-            </LinearGradient>
-          </Animated.View>
-        </Animated.View>
-      );
+      return null; // Don't show anything for old search bubbles
     }
 
     // Enhanced regular message rendering with animations

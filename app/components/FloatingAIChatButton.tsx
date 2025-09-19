@@ -26,8 +26,8 @@ interface FloatingAIChatButtonProps {
 
 export default function FloatingAIChatButton({ 
   onPress, 
-  bottom = 110, 
-  right = 20 
+  bottom = 85, // Reduced from 110 to move closer to tab bar
+  right = 8   // Reduced from 20 to match SIDE_MARGIN
 }: FloatingAIChatButtonProps) {
   const { isPro, isElite } = useSubscription();
   const { setShowAIChat, setChatContext } = useAIChat();
@@ -48,9 +48,9 @@ export default function FloatingAIChatButton({
     return isTablet ? 68 : 56;
   })();
   const RING_PAD = 2; // gradient ring thickness
-  const SIDE_MARGIN = 20;
+  const SIDE_MARGIN = 8; // Reduced from 20 to move closer to corners
   const STATUSBAR = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : (isTablet ? 20 : 44);
-  const TOP_SPACING = STATUSBAR + 12;
+  const TOP_SPACING = STATUSBAR + 8; // Reduced from 12 to move closer to top
   const STORAGE_KEY = 'pp_fab_corner_v1';
 
   type Corner = 'bottomRight' | 'bottomLeft' | 'topRight' | 'topLeft';
@@ -165,7 +165,7 @@ export default function FloatingAIChatButton({
             : SIDE_MARGIN;
         const initialY =
           corner === 'bottomRight' || corner === 'bottomLeft'
-            ? height - (bottom ?? 95) - SIZE
+            ? height - (bottom ?? 85) - SIZE // Updated to match new default bottom value
             : TOP_SPACING;
 
         const finalCenterX = initialX + gesture.dx + SIZE / 2;

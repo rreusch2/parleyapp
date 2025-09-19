@@ -879,17 +879,23 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
     // For high-signal intents, call browser agent directly to guarantee browsing overlay
     const intentsToForceBrowser = new Set(['news_search', 'team_analysis', 'odds_lookup', 'insights_analysis']);
     if (intentsToForceBrowser.has(intent)) {
+      logger.info(`🌐 FORCING browser for intent: ${intent}, URL: ${BROWSER_AGENT_URL}`);
       try {
         const lastUser = [...messages].reverse().find(m => m.role === 'user');
         const task = lastUser?.content || 'Browse and gather the latest relevant information';
+        logger.info(`🌐 Starting browser job with task: ${task}`);
         toolsUsed.push('browser_browse');
         const job = await this.browserStartJob(task);
+        logger.info(`🌐 Browser job started with ID: ${job.id}`);
         let result;
         if (onEvent) {
+          logger.info(`🌐 Streaming browser events for job: ${job.id}`);
           result = await this.browserStreamEvents(job.id, onEvent);
         } else {
+          logger.info(`🌐 Waiting for browser result for job: ${job.id}`);
           result = await this.browserWaitForResult(job.id);
         }
+        logger.info(`🌐 Browser job completed:`, result);
         // Return a response-shaped object so downstream extract works
         return {
           choices: [
@@ -901,7 +907,7 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
           ]
         };
       } catch (e) {
-        logger.error(`Browser agent fallback error: ${e}`);
+        logger.error(`🌐 Browser agent fallback error: ${e}`);
         // Continue to LLM tools path if browser failed
       }
     }

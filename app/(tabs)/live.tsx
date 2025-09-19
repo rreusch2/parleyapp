@@ -43,8 +43,6 @@ import { useSubscription } from '../services/subscriptionContext';
 
 import { useAIChat } from '../services/aiChatContext';
 import { useUITheme } from '../services/uiThemeContext';
-import { teamLogoService, TeamLogo } from '../services/teamLogoService';
-import { TeamLogo as TeamLogoComponent } from '../components/TeamLogo';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -113,7 +111,6 @@ export default function GamesScreen() {
   const { openChatWithContext } = useAIChat();
   const [selectedBooks, setSelectedBooks] = useState<Record<string, string>>({});
   const [liveScores, setLiveScores] = useState<Record<string, any>>({});
-  const [teamLogos, setTeamLogos] = useState<Map<string, TeamLogo | null>>(new Map());
   const livePollRef = useRef<any>(null);
   // Helper to consistently reference the event identifier used by The Odds API
   const getEventKey = (game: EnhancedSportsEvent) => (game as any).external_event_id || game.id;
@@ -233,10 +230,6 @@ export default function GamesScreen() {
       setUpcomingGames(enhancedGames);
       setLiveGames(enhancedLiveGames);
       setCompletedGames([]); // Clear completed games (handled elsewhere)
-      
-      // Fetch team logos for all games
-      const allGames = [...enhancedGames, ...enhancedLiveGames];
-      await fetchTeamLogos(allGames);
       
       // Update stats
       const aiPickCount = enhancedGames.filter(g => g.hasAiPick).length;
@@ -388,49 +381,6 @@ export default function GamesScreen() {
       console.error('Error fetching AI pick for game:', gameId, error);
       return undefined;
     }
-  };
-
-  // Helper function to fetch team logos for games
-  const fetchTeamLogos = async (games: EnhancedSportsEvent[]) => {
-    try {
-      console.log('🏆 Fetching team logos for', games.length, 'games');
-      
-      // Collect all unique teams
-      const teamsToFetch: { teamName: string; league: string }[] = [];
-      const teamSet = new Set<string>();
-      
-      games.forEach(game => {
-        const homeKey = `${game.home_team}-${game.league}`;
-        const awayKey = `${game.away_team}-${game.league}`;
-        
-        if (!teamSet.has(homeKey)) {
-          teamsToFetch.push({ teamName: game.home_team, league: game.league });
-          teamSet.add(homeKey);
-        }
-        
-        if (!teamSet.has(awayKey)) {
-          teamsToFetch.push({ teamName: game.away_team, league: game.league });
-          teamSet.add(awayKey);
-        }
-      });
-
-      console.log('🏆 Fetching logos for', teamsToFetch.length, 'unique teams');
-      
-      // Batch fetch team logos
-      const logoResults = await teamLogoService.getMultipleTeamLogos(teamsToFetch);
-      
-      console.log('🏆 Successfully fetched', logoResults.size, 'team logo results');
-      setTeamLogos(logoResults);
-      
-    } catch (error) {
-      console.error('Error fetching team logos:', error);
-    }
-  };
-
-  // Helper function to get team logo from cache
-  const getTeamLogo = (teamName: string, league: string): TeamLogo | null => {
-    const cacheKey = `${league.toLowerCase()}-${teamName.toLowerCase()}`;
-    return teamLogos.get(cacheKey) || null;
   };
 
   // Pro feature: Fetch line movement data
@@ -788,29 +738,13 @@ export default function GamesScreen() {
           {liveView ? (
             <View style={styles.scoreboardContainer}>
               <View style={styles.scoreRow}>
-                <View style={styles.scoreTeamContainer}>
-                  <TeamLogoComponent
-                    teamData={getTeamLogo(game.away_team, game.league)}
-                    teamName={game.away_team}
-                    league={game.league}
-                    size="medium"
-                  />
-                  <Text style={styles.scoreTeamName}>{game.away_team}</Text>
-                </View>
+                <Text style={styles.scoreTeamName}>{game.away_team}</Text>
                 <Text style={styles.scoreValue}>{
                   typeof liveVals.awayScore === 'number' ? liveVals.awayScore : '-'
                 }</Text>
               </View>
               <View style={styles.scoreRow}>
-                <View style={styles.scoreTeamContainer}>
-                  <TeamLogoComponent
-                    teamData={getTeamLogo(game.home_team, game.league)}
-                    teamName={game.home_team}
-                    league={game.league}
-                    size="medium"
-                  />
-                  <Text style={styles.scoreTeamName}>{game.home_team}</Text>
-                </View>
+                <Text style={styles.scoreTeamName}>{game.home_team}</Text>
                 <Text style={styles.scoreValue}>{
                   typeof liveVals.homeScore === 'number' ? liveVals.homeScore : '-'
                 }</Text>
@@ -839,20 +773,10 @@ export default function GamesScreen() {
             {/* Away Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <View style={styles.teamNameContainer}>
-                  <TeamLogoComponent
-                    teamData={getTeamLogo(game.away_team, game.league)}
-                    teamName={game.away_team}
-                    league={game.league}
-                    size="small"
-                  />
-                  <View style={styles.teamTextContainer}>
-                    <Text style={styles.modernTeamName}>{game.away_team}</Text>
-                    <Text style={styles.teamRecord}>
-                      {game.stats?.away_score !== null ? game.stats.away_score : ''}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.modernTeamName}>{game.away_team}</Text>
+                <Text style={styles.teamRecord}>
+                  {game.stats?.away_score !== null ? game.stats.away_score : ''}
+                </Text>
               </View>
               
               {/* Only show spread and total for non-MMA sports */}
@@ -892,20 +816,10 @@ export default function GamesScreen() {
             {/* Home Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <View style={styles.teamNameContainer}>
-                  <TeamLogoComponent
-                    teamData={getTeamLogo(game.home_team, game.league)}
-                    teamName={game.home_team}
-                    league={game.league}
-                    size="small"
-                  />
-                  <View style={styles.teamTextContainer}>
-                    <Text style={styles.modernTeamName}>{game.home_team}</Text>
-                    <Text style={styles.teamRecord}>
-                      {game.stats?.home_score !== null ? game.stats.home_score : ''}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.modernTeamName}>{game.home_team}</Text>
+                <Text style={styles.teamRecord}>
+                  {game.stats?.home_score !== null ? game.stats.home_score : ''}
+                </Text>
               </View>
               
               {/* Only show spread and total for non-MMA sports */}
@@ -1865,7 +1779,6 @@ const styles = StyleSheet.create({
     fontSize: normalize(14),
     fontWeight: '600',
     flex: 1,
-    marginLeft: normalize(2),
   },
   scoreValue: {
     color: '#FFFFFF',
@@ -1912,14 +1825,6 @@ const styles = StyleSheet.create({
     flex: 2.5,
     paddingRight: normalize(12),
   },
-  teamNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: normalize(8),
-  },
-  teamTextContainer: {
-    flex: 1,
-  },
   modernTeamName: {
     fontSize: normalize(14),
     fontWeight: '600',
@@ -1929,12 +1834,6 @@ const styles = StyleSheet.create({
   teamRecord: {
     fontSize: normalize(11),
     color: '#64748B',
-  },
-  scoreTeamContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: normalize(10),
   },
   oddsButton: {
     flex: 1,
