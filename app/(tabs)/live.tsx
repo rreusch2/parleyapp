@@ -11,7 +11,8 @@ import {
   Alert,
   Modal,
   Dimensions,
-  TextInput
+  TextInput,
+  Image
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { normalize, isTablet } from '../services/device';
@@ -114,6 +115,109 @@ export default function GamesScreen() {
   const livePollRef = useRef<any>(null);
   // Helper to consistently reference the event identifier used by The Odds API
   const getEventKey = (game: EnhancedSportsEvent) => (game as any).external_event_id || game.id;
+
+  // --- Team logos cache & helpers ---
+  const teamsCacheRef = useRef<Record<string, any[]>>({});
+  const [teamLogoMap, setTeamLogoMap] = useState<Record<string, string | null>>({});
+
+  const normalizeLeagueForTeams = (league: string): string => {
+    const l = (league || '').toUpperCase();
+    if (l === 'NCAAF' || l === 'CFB' || l === 'COLLEGE FOOTBALL') return 'College Football';
+    if (l === 'UFC') return 'MMA';
+    return l; // MLB, NBA, WNBA, NFL, NHL, MMA, etc.
+  };
+
+  const normalizeString = (s?: string) => (s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  const getInitials = (name: string) => {
+    const parts = name.split(/\s+/).filter(Boolean);
+    const letters = parts.slice(0, 2).map(p => p[0]?.toUpperCase() || '');
+    return (letters.join('') || name.slice(0, 2).toUpperCase());
+  };
+
+  const buildTeamKey = (league: string, teamName: string) => `${normalizeLeagueForTeams(league)}::${normalizeString(teamName)}`;
+
+  const indexTeamsForLeague = (league: string, teams: any[]) => {
+    const index: Record<string, any> = {};
+    teams.forEach(t => {
+      const n1 = normalizeString(t.team_name);
+      const n2 = normalizeString(t.team_abbreviation);
+      const n3 = normalizeString(t.city);
+      if (n1) index[n1] = t;
+      if (n2) index[n2] = t;
+      if (n3) index[n3] = t;
+      // Also index city + nickname if team_name starts with city
+      try {
+        const tn = String(t.team_name || '');
+        const city = String(t.city || '');
+        if (tn && city && tn.toLowerCase().startsWith(city.toLowerCase())) {
+          const nickname = tn.slice(city.length).trim();
+          const combo = normalizeString(`${city} ${nickname}`);
+          if (combo) index[combo] = t;
+        }
+      } catch {}
+    });
+    return index;
+  };
+
+  const ensureTeamLogosLoadedForGames = async (games: EnhancedSportsEvent[]) => {
+    // Determine leagues present
+    const leagues = Array.from(new Set(games.map(g => normalizeLeagueForTeams(g.league)).filter(Boolean)));
+    if (leagues.length === 0) return;
+
+    // Fetch teams per league if not cached
+    const leaguesToFetch = leagues.filter(l => !teamsCacheRef.current[l]);
+    if (leaguesToFetch.length > 0) {
+      try {
+        const { data, error } = await supabase
+          .from('teams')
+          .select('team_name, team_abbreviation, city, sport_key, logo_url')
+          .in('sport_key', leaguesToFetch);
+        if (!error && data) {
+          // Group by sport_key
+          leaguesToFetch.forEach(l => {
+            teamsCacheRef.current[l] = data.filter(t => normalizeLeagueForTeams(t.sport_key) === l);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed loading teams for leagues', leaguesToFetch, e);
+      }
+    }
+
+    // Build quick indices and map logos for all home/away teams
+    const updates: Record<string, string | null> = {};
+    leagues.forEach(l => {
+      const list = teamsCacheRef.current[l] || [];
+      const idx = indexTeamsForLeague(l, list);
+      games.filter(g => normalizeLeagueForTeams(g.league) === l).forEach(g => {
+        [g.home_team, g.away_team].forEach(name => {
+          const key = buildTeamKey(g.league, name);
+          if (teamLogoMap[key] !== undefined || updates[key] !== undefined) return;
+          const norm = normalizeString(name);
+          const match = idx[norm];
+          updates[key] = (match?.logo_url as string) || null;
+        });
+      });
+    });
+
+    if (Object.keys(updates).length > 0) {
+      setTeamLogoMap(prev => ({ ...prev, ...updates }));
+    }
+  };
+
+  useEffect(() => {
+    const all = [...upcomingGames, ...liveGames];
+    if (all.length > 0) {
+      ensureTeamLogosLoadedForGames(all);
+    }
+  }, [upcomingGames, liveGames]);
+
+  const getTeamLogoUrl = (league: string, teamName: string): string | null | undefined => {
+    return teamLogoMap[buildTeamKey(league, teamName)];
+  };
 
 
   const sportFilters = [
@@ -738,13 +842,43 @@ export default function GamesScreen() {
           {liveView ? (
             <View style={styles.scoreboardContainer}>
               <View style={styles.scoreRow}>
-                <Text style={styles.scoreTeamName}>{game.away_team}</Text>
+                <View style={styles.scoreTeamCell}>
+                  {(() => {
+                    const url = getTeamLogoUrl(game.league, game.away_team);
+                    const initials = getInitials(game.away_team);
+                    return (
+                      <View style={styles.logoCircleSmall}>
+                        {url ? (
+                          <Image source={{ uri: url }} style={styles.logoImgSmall} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.logoFallbackSmall}>{initials}</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                  <Text style={styles.scoreTeamName}>{game.away_team}</Text>
+                </View>
                 <Text style={styles.scoreValue}>{
                   typeof liveVals.awayScore === 'number' ? liveVals.awayScore : '-'
                 }</Text>
               </View>
               <View style={styles.scoreRow}>
-                <Text style={styles.scoreTeamName}>{game.home_team}</Text>
+                <View style={styles.scoreTeamCell}>
+                  {(() => {
+                    const url = getTeamLogoUrl(game.league, game.home_team);
+                    const initials = getInitials(game.home_team);
+                    return (
+                      <View style={styles.logoCircleSmall}>
+                        {url ? (
+                          <Image source={{ uri: url }} style={styles.logoImgSmall} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.logoFallbackSmall}>{initials}</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                  <Text style={styles.scoreTeamName}>{game.home_team}</Text>
+                </View>
                 <Text style={styles.scoreValue}>{
                   typeof liveVals.homeScore === 'number' ? liveVals.homeScore : '-'
                 }</Text>
@@ -773,7 +907,22 @@ export default function GamesScreen() {
             {/* Away Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <Text style={styles.modernTeamName}>{game.away_team}</Text>
+                <View style={styles.teamNameRow}>
+                  {(() => {
+                    const url = getTeamLogoUrl(game.league, game.away_team);
+                    const initials = getInitials(game.away_team);
+                    return (
+                      <View style={styles.logoCircle}>
+                        {url ? (
+                          <Image source={{ uri: url }} style={styles.logoImg} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.logoFallback}>{initials}</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                  <Text style={styles.modernTeamName} numberOfLines={1} ellipsizeMode="tail">{game.away_team}</Text>
+                </View>
                 <Text style={styles.teamRecord}>
                   {game.stats?.away_score !== null ? game.stats.away_score : ''}
                 </Text>
@@ -816,7 +965,22 @@ export default function GamesScreen() {
             {/* Home Team Row */}
             <View style={styles.teamOddsRow}>
               <View style={styles.teamInfo}>
-                <Text style={styles.modernTeamName}>{game.home_team}</Text>
+                <View style={styles.teamNameRow}>
+                  {(() => {
+                    const url = getTeamLogoUrl(game.league, game.home_team);
+                    const initials = getInitials(game.home_team);
+                    return (
+                      <View style={styles.logoCircle}>
+                        {url ? (
+                          <Image source={{ uri: url }} style={styles.logoImg} resizeMode="contain" />
+                        ) : (
+                          <Text style={styles.logoFallback}>{initials}</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+                  <Text style={styles.modernTeamName} numberOfLines={1} ellipsizeMode="tail">{game.home_team}</Text>
+                </View>
                 <Text style={styles.teamRecord}>
                   {game.stats?.home_score !== null ? game.stats.home_score : ''}
                 </Text>
@@ -1774,6 +1938,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: normalize(6),
   },
+  scoreTeamCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: normalize(8),
+    flex: 1,
+  },
   scoreTeamName: {
     color: '#E2E8F0',
     fontSize: normalize(14),
@@ -1807,12 +1977,12 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(100, 116, 139, 0.2)',
   },
   teamColumn: {
-    flex: 2.5,
+    flex: 3.2,
   },
   oddsHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: normalize(12),
+    fontSize: normalize(11),
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -1822,14 +1992,21 @@ const styles = StyleSheet.create({
     marginBottom: normalize(8),
   },
   teamInfo: {
-    flex: 2.5,
+    flex: 3.2,
     paddingRight: normalize(12),
+  },
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: normalize(8),
+    minWidth: 0,
   },
   modernTeamName: {
     fontSize: normalize(14),
     fontWeight: '600',
     color: '#FFFFFF',
     marginBottom: normalize(2),
+    flexShrink: 1,
   },
   teamRecord: {
     fontSize: normalize(11),
@@ -1839,27 +2016,27 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    paddingVertical: normalize(8),
+    paddingVertical: normalize(6),
     paddingHorizontal: normalize(4),
     borderRadius: normalize(8),
-    marginHorizontal: normalize(2),
+    marginHorizontal: normalize(1),
     borderWidth: 1,
     borderColor: 'rgba(100, 116, 139, 0.2)',
   },
   spreadLine: {
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: normalize(2),
   },
   totalLine: {
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: normalize(2),
   },
   moneylineOdds: {
-    fontSize: normalize(13),
+    fontSize: normalize(12),
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -1877,7 +2054,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   oddsPrice: {
-    fontSize: normalize(11),
+    fontSize: normalize(10),
     fontWeight: '600',
     color: '#94A3B8',
   },
@@ -1976,5 +2153,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginHorizontal: normalize(8),
     textAlign: 'center',
+  },
+  // Logo styles
+  logoCircle: {
+    width: normalize(24),
+    height: normalize(24),
+    borderRadius: normalize(12),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.3)'
+  },
+  logoImg: {
+    width: normalize(22),
+    height: normalize(22),
+    borderRadius: normalize(11)
+  },
+  logoFallback: {
+    color: '#0F172A',
+    fontSize: normalize(10),
+    fontWeight: '800'
+  },
+  logoCircleSmall: {
+    width: normalize(20),
+    height: normalize(20),
+    borderRadius: normalize(10),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.3)'
+  },
+  logoImgSmall: {
+    width: normalize(18),
+    height: normalize(18),
+    borderRadius: normalize(9)
+  },
+  logoFallbackSmall: {
+    color: '#0F172A',
+    fontSize: normalize(9),
+    fontWeight: '800'
   },
 });
