@@ -271,8 +271,8 @@ export default function GamesScreen() {
       
       // Fetch scheduled and live in parallel to ensure persistence across restarts
       const [scheduledResp, liveResp] = await Promise.all([
-        sportsApi.getGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 }),
-        sportsApi.getLiveGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 })
+        sportsApi.getGames(leagueFilter ? { league: leagueFilter, limit: 200 } : { limit: 200 }),
+        sportsApi.getLiveGames(leagueFilter ? { league: leagueFilter, limit: 200 } : { limit: 200 })
       ]);
 
       const scheduledGames = scheduledResp.data.data || [];
