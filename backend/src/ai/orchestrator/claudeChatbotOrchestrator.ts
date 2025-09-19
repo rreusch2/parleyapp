@@ -876,6 +876,36 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
     
     const isEliteUser = userTier === 'elite';
 
+    // For high-signal intents, call browser agent directly to guarantee browsing overlay
+    const intentsToForceBrowser = new Set(['news_search', 'team_analysis', 'odds_lookup', 'insights_analysis']);
+    if (intentsToForceBrowser.has(intent)) {
+      try {
+        const lastUser = [...messages].reverse().find(m => m.role === 'user');
+        const task = lastUser?.content || 'Browse and gather the latest relevant information';
+        toolsUsed.push('browser_browse');
+        const job = await this.browserStartJob(task);
+        let result;
+        if (onEvent) {
+          result = await this.browserStreamEvents(job.id, onEvent);
+        } else {
+          result = await this.browserWaitForResult(job.id);
+        }
+        // Return a response-shaped object so downstream extract works
+        return {
+          choices: [
+            {
+              message: {
+                content: typeof result?.summary === 'string' ? result.summary : JSON.stringify(result || {}),
+              }
+            }
+          ]
+        };
+      } catch (e) {
+        logger.error(`Browser agent fallback error: ${e}`);
+        // Continue to LLM tools path if browser failed
+      }
+    }
+
     // Enhanced tools with more capabilities
     const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       {

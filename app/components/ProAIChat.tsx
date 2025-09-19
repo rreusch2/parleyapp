@@ -15,7 +15,8 @@ import {
   ScrollView,
   Keyboard,
   Vibration,
-  Pressable
+  Pressable,
+  Image
 } from 'react-native';
 import EventSource from 'react-native-sse';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -234,6 +235,12 @@ export default function ProAIChat({
   const [buttonScaleAnimation] = useState(new Animated.Value(1));
   const [showQuickPrompts, setShowQuickPrompts] = useState(false);
   const [quickPromptAnim] = useState(new Animated.Value(0));
+
+  // Browsing overlay state
+  const [isBrowsing, setIsBrowsing] = useState(false);
+  const [browseSteps, setBrowseSteps] = useState<string[]>([]);
+  const [browseFrames, setBrowseFrames] = useState<string[]>([]);
+  const [activeBrowseJobId, setActiveBrowseJobId] = useState<string | null>(null);
 
   // Add keyboard listeners with height detection
   useEffect(() => {
@@ -539,6 +546,26 @@ export default function ProAIChat({
               setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
               }, 100);
+            } else if (data.type === 'browser_started') {
+              setIsBrowsing(true);
+              setBrowseSteps([]);
+              setBrowseFrames([]);
+              setActiveBrowseJobId(data.jobId || null);
+            } else if (data.type === 'browser_action') {
+              if (data.text) {
+                setBrowseSteps(prev => [...prev, String(data.text)].slice(-10));
+              }
+            } else if (data.type === 'browser_frame') {
+              if (data.url) {
+                setBrowseFrames(prev => [...prev, String(data.url)].slice(-10));
+              }
+            } else if (data.type === 'browser_error') {
+              if (data.message) {
+                setBrowseSteps(prev => [...prev, `Error: ${String(data.message)}`].slice(-10));
+              }
+            } else if (data.type === 'browser_done') {
+              setIsBrowsing(false);
+              setActiveBrowseJobId(null);
             } else if (data.type === 'chunk') {
               // Remove search bubble if it exists (only once)
               if (searchMessage) {
@@ -862,6 +889,12 @@ export default function ProAIChat({
                   <Text style={styles.toolBadgeText}>Web</Text>
                 </View>
               )}
+              {item.toolsUsed.includes('browser_browse') && (
+                <View style={styles.toolBadge}>
+                  <Globe size={12} color="#00E5FF" />
+                  <Text style={styles.toolBadgeText}>Browse</Text>
+                </View>
+              )}
               {item.toolsUsed.includes('daily_insights') && (
                 <View style={styles.toolBadge}>
                   <Lightbulb size={12} color="#FBBF24" />
@@ -1179,6 +1212,53 @@ export default function ProAIChat({
           </View>
         </Pressable>
       </KeyboardAvoidingView>
+
+      {/* Browsing Overlay */}
+      <Modal visible={isBrowsing} transparent animationType="fade">
+        <View style={styles.browsingOverlay}>
+          <View style={styles.browsingCard}>
+            <View style={styles.browsingHeader}>
+              <View style={styles.browsingHeaderLeft}>
+                <Globe size={18} color="#00E5FF" />
+                <Text style={styles.browsingTitle}>Agent is browsing…</Text>
+              </View>
+              {activeBrowseJobId && !!process.env.EXPO_PUBLIC_BROWSER_AGENT_URL && (
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={async () => {
+                    try {
+                      const base = process.env.EXPO_PUBLIC_BROWSER_AGENT_URL as string;
+                      await fetch(`${base}/jobs/${activeBrowseJobId}/cancel`, { method: 'POST' });
+                    } catch {}
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {browseFrames.length > 0 ? (
+              <Image
+                source={{ uri: browseFrames[browseFrames.length - 1] }}
+                style={styles.browsingImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.browsingImagePlaceholder}>
+                <ActivityIndicator color="#00E5FF" />
+              </View>
+            )}
+
+            <View style={styles.browsingSteps}>
+              <ScrollView>
+                {browseSteps.slice(-5).map((step, idx) => (
+                  <Text key={`${idx}_${step}`} style={styles.browsingStepText}>• {step}</Text>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1678,4 +1758,78 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '600',
   },
+
+  // Browsing overlay styles
+  browsingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  browsingCard: {
+    width: Math.min(screenWidth * 0.9, 420),
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,229,255,0.25)'
+  },
+  browsingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,229,255,0.2)'
+  },
+  browsingHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  browsingTitle: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderColor: 'rgba(239,68,68,0.35)',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10
+  },
+  cancelButtonText: {
+    color: '#FCA5A5',
+    fontWeight: '700',
+    fontSize: 12
+  },
+  browsingImage: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#0B1220'
+  },
+  browsingImagePlaceholder: {
+    width: '100%',
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0B1220'
+  },
+  browsingSteps: {
+    maxHeight: 140,
+    paddingHorizontal: 14,
+    paddingVertical: 10
+  },
+  browsingStepText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginBottom: 6
+  }
 }); 
