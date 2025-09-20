@@ -219,6 +219,17 @@ export default function GamesScreen() {
     return teamLogoMap[buildTeamKey(league, teamName)];
   };
 
+  // Helper to split team names into two lines for better display
+  const getTeamNameLines = (name: string): { line1: string; line2: string } => {
+    try {
+      const words = String(name || '').split(/\s+/).filter(Boolean);
+      if (words.length <= 1) return { line1: words[0] || String(name || ''), line2: '' };
+      return { line1: words[0], line2: words.slice(1).join(' ') };
+    } catch {
+      return { line1: String(name || ''), line2: '' };
+    }
+  };
+
 
   const sportFilters = [
     { id: 'all', name: 'All' },
@@ -271,8 +282,8 @@ export default function GamesScreen() {
       
       // Fetch scheduled and live in parallel to ensure persistence across restarts
       const [scheduledResp, liveResp] = await Promise.all([
-        sportsApi.getGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 }),
-        sportsApi.getLiveGames(leagueFilter ? { league: leagueFilter, limit: 50 } : { limit: 50 })
+        sportsApi.getGames(leagueFilter ? { league: leagueFilter, limit: 200 } : { limit: 200 }),
+        sportsApi.getLiveGames(leagueFilter ? { league: leagueFilter, limit: 200 } : { limit: 200 })
       ]);
 
       const scheduledGames = scheduledResp.data.data || [];
@@ -921,7 +932,15 @@ export default function GamesScreen() {
                       </View>
                     );
                   })()}
-                  <Text style={styles.modernTeamName} numberOfLines={1} ellipsizeMode="tail">{game.away_team}</Text>
+                  {(() => {
+                    const lines = getTeamNameLines(game.away_team);
+                    return (
+                      <View style={styles.teamNameBlock}>
+                        <Text style={styles.teamNameLine1}>{lines.line1}</Text>
+                        {!!lines.line2 && <Text style={styles.teamNameLine2}>{lines.line2}</Text>}
+                      </View>
+                    );
+                  })()}
                 </View>
                 <Text style={styles.teamRecord}>
                   {game.stats?.away_score !== null ? game.stats.away_score : ''}
@@ -979,7 +998,15 @@ export default function GamesScreen() {
                       </View>
                     );
                   })()}
-                  <Text style={styles.modernTeamName} numberOfLines={1} ellipsizeMode="tail">{game.home_team}</Text>
+                  {(() => {
+                    const lines = getTeamNameLines(game.home_team);
+                    return (
+                      <View style={styles.teamNameBlock}>
+                        <Text style={styles.teamNameLine1}>{lines.line1}</Text>
+                        {!!lines.line2 && <Text style={styles.teamNameLine2}>{lines.line2}</Text>}
+                      </View>
+                    );
+                  })()}
                 </View>
                 <Text style={styles.teamRecord}>
                   {game.stats?.home_score !== null ? game.stats.home_score : ''}
@@ -2007,6 +2034,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: normalize(2),
     flexShrink: 1,
+  },
+  teamNameBlock: {
+    flexShrink: 1,
+    justifyContent: 'center',
+  },
+  teamNameLine1: {
+    fontSize: normalize(14),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: normalize(16),
+  },
+  teamNameLine2: {
+    fontSize: normalize(12),
+    fontWeight: '600',
+    color: '#E2E8F0',
+    lineHeight: normalize(14),
   },
   teamRecord: {
     fontSize: normalize(11),
