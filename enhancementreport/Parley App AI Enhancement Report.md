@@ -17,7 +17,7 @@ This report details the enhancements made to the Parley app's backend AI system,
 
 To improve prediction accuracy, a multi-stage research approach has been implemented within the `IntelligentTeamsAgent` class. This approach aims to simulate a more thorough and adaptive research process, similar to how a human sports analyst would gather information.
 
-1.  **Enhanced `create_research_plan` Prompt:** The prompt for `create_research_plan` has been significantly expanded and refined. It now explicitly instructs the AI model (Grok-4-0709) to act as an "elite MLB betting analyst and data scientist." The prompt emphasizes identifying value, finding edges, being strategic, and thinking deeply about various factors like park factors, weather, recent form, and motivation. It also provides clear examples of successful and unsuccessful StatMuse queries and outlines the capabilities of the web search tool. This detailed guidance helps the AI formulate a more comprehensive and targeted research plan [1].
+1.  **Enhanced `create_research_plan` Prompt:** The prompt for `create_research_plan` has been significantly expanded and refined. It now explicitly instructs the AI model (grok-3-latest) to act as an "elite MLB betting analyst and data scientist." The prompt emphasizes identifying value, finding edges, being strategic, and thinking deeply about various factors like park factors, weather, recent form, and motivation. It also provides clear examples of successful and unsuccessful StatMuse queries and outlines the capabilities of the web search tool. This detailed guidance helps the AI formulate a more comprehensive and targeted research plan [1].
 
     ```python
     # Excerpt from teams_enhanced.py (create_research_plan prompt)
