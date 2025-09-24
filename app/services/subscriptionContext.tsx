@@ -4,7 +4,6 @@ import revenueCatService, { SubscriptionPlan } from './revenueCatService';
 import { DEV_CONFIG } from '../config/development';
 import { supabase } from './api/supabaseClient';
 import { Alert, Platform } from 'react-native';
-import facebookAnalyticsService from './facebookAnalyticsService';
 import eliteDayPassService from './eliteDayPassService';
 
 
@@ -266,8 +265,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         setSubscriptionTier('pro');
         await AsyncStorage.setItem('subscriptionStatus', 'pro');
 
-        // Track purchase
-        try { facebookAnalyticsService.trackPurchase(4.99, 'USD'); } catch {}
+        // Purchase tracked via RevenueCat/AppsFlyer
 
         // Success message
         Alert.alert(
@@ -295,8 +293,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           setSubscriptionTier('elite');
           await AsyncStorage.setItem('subscriptionStatus', 'elite');
           
-          // Track the purchase
-          facebookAnalyticsService.trackPurchase(8.99, 'USD');
+          // Purchase tracked via RevenueCat/AppsFlyer
           
           // Show success message
           Alert.alert(
@@ -335,14 +332,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
           };
           
           const price = planPrices[planId] || 0;
-          facebookAnalyticsService.trackPurchase(price, 'USD', {
-            subscription_tier: tier,
-            subscription_plan: planId,
-            user_id: user.id
-          });
-          console.log('📊 Facebook Analytics purchase event tracked');
+          // Purchase tracking handled by RevenueCat and AppsFlyer
+          console.log('📊 Purchase event tracked via RevenueCat');
         } catch (error) {
-          console.error('❌ Failed to track purchase with Facebook Analytics:', error);
+          console.error('❌ Purchase tracking error:', error);
         }
 
         // CRITICAL FIX: Remove optimistic update.

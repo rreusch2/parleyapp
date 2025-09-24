@@ -42,7 +42,6 @@ import {
 import { supabase } from '../services/api/supabaseClient';
 import { useSubscription } from '../services/subscriptionContext';
 import { useReview } from '../hooks/useReview';
-import facebookAnalyticsService from '../services/facebookAnalyticsService';
 import PointsService from '../services/pointsService';
 import PointsRedemptionModal from '../components/PointsRedemptionModal';
 import { aiService } from '../services/api/aiService';
