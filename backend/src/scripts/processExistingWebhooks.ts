@@ -10,7 +10,8 @@ const supabaseAdmin = createClient(
 const handleSubscriptionRenewal = async (userId: string, productId: string, expiresDate: number): Promise<void> => {
   console.log('🔄 Handling subscription renewal for user:', userId);
   
-  const newExpiryDate = new Date(expiresDate * 1000);
+  // Apple's expiresDate is already in milliseconds, so no conversion needed
+  const newExpiryDate = new Date(expiresDate);
   
   // Map product ID to plan type
   const productToPlanMap: { [key: string]: string } = {
@@ -231,12 +232,12 @@ async function processAppleNotification(webhookEvent: any) {
     switch (notificationType) {
       case 'SUBSCRIBED':
       case 'DID_RENEW':
-        await handleSubscriptionRenewal(userId, transaction.productId, transaction.expiresDate / 1000);
+        await handleSubscriptionRenewal(userId, transaction.productId, transaction.expiresDate);
         break;
         
       case 'DID_CHANGE_RENEWAL_STATUS':
         if (subtype === 'AUTO_RENEW_DISABLED') {
-          await handleSubscriptionCancellation(userId, transaction.productId, transaction.expiresDate / 1000);
+          await handleSubscriptionCancellation(userId, transaction.productId, transaction.expiresDate);
         }
         break;
         
@@ -327,7 +328,7 @@ async function processExistingWebhooks() {
           .from('webhook_events')
           .update({
             processed: false,
-            error_message: error.message,
+            error_message: error instanceof Error ? error.message : String(error),
             retry_count: 1
           })
           .eq('id', webhookEvent.id);

@@ -188,12 +188,12 @@ async function processAppleNotification(signedPayload: string) {
     switch (notificationType) {
       case 'SUBSCRIBED':
       case 'DID_RENEW':
-        await handleSubscriptionRenewal(userId, transaction.productId, transaction.expiresDate / 1000);
+        await handleSubscriptionRenewal(userId, transaction.productId, transaction.expiresDate);
         break;
         
       case 'DID_CHANGE_RENEWAL_STATUS':
         if (subtype === 'AUTO_RENEW_DISABLED') {
-          await handleSubscriptionCancellation(userId, transaction.productId, transaction.expiresDate / 1000);
+          await handleSubscriptionCancellation(userId, transaction.productId, transaction.expiresDate);
         }
         break;
         
@@ -243,9 +243,17 @@ async function processAppleNotification(signedPayload: string) {
 
 // Handle subscription renewal
 const handleSubscriptionRenewal = async (userId: string, productId: string, expiresDate: number): Promise<void> => {
-  console.log('🔄 Handling subscription renewal for user:', userId);
+  console.log('🔄 Handling subscription renewal for user:', userId, 'product:', productId);
   
-  const newExpiryDate = new Date(expiresDate * 1000);
+  // Apple's expiresDate is already in milliseconds, so no conversion needed
+  const newExpiryDate = new Date(expiresDate);
+  
+  console.log('📅 Expiration calculation:', {
+    originalTimestamp: expiresDate,
+    calculatedExpiryDate: newExpiryDate.toISOString(),
+    productId: productId,
+    isEliteMonthly: productId === 'com.parleyapp.allstarmonthly'
+  });
   
   const { error } = await supabaseAdmin
     .from('profiles')
@@ -259,7 +267,7 @@ const handleSubscriptionRenewal = async (userId: string, productId: string, expi
   if (error) {
     console.error('❌ Failed to update renewal:', error);
   } else {
-    console.log('✅ Subscription renewed until:', newExpiryDate.toISOString());
+    console.log('✅ Subscription renewed until:', newExpiryDate.toISOString(), 'for product:', productId);
   }
 };
 

@@ -250,10 +250,12 @@ class DailyAIReportGenerator:
         return list(dict.fromkeys(cleaned))  # de-duplicate, preserve order
 
     @staticmethod
-    def _validate_entities(text: str, allowed_players: List[str], allowed_teams: List[str], allowed_props: List[str]) -> Dict[str, Any]:
-        """Return a validation report with any unknown phrases that look like entities."""
+    def _validate_entities(text: str, allowed_players: List[str], allowed_teams: List[str], allowed_props: List[str], allowed_sports: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Return a validation report with any unknown phrases that look like entities.
+        Includes sports names in the allowlist to avoid flagging phrases like 'College Football'.
+        """
         phrases = DailyAIReportGenerator._extract_capitalized_phrases(text)
-        allowed = set([*allowed_players, *allowed_teams, *allowed_props])
+        allowed = set([*allowed_players, *allowed_teams, *allowed_props, *(allowed_sports or [])])
         allowed_lower = {a.lower() for a in allowed}
         generic_stop = {
             'Team Context', 'Limited Prop Data', 'Start Time',
@@ -407,6 +409,9 @@ class DailyAIReportGenerator:
         # NFL
         if any(s in lower_sports for s in ['nfl', 'americanfootball_nfl', 'national football league']):
             expanded_sports.update({'NFL', 'National Football League'})
+        # College Football (NCAAF / CFB)
+        if any(s in lower_sports for s in ['cfb', 'ncaaf', 'college football', 'americanfootball_ncaaf', 'ncaa football', 'ncaa']):
+            expanded_sports.update({'CFB', 'College Football', 'NCAAF', 'NCAA Football'})
         # MMA / UFC
         if any(s in lower_sports for s in ['mma', 'ultimate fighting championship', 'mma_mixed_martial_arts']):
             expanded_sports.update({'MMA', 'Ultimate Fighting Championship', 'UFC'})
@@ -714,6 +719,7 @@ Hard constraints:
                 allowed_players=allowed.get('players', []),
                 allowed_teams=allowed.get('teams', []),
                 allowed_props=allowed.get('prop_types', []),
+                allowed_sports=allowed.get('sports', []),
             )
             if validation.get('unknown_count', 0) > 0:
                 return {
