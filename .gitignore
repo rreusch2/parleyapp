@@ -73,8 +73,10 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 ENV/
 **/venv/
+**/.venv/
 build/
 develop-eggs/
 dist/
