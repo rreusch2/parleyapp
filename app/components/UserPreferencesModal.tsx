@@ -128,38 +128,39 @@ const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
         colors={['#1a1a2e', '#16213e', '#0f3460']}
         style={styles.container}
       >
-        <SafeAreaView style={styles.safeArea}>
-          {/* Custom Header */}
-          <View style={styles.header}>
+        {/* Compact Header with Close Button */}
+        <SafeAreaView style={styles.headerSafeArea}>
+          <View style={styles.compactHeader}>
             <TouchableOpacity
               onPress={handleClose}
               style={styles.closeButton}
               disabled={isLoading}
             >
-              <Ionicons name="close" size={24} color="#fff" />
+              <Ionicons name="close" size={20} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>User Preferences</Text>
+            <Text style={styles.headerTitle}>Update Preferences</Text>
             <View style={styles.headerSpacer} />
           </View>
-
-          {/* Loading Overlay */}
-          {isLoading && (
-            <View style={styles.loadingOverlay}>
-              <View style={styles.loadingContainer}>
-                <Ionicons name="refresh" size={32} color="#00d4ff" />
-                <Text style={styles.loadingText}>Saving preferences...</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Onboarding Flow */}
-          <View style={styles.flowContainer}>
-            <OnboardingFlow
-              onComplete={handlePreferencesComplete}
-              isExistingUser={true}
-            />
-          </View>
         </SafeAreaView>
+
+        {/* Loading Overlay */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContainer}>
+              <Ionicons name="refresh" size={32} color="#00d4ff" />
+              <Text style={styles.loadingText}>Saving preferences...</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Full Screen Onboarding Flow - No extra SafeAreaView */}
+        <View style={styles.flowContainer}>
+          <OnboardingFlow
+            onComplete={handlePreferencesComplete}
+            isExistingUser={true}
+            isModal={true}
+          />
+        </View>
       </LinearGradient>
     </Modal>
   );
@@ -169,36 +170,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  safeArea: {
-    flex: 1,
+  headerSafeArea: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  header: {
+  compactHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: 44,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+    opacity: 0.95,
   },
   headerSpacer: {
-    width: 40,
+    width: 32,
   },
   flowContainer: {
     flex: 1,
+    // Remove any extra padding - let OnboardingFlow handle its own layout
   },
   loadingOverlay: {
     position: 'absolute',
@@ -206,22 +210,29 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
   },
   loadingContainer: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 16,
-    padding: 32,
+    backgroundColor: 'rgba(26,26,46,0.95)',
+    borderRadius: 20,
+    padding: 28,
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,212,255,0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#fff',
     fontWeight: '500',
+    opacity: 0.9,
   },
 });
 

@@ -62,7 +62,7 @@ class AppsFlyerService {
         appId: Platform.OS === 'ios' ? this.APP_ID : this.ANDROID_PACKAGE,
         onInstallConversionDataListener: true, // Required for attribution
         onDeepLinkListener: true, // Required for deep linking
-        timeToWaitForATTUserAuthorization: 10, // iOS 14+ ATT timeout
+        timeToWaitForATTUserAuthorization: 60, // iOS 14+ ATT timeout (increased for proper consent)
       };
 
       console.log('🚀 Initializing AppsFlyer with options:', options);

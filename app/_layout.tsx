@@ -15,7 +15,6 @@ import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
-import facebookAnalyticsService from './services/facebookAnalyticsService';
 // ReviewDebugPanel removed (dev-only overlay disabled)
 import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
 // Remove the top-level import since it's not available on web
@@ -38,46 +37,37 @@ function AppContent() {
     // Run heavy operations after interactions complete (non-blocking)
     runAfterInteractions(async () => {
       const initializationOperations = [
-        // iOS tracking permission
+        // iOS tracking permission + AppsFlyer initialization (sequential for proper ATE)
         async () => {
           if (Platform.OS === 'ios') {
             try {
+              // 1. Request ATT permission first
               const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
               const { status } = await requestTrackingPermissionsAsync();
-              console.log(`📱 iOS Tracking: ${status}`);
-              return status;
+              console.log(`📱 iOS ATT Status: ${status}`);
+              
+              // 2. Initialize AppsFlyer AFTER ATT decision (critical for ATE parameter)
+              await appsFlyerService.initialize();
+              console.log('✅ AppsFlyer initialized after ATT consent');
+              
+              return { attStatus: status, appsFlyerReady: true };
             } catch (error) {
-              console.error('❌ iOS tracking failed:', error);
+              console.error('❌ ATT + AppsFlyer initialization failed:', error);
+              return null;
+            }
+          } else {
+            // Android - just initialize AppsFlyer
+            try {
+              await appsFlyerService.initialize();
+              console.log('✅ AppsFlyer initialized (Android)');
+              return { appsFlyerReady: true };
+            } catch (error) {
+              console.error('❌ AppsFlyer failed (Android):', error);
               return null;
             }
           }
-          return null;
         },
 
-        // AppsFlyer initialization
-        async () => {
-          try {
-            await appsFlyerService.initialize();
-            console.log('✅ AppsFlyer initialized');
-            return true;
-          } catch (error) {
-            console.error('❌ AppsFlyer failed:', error);
-            return false;
-          }
-        },
-
-        // Facebook Analytics initialization
-        async () => {
-          try {
-            await facebookAnalyticsService.initialize();
-            facebookAnalyticsService.trackAppInstall();
-            console.log('✅ Facebook Analytics initialized');
-            return true;
-          } catch (error) {
-            console.error('❌ Facebook Analytics failed:', error);
-            return false;
-          }
-        },
 
         // Push notification registration
         async () => {

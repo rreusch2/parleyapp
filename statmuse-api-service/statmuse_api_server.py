@@ -10,6 +10,7 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+import time
 import re
 
 # Configure logging
@@ -29,6 +30,9 @@ class StatMuseAPI:
             'Accept-Language': 'en-US,en;q=0.5',
             'Connection': 'keep-alive',
         }
+        # Simple in-memory cache
+        self.cache = {}
+        self.cache_ttl = 3600  # 1 hour
     
     def clean_statmuse_text(self, text: str) -> str:
         """Clean up StatMuse text to fix spacing and grammar issues"""
@@ -117,6 +121,26 @@ class StatMuseAPI:
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in nfl_keywords)
+    
+    def is_cfb_query(self, query: str) -> bool:
+        """Check if query is likely about College Football (CFB)"""
+        cfb_keywords = [
+            # General identifiers
+            'cfb', 'college football', 'ncaaf', 'ncaa football',
+            # Common CFB stat terms
+            'passing yards', 'rushing yards', 'receiving yards', 'passing tds', 'rushing tds', 'receiving tds',
+            # Conferences
+            'sec', 'big 12', 'big ten', 'acc', 'pac-12', 'pac 12', 'mountain west', 'aac', 'sun belt',
+            # Team identifiers (subset; expand as needed)
+            'texas a&m', 'aggies', 'kansas state', 'wildcats', 'arizona wildcats', 'ucla bruins', 'usc trojans',
+            'georgia bulldogs', 'alabama crimson tide', 'ohio state buckeyes', 'michigan wolverines',
+            'florida state seminoles', 'notre dame fighting irish', 'lsu tigers', 'tennessee volunteers',
+            'clemson tigers', 'oklahoma sooners', 'oregon ducks', 'washington huskies', 'iowa hawkeyes',
+            'penn state nittany lions', 'miami hurricanes', 'louisville cardinals', 'north carolina tar heels',
+            'new mexico lobos', 'ucla', 'k-state', 'kansas st', 'houston cougars'
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in cfb_keywords)
     
     def scrape_main_sports_pages(self) -> dict:
         """Scrape main StatMuse sports pages to gather current context and insights"""
@@ -320,13 +344,27 @@ class StatMuseAPI:
         return insights
     
     def query_statmuse(self, query: str) -> dict:
-        """Query StatMuse directly - no caching for fresh data"""
-        logger.info(f"🔍 StatMuse Query: {query}")
-        return self._execute_query(query)
+        """Query StatMuse with caching"""
+        cache_key = query.lower()
+        current_time = time.time()
+        
+        # Check cache
+        if cache_key in self.cache:
+            cached_data, timestamp = self.cache[cache_key]
+            if current_time - timestamp < self.cache_ttl:
+                logger.info(f"💾 Cache hit for: {query}")
+                cached_data['cached'] = True
+                return cached_data
+        
+        # Execute the query using standard approach
+        result = self._try_standard_query(query, current_time, cache_key)
+        return result
     
-    def _execute_query(self, query: str) -> dict:
+    def _try_standard_query(self, query: str, current_time: float, cache_key: str) -> dict:
         """Try the standard StatMuse query approach"""
         try:
+            logger.info(f"🔍 StatMuse Query: {query}")
+            
             # Format query for URL to match working StatMuse format
             # Examples: "A'ja Wilson points this season" -> "aja-wilson-points-this-season"
             #          "Caitlin Clark stats last 5 games" -> "caitlin-clark-stats-last-5-games"
@@ -341,21 +379,58 @@ class StatMuseAPI:
             formatted_query = formatted_query.strip('-')
             
             # Determine the correct StatMuse endpoint based on sport
+            primary_base_url = "https://www.statmuse.com/mlb/ask"
+            sport_context = "MLB"
             if self.is_wnba_query(query):
-                base_url = "https://www.statmuse.com/wnba/ask"
+                primary_base_url = "https://www.statmuse.com/wnba/ask"
                 sport_context = "WNBA"
             elif self.is_nfl_query(query):
-                base_url = "https://www.statmuse.com/nfl/ask"
+                primary_base_url = "https://www.statmuse.com/nfl/ask"
                 sport_context = "NFL"
-            else:
-                base_url = "https://www.statmuse.com/mlb/ask"
-                sport_context = "MLB"
+            elif self.is_cfb_query(query):
+                primary_base_url = "https://www.statmuse.com/cfb/ask"
+                sport_context = "CFB"
             
-            url = f"{base_url}/{formatted_query}"
-            logger.info(f"🎯 Using {sport_context} endpoint: {url}")
+            # Build candidate endpoints for fallback if primary fails (e.g., HTTP 422)
+            candidate_bases = [primary_base_url]
+            # Heuristic fallbacks based on query tokens
+            ql = query.lower()
+            if any(tok in ql for tok in ["passing yards", "rushing yards", "receiving yards", "touchdowns", "tds"]):
+                # Football-related; prefer NFL/CFB
+                for base in ["https://www.statmuse.com/cfb/ask", "https://www.statmuse.com/nfl/ask"]:
+                    if base not in candidate_bases:
+                        candidate_bases.append(base)
+            # Always include MLB and WNBA as generic fallbacks
+            for base in ["https://www.statmuse.com/mlb/ask", "https://www.statmuse.com/wnba/ask"]:
+                if base not in candidate_bases:
+                    candidate_bases.append(base)
             
-            # Make request (same as working insights)
-            response = requests.get(url, headers=self.headers, timeout=15)
+            # Try candidates in order until one returns 200
+            response = None
+            chosen_url = None
+            for base in candidate_bases:
+                url = f"{base}/{formatted_query}"
+                logger.info(f"🎯 Trying endpoint: {url}")
+                try:
+                    resp = requests.get(url, headers=self.headers, timeout=15)
+                    if resp.status_code == 200:
+                        response = resp
+                        chosen_url = url
+                        logger.info(f"✅ Endpoint succeeded: {url}")
+                        break
+                    else:
+                        logger.warning(f"⚠️ Endpoint returned {resp.status_code}: {url}")
+                except Exception as req_e:
+                    logger.warning(f"⚠️ Request error on {url}: {req_e}")
+            
+            if response is None:
+                # All candidates failed
+                logger.warning(f"StatMuse query failed for all endpoints: {candidate_bases}")
+                return {
+                    'success': False,
+                    'error': 'All endpoints failed',
+                    'query': query
+                }
             
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
@@ -374,19 +449,21 @@ class StatMuseAPI:
                         'success': True,
                         'query': query,
                         'answer': answer_text,
-                        'url': url,
-                        'timestamp': datetime.now().isoformat(),
-                        'source': 'StatMuse'
+                        'url': chosen_url or url,
+                        'cached': False,
+                        'timestamp': datetime.now().isoformat()
                     }
-                            
+                    
+                    # Cache the result
+                    self.cache[cache_key] = (result.copy(), current_time)
+                    
                     return result
                 else:
                     logger.warning(f"No answer found for: {query}")
                     return {
                         'success': False,
                         'error': 'No answer found',
-                        'query': query,
-                        'source': 'StatMuse'
+                        'query': query
                     }
             else:
                 logger.warning(f"StatMuse query failed: {response.status_code}")
@@ -569,6 +646,4 @@ if __name__ == '__main__':
     logger.info("  GET /health - Health check")
     logger.info("  GET /cache-stats - Cache statistics")
     
-    import os
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=False) 
+    app.run(host='0.0.0.0', port=5001, debug=False) 

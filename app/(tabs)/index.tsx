@@ -31,7 +31,6 @@ import {
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
 import { FacebookPixel } from '../services/analytics';
 import appsFlyerService from '../services/appsFlyerService';
-import facebookAnalyticsService from '../services/facebookAnalyticsService';
 import { supabase } from '../services/api/supabaseClient';
 import { router } from 'expo-router';
 
@@ -125,13 +124,9 @@ export default function HomeScreen() {
         },
         async () => {
           try {
-            facebookAnalyticsService.trackViewContent('Daily AI Picks', {
-              content_category: 'predictions',
-              user_tier: subscriptionTier,
-              picks_count: todaysPicks.length
-            });
+            await appsFlyerService.trackPredictionView();
           } catch (err) {
-            console.error('Facebook Analytics failed:', err);
+            console.error('AppsFlyer tracking failed:', err);
           }
         }
       ];

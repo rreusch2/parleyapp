@@ -25,7 +25,6 @@ import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import appsFlyerService from '../services/appsFlyerService';
-import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 
 export default function SignupScreen() {
@@ -205,13 +204,7 @@ export default function SignupScreen() {
         } else {
           console.log(`✅ Welcome bonus activated! User stays FREE tier with ${picks} picks until ${expiration.toISOString()}`);
           
-          // Track welcome bonus claim with Facebook Analytics
-          try {
-            facebookAnalyticsService.trackWelcomeBonusClaimed(picks);
-            console.log('📊 Facebook Analytics welcome bonus event tracked');
-          } catch (error) {
-            console.error('❌ Failed to track welcome bonus with Facebook Analytics:', error);
-          }
+          // Welcome bonus claimed - tracked via AppsFlyer
           
           // Force refresh the subscription context to ensure isPro stays false
           await checkSubscriptionStatus();
@@ -672,16 +665,12 @@ export default function SignupScreen() {
           }
         }
 
-        // Track signup with Facebook Analytics for Meta ads attribution
+        // Track signup with AppsFlyer for attribution
         try {
-          facebookAnalyticsService.trackCompleteRegistration({
-            fb_registration_method: 'email',
-            fb_content_name: 'Account Signup',
-            user_id: data.user.id
-          });
-          console.log('📊 Facebook Analytics signup event tracked');
+          await appsFlyerService.trackSignup('email');
+          console.log('📊 AppsFlyer signup event tracked');
         } catch (error) {
-          console.error('❌ Failed to track signup with Facebook Analytics:', error);
+          console.error('❌ Failed to track signup with AppsFlyer:', error);
         }
         
         // Store user ID and show preferences modal first

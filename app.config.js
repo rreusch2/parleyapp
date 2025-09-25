@@ -10,10 +10,6 @@ module.exports = {
     updates: {
       fallbackToCacheTimeout: 0
     },
-    // Facebook SDK Configuration
-    facebookAppId: "1019527860059930", // Replace with your actual Facebook App ID
-    facebookAutoLogAppEventsEnabled: true,
-    facebookAdvertiserIDCollectionEnabled: true,
     assetBundlePatterns: [
       "**/*"
     ],
@@ -114,25 +110,6 @@ module.exports = {
           "isDebug": false
         }
       ],
-      [
-        "react-native-fbsdk-next",
-        {
-          "appID": "1019527860059930",
-          "displayName": "Predictive Play",
-          // Facebook App Client Token (required by the plugin). Store in env if possible.
-          // You can set EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN in your environment.
-          "clientToken": process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || process.env.FACEBOOK_CLIENT_TOKEN || "YOUR_FB_CLIENT_TOKEN",
-          // IMPORTANT: This scheme should be fb[app-id] for Facebook SDK deep linking
-          "scheme": "fb1019527860059930",
-          // Recommended flags
-          "advertiserIDCollectionEnabled": true,
-          "autoLogAppEventsEnabled": true,
-          // We'll initialize the SDK in JS after ATT consent
-          "isAutoInitEnabled": false,
-          // iOS tracking prompt text
-          "iosUserTrackingPermission": "We use your data to deliver more relevant ads and to measure campaign performance."
-        }
-      ]
     ],
     experiments: {
       typedRoutes: true

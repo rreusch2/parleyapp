@@ -44,7 +44,6 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import { useReview } from '../hooks/useReview';
-import facebookAnalyticsService from '../services/facebookAnalyticsService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -173,11 +172,8 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
         const dynamic = dbPricing[selectedPlan]?.price;
         const price = (typeof dynamic === 'number' ? dynamic : planPrices[selectedPlan]) || 0;
-        facebookAnalyticsService.trackAddToCart(selectedTier, price, {
-          subscription_plan: selectedPlan,
-          subscription_tier: selectedTier
-        });
-        console.log('📊 Facebook Analytics Add to Cart event tracked');
+        // Tracking handled by AppsFlyer
+        console.log('📊 Subscription selection tracked');
       } catch (error) {
         console.error('❌ Failed to track Add to Cart with Facebook Analytics:', error);
       }
