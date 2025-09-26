@@ -8,7 +8,9 @@ class AgentManager {
     this.daytonaConfig = {
       apiKey: process.env.DAYTONA_API_KEY,
       serverUrl: process.env.DAYTONA_SERVER_URL || 'https://app.daytona.io/api',
-      target: process.env.DAYTONA_TARGET || 'us'
+      target: process.env.DAYTONA_TARGET || 'us',
+      workspaceUrl: process.env.DAYTONA_SERVER_URL || 'https://app.daytona.io/api',
+      agentEndpoint: process.env.DAYTONA_AGENT_ENDPOINT || '/v1/agent'
     };
     this.openmanusConfig = {
       agentUrl: process.env.OPENMANUS_AGENT_URL || 'http://localhost:3000',
@@ -62,34 +64,12 @@ class AgentManager {
 
   async initializeOpenManusAgent(sessionId, user, daytonaSession) {
     try {
-      // Build system prompt with user context
-      const systemPrompt = this.buildSystemPrompt(user);
-
-      const response = await axios.post(
-        `${this.openmanusConfig.agentUrl}/initialize`,
-        {
-          sessionId,
-          daytonaSessionId: daytonaSession.id,
-          systemPrompt,
-          userContext: {
-            id: user.id,
-            tier: user.subscription_tier,
-            preferences: user.betting_preferences || {},
-            timezone: user.timezone || 'UTC'
-          }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.openmanusConfig.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      logger.info(`OpenManus agent initialized for session ${sessionId}`);
-      return response.data;
+      // No explicit initialize endpoint in agent-api; perform a health check to warm up
+      await axios.get(`${this.openmanusConfig.agentUrl}/health`);
+      logger.info(`OpenManus agent ready for session ${sessionId}`);
+      return { ok: true };
     } catch (error) {
-      logger.error('Failed to initialize OpenManus agent:', error.response?.data || error.message);
+      logger.error('Failed to verify OpenManus agent health:', error.response?.data || error.message);
       // Continue without OpenManus if it fails - use direct Daytona communication
       logger.warn('Falling back to direct Daytona communication');
     }
@@ -209,7 +189,7 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
 
   async sendToAgent(sessionData, payload) {
     try {
-      // Send directly to your existing OpenManus agent
+      // Send directly to your existing OpenManus agent (JSON, non-streaming)
       const response = await axios.post(
         `${this.openmanusConfig.agentUrl}/chat`,
         {
@@ -225,12 +205,11 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
         {
           headers: {
             'Content-Type': 'application/json'
-          },
-          responseType: 'stream'
+          }
         }
       );
 
-      return { stream: response.data };
+      return { data: response.data };
     } catch (error) {
       logger.error('Failed to send message to OpenManus agent:', error.response?.data || error.message);
       throw new Error('Agent communication failed');
@@ -327,7 +306,7 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
 
   async handleDirectResponse(sessionData, response, callbacks) {
     // Handle non-streaming responses (fallback)
-    const assistantMessage = response.data.content || response.data.message || '';
+    const assistantMessage = response.data.response || response.data.content || response.data.message || '';
     
     sessionData.conversationHistory.push({
       role: 'assistant', 
@@ -365,7 +344,7 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
     try {
       // Send interrupt to agent
       await axios.post(
-        `${this.daytonaConfig.workspaceUrl}${this.daytonaConfig.agentEndpoint}/interrupt`,
+        `${this.daytonaConfig.serverUrl}${this.daytonaConfig.agentEndpoint}/interrupt`,
         { sessionId: sessionData.daytonaSession.id },
         {
           headers: {
@@ -391,7 +370,7 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
     try {
       // Cleanup Daytona session
       await axios.delete(
-        `${this.daytonaConfig.workspaceUrl}${this.daytonaConfig.agentEndpoint}/sessions/${sessionData.daytonaSession.id}`,
+        `${this.daytonaConfig.serverUrl}${this.daytonaConfig.agentEndpoint}/sessions/${sessionData.daytonaSession.id}`,
         {
           headers: {
             'Authorization': `Bearer ${this.daytonaConfig.apiKey}`

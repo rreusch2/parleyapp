@@ -1,5 +1,28 @@
 const winston = require('winston');
 
+// Safe stringify helper to avoid circular structure errors in metadata
+const safeStringify = (obj) => {
+  try {
+    const seen = new WeakSet();
+    return JSON.stringify(
+      obj,
+      (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) return '[Circular]';
+          seen.add(value);
+        }
+        if (value instanceof Error) {
+          return { message: value.message, stack: value.stack };
+        }
+        return value;
+      },
+      2
+    );
+  } catch (e) {
+    return '[Unserializable metadata]';
+  }
+};
+
 // Create logger with custom formatting
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
@@ -24,7 +47,7 @@ const logger = winston.createLogger({
       
       // Add metadata if present
       if (Object.keys(meta).length > 0) {
-        log += `\nMetadata: ${JSON.stringify(meta, null, 2)}`;
+        log += `\nMetadata: ${safeStringify(meta)}`;
       }
       
       return log;

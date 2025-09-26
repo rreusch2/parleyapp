@@ -151,6 +151,11 @@ class ProfessorLockServer {
 
     } catch (error) {
       logger.error('Connection setup failed:', error);
+      try {
+        this.rateLimiter.releaseConnection(userId);
+      } catch (e) {
+        logger.error('Failed to release connection slot after setup error:', e);
+      }
       ws.close(1011, 'Internal server error');
     }
   }
@@ -358,6 +363,13 @@ class ProfessorLockServer {
 
     // Clean up agent session
     this.agentManager.cleanupSession(sessionId);
+
+    // Release rate limit slot for this user
+    try {
+      this.rateLimiter.releaseConnection(session.userId);
+    } catch (e) {
+      logger.error('Failed to release connection slot:', e);
+    }
 
     // Remove from client tracking
     const userConnections = this.clients.get(session.userId);
