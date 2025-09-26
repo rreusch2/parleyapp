@@ -159,7 +159,10 @@ export const useStripePayment = () => {
       };
 
       if (appleMerchantId) {
-        initOptions.applePay = { merchantId: appleMerchantId } as any;
+        initOptions.applePay = { 
+          merchantId: appleMerchantId,
+          merchantCountryCode: 'US'
+        } as any;
       }
 
       const { error } = await initPaymentSheet(initOptions);

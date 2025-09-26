@@ -298,11 +298,10 @@ export class ChatbotOrchestrator {
       // Get upcoming games
       const { data: games, error: gamesError } = await supabaseAdmin
         .from('sports_events')
-        .select(`
-          *,
-          home_team:teams!sports_events_home_team_id_fkey(name, abbreviation),
-          away_team:teams!sports_events_away_team_id_fkey(name, abbreviation)
-        `)
+        // Note: Use the native text columns home_team/away_team to avoid joining teams table,
+        // which uses team_name/team_abbreviation (not name/abbreviation) and may lack FK names.
+        // If we later need richer team metadata, we can reintroduce a join with correct columns.
+        .select(`*`)
         .eq('status', 'scheduled')
         .gte('start_time', now.toISOString())
         .lte('start_time', nextWeek.toISOString())
@@ -322,8 +321,8 @@ export class ChatbotOrchestrator {
           .from('odds_data')
           .select(`
             *,
-            market_type:market_types(name, description),
-            bookmaker:bookmakers(name)
+            market_type:market_types(market_name, description),
+            bookmaker:bookmakers(bookmaker_name)
           `)
           .in('event_id', eventIds)
           .eq('is_best_odds', true);
