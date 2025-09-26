@@ -17,6 +17,7 @@ import { Video, ResizeMode } from 'expo-av';
 import Constants from 'expo-constants';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
+import { stripeService, useStripePayment } from '../services/stripeService';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -62,11 +63,16 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
   hasReferralBonus = false,
   referralBonusType = 'free_trial',
 }) => {
-  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro');
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly');
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'apple' | 'stripe'>('apple'); // Default to Apple IAP
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
+  const { trackPositiveInteraction } = useReview();
+  const { initializePaymentSheet, presentPaymentSheet } = useStripePayment();
+
   // Optional remote video URL for Elite preview; set in app config (app.json/app.config.ts -> expo.extra.elitePreviewVideoUrl)
   const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
 
@@ -115,9 +121,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       console.warn('⚠️ Failed to load subscription pricing (using fallbacks):', e);
     }
   };
-  
-  const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
-  const { trackPositiveInteraction } = useReview();
 
   // Function to calculate original price (double current price for 50% off promo)
   const getOriginalPrice = (currentPrice: string): string => {
@@ -178,26 +181,73 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         console.error('❌ Failed to track Add to Cart with Facebook Analytics:', error);
       }
 
-      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
-
-            if (success) {
-        console.log('✅ Purchase flow completed successfully in modal.');
-        
-        trackPositiveInteraction({ eventType: 'successful_subscription' });
-        
-        // Close modal immediately and let the dashboard update
-        onClose();
-        if (onSubscribe) {
-          onSubscribe(selectedPlan, selectedTier);
+      if (selectedPaymentMethod === 'apple') {
+        // Use existing Apple IAP flow
+        const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+        if (success) {
+          console.log('✅ Apple IAP purchase completed successfully!');
+          trackPositiveInteraction({ eventType: 'successful_subscription' });
+          onClose();
         }
       } else {
-        console.log('ℹ️ Purchase was cancelled or failed, handled in subscriptionContext.');
+        // Use Stripe payment flow
+        await handleStripePayment();
       }
     } catch (error: any) {
       console.error('❌ Subscription error in modal:', error);
       Alert.alert('Purchase Error', error.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStripePayment = async () => {
+    try {
+      // Get current user
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Initialize Stripe service
+      const initialized = await stripeService.initialize();
+      if (!initialized) {
+        throw new Error('Failed to initialize payment system');
+      }
+
+      // Create payment intent
+      const paymentIntentData = await stripeService.createPaymentIntent(selectedPlan, userData.user.id);
+      if (!paymentIntentData) {
+        throw new Error('Failed to create payment intent');
+      }
+
+      // Initialize payment sheet
+      const sheetInitialized = await initializePaymentSheet(paymentIntentData);
+      if (!sheetInitialized) {
+        throw new Error('Failed to initialize payment sheet');
+      }
+
+      // Present payment sheet
+      const paymentCompleted = await presentPaymentSheet();
+      if (!paymentCompleted) {
+        console.log('ℹ️ User cancelled Stripe payment');
+        return;
+      }
+
+      // Confirm payment on backend
+      const confirmation = await stripeService.confirmPayment(paymentIntentData.paymentIntentId, userData.user.id);
+      if (!confirmation) {
+        throw new Error('Failed to confirm payment');
+      }
+
+      console.log('✅ Stripe payment completed successfully!');
+      trackPositiveInteraction({ eventType: 'successful_subscription' });
+      Alert.alert('Success', 'Subscription activated successfully!');
+      onClose();
+
+    } catch (error: any) {
+      console.error('❌ Stripe payment error:', error);
+      throw error; // Re-throw to be caught by handleSubscribe
     }
   };
 
@@ -381,6 +431,67 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     </View>
   );
 
+  const renderPaymentMethodSelection = () => (
+    <View style={styles.paymentMethodContainer}>
+      <Text style={styles.paymentMethodTitle}>Choose Payment Method</Text>
+      <View style={styles.paymentMethodCards}>
+        {/* Apple IAP Option */}
+        <TouchableOpacity
+          style={[
+            styles.paymentMethodCard,
+            selectedPaymentMethod === 'apple' && styles.paymentMethodCardSelected
+          ]}
+          onPress={() => setSelectedPaymentMethod('apple')}
+        >
+          <LinearGradient
+            colors={selectedPaymentMethod === 'apple' ? ['#3B82F6', '#1D4ED8'] : ['#1E293B', '#334155']}
+            style={styles.paymentMethodGradient}
+          >
+            <View style={styles.paymentMethodHeader}>
+              <Shield size={20} color="#FFFFFF" />
+              <Text style={styles.paymentMethodName}>App Store</Text>
+              {selectedPaymentMethod === 'apple' && (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#0F172A" />
+                </View>
+              )}
+            </View>
+            <Text style={styles.paymentMethodDescription}>
+              Secure Apple In-App Purchase with Touch ID / Face ID
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Stripe Option */}
+        <TouchableOpacity
+          style={[
+            styles.paymentMethodCard,
+            selectedPaymentMethod === 'stripe' && styles.paymentMethodCardSelected
+          ]}
+          onPress={() => setSelectedPaymentMethod('stripe')}
+        >
+          <LinearGradient
+            colors={selectedPaymentMethod === 'stripe' ? ['#8B5CF6', '#7C3AED'] : ['#1E293B', '#334155']}
+            style={styles.paymentMethodGradient}
+          >
+            <View style={styles.paymentMethodHeader}>
+              <DollarSign size={20} color="#FFFFFF" />
+              <Text style={styles.paymentMethodName}>Credit Card</Text>
+              {selectedPaymentMethod === 'stripe' && (
+                <View style={styles.selectedIndicator}>
+                  <Check size={16} color="#0F172A" />
+                </View>
+              )}
+            </View>
+            <Text style={styles.paymentMethodDescription}>
+              Apple Pay, Cards & More payment options
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
@@ -525,6 +636,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             
             {/* Tier Comparison */}
             {renderTierComparison()}
+
+            {/* Payment Method Selection */}
+            {renderPaymentMethodSelection()}
 
             {/* Plan Options */}
             {renderPlanOptions()}
@@ -1284,6 +1398,52 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     marginTop: 2,
+  },
+  // Payment method selection styles
+  paymentMethodContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  paymentMethodTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  paymentMethodCards: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  paymentMethodCard: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  paymentMethodCardSelected: {
+    transform: [{ scale: 1.02 }],
+  },
+  paymentMethodGradient: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  paymentMethodName: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+    marginLeft: 8,
+  },
+  paymentMethodDescription: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

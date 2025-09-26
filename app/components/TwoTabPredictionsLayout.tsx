@@ -69,11 +69,11 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           .eq('id', user.id)
           .single();
         
-        // Get preferred sports
+        // Get preferred sports and normalize them
         const preferredSports = profile?.sport_preferences 
           ? Object.entries(profile.sport_preferences)
               .filter(([sport, enabled]) => enabled)
-              .map(([sport]) => sport.toUpperCase())
+              .map(([sport]) => sport.toLowerCase())
           : [];
         
         console.log('🎯 User preferred sports:', preferredSports);
@@ -86,18 +86,31 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
           .order('created_at', { ascending: false })
           .limit(15);
         
-        // If user has sport preferences, apply them as filter
+        // If user has sport preferences, apply them as filter with robust matching
         if (preferredSports.length > 0) {
-          // Use dynamic filter building
-          let filterString = '';
+          // Build comprehensive sport filter to handle variations
+          const sportFilters: string[] = [];
           
-          preferredSports.forEach((sport, index) => {
-            if (index > 0) filterString += ',';
-            filterString += `sport.ilike.%${sport}%`;
+          preferredSports.forEach((sport) => {
+            // Handle different sport name variations
+            if (sport === 'mlb' || sport === 'baseball') {
+              sportFilters.push('sport.ilike.%MLB%', 'sport.ilike.%Baseball%');
+            } else if (sport === 'nfl' || sport === 'football') {
+              sportFilters.push('sport.ilike.%NFL%', 'sport.ilike.%Football%');
+            } else if (sport === 'cfb' || sport === 'college football') {
+              sportFilters.push('sport.ilike.%College Football%', 'sport.ilike.%CFB%');
+            } else if (sport === 'wnba' || sport === 'basketball') {
+              sportFilters.push('sport.ilike.%WNBA%', 'sport.ilike.%Basketball%');
+            } else if (sport === 'ufc' || sport === 'mma') {
+              sportFilters.push('sport.ilike.%UFC%', 'sport.ilike.%MMA%');
+            } else {
+              // Fallback: try exact match with different cases
+              sportFilters.push(`sport.ilike.%${sport}%`);
+            }
           });
           
-          if (filterString) {
-            query = query.or(filterString);
+          if (sportFilters.length > 0) {
+            query = query.or(sportFilters.join(','));
           }
         }
         

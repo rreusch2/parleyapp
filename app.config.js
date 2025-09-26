@@ -110,6 +110,13 @@ module.exports = {
           "isDebug": false
         }
       ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantId": process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID || "merchant.com.parleyapp.payments",
+          "enableGooglePay": false
+        }
+      ],
     ],
     experiments: {
       typedRoutes: true
@@ -125,6 +132,9 @@ module.exports = {
       admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
       // Optional Elite preview video URL used in tiered subscription modals
       elitePreviewVideoUrl: process.env.EXPO_PUBLIC_ELITE_PREVIEW_VIDEO_URL,
+      // Stripe configuration
+      stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      appleMerchantId: process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID,
 
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"
