@@ -7,8 +7,8 @@ class AgentManager {
     this.sessions = new Map(); // sessionId -> agent session data
     this.daytonaConfig = {
       apiKey: process.env.DAYTONA_API_KEY,
-      workspaceUrl: process.env.DAYTONA_WORKSPACE_URL,
-      agentEndpoint: process.env.DAYTONA_AGENT_ENDPOINT || '/api/v1/agent'
+      serverUrl: process.env.DAYTONA_SERVER_URL || 'https://app.daytona.io/api',
+      target: process.env.DAYTONA_TARGET || 'us'
     };
     this.openmanusConfig = {
       agentUrl: process.env.OPENMANUS_AGENT_URL || 'http://localhost:3000',
@@ -49,38 +49,15 @@ class AgentManager {
   }
 
   async createDaytonaSession(sessionId, user) {
-    try {
-      const response = await axios.post(
-        `${this.daytonaConfig.workspaceUrl}${this.daytonaConfig.agentEndpoint}/sessions`,
-        {
-          sessionId,
-          userId: user.id,
-          userTier: user.subscription_tier,
-          configuration: {
-            tools: {
-              browser_use: process.env.ENABLE_BROWSER_TOOL === 'true',
-              statmuse_betting: process.env.ENABLE_STATMUSE_TOOL === 'true',
-              web_search: process.env.ENABLE_WEB_SEARCH_TOOL === 'true',
-              python_execute: process.env.ENABLE_PYTHON_TOOL === 'true'
-            },
-            model: 'grok-3-latest',
-            maxTokens: 4000,
-            temperature: 0.7
-          }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.daytonaConfig.apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      logger.error('Failed to create Daytona session:', error.response?.data || error.message);
-      throw new Error('Failed to initialize cloud agent session');
-    }
+    // For now, return a mock session since we'll use the existing OpenManus agent
+    // The actual Daytona integration is handled by the OpenManus agent itself
+    return {
+      id: sessionId,
+      userId: user.id,
+      status: 'active',
+      daytonaApiKey: this.daytonaConfig.apiKey,
+      target: this.daytonaConfig.target
+    };
   }
 
   async initializeOpenManusAgent(sessionId, user, daytonaSession) {
@@ -232,46 +209,30 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
 
   async sendToAgent(sessionData, payload) {
     try {
-      // Try OpenManus first, fallback to direct Daytona
-      let response;
-      
-      try {
-        response = await axios.post(
-          `${this.openmanusConfig.agentUrl}/chat`,
-          {
-            sessionId: sessionData.id,
-            ...payload
-          },
-          {
-            headers: {
-              'Authorization': `Bearer ${this.openmanusConfig.apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            responseType: 'stream'
+      // Send directly to your existing OpenManus agent
+      const response = await axios.post(
+        `${this.openmanusConfig.agentUrl}/chat`,
+        {
+          sessionId: sessionData.id,
+          message: payload.message,
+          conversationHistory: payload.conversationHistory,
+          userContext: {
+            id: sessionData.userId,
+            tier: payload.userTier,
+            preferences: sessionData.user.betting_preferences || {}
           }
-        );
-      } catch (openmanusError) {
-        logger.warn('OpenManus unavailable, using direct Daytona communication');
-        
-        response = await axios.post(
-          `${this.daytonaConfig.workspaceUrl}${this.daytonaConfig.agentEndpoint}/chat`,
-          {
-            sessionId: sessionData.daytonaSession.id,
-            ...payload
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
           },
-          {
-            headers: {
-              'Authorization': `Bearer ${this.daytonaConfig.apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            responseType: 'stream'
-          }
-        );
-      }
+          responseType: 'stream'
+        }
+      );
 
       return { stream: response.data };
     } catch (error) {
-      logger.error('Failed to send message to agent:', error);
+      logger.error('Failed to send message to OpenManus agent:', error.response?.data || error.message);
       throw new Error('Agent communication failed');
     }
   }

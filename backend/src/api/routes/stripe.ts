@@ -25,6 +25,18 @@ const SUBSCRIPTION_PLANS = {
   'elite_daypass': { amount: 899, interval: 'one_time', tier: 'elite' }, // $8.99
 };
 
+// Map mobile planIds to Stripe Price IDs (configure these in backend/.env)
+const PRICE_IDS: Record<string, string | undefined> = {
+  pro_weekly: process.env.STRIPE_PRICE_PRO_WEEKLY,
+  pro_monthly: process.env.STRIPE_PRICE_PRO_MONTHLY,
+  pro_yearly: process.env.STRIPE_PRICE_PRO_YEARLY,
+  pro_daypass: process.env.STRIPE_PRICE_PRO_DAYPASS, // not used for subscription, here for completeness
+  pro_lifetime: process.env.STRIPE_PRICE_PRO_LIFETIME, // not used for subscription, here for completeness
+  elite_weekly: process.env.STRIPE_PRICE_ELITE_WEEKLY,
+  elite_monthly: process.env.STRIPE_PRICE_ELITE_MONTHLY,
+  elite_yearly: process.env.STRIPE_PRICE_ELITE_YEARLY,
+};
+
 interface AuthenticatedRequest extends express.Request {
   userId?: string;
 }
@@ -160,21 +172,19 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
         description: `${planDetails.tier.charAt(0).toUpperCase() + planDetails.tier.slice(1)} ${planId.includes('daypass') ? 'Day Pass' : 'Lifetime'} - Predictive Play`
       });
     } else {
-      // Recurring subscription - create subscription with setup intent
+      // Recurring subscription - create subscription with price ID
+      const priceId = PRICE_IDS[planId];
+      if (!priceId) {
+        return res.status(400).json({
+          error: 'Missing Stripe Price ID for plan',
+          planId,
+          hint: `Set STRIPE_PRICE_* env for ${planId} in backend/.env (e.g., STRIPE_PRICE_PRO_MONTHLY=price_...)`
+        });
+      }
+
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
-        items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Predictive Play ${planDetails.tier.charAt(0).toUpperCase() + planDetails.tier.slice(1)}`,
-            } as any,
-            unit_amount: planDetails.amount,
-            recurring: {
-              interval: planDetails.interval as 'week' | 'month' | 'year'
-            }
-          } as any
-        }],
+        items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',
         payment_settings: {
           payment_method_types: ['card'],
