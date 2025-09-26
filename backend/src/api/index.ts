@@ -19,7 +19,6 @@ import trendsRoutes from './routes/trends';
 import insightsRoutes from './routes/insights';
 import adminRoutes from './routes/admin';
 import adsRoutes from './routes/ads';
-import agentRoutes from './routes/agent';
 
 // Initialize express app
 const app = express();
@@ -48,9 +47,7 @@ const corsOptions = {
     /^exp:\/\/192\.168\.1\.58:\d+$/,
     /^http:\/\/192\.168\.1\.58:\d+$/,
     /^exp:\/\/192\.168\.1\.99:\d+$/,
-    /^http:\/\/192\.168\.1\.99:\d+$/,
-    // Allow local Next.js web app
-    /^http:\/\/localhost:\d+$/
+    /^http:\/\/192\.168\.1\.99:\d+$/
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -81,7 +78,6 @@ app.use('/api/trends', trendsRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ads', adsRoutes);
-app.use('/api/agent', agentRoutes);
 
 // Fetch tomorrow's games endpoint
 app.post('/api/fetch-tomorrow-games', async (req, res) => {
@@ -131,7 +127,7 @@ app.get('/api/debug-date', async (req, res) => {
     // Test ESPN API call for today
     const testUrl = `http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${todayFormatted}`;
     
-    let testResponse: any = null;
+    let testResponse = null;
     try {
       const fetch = require('node-fetch');
       const response = await fetch(testUrl);

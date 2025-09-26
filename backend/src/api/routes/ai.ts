@@ -3,7 +3,6 @@ import { BestPick } from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
 import { generateBettingRecommendationDeepSeek } from '../../ai/orchestrator/deepseekOrchestrator';
 import enhancedDeepseekOrchestrator from '../../ai/orchestrator/enhancedDeepseekOrchestrator';
 import { createLogger } from '../../utils/logger';
-import { addClient } from '../../utils/sseHub';
 import sportRadarService from '../../services/sportsData/sportRadarService';
 import { dailyInsightsService, DailyInsight } from '../../services/supabase/dailyInsightsService';
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
@@ -1581,13 +1580,6 @@ router.post('/chat/stream', async (req, res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cache-Control');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-    // Register this stream with the SSE hub so external agent events can be forwarded
-    try {
-      addClient(userId, res);
-    } catch (e: any) {
-      logger.warn(`SSE hub registration failed for user ${userId}: ${e?.message || String(e)}`);
-    }
 
     const sendStreamData = (data: any) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
