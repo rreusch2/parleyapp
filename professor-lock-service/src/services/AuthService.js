@@ -11,43 +11,51 @@ class AuthService {
 
   async validateUser(userId) {
     try {
-      // Get user from Supabase
-      const { data: user, error } = await this.supabase
-        .from('users')
-        .select(`
-          id,
-          email,
-          subscription_tier,
-          betting_preferences,
-          timezone,
-          created_at,
-          is_active
-        `)
+      // Get profile from Supabase (we use 'profiles' not 'users')
+      const { data: profile, error: profileError } = await this.supabase
+        .from('profiles')
+        .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        logger.error('User lookup error:', error);
+      if (profileError) {
+        logger.error('User lookup error (profiles):', profileError);
         return null;
       }
 
-      if (!user || !user.is_active) {
-        logger.warn(`User ${userId} not found or inactive`);
+      if (!profile || profile.is_active === false) {
+        logger.warn(`User ${userId} not found in profiles or inactive`);
         return null;
       }
 
-      // Get subscription details
-      const { data: subscription } = await this.supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .single();
+      // Determine effective subscription using view if available
+      let effectiveTier = profile.subscription_tier || profile.base_subscription_tier || 'free';
+      let effectiveTierExpiresAt = null;
+      try {
+        const { data: tierRow, error: tierError } = await this.supabase
+          .from('v_profiles_effective_tier')
+          .select('effective_tier,effective_tier_expires_at,base_subscription_tier,subscription_status')
+          .eq('id', userId)
+          .single();
+        if (!tierError && tierRow) {
+          effectiveTier = tierRow.effective_tier || effectiveTier;
+          effectiveTierExpiresAt = tierRow.effective_tier_expires_at || null;
+        }
+      } catch (e) {
+        // Fallback handled above
+      }
+
+      const hasActiveSubscription = (effectiveTier && effectiveTier.toLowerCase() !== 'free');
 
       return {
-        ...user,
-        subscription: subscription || null,
-        hasActiveSubscription: !!subscription
+        ...profile,
+        subscription: {
+          effective_tier: effectiveTier,
+          effective_tier_expires_at: effectiveTierExpiresAt,
+          base_subscription_tier: profile.base_subscription_tier,
+          subscription_status: profile.subscription_status
+        },
+        hasActiveSubscription
       };
 
     } catch (error) {
@@ -78,9 +86,10 @@ class AuthService {
 
   async updateLastActivity(userId) {
     try {
+      // Profiles table doesn't track last_activity; update updated_at as a heartbeat
       await this.supabase
-        .from('users')
-        .update({ last_activity: new Date().toISOString() })
+        .from('profiles')
+        .update({ updated_at: new Date().toISOString() })
         .eq('id', userId);
     } catch (error) {
       logger.error('Failed to update last activity:', error);
@@ -89,16 +98,18 @@ class AuthService {
 
   async logAgentInteraction(userId, sessionId, interactionData) {
     try {
+      // Use admin_chats as a lightweight log (table exists, RLS off for service key)
       await this.supabase
-        .from('agent_interactions')
+        .from('admin_chats')
         .insert({
           user_id: userId,
-          session_id: sessionId,
-          interaction_type: interactionData.type,
-          message_content: interactionData.content,
-          tools_used: interactionData.toolsUsed || [],
-          response_time_ms: interactionData.responseTime,
-          created_at: new Date().toISOString()
+          content: JSON.stringify({
+            session_id: sessionId,
+            type: interactionData.type,
+            content: interactionData.content,
+            tools_used: interactionData.toolsUsed || [],
+            response_time_ms: interactionData.responseTime,
+          }),
         });
     } catch (error) {
       logger.error('Failed to log agent interaction:', error);
@@ -112,17 +123,18 @@ class AuthService {
       startOfDay.setHours(0, 0, 0, 0);
 
       // Get today's interaction count
+      // Use admin_chats as a proxy for interactions
       const { count: todayInteractions } = await this.supabase
-        .from('agent_interactions')
+        .from('admin_chats')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .gte('created_at', startOfDay.toISOString());
 
       // Define limits based on subscription tier
       const limits = {
-        'free': { daily: 5, concurrent: 1 },
+        'free': { daily: 10, concurrent: 1 },
         'pro': { daily: 100, concurrent: 3 },
-        'premium': { daily: 500, concurrent: 5 }
+        'elite': { daily: 500, concurrent: 5 }
       };
 
       const userLimits = limits[subscriptionTier] || limits['free'];
@@ -172,16 +184,8 @@ class AuthService {
 
   async revokeUserSession(userId, reason = 'manual') {
     try {
-      await this.supabase
-        .from('user_sessions')
-        .update({ 
-          revoked: true, 
-          revoked_at: new Date().toISOString(),
-          revocation_reason: reason
-        })
-        .eq('user_id', userId);
-
-      logger.info(`Revoked sessions for user ${userId}: ${reason}`);
+      // No user_sessions table in schema; noop with log for compatibility
+      logger.info(`revokeUserSession called for ${userId} (${reason}) - no user_sessions table, skipping`);
     } catch (error) {
       logger.error('Failed to revoke user session:', error);
     }

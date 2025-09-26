@@ -17,6 +17,8 @@ import { registerForPushNotificationsAsync, savePushTokenToProfile } from './ser
 import appsFlyerService from './services/appsFlyerService';
 // ReviewDebugPanel removed (dev-only overlay disabled)
 import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
+import Constants from 'expo-constants';
+import { StripeProvider } from './services/stripeService';
 // Remove the top-level import since it's not available on web
 
 
@@ -145,15 +147,29 @@ function AppContent() {
 
 export default function RootLayout() {
   useFrameworkReady();
-  
+  const stripePublishableKey = Constants.expoConfig?.extra?.stripePublishableKey;
+  const appleMerchantId = Constants.expoConfig?.extra?.appleMerchantId;
+
+  if (!stripePublishableKey) {
+    console.warn('Stripe publishable key is missing from app.config.js extra.stripePublishableKey');
+  }
+  if (!appleMerchantId) {
+    console.warn('Apple merchant ID is missing from app.config.js extra.appleMerchantId');
+  }
 
   return (
     <ErrorBoundary>
       <UISettingsProvider>
         <SubscriptionProvider>
-          <UIThemeProvider>
-            <AppContent />
-          </UIThemeProvider>
+          <StripeProvider
+            publishableKey={stripePublishableKey || ''}
+            merchantIdentifier={appleMerchantId || 'merchant.com.parleyapp.payments'}
+            urlScheme="predictiveplay"
+          >
+            <UIThemeProvider>
+              <AppContent />
+            </UIThemeProvider>
+          </StripeProvider>
         </SubscriptionProvider>
       </UISettingsProvider>
     </ErrorBoundary>

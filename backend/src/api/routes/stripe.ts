@@ -114,12 +114,12 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
 
     // Create or retrieve Stripe customer
     let customerId: string;
-    const { data: existingCustomer, error: scErr } = await supabaseAdmin
+    const { data: existingCustomer, error: scErr } = await (supabaseAdmin
       .from('stripe_customers')
       .select('stripe_customer_id')
-      .eq('user_id', userId)
-      .single();
-    const canPersistStripeCustomer = !scErr;
+      .eq('user_id', userId) as any)
+      .maybeSingle();
+    const tableExists = !scErr || (scErr && scErr.code !== '42P01'); // 42P01: relation does not exist
 
     if (existingCustomer?.stripe_customer_id) {
       customerId = existingCustomer.stripe_customer_id;
@@ -137,7 +137,7 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
       const customer = await stripe.customers.create(params);
       customerId = customer.id;
 
-      if (canPersistStripeCustomer) {
+      if (tableExists) {
         // Store customer ID in database if table exists
         const { error: persistErr } = await supabaseAdmin
           .from('stripe_customers')
