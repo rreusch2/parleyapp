@@ -52,10 +52,10 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
     }
 
     // Get user details from Supabase profiles; if missing, fetch from Auth and auto-create
-    let user: { id: string; email: string | null; full_name: string | null } | null = null;
+    let user: { id: string; email: string | null; username: string | null } | null = null;
     const { data: profileRow, error: profileErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, email, full_name')
+      .select('id, email, username')
       .eq('id', userId)
       .single();
 
@@ -71,7 +71,7 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
 
       const authUser = authRes.user;
       const email = authUser.email ?? null;
-      const full_name = (authUser.user_metadata?.full_name as string | undefined)
+      const usernameFromMeta = (authUser.user_metadata?.full_name as string | undefined)
         || (authUser.user_metadata?.name as string | undefined)
         || null;
 
@@ -80,11 +80,11 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
         .upsert({
           id: userId,
           email,
-          full_name,
+          username: usernameFromMeta,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .select('id, email, full_name')
+        .select('id, email, username')
         .single();
 
       if (upsertErr || !upserted) {
@@ -102,11 +102,12 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
 
     // Create or retrieve Stripe customer
     let customerId: string;
-    const { data: existingCustomer } = await supabaseAdmin
+    const { data: existingCustomer, error: scErr } = await supabaseAdmin
       .from('stripe_customers')
       .select('stripe_customer_id')
       .eq('user_id', userId)
       .single();
+    const canPersistStripeCustomer = !scErr;
 
     if (existingCustomer?.stripe_customer_id) {
       customerId = existingCustomer.stripe_customer_id;
@@ -119,20 +120,26 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
         },
       };
       if (user.email) params.email = String(user.email);
-      if (user.full_name) params.name = String(user.full_name);
+      if (user.username) params.name = String(user.username);
 
       const customer = await stripe.customers.create(params);
-
       customerId = customer.id;
 
-      // Store customer ID in database
-      await supabaseAdmin
-        .from('stripe_customers')
-        .upsert({
-          user_id: userId,
-          stripe_customer_id: customerId,
-          created_at: new Date().toISOString()
-        });
+      if (canPersistStripeCustomer) {
+        // Store customer ID in database if table exists
+        const { error: persistErr } = await supabaseAdmin
+          .from('stripe_customers')
+          .upsert({
+            user_id: userId,
+            stripe_customer_id: customerId,
+            created_at: new Date().toISOString()
+          });
+        if (persistErr) {
+          console.warn('⚠️ Could not persist stripe customer id:', persistErr);
+        }
+      } else {
+        console.warn('⚠️ stripe_customers table not found; skipping persistence.');
+      }
     }
 
     let paymentIntent: Stripe.PaymentIntent;
@@ -278,12 +285,17 @@ router.post('/confirm-payment', async (req: AuthenticatedRequest, res) => {
       subscription_tier: tier,
       subscription_status: 'active',
       subscription_plan_type: planId,
-      payment_provider: 'stripe',
+      subscription_source: 'stripe',
       updated_at: new Date().toISOString()
     };
 
-    if (subscriptionEndsAt) {
-      updateData.subscription_ends_at = subscriptionEndsAt;
+    if (type === 'subscription' && subscriptionEndsAt) {
+      updateData.subscription_expires_at = subscriptionEndsAt;
+    }
+
+    if (planId.includes('daypass') && subscriptionEndsAt) {
+      updateData.day_pass_tier = tier;
+      updateData.day_pass_expires_at = subscriptionEndsAt;
     }
 
     const { error: updateError } = await supabaseAdmin
@@ -298,8 +310,8 @@ router.post('/confirm-payment', async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    // Log the purchase
-    await supabaseAdmin
+    // Log the purchase (best-effort; table may not exist in this schema)
+    const { error: purchaseLogErr } = await supabaseAdmin
       .from('purchase_history')
       .insert({
         user_id: userId,
@@ -311,7 +323,10 @@ router.post('/confirm-payment', async (req: AuthenticatedRequest, res) => {
         currency: 'usd',
         status: 'completed',
         created_at: new Date().toISOString()
-      });
+      } as any);
+    if (purchaseLogErr) {
+      console.warn('⚠️ Skipping purchase_history log (table missing or error):', purchaseLogErr);
+    }
 
     console.log('✅ Stripe subscription activated for user:', userId, 'plan:', planId);
 
