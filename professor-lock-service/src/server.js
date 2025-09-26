@@ -65,6 +65,20 @@ class ProfessorLockServer {
     this.app.get('/tools', (req, res) => {
       res.json(this.toolManager.getAvailableTools());
     });
+
+    // Proactively ensure Daytona sandbox for a user (can be called after subscription upgrade)
+    this.app.post('/users/:userId/sandbox/ensure', async (req, res) => {
+      try {
+        const { userId } = req.params;
+        const user = await this.authService.validateUser(userId);
+        if (!user) return res.status(404).json({ error: 'user_not_found' });
+        const sandboxId = await this.agentManager.ensureUserSandbox(user);
+        if (!sandboxId) return res.status(500).json({ error: 'sandbox_creation_failed' });
+        res.json({ sandbox_id: sandboxId });
+      } catch (e) {
+        res.status(500).json({ error: 'server_error', message: e.message || String(e) });
+      }
+    });
   }
 
   setupWebSocket() {
@@ -129,6 +143,12 @@ class ProfessorLockServer {
 
       // Initialize agent session
       await this.agentManager.initializeSession(sessionId, user);
+      // Proactively ensure sandbox now (no-op if already exists)
+      try {
+        await this.agentManager.ensureUserSandbox(user);
+      } catch (e) {
+        logger.warn('ensureUserSandbox on connect failed (will retry on first request):', e.message || e);
+      }
 
       logger.info(`User ${userId} connected with session ${sessionId}`);
 
@@ -267,13 +287,14 @@ class ProfessorLockServer {
         },
         onToolComplete: (toolName, result) => {
           session.activeTools.delete(toolName);
+          const payload = (result && typeof result === 'object')
+            ? { ...result }
+            : { text: String(result || '') };
+          payload.endTime = new Date();
           this.sendToClient(session.ws, {
             type: 'tool_complete',
             toolName,
-            result: {
-              ...result,
-              endTime: new Date()
-            }
+            result: payload
           });
           this.broadcastAgentStatus(session);
         },

@@ -28,35 +28,7 @@ class AgentManager {
       const agentSession = await this.createDaytonaSession(sessionId, user);
 
       // Ensure user has a dedicated Daytona sandbox
-      let sandboxId = user.daytona_sandbox_id;
-      if (!sandboxId) {
-        try {
-          const resp = await axios.post(`${this.openmanusConfig.agentUrl}/sandbox/create`);
-          sandboxId = resp.data.sandbox_id;
-          const vncPassword = resp.data.vnc_password;
-          await this.authService.updateDaytonaSandbox(user.id, sandboxId, vncPassword);
-          // reflect locally so we pass immediately to the agent
-          user.daytona_sandbox_id = sandboxId;
-          user.daytona_vnc_password = vncPassword;
-          logger.info(`Created Daytona sandbox ${sandboxId} for user ${user.id}`);
-        } catch (e) {
-          logger.error('Failed to ensure Daytona sandbox:', e.response?.data || e.message);
-        }
-      }
-
-      // Ensure sandbox automation is ready (healthcheck) before handling user messages
-      if (sandboxId) {
-        try {
-          await axios.post(`${this.openmanusConfig.agentUrl}/sandbox/ensure_ready`, {
-            sandbox_id: sandboxId
-          }, {
-            headers: { 'Content-Type': 'application/json' }
-          });
-          logger.info(`Sandbox ${sandboxId} is ready for session ${sessionId}`);
-        } catch (e) {
-          logger.warn('Sandbox automation not ready in time, continuing anyway:', e.response?.data || e.message);
-        }
-      }
+      const sandboxId = await this.ensureUserSandbox(user);
 
       // Initialize OpenManus agent with user context
       await this.initializeOpenManusAgent(sessionId, user, agentSession);
@@ -81,6 +53,24 @@ class AgentManager {
     } catch (error) {
       logger.error(`Failed to initialize agent session ${sessionId}:`, error);
       throw error;
+    }
+  }
+
+  async ensureUserSandbox(user) {
+    let sandboxId = user.daytona_sandbox_id;
+    if (sandboxId) return sandboxId;
+    try {
+      const resp = await axios.post(`${this.openmanusConfig.agentUrl}/sandbox/create`);
+      sandboxId = resp.data.sandbox_id;
+      const vncPassword = resp.data.vnc_password;
+      await this.authService.updateDaytonaSandbox(user.id, sandboxId, vncPassword);
+      user.daytona_sandbox_id = sandboxId;
+      user.daytona_vnc_password = vncPassword;
+      logger.info(`Created Daytona sandbox ${sandboxId} for user ${user.id}`);
+      return sandboxId;
+    } catch (e) {
+      logger.error('Failed to ensure Daytona sandbox:', e.response?.data || e.message);
+      return null;
     }
   }
 
