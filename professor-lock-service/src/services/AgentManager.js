@@ -44,6 +44,20 @@ class AgentManager {
         }
       }
 
+      // Ensure sandbox automation is ready (healthcheck) before handling user messages
+      if (sandboxId) {
+        try {
+          await axios.post(`${this.openmanusConfig.agentUrl}/sandbox/ensure_ready`, {
+            sandbox_id: sandboxId
+          }, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+          logger.info(`Sandbox ${sandboxId} is ready for session ${sessionId}`);
+        } catch (e) {
+          logger.warn('Sandbox automation not ready in time, continuing anyway:', e.response?.data || e.message);
+        }
+      }
+
       // Initialize OpenManus agent with user context
       await this.initializeOpenManusAgent(sessionId, user, agentSession);
 

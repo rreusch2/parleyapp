@@ -245,7 +245,33 @@ async def chat_stream_endpoint(request: ChatRequest):
                         args = json.loads(tc.function.arguments or "{}")
                     except Exception:
                         args = {}
-                    yield f"data: {json.dumps({'type':'tool_start','tool':{'name': tc.function.name, 'parameters': args}})}\n\n"
+                    # Heuristics for searchType and action/url for UI titles
+                    search_type = None
+                    url = args.get("url")
+                    action = args.get("action")
+                    if tc.function.name == "sandbox_browser":
+                        if url:
+                            host = url.lower()
+                            if any(d in host for d in ["espn.com", "theathletic.com", "bleacherreport.com", "rotowire.com", "yahoo.com/sports"]):
+                                search_type = "news_search"
+                            elif any(d in host for d in ["draftkings", "fanduel", "mgm", "betmgm", "caesars", "pointsbet", "odds"]):
+                                search_type = "odds_lookup"
+                            else:
+                                search_type = "web_search"
+                        else:
+                            search_type = "web_search"
+                    # Attach searchType to parameters so UI can render dynamic titles
+                    args_with_meta = {**args}
+                    if search_type:
+                        args_with_meta["searchType"] = search_type
+                    start_evt = {
+                        'type': 'tool_start',
+                        'tool': {
+                            'name': tc.function.name,
+                            'parameters': args_with_meta,
+                        }
+                    }
+                    yield f"data: {json.dumps(start_evt)}\n\n"
 
                     # Execute tool and capture result
                     result = await agent.execute_tool(tc)
@@ -259,9 +285,27 @@ async def chat_stream_endpoint(request: ChatRequest):
                             "screenshot": f"data:image/jpeg;base64,{base64_img}",
                         }
                         yield f"data: {json.dumps(ss_event)}\n\n"
+                    else:
+                        # Try to get state from the tool itself (e.g., SandboxBrowserTool)
+                        try:
+                            tool = agent.available_tools.get_tool(tc.function.name)
+                            if tool and hasattr(tool, "get_current_state"):
+                                state_res = await tool.get_current_state()
+                                if getattr(state_res, "base64_image", None):
+                                    ss_event = {
+                                        "type": "tool_screenshot",
+                                        "toolName": tc.function.name,
+                                        "screenshot": f"data:image/jpeg;base64,{state_res.base64_image}",
+                                    }
+                                    yield f"data: {json.dumps(ss_event)}\n\n"
+                        except Exception:
+                            pass
 
-                    # Emit tool completion
-                    yield f"data: {json.dumps({'type':'tool_complete','toolName': tc.function.name, 'result': str(result)})}\n\n"
+                    # Emit tool completion with structured payload
+                    result_obj = {
+                        'text': result if isinstance(result, str) else str(result)
+                    }
+                    yield f"data: {json.dumps({'type':'tool_complete','toolName': tc.function.name, 'result': result_obj})}\n\n"
 
                 if agent.state == AgentState.FINISHED:
                     break
@@ -314,11 +358,16 @@ def build_enhanced_prompt(message: str, user_context: dict, conversation_history
 - Supabase database access for historical betting data
 
 **Communication Style:**
-- Be concise, confident, and data-driven
+- Be concise, confident, and data-driven (2–3 sentences max + a clear next action)
 - Use tools strategically when they add value
 - Explain your reasoning with supporting evidence
 - Provide specific recommendations with confidence levels
 - Bold important picks, odds, and numbers
+- Never write in ALL CAPS. Use sentence case with normal capitalization.
+
+**Tool Narration Rules:**
+- Do NOT narrate tool usage (e.g., "I'm opening a browser", "I'll wait for the page to load"). The UI already shows this.
+- Only output the final insight/conclusion for the user. Keep it short and impactful.
 
 **Current Request:** {message}
 
@@ -333,6 +382,33 @@ def build_enhanced_prompt(message: str, user_context: dict, conversation_history
             system_context += f"- {role}: {content}\n"
     
     return system_context
+
+@app.post("/sandbox/ensure_ready")
+async def sandbox_ensure_ready(payload: dict):
+    """Ensure a sandbox is started and its automation service is healthy before first use."""
+    sandbox_id = payload.get("sandbox_id")
+    if not sandbox_id:
+        raise HTTPException(status_code=400, detail="sandbox_id is required")
+
+    try:
+        sandbox = await get_or_start_sandbox(sandbox_id)
+        # Poll the automation health endpoint inside the sandbox
+        max_attempts = 40  # ~40s max
+        for attempt in range(max_attempts):
+            try:
+                resp = sandbox.process.exec(
+                    "curl -s -o /dev/null -w '%{http_code}' http://localhost:8003/api/automation/health",
+                    timeout=5,
+                )
+                if resp.exit_code == 0 and resp.result.strip() in ("200", "204"):
+                    return {"ready": True}
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+        raise HTTPException(status_code=504, detail="Sandbox automation not ready in time")
+    except Exception as e:
+        logger.error(f"sandbox_ensure_ready error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     # Run the server

@@ -337,7 +337,7 @@ export default function SettingsScreen() {
       return;
     }
 
-    const shareMessage = `🚀 Join me on Predictive Play - the AI-powered sports betting app! Get premium picks and insights. Use my referral code: ${userReferralCode}\n\nDownload: https://apps.apple.com/app/predictive-play`;
+    const shareMessage = `🚀 Join me on Predictive Play - the AI-powered sports betting app! Get premium picks and insights. Use my referral code: ${userReferralCode}\n\nDownload: https://apps.apple.com/us/app/predictive-play-ai-betting/id6748275790`;
 
     try {
       await Share.share({

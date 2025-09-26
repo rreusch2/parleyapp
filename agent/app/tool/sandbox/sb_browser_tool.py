@@ -219,6 +219,7 @@ class SandboxBrowserTool(SandboxToolsBase):
                     result = json.loads(response.result)
                     result.setdefault("content", "")
                     result.setdefault("role", "assistant")
+                    screenshot_data = None
                     if "screenshot_base64" in result:
                         screenshot_data = result["screenshot_base64"]
                         is_valid, validation_message = self._validate_base64_image(
@@ -229,7 +230,7 @@ class SandboxBrowserTool(SandboxToolsBase):
                                 f"Screenshot validation failed: {validation_message}"
                             )
                             result["image_validation_error"] = validation_message
-                            del result["screenshot_base64"]
+                            screenshot_data = None
 
                     # added_message = await self.thread_manager.add_message(
                     #     thread_id=self.thread_id,
@@ -257,23 +258,29 @@ class SandboxBrowserTool(SandboxToolsBase):
                     ]:
                         if field in result:
                             success_response[field] = result[field]
-                    return (
-                        self.success_response(success_response)
-                        if success_response["success"]
-                        else self.fail_response(success_response)
-                    )
+                    if success_response["success"]:
+                        # Include screenshot (if any) so upstream can stream it
+                        return ToolResult(
+                            output=json.dumps(success_response, indent=2),
+                            base64_image=screenshot_data,
+                        )
+                    else:
+                        # Ensure error is a plain string
+                        err_text = success_response.get("message") or "Browser action failed"
+                        return ToolResult(
+                            error=str(err_text),
+                            base64_image=screenshot_data,
+                        )
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse response JSON: {e}")
-                    return self.fail_response(f"Failed to parse response JSON: {e}")
+                    return ToolResult(error=f"Failed to parse response JSON: {e}")
             else:
                 logger.error(f"Browser automation request failed: {response}")
-                return self.fail_response(
-                    f"Browser automation request failed: {response}"
-                )
+                return ToolResult(error=f"Browser automation request failed: {response}")
         except Exception as e:
             logger.error(f"Error executing browser action: {e}")
             logger.debug(traceback.format_exc())
-            return self.fail_response(f"Error executing browser action: {e}")
+            return ToolResult(error=f"Error executing browser action: {e}")
 
     async def execute(
         self,
@@ -431,7 +438,7 @@ class SandboxBrowserTool(SandboxToolsBase):
             state_info = {
                 "url": state.get("url", ""),
                 "title": state.get("title", ""),
-                "tabs": [tab.model_dump() for tab in state.get("tabs", [])],
+                "tabs": state.get("tabs", []),
                 "pixels_above": getattr(state, "pixels_above", 0),
                 "pixels_below": getattr(state, "pixels_below", 0),
                 "help": "[0], [1], [2], etc., represent clickable indices corresponding to the elements listed. Clicking on these indices will navigate to or interact with the respective content behind them.",
