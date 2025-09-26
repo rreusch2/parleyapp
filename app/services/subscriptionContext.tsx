@@ -190,7 +190,7 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         await AsyncStorage.setItem('subscriptionStatus', 'free');
       }
 
-      // RevenueCat sync (non-authoritative when day pass or welcome bonus active)
+      // RevenueCat sync (AUTHORITATIVE: paid entitlements override welcome bonus / day pass)
       try {
         await revenueCatService.initialize();
         const customerInfo = await revenueCatService.getCustomerInfo();
@@ -198,16 +198,21 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
         if (hasAny) {
           const eliteEnt = Object.values(customerInfo.entitlements.active).find((e: any) => e?.productIdentifier?.includes('allstar') || e?.productIdentifier === 'com.parleyapp.elitedaypass');
           const tier = eliteEnt ? 'elite' : 'pro';
-          const welcomeActive = !!(profile?.welcome_bonus_claimed && profile?.welcome_bonus_expires_at && new Date(profile?.welcome_bonus_expires_at) > now);
-          const dayPassActive = !!(profile?.subscription_plan_type === 'daypass' && profile?.subscription_expires_at && new Date(profile?.subscription_expires_at) > now);
-          if (!welcomeActive && !dayPassActive && profile?.subscription_tier !== tier) {
-            console.log(`🔄 Syncing ${tier} from RevenueCat`);
-            await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', user.id);
-            setIsPro(true);
-            setIsElite(tier === 'elite');
-            setSubscriptionTier(tier as 'pro' | 'elite');
-            await AsyncStorage.setItem('subscriptionStatus', tier);
+          if (profile?.subscription_tier !== tier) {
+            console.log(`🔄 Syncing ${tier} from RevenueCat (overrides welcome/daypass)`);
+            await supabase
+              .from('profiles')
+              .update({ 
+                subscription_tier: tier,
+                welcome_bonus_claimed: false,
+                welcome_bonus_expires_at: null
+              })
+              .eq('id', user.id);
           }
+          setIsPro(true);
+          setIsElite(tier === 'elite');
+          setSubscriptionTier(tier as 'pro' | 'elite');
+          await AsyncStorage.setItem('subscriptionStatus', tier);
         }
       } catch (rcErr) {
         console.log('⚠️ RevenueCat check failed:', rcErr);

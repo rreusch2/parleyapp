@@ -28,6 +28,7 @@ import webhooksRewardsRoutes from './api/routes/webhooks-rewards';
 import coinsRouter from './api/routes/coins';
 import adsRouter from './api/routes/ads';
 import statmuseRouter from './api/routes/statmuse';
+import { handleRevenueCatWebhook } from './api/routes/revenuecat-webhook';
 import playerPropsRouter from './api/routes/playerProps';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
@@ -137,6 +138,8 @@ app.use('/api/player-props', playerPropsRouter);
 app.use('/api/webhooks-rewards', webhooksRewardsRoutes);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
+// RevenueCat webhooks use raw body for signature verification
+app.post('/api/webhooks/revenuecat', express.raw({ type: 'application/json' }), handleRevenueCatWebhook);
 app.use('/api/automation', automationLimiter, automationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationsRouter);

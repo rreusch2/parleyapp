@@ -184,8 +184,10 @@ router.post('/verify', async (req, res) => {
       });
 
     if (purchaseError) {
-      console.error('❌ Failed to store purchase:', purchaseError);
-      return res.status(500).json({ error: 'Failed to store purchase' });
+      // Do NOT fail the request if the purchases log table is missing or write fails.
+      // The critical path is updating the user's subscription_tier below so the app unlocks immediately.
+      console.error('❌ Failed to store purchase (non-fatal):', purchaseError);
+      // continue
     }
 
     // Update user's subscription status using admin client
@@ -398,50 +400,54 @@ async function verifyGooglePurchase(productId: string, purchaseToken: string): P
   }
 }
 
-// Map product ID to subscription tier
+// Map product ID to subscription tier (supports iOS, Android base plans, and Stripe IDs)
 function getSubscriptionTier(productId: string): string {
   console.log('🏷️ Mapping product ID to tier:', productId);
-  
-  // Handle exact product IDs
-  const tierMapping: { [key: string]: string } = {
-    // Pro tier products
+
+  // Normalize for safety
+  const id = (productId || '').toLowerCase();
+
+  // Exact known IDs
+  const exact: Record<string, 'pro' | 'elite'> = {
+    // Pro iOS
     'com.parleyapp.premium_monthly': 'pro',
-    'com.parleyapp.premiumyearly': 'pro', 
+    'com.parleyapp.premium_weekly': 'pro',
+    'com.parleyapp.premiumyearly': 'pro',
     'com.parleyapp.premium_lifetime': 'pro',
-    'premium_monthly': 'pro', // Android
-    'premium_yearly': 'pro',   // Android
-    'premium_lifetime': 'pro', // Android
+    'com.parleyapp.prodaypass': 'pro',
+
+    // Elite iOS
+    'com.parleyapp.allstarweekly': 'elite',
+    'com.parleyapp.allstarmonthly': 'elite',
+    'com.parleyapp.allstaryearly': 'elite',
+    'com.parleyapp.elitedaypass': 'elite',
+
+    // Historic names
     'com.parleyapp.pro_weekly': 'pro',
     'com.parleyapp.pro_monthly': 'pro',
     'com.parleyapp.pro_yearly': 'pro',
-    'com.parleyapp.pro_daypass': 'pro',
-    'com.parleyapp.prodaypass': 'pro', // Correct day pass product ID
-    'pro_weekly': 'pro', // Android
-    'pro_monthly': 'pro', // Android
-    'pro_yearly': 'pro', // Android
-    'pro_daypass': 'pro', // Android
-    
-    // Elite tier products
     'com.parleyapp.elite_weekly': 'elite',
     'com.parleyapp.elite_monthly': 'elite',
     'com.parleyapp.elite_yearly': 'elite',
-    'com.parleyapp.elitedaypass': 'elite',
-    'elite_weekly': 'elite', // Android
-    'elite_monthly': 'elite', // Android
-    'elite_yearly': 'elite' // Android
   };
-  
-  const tier = tierMapping[productId];
-  if (tier) {
-    console.log('✅ Mapped to tier:', tier);
-    return tier;
+
+  if (exact[id]) {
+    console.log('✅ Exact mapping:', exact[id]);
+    return exact[id];
   }
-  
-  // Fallback to pattern matching
-  if (productId.includes('monthly')) return 'pro_monthly';
-  if (productId.includes('yearly')) return 'pro_yearly';
-  if (productId.includes('lifetime')) return 'pro_lifetime';
-  
+
+  // Google base plan format: com.parleyapp.premium_monthly:monthly-pro2025
+  if (id.startsWith('com.parleyapp.premium_') || id.startsWith('com.parleyapp.pro:') || id.includes('premium_month') || id.includes('premium_year') || id.includes('pro:')) {
+    console.log('✅ Pattern mapping to pro');
+    return 'pro';
+  }
+  if (id.startsWith('com.parleyapp.allstar') || id.startsWith('com.parleyapp.elite:') || id.includes('allstar') || id.includes('elite:')) {
+    console.log('✅ Pattern mapping to elite');
+    return 'elite';
+  }
+
+  // Stripe products (from RevenueCat): prod_Snt* etc - not distinguishable here; treat in client via offerings
+  // Default cautious fallback
   console.warn('⚠️ Unknown product ID, defaulting to free:', productId);
   return 'free';
 }

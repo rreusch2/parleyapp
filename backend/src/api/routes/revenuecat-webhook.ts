@@ -37,17 +37,15 @@ interface RevenueCatWebhookEvent {
   };
 }
 
-// Webhook signature verification
-function verifyWebhookSignature(body: string, signature: string, secret: string): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(body, 'utf8')
-    .digest('hex');
-  
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
+// Simple authorization: RevenueCat sends an Authorization: Bearer <token> header
+function isAuthorizedAuthHeader(authHeader: string | undefined, secret: string): boolean {
+  if (!authHeader) return false;
+  if (authHeader === secret) return true; // allow exact match
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    return token === secret;
+  }
+  return false;
 }
 
 // Map RevenueCat product IDs to tiers
@@ -92,14 +90,11 @@ function isDayPassProduct(productId: string): boolean {
 
 export async function handleRevenueCatWebhook(req: Request, res: Response) {
   try {
-    const signature = req.headers['authorization']?.replace('Bearer ', '') || '';
-    const rawBody = JSON.stringify(req.body);
-    
-    // Verify webhook signature (optional but recommended)
-    const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
-    if (webhookSecret && !verifyWebhookSignature(rawBody, signature, webhookSecret)) {
-      console.error('Invalid RevenueCat webhook signature');
-      return res.status(401).json({ error: 'Invalid signature' });
+    const authHeader = req.headers['authorization'] as string | undefined;
+    const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET || '';
+    if (webhookSecret && !isAuthorizedAuthHeader(authHeader, webhookSecret)) {
+      console.error('Invalid RevenueCat webhook authorization');
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const webhookData: RevenueCatWebhookEvent = req.body;
@@ -219,6 +214,8 @@ async function handleSubscriptionActive(userId: string, event: any) {
         day_pass_expires_at: expiresAt.toISOString(),
         day_pass_granted_at: new Date().toISOString(),
         subscription_source: 'daypass',
+        subscription_tier: tier, // ensure UI unlocks immediately
+        subscription_status: 'active',
         revenuecat_customer_id: event.app_user_id,
         last_revenuecat_sync: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -232,14 +229,19 @@ async function handleSubscriptionActive(userId: string, event: any) {
   // For renewable subscriptions: Use entitlements from RevenueCat
   // RevenueCat will send us the active entitlements in the event data
   const entitlements = event.entitlements || {};
-  
+  // Fallback to product mapping if entitlements missing
+  let mappedTier: 'pro' | 'elite' | null = null;
+  if (entitlements && (entitlements.predictiveplaypro || entitlements.elite)) {
+    const proActive = !!entitlements.predictiveplaypro && entitlements.predictiveplaypro.expires_date && new Date(entitlements.predictiveplaypro.expires_date) > new Date();
+    const eliteActive = !!entitlements.elite && entitlements.elite.expires_date && new Date(entitlements.elite.expires_date) > new Date();
+    mappedTier = eliteActive ? 'elite' : (proActive ? 'pro' : null);
+  }
+  if (!mappedTier && event.product_id) {
+    mappedTier = getProductTier(event.product_id);
+  }
   const revenuecatEntitlements = {
-    predictiveplaypro: !!entitlements.predictiveplaypro && 
-                      entitlements.predictiveplaypro.expires_date && 
-                      new Date(entitlements.predictiveplaypro.expires_date) > new Date(),
-    elite: !!entitlements.elite && 
-           entitlements.elite.expires_date && 
-           new Date(entitlements.elite.expires_date) > new Date()
+    predictiveplaypro: mappedTier === 'pro',
+    elite: mappedTier === 'elite'
   };
   
   await supabaseAdmin
@@ -250,6 +252,8 @@ async function handleSubscriptionActive(userId: string, event: any) {
       revenuecat_customer_info: event,
       subscription_source: 'revenuecat',
       subscription_product_id: event.product_id,
+      subscription_tier: mappedTier || 'free',
+      subscription_status: mappedTier ? 'active' : 'inactive',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -260,12 +264,23 @@ async function handleSubscriptionActive(userId: string, event: any) {
 
 async function handleSubscriptionInactive(userId: string, event: any) {
   // Clear RevenueCat entitlements but preserve day passes
+  // Determine if day pass is still active before downgrading tier
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('day_pass_expires_at, day_pass_tier')
+    .eq('id', userId)
+    .single();
+
+  const hasActiveDayPass = !!(profile?.day_pass_expires_at && new Date(profile.day_pass_expires_at) > new Date());
+
   await supabaseAdmin
     .from('profiles')
     .update({
       revenuecat_entitlements: { predictiveplaypro: false, elite: false },
       revenuecat_customer_info: event,
-      subscription_source: 'legacy', // Fall back to legacy logic if any
+      subscription_source: hasActiveDayPass ? 'daypass' : 'legacy',
+      subscription_tier: hasActiveDayPass ? profile?.day_pass_tier : 'free',
+      subscription_status: hasActiveDayPass ? 'active' : 'expired',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
