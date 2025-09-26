@@ -51,18 +51,53 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
       });
     }
 
-    // Get user details from Supabase
-    const { data: user, error: userError } = await supabaseAdmin
+    // Get user details from Supabase profiles; if missing, fetch from Auth and auto-create
+    let user: { id: string; email: string | null; full_name: string | null } | null = null;
+    const { data: profileRow, error: profileErr } = await supabaseAdmin
       .from('profiles')
       .select('id, email, full_name')
       .eq('id', userId)
       .single();
 
-    if (userError || !user) {
-      console.error('❌ Error fetching user:', userError);
-      return res.status(404).json({
-        error: 'User not found'
-      });
+    if (profileRow) {
+      user = profileRow as any;
+    } else {
+      console.warn('⚠️ Profile not found for user, attempting to load from Auth and create profile:', userId, profileErr);
+      const { data: authRes, error: authErr } = await (supabaseAdmin as any).auth.admin.getUserById(userId);
+      if (authErr || !authRes?.user) {
+        console.error('❌ Error fetching user from Supabase Auth:', authErr);
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const authUser = authRes.user;
+      const email = authUser.email ?? null;
+      const full_name = (authUser.user_metadata?.full_name as string | undefined)
+        || (authUser.user_metadata?.name as string | undefined)
+        || null;
+
+      const { data: upserted, error: upsertErr } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email,
+          full_name,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select('id, email, full_name')
+        .single();
+
+      if (upsertErr || !upserted) {
+        console.error('❌ Failed to create profile for user:', upsertErr);
+        return res.status(500).json({ error: 'Failed to create user profile' });
+      }
+
+      user = upserted as any;
+      console.log('✅ Created missing profile for user:', userId);
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Create or retrieve Stripe customer
@@ -77,14 +112,16 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
       customerId = existingCustomer.stripe_customer_id;
     } else {
       // Create new Stripe customer
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.full_name,
+      const params: Stripe.CustomerCreateParams = {
         metadata: {
-          userId: userId,
-          tier: planDetails.tier
-        }
-      });
+          userId: String(userId),
+          tier: String(planDetails.tier),
+        },
+      };
+      if (user.email) params.email = String(user.email);
+      if (user.full_name) params.name = String(user.full_name);
+
+      const customer = await stripe.customers.create(params);
 
       customerId = customer.id;
 
@@ -195,7 +232,7 @@ router.post('/confirm-payment', async (req: AuthenticatedRequest, res) => {
     // Retrieve the payment intent from Stripe
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
-    if (paymentIntent.status !== 'succeeded') {
+    if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
       return res.status(400).json({
         error: 'Payment not completed',
         status: paymentIntent.status

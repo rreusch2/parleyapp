@@ -144,21 +144,25 @@ export const useStripePayment = () => {
     try {
       console.log('🔄 Initializing Stripe Payment Sheet...');
 
-      const { error } = await initPaymentSheet({
+      // Build PaymentSheet init options.
+      // IMPORTANT: Do not pass customerId unless you also provide an ephemeral key.
+      // Passing customerId without an ephemeral key can cause Payment Sheet to fail in production.
+      const initOptions: any = {
         merchantDisplayName: 'Predictive Play',
         paymentIntentClientSecret: paymentIntentData.clientSecret,
-        customerId: paymentIntentData.customerId,
-        customerEphemeralKeySecret: undefined, // Optional for saved payment methods
         allowsDelayedPaymentMethods: true,
-        applePay: appleMerchantId ? {
-          merchantId: appleMerchantId,
-        } as any : undefined,
         googlePay: {
           merchantCountryCode: 'US',
           testEnv: __DEV__,
         },
         returnURL: 'predictiveplay://stripe-redirect',
-      });
+      };
+
+      if (appleMerchantId) {
+        initOptions.applePay = { merchantId: appleMerchantId } as any;
+      }
+
+      const { error } = await initPaymentSheet(initOptions);
 
       if (error) {
         console.error('❌ Error initializing payment sheet:', error);
