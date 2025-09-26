@@ -151,7 +151,7 @@ class ToolCallAgent(ReActAgent):
                 f"🎯 Tool '{command.function.name}' completed its mission! Result: {result}"
             )
 
-            # Add tool response to memory
+            # Add tool response to memory AND to the active messages list
             tool_msg = Message.tool_message(
                 content=result,
                 tool_call_id=command.id,
@@ -159,6 +159,9 @@ class ToolCallAgent(ReActAgent):
                 base64_image=self._current_base64_image,
             )
             self.memory.add_message(tool_msg)
+            # Critical: also append to self.messages so the next ask_tool call
+            # sees the required tool message immediately following the assistant tool_calls
+            self.messages += [tool_msg]
             results.append(result)
 
         return "\n\n".join(results)

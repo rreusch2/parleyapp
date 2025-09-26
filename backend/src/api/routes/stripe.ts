@@ -22,7 +22,7 @@ const SUBSCRIPTION_PLANS = {
   'elite_weekly': { amount: 1499, interval: 'week', tier: 'elite' }, // $14.99
   'elite_monthly': { amount: 2999, interval: 'month', tier: 'elite' }, // $29.99
   'elite_yearly': { amount: 19999, interval: 'year', tier: 'elite' }, // $199.99
-  'elite_daypass': { amount: 899, interval: 'one_time', tier: 'elite' }, // $8.99
+  'elite_daypass': { amount: 799, interval: 'day', tier: 'elite' }, // $7.99 daily recurring
 };
 
 // Map mobile planIds to Stripe Price IDs (configure these in backend/.env)
@@ -35,6 +35,7 @@ const PRICE_IDS: Record<string, string | undefined> = {
   elite_weekly: process.env.STRIPE_PRICE_ELITE_WEEKLY,
   elite_monthly: process.env.STRIPE_PRICE_ELITE_MONTHLY,
   elite_yearly: process.env.STRIPE_PRICE_ELITE_YEARLY,
+  elite_daypass: process.env.STRIPE_PRICE_ELITE_DAYPASS, // not used for subscription, here for completeness
 };
 
 interface AuthenticatedRequest extends express.Request {
@@ -274,6 +275,9 @@ router.post('/confirm-payment', async (req: AuthenticatedRequest, res) => {
       const now = new Date();
       let endDate: Date;
       switch (planDetails.interval) {
+        case 'day':
+          endDate = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+          break;
         case 'week':
           endDate = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
           break;

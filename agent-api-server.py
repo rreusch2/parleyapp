@@ -181,6 +181,11 @@ async def chat_stream_endpoint(request: ChatRequest):
                         sb_tool = SandboxBrowserTool.create_with_sandbox(sandbox)
                         agent.available_tools = ToolCollection(*base_tools)
                         agent.available_tools.add_tool(sb_tool)
+                        # Ensure the internal automation API is running to avoid first-call timeouts
+                        try:
+                            sb_tool.ensure_automation_service(retries=2)
+                        except Exception:
+                            pass
                         logger.info(
                             f"Sandbox tool attached for session {session_id} (sandbox {sandbox_id})"
                         )
