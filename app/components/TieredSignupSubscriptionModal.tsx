@@ -374,21 +374,27 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
           onPress={() => setSelectedPaymentMethod('apple')}
         >
           <LinearGradient
-            colors={selectedPaymentMethod === 'apple' ? ['#3B82F6', '#1D4ED8'] : ['#1E293B', '#334155']}
+            colors={selectedPaymentMethod === 'apple' ? ['#059669', '#047857'] : ['#1E293B', '#334155']}
             style={styles.paymentMethodGradient}
           >
             <View style={styles.paymentMethodHeader}>
-              <Shield size={20} color="#FFFFFF" />
+              <View style={styles.paymentMethodIconContainer}>
+                <Shield size={18} color="#FFFFFF" />
+              </View>
               <Text style={styles.paymentMethodName}>App Store</Text>
               {selectedPaymentMethod === 'apple' && (
                 <View style={styles.selectedIndicator}>
-                  <Check size={16} color="#0F172A" />
+                  <Check size={14} color="#047857" />
                 </View>
               )}
             </View>
             <Text style={styles.paymentMethodDescription}>
-              Secure Apple In-App Purchase with Touch ID / Face ID
+              🍎 Secure Apple Pay with Touch ID / Face ID
             </Text>
+            <View style={styles.paymentMethodFeatures}>
+              <Text style={styles.paymentMethodFeature}>• Instant checkout</Text>
+              <Text style={styles.paymentMethodFeature}>• Biometric security</Text>
+            </View>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -401,21 +407,27 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
           onPress={() => setSelectedPaymentMethod('stripe')}
         >
           <LinearGradient
-            colors={selectedPaymentMethod === 'stripe' ? ['#8B5CF6', '#7C3AED'] : ['#1E293B', '#334155']}
+            colors={selectedPaymentMethod === 'stripe' ? ['#EA580C', '#DC2626'] : ['#1E293B', '#334155']}
             style={styles.paymentMethodGradient}
           >
             <View style={styles.paymentMethodHeader}>
-              <DollarSign size={20} color="#FFFFFF" />
+              <View style={styles.paymentMethodIconContainer}>
+                <DollarSign size={18} color="#FFFFFF" />
+              </View>
               <Text style={styles.paymentMethodName}>Credit Card</Text>
               {selectedPaymentMethod === 'stripe' && (
                 <View style={styles.selectedIndicator}>
-                  <Check size={16} color="#0F172A" />
+                  <Check size={14} color="#DC2626" />
                 </View>
               )}
             </View>
             <Text style={styles.paymentMethodDescription}>
-              Apple Pay, Cards & More payment options
+              💳 Apple Pay, Cash App Pay, Cards & More
             </Text>
+            <View style={styles.paymentMethodFeatures}>
+              <Text style={styles.paymentMethodFeature}>• Multiple wallets</Text>
+              <Text style={styles.paymentMethodFeature}>• Flexible options</Text>
+            </View>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -1445,37 +1457,62 @@ const styles = StyleSheet.create({
   },
   paymentMethodCards: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
   },
   paymentMethodCard: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   paymentMethodCardSelected: {
-    transform: [{ scale: 1.02 }],
+    transform: [{ scale: 1.03 }],
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
   paymentMethodGradient: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 14,
+    minHeight: 120,
   },
   paymentMethodHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  paymentMethodIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   paymentMethodName: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     flex: 1,
-    marginLeft: 8,
   },
   paymentMethodDescription: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 8,
+  },
+  paymentMethodFeatures: {
+    gap: 2,
+  },
+  paymentMethodFeature: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 11,
+    fontWeight: '500',
   },
 });
 
