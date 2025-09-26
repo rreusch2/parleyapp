@@ -16,7 +16,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.app.predictiveplay",
-      buildNumber: "145",
+      buildNumber: "146",
       jsEngine: "hermes",
       // REMOVED: useIconsFromAssetCatalog: true,
       // Permission explanations refined based on app features
@@ -25,6 +25,8 @@ module.exports = {
         "ITSAppUsesNonExemptEncryption": false,
         // App Tracking Transparency prompt text (required for IDFA on iOS 14.5+)
         "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
+        // Camera permission (required by third-party SDKs even if not used)
+        "NSCameraUsageDescription": "This app does not use the camera, but this permission is required by third-party SDKs.",
         // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.
         "SKAdNetworkItems": [
           { "SKAdNetworkIdentifier": "v9wttpbfk9.skadnetwork" }, // Meta Primary
