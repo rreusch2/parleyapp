@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../config/supabase';
+import { supabaseAdmin } from '../services/supabaseClient';
 
 interface RevenueCatWebhookEvent {
   api_version: string;
@@ -81,11 +81,11 @@ export class RevenueCatWebhookHandler {
       }
       
       // Log successful processing
-      await this.logWebhookEvent(event, 'processed', null);
+      await this.logWebhookEvent(event, 'processed', undefined);
       
     } catch (error) {
       console.error(`❌ Error processing webhook ${event.event.type}:`, error);
-      await this.logWebhookEvent(event, 'error', error.message);
+      await this.logWebhookEvent(event, 'error', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -101,7 +101,9 @@ export class RevenueCatWebhookHandler {
     
     // Handle day passes (non-renewing products)
     if (this.isDayPassProduct(product_id)) {
-      await this.grantDayPass(app_user_id, tier);
+      if (tier !== 'free') {
+        await this.grantDayPass(app_user_id, tier);
+      }
       return;
     }
     
@@ -195,7 +197,7 @@ export class RevenueCatWebhookHandler {
   /**
    * Grant day pass access for 24 hours
    */
-  private static async grantDayPass(userId: string, tier: 'pro' | 'elite'): Promise<void> {
+  static async grantDayPass(userId: string, tier: 'pro' | 'elite'): Promise<void> {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + (24 * 60 * 60 * 1000)); // 24 hours
     
