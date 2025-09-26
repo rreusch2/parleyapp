@@ -187,11 +187,21 @@ class DatabaseClient:
             
             # Fetch games from specified sports - using correct sport names from database
             all_games = []
-            if hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
+            # Allow an explicit sport filter to override default list
+            if hasattr(self, 'sport_filter') and getattr(self, 'sport_filter'):
+                sports = list(getattr(self, 'sport_filter'))
+                logger.info(f"🎯 Sport filter active (teams): {sports}")
+            elif hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
                 sports = ["National Football League"]
                 logger.info("🏈 NFL-only mode: Fetching NFL games only")
             else:
-                sports = ["Major League Baseball", "Women's National Basketball Association", "Ultimate Fighting Championship", "National Football League", "College Football"]
+                sports = [
+                    "Major League Baseball",
+                    "Women's National Basketball Association",
+                    "Ultimate Fighting Championship",
+                    "National Football League",
+                    "College Football"
+                ]
             
             for sport in sports:
                 response = self.supabase.table("sports_events").select(
@@ -1867,6 +1877,8 @@ def parse_arguments():
                       help='Generate 5 best NFL team picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--nfl-only', action='store_true',
                       help='Generate picks for NFL games only (ignore other sports)')
+    parser.add_argument('--sport', type=str, choices=['NFL', 'MLB', 'WNBA', 'CFB', 'MMA', 'UFC'],
+                      help='Limit team picks to a single sport (overrides multi-sport distribution)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
     return parser.parse_args()
@@ -1905,6 +1917,33 @@ async def main():
     agent.nfl_week_mode = args.nfl_week
     # Set NFL only mode if flag is provided
     agent.nfl_only_mode = args.nfl_only
+    
+    # Apply sport filters to DB client (align with props_enhanced.py behavior)
+    try:
+        if hasattr(agent, 'db'):
+            # Mirror nfl_only flag onto DB client for query filtering
+            setattr(agent.db, 'nfl_only_mode', bool(args.nfl_only))
+            
+            # Generic sport filter via --sport
+            if args.sport:
+                sport_map = {
+                    'NFL': 'National Football League',
+                    'MLB': 'Major League Baseball',
+                    'WNBA': "Women's National Basketball Association",
+                    'CFB': 'College Football',
+                    'MMA': 'Ultimate Fighting Championship',
+                    'UFC': 'Ultimate Fighting Championship'
+                }
+                full = sport_map.get(args.sport.upper())
+                if full:
+                    setattr(agent.db, 'sport_filter', [full])
+                    logger.info(f"🎯 Sport filter enabled (teams): only '{full}' games will be used")
+                    if args.sport.upper() == 'NFL':
+                        # If user explicitly chose NFL, ensure nfl_only is enabled end-to-end
+                        agent.nfl_only_mode = True
+                        setattr(agent.db, 'nfl_only_mode', True)
+    except Exception as e:
+        logger.warning(f"Could not apply sport filters to teams DB client: {e}")
     
     # EXACT pick target: honor requested --picks without escalation
     target_picks = args.picks

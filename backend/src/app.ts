@@ -30,6 +30,7 @@ import adsRouter from './api/routes/ads';
 import statmuseRouter from './api/routes/statmuse';
 import { handleRevenueCatWebhook } from './api/routes/revenuecat-webhook';
 import playerPropsRouter from './api/routes/playerProps';
+import subscriptionPricingRouter from './api/routes/subscriptionPricing';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
@@ -135,6 +136,7 @@ app.use('/api/coins', coinsRouter);
 app.use('/api/ads', adsRouter);
 app.use('/api/statmuse', statmuseRouter);
 app.use('/api/player-props', playerPropsRouter);
+app.use('/api/subscription-pricing', subscriptionPricingRouter);
 app.use('/api/webhooks-rewards', webhooksRewardsRoutes);
 app.use('/api/purchases', purchasesRouter);
 app.use('/api/webhooks', webhooksRouter);
