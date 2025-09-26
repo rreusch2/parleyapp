@@ -34,8 +34,6 @@ import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 import { initNotificationsCron } from './cron/notificationsCron';
 import { dayPassScheduler } from './schedulers/dayPassScheduler';
-import { initRevenueCatCron } from './cron/revenuecatCron';
-import { initTemporaryTierCron } from './cron/temporaryTierCron';
 
 const app = express();
 
@@ -193,16 +191,6 @@ if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true')
     dayPassScheduler.start();
   } catch (e) {
     logger.warn('⚠️ Failed to start Day Pass scheduler', e as any);
-  }
-  try {
-    initRevenueCatCron();
-  } catch (e) {
-    logger.warn('⚠️ Failed to init RevenueCat cron', e as any);
-  }
-  try {
-    initTemporaryTierCron();
-  } catch (e) {
-    logger.warn('⚠️ Failed to init Temporary Tier cron', e as any);
   }
   logger.info('🚀 Cron jobs initialized');
 }
