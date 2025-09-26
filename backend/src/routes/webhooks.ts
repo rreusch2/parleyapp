@@ -1,6 +1,7 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { updateProfileFromRevenueCat } from '../services/revenuecatProcessor';
 
 const router = express.Router();
 
@@ -40,9 +41,67 @@ router.post('/apple', express.raw({ type: 'application/json' }), async (req, res
     });
 
     res.status(200).json({ status: 'received' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Apple webhook error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// RevenueCat Webhooks (entitlements as source of truth)
+router.post('/revenuecat', express.json(), async (req, res) => {
+  try {
+    console.log('🧾 Received RevenueCat webhook');
+
+    const payload = req.body;
+    const eventType = payload?.event?.type || payload?.type || 'unknown';
+
+    // Store webhook event first
+    const { data: inserted, error: insertErr } = await supabaseAdmin
+      .from('webhook_events')
+      .insert({
+        source: 'revenuecat',
+        event_type: eventType,
+        notification_data: payload,
+        processed: false,
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) {
+      console.error('❌ Failed to store RevenueCat webhook:', insertErr);
+      return res.status(500).json({ error: 'Failed to store webhook' });
+    }
+
+    // Process asynchronously, but try inline once to reduce lag
+    try {
+      const result = await updateProfileFromRevenueCat(payload);
+
+      // Mark as processed (or leave unprocessed with error)
+      await supabaseAdmin
+        .from('webhook_events')
+        .update({
+          processed: result.updated,
+          processed_at: result.updated ? new Date().toISOString() : null,
+          error_message: result.updated ? null : (result.reason || 'Update failed'),
+        })
+        .eq('id', inserted.id);
+
+      // Always respond 200 to RevenueCat quickly
+      return res.status(200).json({ status: 'received', updated: result.updated });
+    } catch (procErr: any) {
+      console.error('❌ RevenueCat processing error:', procErr);
+      await supabaseAdmin
+        .from('webhook_events')
+        .update({
+          processed: false,
+          error_message: procErr?.message || 'processing exception',
+        })
+        .eq('id', inserted.id);
+      return res.status(200).json({ status: 'received', updated: false });
+    }
+  } catch (error: any) {
+    console.error('❌ RevenueCat webhook error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -80,7 +139,7 @@ router.post('/google', express.json(), async (req, res) => {
     });
 
     res.status(200).json({ status: 'received' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Google webhook error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -226,7 +285,7 @@ async function processAppleNotification(signedPayload: string) {
       
     console.log('✅ Apple notification processed successfully');
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error processing Apple notification:', error);
     
     // Mark webhook as failed
@@ -425,7 +484,7 @@ async function processGoogleNotification(notificationData: any) {
       console.log(`✅ Updated subscription ${subscriptionId} to ${newStatus}`);
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error processing Google notification:', error);
     throw error;
   }
@@ -436,8 +495,20 @@ router.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    webhooks: ['apple', 'google']
+    webhooks: ['apple', 'google', 'revenuecat']
   });
+});
+
+// Admin: trigger processing of pending RevenueCat webhooks
+router.post('/revenuecat/process-pending', async (req, res) => {
+  try {
+    const { processRevenueCatWebhooks } = await import('../jobs/processRevenueCatWebhooks');
+    const result = await processRevenueCatWebhooks(200);
+    return res.status(200).json({ status: 'ok', result });
+  } catch (e: any) {
+    console.error('❌ Failed to process pending RC webhooks:', e);
+    return res.status(500).json({ error: e?.message || 'failed' });
+  }
 });
 
 export default router;

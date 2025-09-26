@@ -221,6 +221,10 @@ router.post('/verify', async (req, res) => {
       updateData.subscription_product_id = productId;
       updateData.subscription_started_at = new Date().toISOString();
       console.log(`📅 Day pass (${productId}) expires at: ${dayPassExpiration.toISOString()}`);
+      // New overlay fields (effective tier system)
+      updateData.temporary_tier = subscriptionTier === 'elite' ? 'elite' : 'pro';
+      updateData.temporary_tier_active = true;
+      updateData.temporary_tier_expires_at = dayPassExpiration.toISOString();
     } else if (productId.includes('monthly')) {
       subscriptionPlanType = 'monthly';
       // Only mark trial as used for monthly subscription plan (free trial)
