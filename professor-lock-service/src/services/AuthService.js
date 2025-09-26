@@ -96,6 +96,28 @@ class AuthService {
     }
   }
 
+  async updateDaytonaSandbox(userId, sandboxId, vncPassword) {
+    try {
+      const { error } = await this.supabase
+        .from('profiles')
+        .update({
+          daytona_sandbox_id: sandboxId,
+          daytona_vnc_password: vncPassword,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        logger.error('Failed to update Daytona sandbox fields:', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      logger.error('Error updating Daytona sandbox fields:', error);
+      return false;
+    }
+  }
+
   async logAgentInteraction(userId, sessionId, interactionData) {
     try {
       // Use admin_chats as a lightweight log (table exists, RLS off for service key)

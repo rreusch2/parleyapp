@@ -150,6 +150,7 @@ export const useStripePayment = () => {
       const initOptions: any = {
         merchantDisplayName: 'Predictive Play',
         paymentIntentClientSecret: paymentIntentData.clientSecret,
+        merchantCountryCode: 'US',
         allowsDelayedPaymentMethods: true,
         googlePay: {
           merchantCountryCode: 'US',

@@ -279,6 +279,14 @@ class ProfessorLockServer {
         },
         onComplete: (response) => {
           session.agentState = 'idle';
+          // For non-streaming responses, push the full content as a final chunk
+          if (response && typeof response.content === 'string' && response.content.length) {
+            this.sendToClient(session.ws, {
+              type: 'message_chunk',
+              messageId,
+              chunk: response.content
+            });
+          }
           this.sendToClient(session.ws, {
             type: 'message_complete',
             messageId,

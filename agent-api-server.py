@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
+from starlette.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -20,6 +21,12 @@ import os
 sys.path.append('/home/reid/Desktop/parleyapp/agent')
 
 from app.agent.manus import Manus
+from app.tool.sandbox.sb_browser_tool import SandboxBrowserTool
+from app.tool import ToolCollection
+from app.tool.browser_use_tool import BrowserUseTool
+from app.daytona.sandbox import create_sandbox, get_or_start_sandbox
+from app.schema import AgentState
+import secrets
 from app.logger import logger
 
 app = FastAPI(
@@ -40,6 +47,7 @@ app.add_middleware(
 # Global agent instance
 agent_instance: Optional[Manus] = None
 active_sessions: Dict[str, Dict[str, Any]] = {}
+session_agents: Dict[str, Manus] = {}
 
 class ChatRequest(BaseModel):
     sessionId: str
@@ -52,6 +60,10 @@ class ChatResponse(BaseModel):
     toolsUsed: list = []
     sessionId: str
     timestamp: str
+
+class SandboxCreateResponse(BaseModel):
+    sandbox_id: str
+    vnc_password: str
 
 @app.on_event("startup")
 async def startup_event():
@@ -85,6 +97,17 @@ async def health_check():
         "agent_ready": agent_instance is not None,
         "active_sessions": len(active_sessions)
     }
+
+@app.post("/sandbox/create", response_model=SandboxCreateResponse)
+async def sandbox_create():
+    """Create a new Daytona sandbox and return its id and VNC password."""
+    try:
+        vnc_password = secrets.token_urlsafe(12)
+        sandbox = create_sandbox(password=vnc_password)
+        return SandboxCreateResponse(sandbox_id=sandbox.id, vnc_password=vnc_password)
+    except Exception as e:
+        logger.error(f"Failed to create sandbox: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
@@ -127,6 +150,130 @@ async def chat_endpoint(request: ChatRequest):
     except Exception as e:
         logger.error(f"❌ Error processing chat request: {e}")
         raise HTTPException(status_code=500, detail=f"Agent processing failed: {str(e)}")
+
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """Streaming chat endpoint: emits thoughts, tool events, and screenshots as SSE."""
+    if not agent_instance:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+
+    session_id = request.sessionId
+
+    async def event_stream():
+        try:
+            # Create or reuse a Manus instance bound to a sandbox (if provided)
+            sandbox_id = (
+                request.userContext.get("daytonaSandboxId")
+                or request.userContext.get("daytona_sandbox_id")
+            )
+
+            if session_id not in session_agents:
+                agent = await Manus.create()
+                # Replace local BrowserUseTool with SandboxBrowserTool if sandbox provided
+                if sandbox_id:
+                    try:
+                        sandbox = await get_or_start_sandbox(sandbox_id)
+                        base_tools = [
+                            tool
+                            for tool in agent.available_tools.tools
+                            if tool.name != BrowserUseTool().name
+                        ]
+                        sb_tool = SandboxBrowserTool.create_with_sandbox(sandbox)
+                        agent.available_tools = ToolCollection(*base_tools)
+                        agent.available_tools.add_tool(sb_tool)
+                        logger.info(
+                            f"Sandbox tool attached for session {session_id} (sandbox {sandbox_id})"
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to attach sandbox tool: {e}")
+                session_agents[session_id] = agent
+
+            agent = session_agents[session_id]
+
+            # Build prompt and seed memory
+            enhanced_prompt = build_enhanced_prompt(
+                request.message, request.userContext, request.conversationHistory
+            )
+            agent.current_step = 0
+            agent.state = AgentState.IDLE
+            agent.messages = []
+            agent.update_memory("user", enhanced_prompt)
+
+            # Step loop
+            while (
+                agent.current_step < agent.max_steps and agent.state != AgentState.FINISHED
+            ):
+                agent.current_step += 1
+                logger.info(f"Executing step {agent.current_step}/{agent.max_steps}")
+
+                prev_len = len(agent.messages)
+                should_act = await agent.think()
+
+                # Emit latest assistant content as a thought chunk
+                if len(agent.messages) > prev_len:
+                    msg = agent.messages[-1]
+                    if getattr(msg, "role", "") == "assistant" and getattr(msg, "content", ""):
+                        data = {"type": "message_chunk", "content": msg.content}
+                        yield f"data: {json.dumps(data)}\n\n"
+
+                # If browser state captured a screenshot via BrowserContextHelper, emit it
+                try:
+                    helper = getattr(agent, "browser_context_helper", None)
+                    if helper is not None:
+                        # This will update helper._current_base64_image if available
+                        await helper.get_browser_state()
+                        base64_img = getattr(helper, "_current_base64_image", None)
+                        if base64_img:
+                            ss_event = {
+                                "type": "tool_screenshot",
+                                "toolName": "sandbox_browser",
+                                "screenshot": f"data:image/jpeg;base64,{base64_img}",
+                            }
+                            yield f"data: {json.dumps(ss_event)}\n\n"
+                            # Consume once
+                            helper._current_base64_image = None
+                except Exception as _e:
+                    # Non-fatal
+                    pass
+
+                if not should_act:
+                    break
+
+                # Execute tool calls and emit events
+                for tc in getattr(agent, "tool_calls", []) or []:
+                    try:
+                        args = json.loads(tc.function.arguments or "{}")
+                    except Exception:
+                        args = {}
+                    yield f"data: {json.dumps({'type':'tool_start','tool':{'name': tc.function.name, 'parameters': args}})}\n\n"
+
+                    # Execute tool and capture result
+                    result = await agent.execute_tool(tc)
+
+                    # If a screenshot was produced, emit it
+                    base64_img = getattr(agent, "_current_base64_image", None)
+                    if base64_img:
+                        ss_event = {
+                            "type": "tool_screenshot",
+                            "toolName": tc.function.name,
+                            "screenshot": f"data:image/jpeg;base64,{base64_img}",
+                        }
+                        yield f"data: {json.dumps(ss_event)}\n\n"
+
+                    # Emit tool completion
+                    yield f"data: {json.dumps({'type':'tool_complete','toolName': tc.function.name, 'result': str(result)})}\n\n"
+
+                if agent.state == AgentState.FINISHED:
+                    break
+
+            # End of stream
+            yield f"data: {json.dumps({'type':'end'})}\n\n"
+
+        except Exception as e:
+            err = {"type": "error", "error": str(e)}
+            yield f"data: {json.dumps(err)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 @app.get("/sessions")
 async def get_sessions():

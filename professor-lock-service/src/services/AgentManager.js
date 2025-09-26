@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
+const { AuthService } = require('./AuthService');
 
 class AgentManager {
   constructor() {
@@ -13,9 +14,10 @@ class AgentManager {
       agentEndpoint: process.env.DAYTONA_AGENT_ENDPOINT || '/v1/agent'
     };
     this.openmanusConfig = {
-      agentUrl: process.env.OPENMANUS_AGENT_URL || 'http://localhost:3000',
+      agentUrl: process.env.OPENMANUS_AGENT_URL || 'http://localhost:3003',
       apiKey: process.env.OPENMANUS_API_KEY
     };
+    this.authService = new AuthService();
   }
 
   async initializeSession(sessionId, user) {
@@ -25,6 +27,23 @@ class AgentManager {
       // Create agent session in Daytona workspace
       const agentSession = await this.createDaytonaSession(sessionId, user);
 
+      // Ensure user has a dedicated Daytona sandbox
+      let sandboxId = user.daytona_sandbox_id;
+      if (!sandboxId) {
+        try {
+          const resp = await axios.post(`${this.openmanusConfig.agentUrl}/sandbox/create`);
+          sandboxId = resp.data.sandbox_id;
+          const vncPassword = resp.data.vnc_password;
+          await this.authService.updateDaytonaSandbox(user.id, sandboxId, vncPassword);
+          // reflect locally so we pass immediately to the agent
+          user.daytona_sandbox_id = sandboxId;
+          user.daytona_vnc_password = vncPassword;
+          logger.info(`Created Daytona sandbox ${sandboxId} for user ${user.id}`);
+        } catch (e) {
+          logger.error('Failed to ensure Daytona sandbox:', e.response?.data || e.message);
+        }
+      }
+
       // Initialize OpenManus agent with user context
       await this.initializeOpenManusAgent(sessionId, user, agentSession);
 
@@ -33,6 +52,7 @@ class AgentManager {
         userId: user.id,
         user,
         daytonaSession: agentSession,
+        daytonaSandboxId: sandboxId || null,
         status: 'active',
         createdAt: new Date(),
         lastActivity: new Date(),
@@ -189,9 +209,9 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
 
   async sendToAgent(sessionData, payload) {
     try {
-      // Send directly to your existing OpenManus agent (JSON, non-streaming)
+      // Use streaming endpoint so we can forward thoughts, tool events, and screenshots
       const response = await axios.post(
-        `${this.openmanusConfig.agentUrl}/chat`,
+        `${this.openmanusConfig.agentUrl}/chat/stream`,
         {
           sessionId: sessionData.id,
           message: payload.message,
@@ -199,17 +219,19 @@ Remember: You're the most advanced sports betting AI available. Use your tools s
           userContext: {
             id: sessionData.userId,
             tier: payload.userTier,
-            preferences: sessionData.user.betting_preferences || {}
+            preferences: sessionData.user.betting_preferences || {},
+            daytonaSandboxId: sessionData.daytonaSandboxId || sessionData.user.daytona_sandbox_id || null,
           }
         },
         {
           headers: {
             'Content-Type': 'application/json'
-          }
+          },
+          responseType: 'stream'
         }
       );
 
-      return { data: response.data };
+      return { stream: response.data };
     } catch (error) {
       logger.error('Failed to send message to OpenManus agent:', error.response?.data || error.message);
       throw new Error('Agent communication failed');

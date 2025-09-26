@@ -16,7 +16,7 @@ const SUBSCRIPTION_PLANS = {
   'pro_monthly': { amount: 2499, interval: 'month', tier: 'pro' }, // $24.99
   'pro_yearly': { amount: 14999, interval: 'year', tier: 'pro' }, // $149.99
   'pro_daypass': { amount: 499, interval: 'one_time', tier: 'pro' }, // $4.99
-  'pro_lifetime': { amount: 49999, interval: 'one_time', tier: 'pro' }, // $499.99
+  'pro_lifetime': { amount: 34999, interval: 'one_time', tier: 'pro' }, // $349.99
   
   // Elite Tier
   'elite_weekly': { amount: 1499, interval: 'week', tier: 'elite' }, // $14.99
@@ -162,7 +162,8 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
         amount: planDetails.amount,
         currency: 'usd',
         customer: customerId,
-        payment_method_types: ['card'],
+        // Allow Cash App Pay in addition to cards (Apple Pay rides on card in PaymentSheet)
+        payment_method_types: ['card', 'cashapp'],
         metadata: {
           planId,
           userId,
@@ -182,12 +183,14 @@ router.post('/create-payment-intent', async (req: AuthenticatedRequest, res) => 
         });
       }
 
+      console.log('🧾 Creating subscription for plan', planId, 'using price ID', priceId);
       const subscription = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
         payment_behavior: 'default_incomplete',
         payment_settings: {
-          payment_method_types: ['card'],
+          // Enable Cash App Pay alongside cards for initial invoice
+          payment_method_types: ['card', 'cashapp'],
           save_default_payment_method: 'on_subscription'
         },
         expand: ['latest_invoice.payment_intent'],
