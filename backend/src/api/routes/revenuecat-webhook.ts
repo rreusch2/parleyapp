@@ -112,44 +112,73 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         created_at: new Date().toISOString()
       });
 
-    // Find user by multiple possible ID fields
-    // 1. Try by revenuecat_customer_id
-    // 2. Try by stripe_customer_id (for Stripe-based purchases)
-    // 3. Try by user ID (for direct app users)
+    // Enhanced user lookup for multiple RevenueCat integration scenarios
     let user: { id: string; revenuecat_customer_id: string | null; subscription_tier: string; stripe_customer_id: string | null } | null = null;
-    let userError: any = null;
     
-    // First try revenuecat_customer_id
-    const { data: rcUser, error: rcError } = await supabaseAdmin
+    console.log(`🔍 Looking for user with app_user_id: ${event.app_user_id}`);
+    
+    // Strategy 1: Direct RevenueCat customer ID match
+    const { data: rcUser } = await supabaseAdmin
       .from('profiles')
       .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
       .eq('revenuecat_customer_id', event.app_user_id)
       .single();
     
     if (rcUser) {
+      console.log(`✅ Found user by revenuecat_customer_id: ${rcUser.id}`);
       user = rcUser;
     } else {
-      // Try by stripe_customer_id (for existing Stripe customers)
-      const { data: stripeUser, error: stripeError } = await supabaseAdmin
+      // Strategy 2: Stripe customer ID match (for Stripe-originated purchases)
+      const { data: stripeUser } = await supabaseAdmin
         .from('profiles')
         .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
         .eq('stripe_customer_id', event.app_user_id)
         .single();
       
       if (stripeUser) {
+        console.log(`✅ Found user by stripe_customer_id: ${stripeUser.id}`);
         user = stripeUser;
       } else {
-        // Finally try by user UUID (for direct app purchases)
-        const { data: uuidUser, error: uuidError } = await supabaseAdmin
+        // Strategy 3: UUID match (for app-native purchases)
+        const { data: uuidUser } = await supabaseAdmin
           .from('profiles')
           .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
           .eq('id', event.app_user_id)
           .single();
         
         if (uuidUser) {
+          console.log(`✅ Found user by UUID: ${uuidUser.id}`);
           user = uuidUser;
         } else {
-          userError = uuidError;
+          // Strategy 4: Handle anonymous RevenueCat IDs from Stripe purchases
+          if (event.app_user_id.startsWith('$RCAnonymousID:')) {
+            console.log(`🔍 Anonymous RevenueCat ID detected, checking for Stripe linkage...`);
+            
+            // For anonymous IDs, try to find by recent Stripe customer creation
+            // This handles cases where Stripe purchase creates RevenueCat user before app linking
+            const stripeCustomerId = event.subscriber_attributes?.['$stripeCustomerId']?.value;
+            
+            if (stripeCustomerId) {
+              const { data: linkUser } = await supabaseAdmin
+                .from('profiles')
+                .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+                .eq('stripe_customer_id', stripeCustomerId)
+                .single();
+              
+              if (linkUser) {
+                console.log(`✅ Found user via Stripe attribute linkage: ${linkUser.id}`);
+                user = linkUser;
+                
+                // Update the user's RevenueCat customer ID for future webhooks
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({ revenuecat_customer_id: event.app_user_id })
+                  .eq('id', linkUser.id);
+                  
+                console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${linkUser.id}`);
+              }
+            }
+          }
         }
       }
     }
