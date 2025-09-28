@@ -115,34 +115,6 @@ class SandboxToolsBase(BaseTool):
                     raise e
         return self._sandbox
 
-    def ensure_automation_service(self, retries: int = 2) -> None:
-        """Ensure the sandbox browser automation API on port 8003 is available.
-        Tries a quick health check; if unavailable, starts supervisord and retries.
-        """
-        try:
-            # Quick health check
-            check_cmd = (
-                "curl -s -m 3 -o /dev/null -w '%{http_code}' http://localhost:8003/health || true"
-            )
-            resp = self._sandbox.process.exec(check_cmd, timeout=5)
-            code = (resp.result or "").strip()
-            if resp.exit_code == 0 and code.isdigit() and int(code) in (200, 404):
-                # Service reachable (200 OK or 404 Not Found still implies listener is up)
-                return
-
-            # Not reachable: try starting supervisord
-            logger.info("Automation API not responding, starting supervisord in sandbox…")
-            start_supervisord_session(self._sandbox)
-
-            # Retry health a couple times
-            for _ in range(retries):
-                resp2 = self._sandbox.process.exec(check_cmd, timeout=5)
-                code2 = (resp2.result or "").strip()
-                if resp2.exit_code == 0 and code2.isdigit() and int(code2) in (200, 404):
-                    return
-        except Exception as e:
-            logger.warning(f"ensure_automation_service encountered an error: {e}")
-
     @property
     def sandbox(self) -> Sandbox:
         """Get the sandbox instance, ensuring it exists."""

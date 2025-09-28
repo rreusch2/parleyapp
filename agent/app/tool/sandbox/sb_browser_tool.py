@@ -198,12 +198,6 @@ class SandboxBrowserTool(SandboxToolsBase):
         """Execute a browser automation action through the sandbox API."""
         try:
             await self._ensure_sandbox()
-            # Make sure the automation API in sandbox is running
-            try:
-                # no await - direct sandbox exec
-                self.ensure_automation_service(retries=2)
-            except Exception:
-                pass
             url = f"http://localhost:8003/api/automation/{endpoint}"
             if method == "GET" and params:
                 query_params = "&".join([f"{k}={v}" for k, v in params.items()])
@@ -219,21 +213,12 @@ class SandboxBrowserTool(SandboxToolsBase):
                     json_data = json.dumps(params)
                     curl_cmd += f" -d '{json_data}'"
             logger.debug(f"Executing curl command: {curl_cmd}")
-            response = self.sandbox.process.exec(curl_cmd, timeout=15)
-            if response.exit_code != 0:
-                logger.warning("Browser automation request failed on first attempt, re-ensuring service and retrying once…")
-                try:
-                    self.ensure_automation_service(retries=2)
-                except Exception:
-                    pass
-                response = self.sandbox.process.exec(curl_cmd, timeout=20)
-
+            response = self.sandbox.process.exec(curl_cmd, timeout=30)
             if response.exit_code == 0:
                 try:
                     result = json.loads(response.result)
                     result.setdefault("content", "")
                     result.setdefault("role", "assistant")
-                    base64_img: Optional[str] = None
                     if "screenshot_base64" in result:
                         screenshot_data = result["screenshot_base64"]
                         is_valid, validation_message = self._validate_base64_image(
@@ -244,12 +229,7 @@ class SandboxBrowserTool(SandboxToolsBase):
                                 f"Screenshot validation failed: {validation_message}"
                             )
                             result["image_validation_error"] = validation_message
-                            # drop invalid screenshot
-                            result.pop("screenshot_base64", None)
-                        else:
-                            base64_img = screenshot_data
-                            # do not include the screenshot blob in output payload
-                            result.pop("screenshot_base64", None)
+                            del result["screenshot_base64"]
 
                     # added_message = await self.thread_manager.add_message(
                     #     thread_id=self.thread_id,
@@ -277,12 +257,11 @@ class SandboxBrowserTool(SandboxToolsBase):
                     ]:
                         if field in result:
                             success_response[field] = result[field]
-                    # Build ToolResult with optional base64 image for streaming
-                    output_text = json.dumps(success_response, indent=2)
-                    if success_response.get("success", False):
-                        return ToolResult(output=output_text, base64_image=base64_img)
-                    else:
-                        return ToolResult(error=output_text, base64_image=base64_img)
+                    return (
+                        self.success_response(success_response)
+                        if success_response["success"]
+                        else self.fail_response(success_response)
+                    )
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse response JSON: {e}")
                     return self.fail_response(f"Failed to parse response JSON: {e}")

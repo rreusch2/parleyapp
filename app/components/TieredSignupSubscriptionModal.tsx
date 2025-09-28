@@ -437,7 +437,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
       ? ['pro_weekly', 'pro_monthly', 'pro_yearly', 'pro_daypass', 'pro_lifetime']
-      : ['elite_daypass', 'elite_weekly', 'elite_monthly', 'elite_yearly'];
+      : ['elite_daypass', 'elite_weekly', 'elite_monthly', 'elite_yearly', 'elite_lifetime'];
 
     return (
       <View style={styles.planOptionsContainer}>

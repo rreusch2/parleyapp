@@ -1,37 +1,24 @@
-FROM node:20-bookworm-slim AS builder
+FROM node:18-alpine
 
 # Set working directory to the backend application directory
 WORKDIR /app/backend
 
-# Install build dependencies (node-gyp toolchain)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 build-essential git ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Copy package files and install dev dependencies for build
+# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --only=production
 
 # Copy TypeScript config, babel config, and source files
 COPY tsconfig.json ./
 COPY .babelrc ./
 COPY src ./src
 
-# Build TypeScript/Babel application
+# Build TypeScript application
 RUN npm run build:babel
 
-# -------- Runtime image --------
-FROM node:20-bookworm-slim AS runner
-
-WORKDIR /app/backend
-ENV NODE_ENV=production
-
-# Install production dependencies only
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy built artifacts and start script
-COPY --from=builder /app/backend/dist ./dist
+# Copy our robust startup script
 COPY start.js ./
 
 # Expose port

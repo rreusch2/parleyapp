@@ -112,12 +112,47 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         created_at: new Date().toISOString()
       });
 
-    // Find user by RevenueCat customer ID or app_user_id
-    const { data: user } = await supabaseAdmin
+    // Find user by multiple possible ID fields
+    // 1. Try by revenuecat_customer_id
+    // 2. Try by stripe_customer_id (for Stripe-based purchases)
+    // 3. Try by user ID (for direct app users)
+    let user: { id: string; revenuecat_customer_id: string | null; subscription_tier: string; stripe_customer_id: string | null } | null = null;
+    let userError: any = null;
+    
+    // First try revenuecat_customer_id
+    const { data: rcUser, error: rcError } = await supabaseAdmin
       .from('profiles')
-      .select('id, revenuecat_customer_id, subscription_tier')
-      .or(`revenuecat_customer_id.eq.${event.app_user_id},id.eq.${event.app_user_id}`)
+      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+      .eq('revenuecat_customer_id', event.app_user_id)
       .single();
+    
+    if (rcUser) {
+      user = rcUser;
+    } else {
+      // Try by stripe_customer_id (for existing Stripe customers)
+      const { data: stripeUser, error: stripeError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+        .eq('stripe_customer_id', event.app_user_id)
+        .single();
+      
+      if (stripeUser) {
+        user = stripeUser;
+      } else {
+        // Finally try by user UUID (for direct app purchases)
+        const { data: uuidUser, error: uuidError } = await supabaseAdmin
+          .from('profiles')
+          .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+          .eq('id', event.app_user_id)
+          .single();
+        
+        if (uuidUser) {
+          user = uuidUser;
+        } else {
+          userError = uuidError;
+        }
+      }
+    }
 
     if (!user) {
       console.log(`⚠️ User not found for RevenueCat ID: ${event.app_user_id}`);

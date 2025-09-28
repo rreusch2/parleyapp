@@ -115,8 +115,8 @@ module.exports = {
       [
         "@stripe/stripe-react-native",
         {
-          "merchantId": process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID || "merchant.com.parleyapp.payments",
-          "enableGooglePay": false
+          "merchantId": process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID || "merchant.com.predictiveplayllc.predictiveplay",
+          "enableGooglePay": true
         }
       ],
     ],
