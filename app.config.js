@@ -112,13 +112,6 @@ module.exports = {
           "isDebug": false
         }
       ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantId": process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID || "merchant.com.predictiveplayllc.predictiveplay",
-          "enableGooglePay": true
-        }
-      ],
     ],
     experiments: {
       typedRoutes: true
@@ -134,9 +127,10 @@ module.exports = {
       admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
       // Optional Elite preview video URL used in tiered subscription modals
       elitePreviewVideoUrl: process.env.EXPO_PUBLIC_ELITE_PREVIEW_VIDEO_URL,
-      // Stripe configuration
-      stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-      appleMerchantId: process.env.EXPO_PUBLIC_APPLE_MERCHANT_ID,
+      // Google OAuth client IDs for Expo AuthSession (used for Google sign-in)
+      googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
 
       eas: {
         projectId: "67fd3514-eb27-473d-937c-2ff842ec5fad"

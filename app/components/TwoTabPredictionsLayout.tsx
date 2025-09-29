@@ -39,7 +39,7 @@ interface TwoTabPredictionsLayoutProps {
 }
 
 export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) {
-  const [activeTab, setActiveTab] = useState<'team' | 'props'>('team');
+  const [activeTab, setActiveTab] = useState<'team' | 'props'>('props');
   const [teamPicks, setTeamPicks] = useState<Pick[]>([]);
   const [playerPropsPicks, setPlayerPropsPicks] = useState<Pick[]>([]);
   const [isLoadingTeam, setIsLoadingTeam] = useState(true);
@@ -282,12 +282,12 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   };
 
   // Load both team picks and player props for Elite users
-  // Otherwise load team picks initially and props when tab is selected
+  // For Pro users, load the active tab immediately (Player Props by default)
   useEffect(() => {
+    // Always load team picks in background to enable quick switching
     fetchTeamPicks();
-    
-    // For Elite users, pre-load props too
-    if (isElite) {
+    // Pre-load props for Elite users or when props tab is active (default)
+    if (isElite || activeTab === 'props') {
       fetchPlayerPropsPicks();
     }
   }, []);
@@ -406,15 +406,7 @@ What are your thoughts on this prediction?`;
       ]}>
         {title}
       </Text>
-      <Text style={[
-        styles.tabSubtitle,
-        activeTab === tab && [
-          styles.activeTabSubtitle,
-          isElite && activeTab === tab && { color: 'rgba(0, 0, 0, 0.8)' }
-        ]
-      ]}>
-        {subtitle}
-      </Text>
+      {/* Removed subtitle text to support multi-sport without confusion */}
       {count > 0 && (
         <View style={[
           styles.countBadge,
@@ -521,72 +513,24 @@ What are your thoughts on this prediction?`;
               <Sparkles size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
             </View>
           </View>
-          
-          {/* Stats Row */}
-          <View style={[
-            styles.statsRow,
-            isElite && {
-              backgroundColor: `${theme.accentPrimary}1F`,
-              borderColor: `${theme.accentPrimary}33`,
-              shadowColor: theme.accentPrimary
-            }
-          ]}>
-            <View style={styles.statItem}>
-              <Text style={[
-                styles.statValue,
-                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
-              ]}>
-                {isElite ? '30' : '20'}
-              </Text>
-              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }]}>Total Picks</Text>
-            </View>
-            <View style={[
-              styles.statDivider,
-              isElite && { backgroundColor: `${theme.accentPrimary}4D` }
-            ]} />
-            <View style={styles.statItem}>
-              <Text style={[
-                styles.statValue,
-                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
-              ]}>
-                {activeTab === 'team' ? teamPicks.length : playerPropsPicks.length}
-              </Text>
-              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }] }>
-                {activeTab === 'team' ? 'Team Picks' : 'Player Props'}
-              </Text>
-            </View>
-            <View style={[
-              styles.statDivider,
-              isElite && { backgroundColor: `${theme.accentPrimary}4D` }
-            ]} />
-            <View style={styles.statItem}>
-              <Text style={[
-                styles.statValue,
-                isElite && { color: '#0F172A', textShadowColor: 'rgba(0, 0, 0, 0.3)' }
-              ]}>
-                {isElite ? 'ELITE' : 'PRO'}
-              </Text>
-              <Text style={[styles.statLabel, isElite && { color: '#0F172A' }] }>Tier</Text>
-            </View>
+
+          {/* Compact Tabs under Title */}
+          <View style={styles.headerTabs}>
+            <TabButton
+              tab="props"
+              title="Player Props"
+              subtitle=""
+              count={playerPropsPicks.length}
+            />
+            <TabButton
+              tab="team"
+              title="Team Picks"
+              subtitle=""
+              count={teamPicks.length}
+            />
           </View>
         </View>
       </LinearGradient>
-
-      {/* Tab Buttons */}
-      <View style={styles.tabContainer}>
-        <TabButton
-          tab="team"
-          title="Team Picks"
-          subtitle="ML • Spreads • Totals"
-          count={teamPicks.length}
-        />
-        <TabButton
-          tab="props"
-          title="Player Props"
-          subtitle="Hits • HRs • RBIs • More"
-          count={playerPropsPicks.length}
-        />
-      </View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
@@ -605,10 +549,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   header: {
-    padding: 15,
-    paddingTop: 25,
+    padding: 12,
+    paddingTop: 18,
     position: 'relative',
-    minHeight: 110,
+    minHeight: 90,
   },
   headerPattern: {
     position: 'absolute',
@@ -623,7 +567,7 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -656,22 +600,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  statsRow: {
+  // Compact header tabs row
+  headerTabs: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 229, 255, 0.12)',
-    borderRadius: 22,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.25)',
-    shadowColor: '#00E5FF',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
+    gap: 8,
+    width: '100%',
+    marginTop: 8,
   },
   statItem: {
     alignItems: 'center',
@@ -699,30 +633,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 229, 255, 0.3)',
     marginHorizontal: 8,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 229, 255, 0.15)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
-  },
+  // Removed bottom tab container to increase scrollable area
   tabButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     marginHorizontal: 4,
     borderRadius: 14,
     backgroundColor: '#334155',
     alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
     borderWidth: 1,
     borderColor: '#475569',
@@ -754,25 +674,15 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontWeight: '800',
   },
-  tabSubtitle: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-    fontWeight: '500',
-    letterSpacing: 0.2,
-  },
-  activeTabSubtitle: {
-    color: 'rgba(15, 23, 42, 0.8)',
-    fontWeight: '600',
-  },
+  // Removed tabSubtitle styles since subtitles are no longer used
   countBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 5,
+    right: 5,
     backgroundColor: '#00E5FF',
     borderRadius: 8,
-    minWidth: 18,
-    height: 18,
+    minWidth: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -788,7 +698,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.1,
   },

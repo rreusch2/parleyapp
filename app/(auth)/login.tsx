@@ -13,6 +13,7 @@ import {
   Pressable,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/app/services/api/supabaseClient';
@@ -20,6 +21,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { normalize, isTablet } from '@/app/services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
+
+// Complete pending auth sessions (required by expo-auth-session)
+WebBrowser.maybeCompleteAuthSession();
 
 // No need to redefine isTablet since we're importing it
 
@@ -32,6 +39,14 @@ export default function LoginScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
   const router = useRouter();
+  const extra = (Constants?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra) || {};
+
+  // Google Auth request (Expo AuthSession - ID token flow)
+  const [, , promptGoogle] = Google.useIdTokenAuthRequest({
+    expoClientId: (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId,
+    iosClientId: (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId,
+    androidClientId: (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId,
+  });
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
@@ -99,6 +114,72 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       Alert.alert('Login Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      const result = await promptGoogle();
+      if (result?.type !== 'success' || !result.authentication?.idToken) {
+        return;
+      }
+
+      const idToken = result.authentication.idToken;
+      // Sign in to Supabase using Google ID token
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        // Derive profile fields
+        const email = data.user.email || '';
+        const fullName = (data.user as any)?.user_metadata?.full_name || (data.user as any)?.user_metadata?.name || '';
+        const avatarUrl = (data.user as any)?.user_metadata?.avatar_url || (data.user as any)?.user_metadata?.picture || null;
+        const username = fullName || (email ? email.split('@')[0] : 'User');
+
+        // Upsert profile (no trigger present)
+        await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: data.user.id,
+              username,
+              email,
+              avatar_url: avatarUrl,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+
+        // Determine new user based on recent creation or missing username
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('created_at, username')
+          .eq('id', data.user.id)
+          .single();
+
+        const isNewUser = !profileRow?.username ||
+          (profileRow?.created_at && new Date(profileRow.created_at).getTime() > Date.now() - 60_000);
+
+        if (isNewUser) {
+          // Mirror Apple flow: send to signup to continue onboarding/subscription
+          router.replace({ pathname: '/signup', params: { googleSignInComplete: 'true', userId: data.user.id } });
+        } else {
+          router.replace('/(tabs)');
+        }
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In error:', error);
+      const msg = error?.message?.includes('network')
+        ? 'Network error. Please check your connection and try again.'
+        : 'Failed to sign in with Google. Please try again.';
+      Alert.alert('Sign In Error', msg);
     } finally {
       setLoading(false);
     }
@@ -253,6 +334,25 @@ export default function LoginScreen() {
               <Text style={styles.subtitle}>Sign in to continue your journey</Text>
 
               <View style={styles.form}>
+                {/* Google Sign In Button - Shown above Apple */}
+                <View style={styles.googleButtonContainer}>
+                  <TouchableOpacity
+                    style={[styles.googleButton, loading && styles.buttonDisabled]}
+                    onPress={handleGoogleSignIn}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <Image
+                        source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                        style={styles.googleIcon}
+                      />
+                      <Text style={styles.googleButtonText}>
+                        {loading ? 'Working…' : 'Continue with Google'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
                 {/* Apple Sign In Button - Show first for better UX */}
                 {isAppleAuthAvailable && (
                   <View style={styles.appleButtonContainer}>
@@ -414,7 +514,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     minHeight: isTablet ? 70 : 60,
-    transition: 'border-color 0.2s ease',
   },
   inputWrapperFocused: {
     borderColor: '#00E5FF',
@@ -497,6 +596,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: normalize(30),
     marginTop: normalize(10),
+  },
+  googleButtonContainer: {
+    marginBottom: normalize(12),
+  },
+  googleButton: {
+    width: '100%',
+    height: isTablet ? 60 : 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: normalize(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dadce0',
+    shadowColor: '#000',
+    shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  googleButtonText: {
+    color: '#3c4043',
+    fontWeight: '700',
+    fontSize: isTablet ? 18 : 16,
+  },
+  googleIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 10,
+    resizeMode: 'contain',
   },
   divider: {
     flexDirection: 'row',

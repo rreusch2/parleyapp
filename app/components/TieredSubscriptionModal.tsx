@@ -17,7 +17,6 @@ import { Video, ResizeMode } from 'expo-av';
 import Constants from 'expo-constants';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
-import { stripeService, useStripePayment } from '../services/stripeService';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -65,13 +64,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'apple' | 'stripe'>('apple'); // Default to Apple IAP
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'apple'>('apple'); // Apple IAP only
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const { subscribe, checkSubscriptionStatus, restorePurchases } = useSubscription();
   const { trackPositiveInteraction } = useReview();
-  const { initializePaymentSheet, presentPaymentSheet } = useStripePayment();
 
   // Optional remote video URL for Elite preview; set in app config (app.json/app.config.ts -> expo.extra.elitePreviewVideoUrl)
   const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
@@ -190,8 +188,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           onClose();
         }
       } else {
-        // Use Stripe payment flow
-        await handleStripePayment();
+        throw new Error('Only Apple In-App Purchases are supported');
       }
     } catch (error: any) {
       console.error('❌ Subscription error in modal:', error);
@@ -201,55 +198,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     }
   };
 
-  const handleStripePayment = async () => {
-    try {
-      // Get current user
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Initialize Stripe service
-      const initialized = await stripeService.initialize();
-      if (!initialized) {
-        throw new Error('Failed to initialize payment system');
-      }
-
-      // Create payment intent
-      const paymentIntentData = await stripeService.createPaymentIntent(selectedPlan, userData.user.id);
-      if (!paymentIntentData) {
-        throw new Error('Failed to create payment intent');
-      }
-
-      // Initialize payment sheet
-      const sheetInitialized = await initializePaymentSheet(paymentIntentData);
-      if (!sheetInitialized) {
-        throw new Error('Failed to initialize payment sheet');
-      }
-
-      // Present payment sheet
-      const paymentCompleted = await presentPaymentSheet();
-      if (!paymentCompleted) {
-        console.log('ℹ️ User cancelled Stripe payment');
-        return;
-      }
-
-      // Confirm payment on backend
-      const confirmation = await stripeService.confirmPayment(paymentIntentData.paymentIntentId, userData.user.id);
-      if (!confirmation) {
-        throw new Error('Failed to confirm payment');
-      }
-
-      console.log('✅ Stripe payment completed successfully!');
-      trackPositiveInteraction({ eventType: 'successful_subscription' });
-      Alert.alert('Success', 'Subscription activated successfully!');
-      onClose();
-
-    } catch (error: any) {
-      console.error('❌ Stripe payment error:', error);
-      throw error; // Re-throw to be caught by handleSubscribe
-    }
-  };
 
   const handleRestore = async () => {
     try {
@@ -468,38 +416,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Stripe Option */}
-        <TouchableOpacity
-          style={[
-            styles.paymentMethodCard,
-            selectedPaymentMethod === 'stripe' && styles.paymentMethodCardSelected
-          ]}
-          onPress={() => setSelectedPaymentMethod('stripe')}
-        >
-          <LinearGradient
-            colors={selectedPaymentMethod === 'stripe' ? ['#EA580C', '#DC2626'] : ['#1E293B', '#334155']}
-            style={styles.paymentMethodGradient}
-          >
-            <View style={styles.paymentMethodHeader}>
-              <View style={styles.paymentMethodIconContainer}>
-                <DollarSign size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.paymentMethodName}>Credit Card</Text>
-              {selectedPaymentMethod === 'stripe' && (
-                <View style={styles.selectedIndicator}>
-                  <Check size={14} color="#DC2626" />
-                </View>
-              )}
-            </View>
-            <Text style={styles.paymentMethodDescription}>
-              💳 Apple Pay, Cash App Pay, Cards & More
-            </Text>
-            <View style={styles.paymentMethodFeatures}>
-              <Text style={styles.paymentMethodFeature}>• Multiple wallets</Text>
-              <Text style={styles.paymentMethodFeature}>• Flexible options</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
       </View>
     </View>
   );

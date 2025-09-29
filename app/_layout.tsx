@@ -22,9 +22,10 @@ import { StripeProvider } from './services/stripeService';
 // Remove the top-level import since it's not available on web
 
 
-// Get device dimensions to adapt UI for iPad
+// Get device dimensions to adapt UI for iPad and web
 const { width: screenWidth } = Dimensions.get('window');
 const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
+const isWeb = Platform.OS === 'web';
 
 function AppContent() {
   const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
@@ -161,13 +162,11 @@ export default function RootLayout() {
     <ErrorBoundary>
       <UISettingsProvider>
         <SubscriptionProvider>
-          <StripeProvider
-            publishableKey={stripePublishableKey || ''}
-            merchantIdentifier={appleMerchantId || 'merchant.com.parleyapp.payments'}
-            urlScheme="predictiveplay"
-          >
+          <StripeProvider>
             <UIThemeProvider>
-              <AppContent />
+              <View style={isWeb ? styles.webContainer : styles.container}>
+                <AppContent />
+              </View>
             </UIThemeProvider>
           </StripeProvider>
         </SubscriptionProvider>
@@ -183,5 +182,16 @@ const styles = StyleSheet.create({
     maxWidth: isTablet ? 1200 : undefined,
     alignSelf: 'center',
     width: '100%',
+  },
+  webContainer: {
+    flex: 1,
+    maxWidth: 428, // iPhone 14 Pro Max width for mobile simulation
+    alignSelf: 'center',
+    width: '100%',
+    backgroundColor: '#000000', // Match app background
+    // Add subtle border for visual separation on web
+    borderLeftWidth: Platform.OS === 'web' ? 1 : 0,
+    borderRightWidth: Platform.OS === 'web' ? 1 : 0,
+    borderColor: '#1F2937',
   },
 });

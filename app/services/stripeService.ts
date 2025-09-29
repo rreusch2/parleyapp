@@ -1,10 +1,12 @@
-import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 
-// Get Stripe configuration from app.config.js
-const stripePublishableKey = Constants.expoConfig?.extra?.stripePublishableKey;
-const appleMerchantId = Constants.expoConfig?.extra?.appleMerchantId;
+// STRIPE DISABLED - Using RevenueCat for IAP instead
+console.log('⚠️ Stripe service disabled - using RevenueCat for payments');
+
+// Get configuration (disabled)
+const stripePublishableKey = null;
+const appleMerchantId = null;
 const backendUrl = Constants.expoConfig?.extra?.apiUrl;
 
 export interface StripeSubscriptionPlan {
@@ -133,82 +135,28 @@ class StripeService {
 // Export singleton instance
 export const stripeService = new StripeService();
 
-// Export Stripe provider component for app initialization
-export { StripeProvider };
+// Export stub Stripe provider component (disabled)
+export const StripeProvider = ({ children }: { children: React.ReactNode }) => children;
 
-// Custom hook for using Stripe in components
+// Custom hook for using Stripe in components (disabled)
 export const useStripePayment = () => {
-  const { initPaymentSheet, presentPaymentSheet, confirmPayment } = useStripe();
+  console.log('⚠️ Stripe disabled - use RevenueCat instead');
 
   const initializePaymentSheet = async (paymentIntentData: PaymentIntentResponse) => {
-    try {
-      console.log('🔄 Initializing Stripe Payment Sheet...');
-
-      // Build PaymentSheet init options.
-      // IMPORTANT: Do not pass customerId unless you also provide an ephemeral key.
-      // Passing customerId without an ephemeral key can cause Payment Sheet to fail in production.
-      const initOptions: any = {
-        merchantDisplayName: 'Predictive Play',
-        paymentIntentClientSecret: paymentIntentData.clientSecret,
-        merchantCountryCode: 'US',
-        allowsDelayedPaymentMethods: true,
-        googlePay: {
-          merchantCountryCode: 'US',
-          testEnv: __DEV__,
-        },
-        returnURL: 'predictiveplay://stripe-redirect',
-      };
-
-      if (appleMerchantId) {
-        initOptions.applePay = { 
-          merchantId: appleMerchantId,
-          merchantCountryCode: 'US'
-        } as any;
-      }
-
-      const { error } = await initPaymentSheet(initOptions);
-
-      if (error) {
-        console.error('❌ Error initializing payment sheet:', error);
-        Alert.alert('Setup Error', error.message);
-        return false;
-      }
-
-      console.log('✅ Payment sheet initialized successfully');
-      return true;
-
-    } catch (error: any) {
-      console.error('❌ Payment sheet initialization error:', error);
-      Alert.alert('Setup Error', 'Failed to initialize payment');
-      return false;
-    }
+    console.warn('❌ Stripe payment disabled - use RevenueCat IAP');
+    Alert.alert('Payment Unavailable', 'Please use in-app purchases instead');
+    return false;
   };
 
   const presentPaymentSheetModal = async (): Promise<boolean> => {
-    try {
-      console.log('🔄 Presenting Stripe Payment Sheet...');
+    console.warn('❌ Stripe payment disabled - use RevenueCat IAP');
+    Alert.alert('Payment Unavailable', 'Please use in-app purchases instead');
+    return false;
+  };
 
-      const { error } = await presentPaymentSheet();
-
-      if (error) {
-        if (error.code === 'Canceled') {
-          console.log('ℹ️ User cancelled payment');
-          return false;
-        }
-        
-        console.error('❌ Payment sheet error:', error);
-        Alert.alert('Payment Error', error.message);
-        return false;
-      }
-
-      console.log('✅ Payment completed successfully');
-      return true;
-
-    } catch (error: any) {
-      console.error('❌ Payment sheet presentation error:', error);
-      Alert.alert('Payment Error', 'Something went wrong with the payment');
-      return false;
-    }
+  const confirmPayment = async () => {
+    console.warn('❌ Stripe payment disabled - use RevenueCat IAP');
+    return null;
   };
 
   return {

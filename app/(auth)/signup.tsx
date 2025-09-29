@@ -12,6 +12,7 @@ import {
   Keyboard,
   Pressable,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../services/api/supabaseClient';
@@ -24,6 +25,12 @@ import UserPreferencesModal from '../components/UserPreferencesModal';
 import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import Constants from 'expo-constants';
+
+// Complete pending auth sessions (required by expo-auth-session)
+WebBrowser.maybeCompleteAuthSession();
 import appsFlyerService from '../services/appsFlyerService';
 
 
@@ -57,6 +64,14 @@ export default function SignupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { checkSubscriptionStatus, isPro, isElite } = useSubscription();
+  const extra = (Constants?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra) || {};
+
+  // Google Auth request (Expo AuthSession)
+  const [, , promptGoogle] = Google.useAuthRequest({
+    expoClientId: (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId,
+    iosClientId: (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId,
+    androidClientId: (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId,
+  });
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
@@ -67,12 +82,17 @@ export default function SignupScreen() {
       setIsAppleAuthAvailable(false);
     }
     
-    // Check if user was redirected from login after Apple Sign In
+    // Check if user was redirected from login after Apple/Google Sign In
     if (params.appleSignInComplete === 'true' && params.userId) {
       console.log('User redirected from Apple Sign In, showing subscription modal');
       // Automatically agree to terms since they already authenticated
       setAgreeToTerms(true);
       // Show subscription modal immediately
+      setShowSubscriptionModal(true);
+    }
+    if (params.googleSignInComplete === 'true' && params.userId) {
+      console.log('User redirected from Google Sign In, showing subscription modal');
+      setAgreeToTerms(true);
       setShowSubscriptionModal(true);
     }
   }, [params]);
@@ -226,6 +246,93 @@ export default function SignupScreen() {
     }
     
     router.replace('/(tabs)');
+  };
+
+  const handleGoogleSignUp = async () => {
+    if (!agreeToTerms) {
+      Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
+      return;
+    }
+    try {
+      setLoading(true);
+
+      const result = await promptGoogle();
+      if (result?.type !== 'success' || !result.authentication?.idToken) {
+        return;
+      }
+
+      const idToken = result.authentication.idToken;
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        // Derive profile fields
+        const emailAddr = data.user.email || '';
+        const fullName = (data.user as any)?.user_metadata?.full_name || (data.user as any)?.user_metadata?.name || '';
+        const avatarUrl = (data.user as any)?.user_metadata?.avatar_url || (data.user as any)?.user_metadata?.picture || null;
+        const displayName = fullName || (emailAddr ? emailAddr.split('@')[0] : 'GoogleUser');
+
+        // Generate unique referral code for new user
+        const generateReferralCode = () => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          let result = '';
+          for (let i = 0; i < 8; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+          return result;
+        };
+        const userReferralCode = generateReferralCode();
+
+        // Capture entered referral code if provided
+        let referredBy = null as string | null;
+        if (referralCode && referralCode.trim().length > 0) {
+          referredBy = referralCode.trim().toUpperCase();
+          console.log('🎯 Google user entered referral code:', referredBy);
+        }
+
+        // Upsert profile
+        await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: data.user.id,
+              username: displayName,
+              email: emailAddr,
+              avatar_url: avatarUrl,
+              referral_code: userReferralCode,
+              referred_by: referredBy,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+
+        // Process referral points if applicable
+        if (referredBy) {
+          try {
+            const PointsService = (await import('../services/pointsService')).default;
+            const pointsService = PointsService.getInstance();
+            const success = await pointsService.processReferralSignup(data.user.id, referredBy);
+            if (success) console.log('✅ Google user referral processed - 2,500 points awarded');
+          } catch (err) {
+            console.error('❌ Error processing Google user referral:', err);
+          }
+        }
+
+        console.log('✅ Google Sign Up successful! User ID:', data.user.id);
+        setCurrentUserId(data.user.id);
+        setShowPreferencesModal(true);
+      }
+    } catch (error: any) {
+      console.error('Google Sign Up error:', error);
+      const msg = error?.message?.includes('network')
+        ? 'Network error. Please check your connection and try again.'
+        : 'Failed to sign up with Google. Please try again.';
+      Alert.alert('Sign Up Error', msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSpinningWheelClose = () => {
@@ -723,7 +830,27 @@ export default function SignupScreen() {
             <Text style={styles.subtitle}>Join the Predictive Play Revolution!</Text>
 
             <View style={styles.form}>
-              {/* Apple Sign Up Button - Show first for better UX */}
+              {/* Google Sign Up Button - Show above Apple */}
+              <View style={styles.googleButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.googleButton, loading && styles.buttonDisabled]}
+                  onPress={handleGoogleSignUp}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                    <Image
+                      source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
+                      style={styles.googleIcon}
+                    />
+                    <Text style={styles.googleButtonText}>
+                      {loading ? 'Working…' : 'Sign up with Google'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Apple Sign Up Button - Show next for better UX */}
               {isAppleAuthAvailable && (
                 <View style={styles.appleButtonContainer}>
                   <AppleAuthentication.AppleAuthenticationButton
@@ -1046,7 +1173,7 @@ const styles = StyleSheet.create({
     paddingVertical: normalize(18),
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    minHeight: normalize(60),
+    minHeight: isTablet ? 70 : 60,
   },
   inputWrapperFocused: {
     borderColor: '#00E5FF',
@@ -1055,118 +1182,142 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: normalize(16),
-    marginLeft: normalize(15),
+    fontSize: isTablet ? 18 : 16,
+    marginLeft: 15,
     paddingVertical: 0,
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  googleButtonContainer: {
+    marginBottom: normalize(12),
+  },
+  googleButton: {
+    width: '100%',
+    height: isTablet ? 60 : 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: normalize(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dadce0',
+    shadowColor: '#000',
+    shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  googleButtonText: {
+    color: '#3c4043',
+    fontWeight: '700',
+    fontSize: isTablet ? 18 : 16,
+  },
+  googleIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 10,
+    resizeMode: 'contain',
+  },
+  // Generic primary button used for email signup submit
+  button: {
+    backgroundColor: '#4169e1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: isTablet ? 20 : 16,
+    borderRadius: 30,
+    marginTop: 20,
+    shadowColor: '#4169e1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonIcon: {
+    marginRight: normalize(10),
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: isTablet ? 20 : 18,
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
+  },
+  errorText: {
+    color: '#fecaca',
+    marginTop: normalize(6),
+    fontSize: normalize(13),
+  },
+  successText: {
+    color: '#bbf7d0',
+    marginTop: normalize(6),
+    fontSize: normalize(13),
   },
   passwordToggle: {
     padding: normalize(5),
     marginLeft: normalize(10),
   },
-  errorText: {
-    color: '#EF4444',
-    fontSize: normalize(14),
-    marginTop: normalize(5),
-    marginLeft: normalize(5),
-  },
-  successText: {
-    color: '#10B981',
-    fontSize: normalize(14),
-    marginTop: normalize(5),
-    marginLeft: normalize(5),
-  },
+  // Terms / footer
   termsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: normalize(24),
-    marginTop: normalize(8),
-    paddingHorizontal: normalize(4),
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: normalize(10),
+    marginBottom: normalize(10),
   },
   checkboxContainer: {
-    marginRight: normalize(12),
-    marginTop: normalize(2),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   termsTextContainer: {
-    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
   },
   termsText: {
-    fontSize: normalize(15),
     color: '#e0e0e0',
-    lineHeight: normalize(22),
+    fontSize: normalize(14),
   },
   termsLink: {
-    fontSize: normalize(15),
-    color: '#4169e1',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-    lineHeight: normalize(22),
-  },
-  button: {
-    backgroundColor: '#ffffff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: normalize(16),
-    borderRadius: normalize(30),
-    marginTop: normalize(20),
-    shadowColor: '#ffffff',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  buttonIcon: {
-    marginRight: normalize(10),
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: 'black',
-    fontSize: normalize(18),
+    color: '#00E5FF',
+    fontSize: normalize(14),
     fontWeight: 'bold',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto-Bold',
+    textDecorationLine: 'underline',
+    marginLeft: normalize(4),
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: normalize(24),
+    marginTop: normalize(20),
   },
   footerText: {
     color: '#e0e0e0',
-    marginRight: normalize(5),
-    fontSize: normalize(15),
+    fontSize: isTablet ? 18 : 16,
   },
   footerLink: {
-    color: '#ffffff',
+    color: '#00E5FF',
+    fontSize: isTablet ? 18 : 16,
     fontWeight: 'bold',
-    fontSize: normalize(15),
-  },
-  appleButtonContainer: {
-    marginBottom: normalize(20),
-    alignItems: 'center',
+    textDecorationLine: 'underline',
+    marginLeft: normalize(6),
   },
   appleButton: {
     width: '100%',
-    height: normalize(50),
+    height: isTablet ? 60 : 50,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: normalize(30),
-    marginBottom: normalize(15),
+    marginTop: normalize(10),
+  },
+  appleButtonContainer: {
+    marginBottom: normalize(20),
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: normalize(20),
-    width: '100%',
+    paddingHorizontal: normalize(10),
   },
   dividerLine: {
     flex: 1,

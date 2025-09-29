@@ -37,7 +37,8 @@ import {
   Share2,
   Gift,
   Copy,
-  Star
+  Star,
+  Settings
 } from 'lucide-react-native';
 import { supabase } from '../services/api/supabaseClient';
 import { useSubscription } from '../services/subscriptionContext';
@@ -60,6 +61,7 @@ import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
 import EliteThemeModal from '../components/EliteThemeModal';
+import { RevenueCatUI } from 'react-native-purchases-ui';
 
 interface UserProfile {
   id: string;
@@ -831,6 +833,10 @@ export default function SettingsScreen() {
         setShowPrivacyModal(true);
         break;
       
+      case 'customer_center':
+        handleCustomerCenter();
+        break;
+      
       default:
         Alert.alert('Coming Soon', 'This feature will be available in a future update.');
         break;
@@ -919,6 +925,45 @@ export default function SettingsScreen() {
     }
   };
 
+  // Handle customer center
+  const handleCustomerCenter = async () => {
+    try {
+      await RevenueCatUI.presentCustomerCenter({
+        callbacks: {
+          onFeedbackSurveyCompleted: (param) => {
+            console.log('Feedback survey completed:', param.feedbackSurveyOptionId);
+          },
+          onShowingManageSubscriptions: () => {
+            console.log('Manage subscriptions screen is displayed');
+          },
+          onRestoreStarted: () => {
+            console.log('Restore purchases process started');
+          },
+          onRestoreCompleted: (param) => {
+            console.log('Restore purchases completed successfully:', param.customerInfo);
+            Alert.alert('Success', 'Purchases restored successfully!');
+          },
+          onRestoreFailed: (param) => {
+            console.error('Restore purchases failed:', param.error);
+            Alert.alert('Error', 'Failed to restore purchases. Please try again.');
+          },
+          onRefundRequestStarted: (param) => {
+            console.log('Refund request initiated for:', param.productIdentifier);
+          },
+          onRefundRequestCompleted: (param) => {
+            console.log('Refund request completed:', param.productIdentifier, param.refundRequestStatus);
+          },
+          onManagementOptionSelected: (param) => {
+            console.log('Management option selected:', param.option, param.url);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error opening customer center:', error);
+      Alert.alert('Error', 'Unable to open customer center. Please try again.');
+    }
+  };
+
   const settingsSections = [
     {
       title: 'Rate & Review',
@@ -954,6 +999,13 @@ export default function SettingsScreen() {
           badge: isElite ? 'ELITE' : isPro ? 'PRO' : 'FREE',
           badgeColor: isElite ? '#FFD700' : isPro ? '#F59E0B' : '#6B7280',
           action: handleManageSubscription
+        },
+        {
+          id: 'customer_center',
+          title: 'Customer Center',
+          type: 'link',
+          subtitle: 'Manage subscriptions, request refunds & get help',
+          action: handleCustomerCenter
         },
         {
           id: 'avatar',
