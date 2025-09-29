@@ -162,11 +162,11 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
       try {
         // Fallbacks if DB pricing hasn't loaded yet
         const planPrices: Record<string, number> = {
-          pro_weekly: 9.99,
+          pro_weekly: 12.49,
           pro_monthly: 24.99,
           pro_yearly: 199.99,
           pro_lifetime: 349.99,
-          pro_daypass: 4.99,
+          pro_daypass: 6.49,
           elite_weekly: 14.99,
           elite_monthly: 29.99,
           elite_yearly: 199.99,

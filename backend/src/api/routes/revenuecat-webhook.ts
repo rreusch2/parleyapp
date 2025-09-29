@@ -210,9 +210,20 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         break;
       }
       
-      case 'CANCELLATION':
-      case 'EXPIRATION':
+      case 'CANCELLATION': {
+        // Do NOT downgrade on cancellation — user keeps access until expiration
+        await handleSubscriptionCancelled(user.id, event);
+        break;
+      }
+
       case 'BILLING_ISSUE': {
+        // Mark as past_due but do NOT downgrade tier
+        await handleSubscriptionPastDue(user.id, event);
+        break;
+      }
+
+      case 'EXPIRATION': {
+        // Only expiration should actually downgrade the account
         await handleSubscriptionInactive(user.id, event);
         break;
       }
@@ -351,6 +362,37 @@ async function handleSubscriptionInactive(userId: string, event: any) {
     .eq('id', userId);
     
   console.log(`❌ Subscription deactivated for user ${userId}`);
+}
+
+// Cancellation: user opted out of renewal, but access continues until expiration.
+// Do not clear entitlements or downgrade tier here.
+async function handleSubscriptionCancelled(userId: string, event: any) {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
+      revenuecat_customer_info: event,
+      subscription_status: 'cancelled',
+      last_revenuecat_sync: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+
+  console.log(`🛑 Subscription marked as cancelled (no downgrade) for user ${userId}`);
+}
+
+// Billing issue: payment failure or grace period. Do not downgrade; mark as past_due.
+async function handleSubscriptionPastDue(userId: string, event: any) {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
+      revenuecat_customer_info: event,
+      subscription_status: 'past_due',
+      last_revenuecat_sync: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId);
+
+  console.log(`⚠️ Subscription marked as past_due (no downgrade) for user ${userId}`);
 }
 
 async function handleSubscriptionReactivated(userId: string, event: any) {

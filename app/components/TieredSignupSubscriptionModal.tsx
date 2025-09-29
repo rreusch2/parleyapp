@@ -664,7 +664,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                 <>
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Weekly Pro Subscription</Text>
-                    <Text style={styles.subscriptionInfoText}>$9.99 per week, auto-renewable</Text>
+                    <Text style={styles.subscriptionInfoText}>$12.49 per week, auto-renewable</Text>
                   </View>
                   
                   <View style={styles.subscriptionOption}>
@@ -679,7 +679,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
                   
                   <View style={styles.subscriptionOption}>
                     <Text style={styles.subscriptionInfoTitle}>Pro Day Pass</Text>
-                    <Text style={styles.subscriptionInfoText}>$4.99 one-time purchase (24 hours)</Text>
+                    <Text style={styles.subscriptionInfoText}>$6.49 one-time purchase (24 hours)</Text>
                   </View>
                 </>
               ) : (
