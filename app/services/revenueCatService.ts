@@ -183,6 +183,8 @@ class RevenueCatService {
       if (user) {
         await Purchases.logIn(user.id);
         console.log('👤 RevenueCat user ID set:', user.id);
+        // Sync subscriber attributes (email, display name, tier, etc.)
+        await this.syncSubscriberAttributes();
       }
     } catch (error) {
       console.error('⚠️ Failed to set RevenueCat user ID:', error);
@@ -280,6 +282,9 @@ class RevenueCatService {
       // Update user's subscription status in Supabase
       console.log('🔄 Updating user subscription status in Supabase...');
       await this.updateUserSubscriptionStatus(customerInfo, planId);
+
+      // Sync attributes to RevenueCat for better customer context
+      await this.syncSubscriberAttributes();
 
       return {
         success: true,
@@ -606,11 +611,72 @@ class RevenueCatService {
         productId: subscriptionProductId,
         expiresAt: subscriptionExpiresAt
       });
-      
     } catch (error) {
       console.error('❌ Failed to update subscription status:', error);
       throw error;
     }
+  }
+
+  /**
+   * Sync user info to RevenueCat subscriber attributes
+   * - Reserved keys: $email, $displayName, $phoneNumber
+   * - Custom keys: subscription_tier, subscription_plan_type, referral_code, trial_used,
+   *                sport_preferences, app_version, platform
+   */
+  private async syncSubscriberAttributes(): Promise<void> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch profile fields
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, phone_number, referral_code, trial_used, sport_preferences, subscription_tier, subscription_plan_type')
+        .eq('id', user.id)
+        .single();
+
+      const attributes: Record<string, string> = {};
+
+      // Reserved attributes
+      if (user.email) attributes['$email'] = String(user.email);
+      if (profile?.username) attributes['$displayName'] = String(profile.username);
+      else if (user.email) attributes['$displayName'] = String(user.email);
+      if (profile?.phone_number) attributes['$phoneNumber'] = String(profile.phone_number);
+
+      // Custom attributes
+      if (profile?.subscription_tier) attributes['subscription_tier'] = String(profile.subscription_tier);
+      if (profile?.subscription_plan_type) attributes['subscription_plan_type'] = String(profile.subscription_plan_type);
+      if (profile?.referral_code) attributes['referral_code'] = String(profile.referral_code);
+      if (typeof profile?.trial_used !== 'undefined' && profile?.trial_used !== null) attributes['trial_used'] = String(!!profile.trial_used);
+      if (profile?.sport_preferences) {
+        try {
+          const sp = typeof profile.sport_preferences === 'string' ? profile.sport_preferences : JSON.stringify(profile.sport_preferences);
+          if (sp && sp.length <= 500) attributes['sport_preferences'] = sp; // keep small
+        } catch {}
+      }
+
+      // App context
+      try {
+        const appVersion = (Constants as any)?.expoConfig?.version || (Constants as any)?.manifest2?.version;
+        const platform = Platform.OS;
+        if (appVersion) attributes['app_version'] = String(appVersion);
+        if (platform) attributes['platform'] = String(platform);
+      } catch {}
+
+      if (Object.keys(attributes).length === 0) return;
+
+      await Purchases.setAttributes(attributes);
+      console.log('📬 Synced RevenueCat subscriber attributes:', attributes);
+    } catch (err) {
+      console.warn('⚠️ Failed to sync RevenueCat attributes:', err);
+    }
+  }
+
+  /**
+   * Public helper to refresh attributes on-demand (e.g., after settings save)
+   */
+  public async refreshSubscriberAttributes(): Promise<void> {
+    await this.syncSubscriberAttributes();
   }
 
   /**
@@ -693,6 +759,9 @@ class RevenueCatService {
       
       // Update user's subscription status in Supabase
       await this.updateUserSubscriptionStatus(customerInfo);
+
+      // Sync attributes after restore in case profile changed
+      await this.syncSubscriberAttributes();
 
       const hasActiveSubscription = Object.keys(customerInfo.entitlements.active).length > 0;
       
