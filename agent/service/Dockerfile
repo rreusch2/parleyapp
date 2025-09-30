@@ -27,11 +27,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy whole repo so agent package is available
+# Copy agent directory contents
 COPY . /app
 
 # Install python deps
-RUN pip install --no-cache-dir -r agent/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers + deps
 RUN python -m playwright install --with-deps
@@ -39,4 +39,4 @@ RUN python -m playwright install --with-deps
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "agent.service.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "service.server:app", "--host", "0.0.0.0", "--port", "8000"]
