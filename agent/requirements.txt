@@ -42,3 +42,4 @@ huggingface-hub~=0.29.2
 setuptools~=75.8.0
 structlog~=25.4.0
 daytona~=0.103.0
+supabase~=2.10.0
