@@ -37,6 +37,7 @@ import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 import { initNotificationsCron } from './cron/notificationsCron';
 import { dayPassScheduler } from './schedulers/dayPassScheduler';
+import { startSubscriptionTierFixCron } from './cron/subscriptionTierFixCron';
 
 const app = express();
 
@@ -193,6 +194,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
   initRewardExpiryCron();
   initNotificationsCron();
+  startSubscriptionTierFixCron();
   // Ensure Day Pass expirations get processed hourly
   try {
     dayPassScheduler.start();
