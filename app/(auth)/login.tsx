@@ -43,17 +43,12 @@ export default function LoginScreen() {
 
   // Configure native Google Sign-In on mount
   React.useEffect(() => {
-    const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId;
     const webClientId = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId;
-    const androidClientId = (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId;
 
     GoogleSignin.configure({
-      iosClientId,
-      webClientId,
-      // androidClientId is not required here; GoogleSignin handles it from the app signature
+      webClientId, // ONLY use web client ID for Supabase (not iOS/Android client IDs)
       scopes: ['openid', 'email', 'profile'],
       offlineAccess: false,
-      forceCodeForRefreshToken: false,
     });
   }, []);
 

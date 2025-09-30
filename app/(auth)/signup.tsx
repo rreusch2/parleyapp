@@ -68,14 +68,11 @@ export default function SignupScreen() {
 
   // Configure native Google Sign-In
   React.useEffect(() => {
-    const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId;
     const webClientId = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId;
     GoogleSignin.configure({
-      iosClientId,
-      webClientId,
+      webClientId, // ONLY use web client ID for Supabase (not iOS/Android client IDs)
       scopes: ['openid', 'email', 'profile'],
       offlineAccess: false,
-      forceCodeForRefreshToken: false,
     });
   }, []);
 

@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     build-essential \
+    gettext-base \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -30,13 +31,20 @@ WORKDIR /app
 # Copy agent directory contents
 COPY . /app
 
+# Copy Railway config template to config directory
+RUN mkdir -p /app/OpenManus/config && \
+    cp /app/railway.toml /app/OpenManus/config/config.toml
+
 # Install python deps
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers + deps
 RUN python -m playwright install --with-deps
 
+# Make startup script executable
+RUN chmod +x /app/service/start.sh
+
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "service.server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/service/start.sh"]
