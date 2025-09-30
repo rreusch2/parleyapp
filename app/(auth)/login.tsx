@@ -137,7 +137,7 @@ export default function LoginScreen() {
       const userInfo = await GoogleSignin.signIn();
       console.log('🔍 Google userInfo:', JSON.stringify(userInfo, null, 2));
       
-      const idToken = userInfo.idToken;
+      const idToken = userInfo.data?.idToken;
       if (!idToken) {
         Alert.alert('Sign In Error', 'Google did not return an ID token.');
         return;

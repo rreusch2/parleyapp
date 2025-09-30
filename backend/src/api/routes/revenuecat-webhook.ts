@@ -301,19 +301,38 @@ async function handleSubscriptionActive(userId: string, event: any) {
     return;
   }
   
-  // For renewable subscriptions: Use entitlements from RevenueCat
-  // RevenueCat will send us the active entitlements in the event data
-  const entitlements = event.entitlements || {};
-  // Fallback to product mapping if entitlements missing
+  // For renewable subscriptions: Use entitlement_ids array from RevenueCat
+  // RevenueCat sends entitlement_ids as an array: ["predictiveplaypro"] or ["elite"]
   let mappedTier: 'pro' | 'elite' | null = null;
-  if (entitlements && (entitlements.predictiveplaypro || entitlements.elite)) {
-    const proActive = !!entitlements.predictiveplaypro && entitlements.predictiveplaypro.expires_date && new Date(entitlements.predictiveplaypro.expires_date) > new Date();
-    const eliteActive = !!entitlements.elite && entitlements.elite.expires_date && new Date(entitlements.elite.expires_date) > new Date();
-    mappedTier = eliteActive ? 'elite' : (proActive ? 'pro' : null);
+  
+  // Strategy 1: Check entitlement_ids array (most reliable for INITIAL_PURCHASE and RENEWAL)
+  if (event.entitlement_ids && Array.isArray(event.entitlement_ids) && event.entitlement_ids.length > 0) {
+    const entitlementIds = event.entitlement_ids;
+    console.log('🔍 Found entitlement_ids:', entitlementIds);
+    
+    if (entitlementIds.includes('elite')) {
+      mappedTier = 'elite';
+    } else if (entitlementIds.includes('predictiveplaypro')) {
+      mappedTier = 'pro';
+    }
   }
+  
+  // Strategy 2: Check entitlements object (for other event types)
+  if (!mappedTier && event.entitlements) {
+    const entitlements = event.entitlements;
+    if (entitlements && (entitlements.predictiveplaypro || entitlements.elite)) {
+      const proActive = !!entitlements.predictiveplaypro && entitlements.predictiveplaypro.expires_date && new Date(entitlements.predictiveplaypro.expires_date) > new Date();
+      const eliteActive = !!entitlements.elite && entitlements.elite.expires_date && new Date(entitlements.elite.expires_date) > new Date();
+      mappedTier = eliteActive ? 'elite' : (proActive ? 'pro' : null);
+    }
+  }
+  
+  // Strategy 3: Fallback to product mapping if entitlements missing
   if (!mappedTier && event.product_id) {
     mappedTier = getProductTier(event.product_id);
   }
+  
+  console.log('🎯 Determined subscription tier:', mappedTier);
   const revenuecatEntitlements = {
     predictiveplaypro: mappedTier === 'pro',
     elite: mappedTier === 'elite'

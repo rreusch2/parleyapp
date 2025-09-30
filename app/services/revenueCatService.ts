@@ -535,8 +535,9 @@ class RevenueCatService {
       }
 
       // Determine subscription tier based on product ID - FIXED Elite detection
-      let subscriptionTier = 'free';
-      let maxDailyPicks = 2; // Default for free
+      // CRITICAL: Only update tier if we have active subscription, otherwise preserve existing tier
+      let subscriptionTier: string | null = null;
+      let maxDailyPicks: number | null = null;
       
       if (hasActiveSubscription && subscriptionProductId) {
         // Check if it's an Elite subscription (contains 'allstar') or Elite Day Pass product ID
@@ -556,18 +557,23 @@ class RevenueCatService {
         subscriptionPlanType,
         subscriptionProductId,
         detectedTier: subscriptionTier,
-        maxDailyPicks
+        maxDailyPicks,
+        willUpdateTier: subscriptionTier !== null
       });
       
-      // Prepare update data with correct tier and max_daily_picks
+      // Prepare update data - ONLY update tier if we detected one, otherwise preserve existing
       const updateData: any = {
-        subscription_tier: subscriptionTier,
-        max_daily_picks: maxDailyPicks,
         subscription_status: subscriptionStatus,
         subscription_expires_at: subscriptionExpiresAt,
         revenuecat_customer_id: customerInfo.originalAppUserId,
         updated_at: new Date().toISOString(),
       };
+      
+      // Only update tier and picks if we have active subscription
+      if (subscriptionTier !== null) {
+        updateData.subscription_tier = subscriptionTier;
+        updateData.max_daily_picks = maxDailyPicks;
+      }
       
       // Only update plan-specific fields if we have an active subscription
       if (hasActiveSubscription) {
@@ -606,7 +612,8 @@ class RevenueCatService {
       }
 
       console.log(`✅ User subscription status updated in Supabase:`, {
-        tier: hasActiveSubscription ? 'pro' : 'free',
+        tierUpdated: subscriptionTier !== null,
+        tier: subscriptionTier || '(preserved existing)',
         planType: subscriptionPlanType,
         productId: subscriptionProductId,
         expiresAt: subscriptionExpiresAt
