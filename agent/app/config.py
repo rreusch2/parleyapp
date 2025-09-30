@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import tomllib
 from pathlib import Path
@@ -17,17 +18,32 @@ WORKSPACE_ROOT = PROJECT_ROOT / "workspace"
 
 
 class LLMSettings(BaseModel):
-    model: str = Field(..., description="Model name")
-    base_url: str = Field(..., description="API base URL")
-    api_key: str = Field(..., description="API key")
+    model: str = Field(
+        default_factory=lambda: os.getenv("OPENAI_MODEL", "gpt-4o"),
+        description="Model name"
+    )
+    base_url: str = Field(
+        default_factory=lambda: os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        description="API base URL"
+    )
+    api_key: str = Field(
+        default_factory=lambda: os.getenv("OPENAI_API_KEY", ""),
+        description="API key"
+    )
     max_tokens: int = Field(4096, description="Maximum number of tokens per request")
     max_input_tokens: Optional[int] = Field(
         None,
         description="Maximum input tokens to use across all requests (None for unlimited)",
     )
     temperature: float = Field(1.0, description="Sampling temperature")
-    api_type: str = Field(..., description="Azure, Openai, or Ollama")
-    api_version: str = Field(..., description="Azure Openai version if AzureOpenai")
+    api_type: str = Field(
+        default_factory=lambda: os.getenv("OPENAI_API_TYPE", "openai"),
+        description="Azure, Openai, or Ollama"
+    )
+    api_version: str = Field(
+        default_factory=lambda: os.getenv("OPENAI_API_VERSION", ""),
+        description="Azure Openai version if AzureOpenai"
+    )
 
 
 class ProxySettings(BaseModel):
@@ -106,11 +122,18 @@ class SandboxSettings(BaseModel):
 
 
 class DaytonaSettings(BaseModel):
-    daytona_api_key: str = Field(..., description="Daytona API key from https://app.daytona.io/dashboard/keys")
-    daytona_server_url: Optional[str] = Field(
-        "https://app.daytona.io/api", description=""
+    daytona_api_key: str = Field(
+        default_factory=lambda: os.getenv("DAYTONA_API_KEY", ""),
+        description="Daytona API key from https://app.daytona.io/dashboard/keys"
     )
-    daytona_target: Optional[str] = Field("us", description="enum ['eu', 'us']")
+    daytona_server_url: Optional[str] = Field(
+        default_factory=lambda: os.getenv("DAYTONA_SERVER_URL", "https://app.daytona.io/api"),
+        description=""
+    )
+    daytona_target: Optional[str] = Field(
+        default_factory=lambda: os.getenv("DAYTONA_TARGET", "us"),
+        description="enum ['eu', 'us']"
+    )
     sandbox_image_name: Optional[str] = Field("whitezxj/sandbox:0.1.0", description="")
     sandbox_entrypoint: Optional[str] = Field(
         "/usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf",

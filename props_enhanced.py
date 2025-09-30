@@ -1682,7 +1682,30 @@ GAMES:
 {json.dumps(essential_games, separators=(',', ':'))}
 
 RULES:
-- Return JSON array: [{{"player_name":"name","prop_type":"type","recommendation":"over/under","line":value,"odds":number,"confidence":55-85,"reasoning":"brief analysis","sport":"sport","roi_estimate":"X%","value_percentage":"Y%","game":"team1 vs team2"}}]
+- Return JSON array with this EXACT format:
+[{{
+  "player_name": "name",
+  "prop_type": "type",
+  "recommendation": "over/under",
+  "line": value,
+  "odds": number,
+  "confidence": 55-85,
+  "reasoning": "3-5 sentence detailed analysis. Start with the key statistical edge or trend supporting this pick. Explain the specific data points (recent performance, matchup history, situational factors) that led to this conclusion. Mention relevant player form, opponent weakness, or contextual factors. Conclude with why this represents betting value at the given odds. Be specific with numbers and trends.",
+  "sport": "sport",
+  "roi_estimate": "X%",
+  "value_percentage": "Y%",
+  "game": "team1 vs team2"
+}}]
+
+REASONING QUALITY REQUIREMENTS:
+- **3-5 sentences minimum** - This is critical for user decision-making
+- **Lead with the edge**: Start with the main statistical advantage or trend
+- **Support with data**: Include specific numbers, recent stats, or matchup history
+- **Context matters**: Mention player form, opponent tendencies, situational factors
+- **Value justification**: Explain why the odds offer value based on your analysis
+- **Be specific**: Use actual stats like "15 TB in last 5 games" or "3-for-12 vs this pitcher"
+
+BETTING STRATEGY:
 - Focus on VALUE and profitable opportunities
 - Diversify across sports and prop types
 - NEVER "UNDER 0.5" for Home Runs or Stolen Bases
