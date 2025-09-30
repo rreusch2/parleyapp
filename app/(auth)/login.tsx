@@ -44,10 +44,12 @@ export default function LoginScreen() {
   // Configure native Google Sign-In on mount
   React.useEffect(() => {
     const webClientId = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId;
+    const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId;
 
     GoogleSignin.configure({
-      webClientId, // ONLY use web client ID for Supabase (not iOS/Android client IDs)
-      scopes: ['openid', 'email', 'profile'],
+      webClientId,
+      iosClientId, // Need this for iOS native flow
+      scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
       offlineAccess: false,
     });
   }, []);
@@ -126,12 +128,16 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      // iOS: no Play Services check needed
-      // Ensure previous session doesn't block new token
-      try { await GoogleSignin.signOut(); } catch {}
+      
+      // Check Play Services on Android only
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices();
+      }
 
       const userInfo = await GoogleSignin.signIn();
-      const idToken = (userInfo as any)?.idToken as string | undefined;
+      console.log('🔍 Google userInfo:', JSON.stringify(userInfo, null, 2));
+      
+      const idToken = userInfo.idToken;
       if (!idToken) {
         Alert.alert('Sign In Error', 'Google did not return an ID token.');
         return;
