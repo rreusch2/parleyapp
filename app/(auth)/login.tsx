@@ -16,13 +16,13 @@ import {
   Image,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
-import { supabase } from '@/app/services/api/supabaseClient';
+import { supabase } from '../services/api/supabaseClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { normalize, isTablet } from '@/app/services/device';
+import { normalize, isTablet } from '../services/device';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 
 // Complete pending auth sessions (required by expo-auth-session)
@@ -41,12 +41,21 @@ export default function LoginScreen() {
   const router = useRouter();
   const extra = (Constants?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra) || {};
 
-  // Google Auth request (Expo AuthSession - ID token flow)
-  const [, , promptGoogle] = Google.useIdTokenAuthRequest({
-    expoClientId: (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId,
-    iosClientId: (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId,
-    androidClientId: (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId,
-  });
+  // Configure native Google Sign-In on mount
+  React.useEffect(() => {
+    const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId;
+    const webClientId = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId;
+    const androidClientId = (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId;
+
+    GoogleSignin.configure({
+      iosClientId,
+      webClientId,
+      // androidClientId is not required here; GoogleSignin handles it from the app signature
+      scopes: ['openid', 'email', 'profile'],
+      offlineAccess: false,
+      forceCodeForRefreshToken: false,
+    });
+  }, []);
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
@@ -122,12 +131,17 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const result = await promptGoogle();
-      if (result?.type !== 'success' || !result.authentication?.idToken) {
+      // iOS: no Play Services check needed
+      // Ensure previous session doesn't block new token
+      try { await GoogleSignin.signOut(); } catch {}
+
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = (userInfo as any)?.idToken as string | undefined;
+      if (!idToken) {
+        Alert.alert('Sign In Error', 'Google did not return an ID token.');
         return;
       }
 
-      const idToken = result.authentication.idToken;
       // Sign in to Supabase using Google ID token
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
@@ -168,7 +182,7 @@ export default function LoginScreen() {
           (profileRow?.created_at && new Date(profileRow.created_at).getTime() > Date.now() - 60_000);
 
         if (isNewUser) {
-          // Mirror Apple flow: send to signup to continue onboarding/subscription
+          // Send to signup to continue onboarding with Preferences first
           router.replace({ pathname: '/signup', params: { googleSignInComplete: 'true', userId: data.user.id } });
         } else {
           router.replace('/(tabs)');
@@ -222,11 +236,11 @@ export default function LoginScreen() {
         if (error) {
           console.error('Supabase Apple Sign In error:', error);
           console.error('Error details:', {
-            message: error.message,
-            status: error.status,
-            details: error.details,
-            hint: error.hint,
-            code: error.code
+            message: (error as any)?.message,
+            status: (error as any)?.status,
+            details: (error as any)?.details,
+            hint: (error as any)?.hint,
+            code: (error as any)?.code
           });
           
           // If identity token fails, try with user + email as fallback

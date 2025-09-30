@@ -10,14 +10,24 @@ config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
 // Create platform-specific resolver to exclude problematic packages on web
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  // Exclude react-native-google-mobile-ads completely on web
-  if (platform === 'web' && moduleName === 'react-native-google-mobile-ads') {
-    // Return a path to an empty module
+  // Skip native modules on web - let Metro handle with empty polyfills
+  const nativeModules = [
+    'react-native-google-mobile-ads',
+    'react-native-purchases',
+    'react-native-purchases-ui',
+    'react-native-appsflyer',
+    'expo-store-review',
+    'react-native-sse',
+  ];
+
+  if (platform === 'web' && nativeModules.includes(moduleName)) {
+    // Return empty module that won't break the build
     return {
-      filePath: path.resolve(__dirname, 'app/services/admob/index.web.ts'),
+      filePath: require.resolve('./app/services/admob/index.web.ts'),
       type: 'sourceFile',
     };
   }
+  
   // Use default resolver
   return context.resolveRequest(context, moduleName, platform);
 };
@@ -49,7 +59,6 @@ const ignoredDirs = [
   'simulator_build',
   'statmuse-api-service',
   'python-services',
-  'web-mocks',
   // Common heavy subtrees
   'backend/node_modules',
   'web-app/node_modules',

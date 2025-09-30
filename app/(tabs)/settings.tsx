@@ -61,7 +61,20 @@ import { AvatarSelectionModal } from '../components/AvatarSelectionModal';
 import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
 import EliteThemeModal from '../components/EliteThemeModal';
-import { RevenueCatUI } from 'react-native-purchases-ui';
+import revenueCatService from '../services/revenueCatService';
+
+// Platform-specific import to prevent web bundling issues
+let RevenueCatUI;
+if (Platform.OS !== 'web') {
+  try {
+    RevenueCatUI = require('react-native-purchases-ui').default;
+  } catch (e) {
+    console.warn('RevenueCatUI not available:', e);
+    RevenueCatUI = null;
+  }
+} else {
+  RevenueCatUI = null;
+}
 
 interface UserProfile {
   id: string;
@@ -928,6 +941,45 @@ export default function SettingsScreen() {
   // Handle customer center
   const handleCustomerCenter = async () => {
     try {
+      // Guard: Not available on web
+      if (Platform.OS === 'web') {
+        Alert.alert('Unavailable on Web', 'Customer Center is only available on iOS and Android.');
+        return;
+      }
+
+      // Ensure RevenueCat is initialized (api key configured, user set, offerings loaded)
+      try {
+        await revenueCatService.initialize();
+      } catch (initErr) {
+        console.warn('RevenueCat initialization failed before opening Customer Center:', initErr);
+        // Continue; some Customer Center features may still open, but likely to fail without init
+      }
+
+      // Fetch customer info for managementURL fallback
+      let managementURL: string | null = null;
+      try {
+        const info = await revenueCatService.getCustomerInfo();
+        // managementURL may be null if not available for the platform
+        managementURL = (info as any)?.managementURL || null;
+      } catch {}
+
+      // Guard: ensure UI module is present in this native build
+      if (!RevenueCatUI || typeof RevenueCatUI.presentCustomerCenter !== 'function') {
+        Alert.alert(
+          'Unavailable',
+          'Customer Center UI is not available in this build.'
+        );
+        // Prefer RevenueCat managementURL if provided
+        if (managementURL) {
+          Linking.openURL(managementURL);
+        } else if (Platform.OS === 'ios') {
+          Linking.openURL('https://apps.apple.com/account/subscriptions');
+        } else if (Platform.OS === 'android') {
+          Linking.openURL('https://play.google.com/store/account/subscriptions');
+        }
+        return;
+      }
+
       await RevenueCatUI.presentCustomerCenter({
         callbacks: {
           onFeedbackSurveyCompleted: (param) => {
@@ -960,7 +1012,22 @@ export default function SettingsScreen() {
       });
     } catch (error) {
       console.error('Error opening customer center:', error);
-      Alert.alert('Error', 'Unable to open customer center. Please try again.');
+      const msg = (error && (error.message || String(error))) || 'Unable to open customer center.';
+      Alert.alert('Error', msg);
+      // Try managementURL first, then store pages
+      try {
+        const info = await revenueCatService.getCustomerInfo();
+        const managementURL = (info as any)?.managementURL || null;
+        if (managementURL) {
+          Linking.openURL(managementURL);
+          return;
+        }
+      } catch {}
+      if (Platform.OS === 'ios') {
+        Linking.openURL('https://apps.apple.com/account/subscriptions');
+      } else if (Platform.OS === 'android') {
+        Linking.openURL('https://play.google.com/store/account/subscriptions');
+      }
     }
   };
 

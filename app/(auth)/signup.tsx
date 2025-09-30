@@ -26,7 +26,7 @@ import SimpleSpinningWheel from '../components/SimpleSpinningWheel';
 import { useSubscription } from '../services/subscriptionContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 
 // Complete pending auth sessions (required by expo-auth-session)
@@ -66,12 +66,18 @@ export default function SignupScreen() {
   const { checkSubscriptionStatus, isPro, isElite } = useSubscription();
   const extra = (Constants?.expoConfig?.extra ?? (Constants as any)?.manifest?.extra) || {};
 
-  // Google Auth request (Expo AuthSession)
-  const [, , promptGoogle] = Google.useAuthRequest({
-    expoClientId: (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId,
-    iosClientId: (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId,
-    androidClientId: (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID as string) || (extra as any)?.googleAndroidClientId,
-  });
+  // Configure native Google Sign-In
+  React.useEffect(() => {
+    const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID as string) || (extra as any)?.googleIosClientId;
+    const webClientId = (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as string) || (extra as any)?.googleWebClientId;
+    GoogleSignin.configure({
+      iosClientId,
+      webClientId,
+      scopes: ['openid', 'email', 'profile'],
+      offlineAccess: false,
+      forceCodeForRefreshToken: false,
+    });
+  }, []);
 
   // Check if Apple Auth is available on mount
   React.useEffect(() => {
@@ -91,9 +97,9 @@ export default function SignupScreen() {
       setShowSubscriptionModal(true);
     }
     if (params.googleSignInComplete === 'true' && params.userId) {
-      console.log('User redirected from Google Sign In, showing subscription modal');
+      console.log('User redirected from Google Sign In, showing preferences modal first');
       setAgreeToTerms(true);
-      setShowSubscriptionModal(true);
+      setShowPreferencesModal(true);
     }
   }, [params]);
 
@@ -255,13 +261,15 @@ export default function SignupScreen() {
     }
     try {
       setLoading(true);
+      try { await GoogleSignin.signOut(); } catch {}
 
-      const result = await promptGoogle();
-      if (result?.type !== 'success' || !result.authentication?.idToken) {
+      const info = await GoogleSignin.signIn();
+      const idToken = (info as any)?.idToken as string | undefined;
+      if (!idToken) {
+        Alert.alert('Sign Up Error', 'Google did not return an ID token.');
         return;
       }
 
-      const idToken = result.authentication.idToken;
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,

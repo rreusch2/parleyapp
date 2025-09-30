@@ -64,7 +64,6 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'apple'>('apple'); // Apple IAP only
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -179,16 +178,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
         console.error('❌ Failed to track Add to Cart with Facebook Analytics:', error);
       }
 
-      if (selectedPaymentMethod === 'apple') {
-        // Use existing Apple IAP flow
-        const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
-        if (success) {
-          console.log('✅ Apple IAP purchase completed successfully!');
-          trackPositiveInteraction({ eventType: 'successful_subscription' });
-          onClose();
-        }
-      } else {
-        throw new Error('Only Apple In-App Purchases are supported');
+      // Apple App Store checkout
+      const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
+      if (success) {
+        console.log('✅ Apple IAP purchase completed successfully!');
+        trackPositiveInteraction({ eventType: 'successful_subscription' });
+        onClose();
       }
     } catch (error: any) {
       console.error('❌ Subscription error in modal:', error);
@@ -379,46 +374,7 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
     </View>
   );
 
-  const renderPaymentMethodSelection = () => (
-    <View style={styles.paymentMethodContainer}>
-      <Text style={styles.paymentMethodTitle}>Choose Payment Method</Text>
-      <View style={styles.paymentMethodCards}>
-        {/* Apple IAP Option */}
-        <TouchableOpacity
-          style={[
-            styles.paymentMethodCard,
-            selectedPaymentMethod === 'apple' && styles.paymentMethodCardSelected
-          ]}
-          onPress={() => setSelectedPaymentMethod('apple')}
-        >
-          <LinearGradient
-            colors={selectedPaymentMethod === 'apple' ? ['#059669', '#047857'] : ['#1E293B', '#334155']}
-            style={styles.paymentMethodGradient}
-          >
-            <View style={styles.paymentMethodHeader}>
-              <View style={styles.paymentMethodIconContainer}>
-                <Shield size={18} color="#FFFFFF" />
-              </View>
-              <Text style={styles.paymentMethodName}>App Store</Text>
-              {selectedPaymentMethod === 'apple' && (
-                <View style={styles.selectedIndicator}>
-                  <Check size={14} color="#047857" />
-                </View>
-              )}
-            </View>
-            <Text style={styles.paymentMethodDescription}>
-              🍎 Secure Apple Pay with Touch ID / Face ID
-            </Text>
-            <View style={styles.paymentMethodFeatures}>
-              <Text style={styles.paymentMethodFeature}>• Instant checkout</Text>
-              <Text style={styles.paymentMethodFeature}>• Biometric security</Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-      </View>
-    </View>
-  );
+  
 
   const renderPlanOptions = () => {
     const currentTierPlans = selectedTier === 'pro' 
@@ -565,8 +521,12 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
             {/* Tier Comparison */}
             {renderTierComparison()}
 
-            {/* Payment Method Selection */}
-            {renderPaymentMethodSelection()}
+            {/* App Store payment note */}
+            <View style={{ paddingHorizontal: 20, marginBottom: 8, alignItems: 'center' }}>
+              <Text style={{ color: '#94A3B8', fontSize: 12 }}>
+                {Platform.OS === 'ios' ? 'Secure checkout via Apple App Store' : 'Secure checkout via Google Play'}
+              </Text>
+            </View>
 
             {/* Plan Options */}
             {renderPlanOptions()}

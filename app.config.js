@@ -1,3 +1,11 @@
+const iosGoogleClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '699516688242-bg8no5k8vb86bjpjvcp79drand3n0bfh.apps.googleusercontent.com';
+const reversedGoogleClientId = iosGoogleClientId
+  ? iosGoogleClientId.split('.apps.googleusercontent.com')[0]
+  : '';
+const googleIosUrlScheme = reversedGoogleClientId
+  ? `com.googleusercontent.apps.${reversedGoogleClientId}`
+  : null;
+
 module.exports = {
   expo: {
     name: "Predictive Play",
@@ -56,7 +64,16 @@ module.exports = {
               "NSExceptionRequiresForwardSecrecy": false
             }
           }
-        }
+        },
+        // Register URL schemes so Google can redirect back to the app in production
+        ...(googleIosUrlScheme
+          ? {
+              CFBundleURLTypes: [
+                { CFBundleURLSchemes: ['predictiveplay'] },
+                { CFBundleURLSchemes: [googleIosUrlScheme] },
+              ],
+            }
+          : { CFBundleURLTypes: [{ CFBundleURLSchemes: ['predictiveplay'] }] }),
       },
       usesAppleSignIn: true
 
@@ -97,6 +114,7 @@ module.exports = {
       "expo-web-browser",
       "expo-apple-authentication",
       "expo-asset",
+      "@react-native-google-signin/google-signin",
       [
         "react-native-google-mobile-ads",
         {
