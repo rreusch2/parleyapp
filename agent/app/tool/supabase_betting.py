@@ -77,7 +77,7 @@ class SupabaseBettingTool(BaseTool):
             },
             "exclude_past": {
                 "type": "boolean",
-                "default": True,
+                "default": true,
                 "description": "Exclude games that have already started (start_time < now)"
             }
         },

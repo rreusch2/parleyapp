@@ -106,7 +106,7 @@ class SandboxSettings(BaseModel):
 
 
 class DaytonaSettings(BaseModel):
-    daytona_api_key: Optional[str] = Field(None, description="Daytona API key from https://app.daytona.io/dashboard/keys")
+    daytona_api_key: str = Field(..., description="Daytona API key from https://app.daytona.io/dashboard/keys")
     daytona_server_url: Optional[str] = Field(
         "https://app.daytona.io/api", description=""
     )
