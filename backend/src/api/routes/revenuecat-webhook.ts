@@ -37,6 +37,94 @@ interface RevenueCatWebhookEvent {
   };
 }
 
+function isUUIDLike(id: string | undefined): boolean {
+  if (!id) return false;
+  return /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(id);
+}
+
+function isRcAnonymous(id: string | undefined): boolean {
+  return !!id && id.startsWith('$RCAnonymousID:');
+}
+
+function getAliasesFromEvent(ev: any): string[] {
+  try {
+    const a = ev?.aliases;
+    if (Array.isArray(a)) return a.filter((x) => typeof x === 'string');
+  } catch {}
+  return [];
+}
+
+async function findUserFromRevenueCatEvent(event: any): Promise<{
+  id: string;
+  revenuecat_customer_id: string | null;
+  subscription_tier: string;
+  stripe_customer_id: string | null;
+} | null> {
+  // Strategy 1: Direct RC customer id match
+  const appUserId: string | undefined = event?.app_user_id;
+  if (appUserId) {
+    const { data: rcUser } = await supabaseAdmin
+      .from('profiles')
+      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+      .eq('revenuecat_customer_id', appUserId)
+      .single();
+    if (rcUser) return rcUser as any;
+
+    // Strategy 1b: Sometimes app_user_id is the actual profile UUID
+    if (isUUIDLike(appUserId)) {
+      const { data: uuidUser } = await supabaseAdmin
+        .from('profiles')
+        .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+        .eq('id', appUserId)
+        .single();
+      if (uuidUser) return uuidUser as any;
+    }
+  }
+
+  // Strategy 2: Stripe customer id match (RevenueCat may use Stripe id as app_user_id)
+  if (appUserId) {
+    const { data: stripeUser } = await supabaseAdmin
+      .from('profiles')
+      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+      .eq('stripe_customer_id', appUserId)
+      .single();
+    if (stripeUser) return stripeUser as any;
+  }
+
+  // Strategy 3: Aliases array provided by RC often includes the actual UUID or historical ids
+  const aliases = getAliasesFromEvent(event);
+  for (const alias of aliases) {
+    if (isRcAnonymous(alias)) continue; // skip anonymous placeholders
+    if (isUUIDLike(alias)) {
+      const { data: aliasUserById } = await supabaseAdmin
+        .from('profiles')
+        .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+        .eq('id', alias)
+        .single();
+      if (aliasUserById) return aliasUserById as any;
+    }
+    const { data: aliasUserByRc } = await supabaseAdmin
+      .from('profiles')
+      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+      .eq('revenuecat_customer_id', alias)
+      .single();
+    if (aliasUserByRc) return aliasUserByRc as any;
+  }
+
+  // Strategy 4: Link anonymous RC id via Stripe attribute if present
+  const stripeCustomerId = event?.subscriber_attributes?.['$stripeCustomerId']?.value;
+  if (stripeCustomerId) {
+    const { data: linkUser } = await supabaseAdmin
+      .from('profiles')
+      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .single();
+    if (linkUser) return linkUser as any;
+  }
+
+  return null;
+}
+
 // Simple authorization: RevenueCat sends an Authorization: Bearer <token> header
 function isAuthorizedAuthHeader(authHeader: string | undefined, secret: string): boolean {
   if (!authHeader) return false;
@@ -97,107 +185,79 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const webhookData: RevenueCatWebhookEvent = req.body;
+    // RevenueCat can require raw body. If express.raw is used, req.body will be Buffer.
+    let incoming: any = req.body;
+    if (Buffer.isBuffer(incoming)) {
+      try {
+        incoming = JSON.parse(incoming.toString('utf8'));
+      } catch (e) {
+        console.error('❌ Failed to parse raw webhook body:', e);
+        return res.status(400).json({ error: 'Invalid JSON body' });
+      }
+    } else if (typeof incoming === 'string') {
+      try {
+        incoming = JSON.parse(incoming);
+      } catch {}
+    }
+
+    const webhookData: RevenueCatWebhookEvent = incoming;
     const { event } = webhookData;
     
     console.log(`📥 RevenueCat Webhook: ${event.type} for user ${event.app_user_id}`);
     
-    // Store webhook event for debugging
-    await supabaseAdmin
-      .from('revenuecat_webhook_events')
-      .insert({
-        event_type: event.type,
-        event_data: event,
-        revenuecat_customer_id: event.app_user_id,
-        created_at: new Date().toISOString()
-      });
-
-    // Enhanced user lookup for multiple RevenueCat integration scenarios
-    let user: { id: string; revenuecat_customer_id: string | null; subscription_tier: string; stripe_customer_id: string | null } | null = null;
-    
-    console.log(`🔍 Looking for user with app_user_id: ${event.app_user_id}`);
-    
-    // Strategy 1: Direct RevenueCat customer ID match
-    const { data: rcUser } = await supabaseAdmin
-      .from('profiles')
-      .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-      .eq('revenuecat_customer_id', event.app_user_id)
-      .single();
-    
-    if (rcUser) {
-      console.log(`✅ Found user by revenuecat_customer_id: ${rcUser.id}`);
-      user = rcUser;
-    } else {
-      // Strategy 2: Stripe customer ID match (for Stripe-originated purchases)
-      const { data: stripeUser } = await supabaseAdmin
-        .from('profiles')
-        .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-        .eq('stripe_customer_id', event.app_user_id)
+    // Store webhook event and capture row id so we can mark the specific row processed
+    let eventRowId: string | null = null;
+    {
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from('revenuecat_webhook_events')
+        .insert({
+          event_type: event.type,
+          event_data: event,
+          revenuecat_customer_id: event.app_user_id,
+          created_at: new Date().toISOString()
+        })
+        .select('id')
         .single();
-      
-      if (stripeUser) {
-        console.log(`✅ Found user by stripe_customer_id: ${stripeUser.id}`);
-        user = stripeUser;
+      if (insErr) {
+        console.warn('⚠️ Failed to insert webhook event row:', insErr);
       } else {
-        // Strategy 3: UUID match (for app-native purchases)
-        const { data: uuidUser } = await supabaseAdmin
-          .from('profiles')
-          .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-          .eq('id', event.app_user_id)
-          .single();
-        
-        if (uuidUser) {
-          console.log(`✅ Found user by UUID: ${uuidUser.id}`);
-          user = uuidUser;
-        } else {
-          // Strategy 4: Handle anonymous RevenueCat IDs from Stripe purchases
-          if (event.app_user_id.startsWith('$RCAnonymousID:')) {
-            console.log(`🔍 Anonymous RevenueCat ID detected, checking for Stripe linkage...`);
-            
-            // For anonymous IDs, try to find by recent Stripe customer creation
-            // This handles cases where Stripe purchase creates RevenueCat user before app linking
-            const stripeCustomerId = event.subscriber_attributes?.['$stripeCustomerId']?.value;
-            
-            if (stripeCustomerId) {
-              const { data: linkUser } = await supabaseAdmin
-                .from('profiles')
-                .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-                .eq('stripe_customer_id', stripeCustomerId)
-                .single();
-              
-              if (linkUser) {
-                console.log(`✅ Found user via Stripe attribute linkage: ${linkUser.id}`);
-                user = linkUser;
-                
-                // Update the user's RevenueCat customer ID for future webhooks
-                await supabaseAdmin
-                  .from('profiles')
-                  .update({ revenuecat_customer_id: event.app_user_id })
-                  .eq('id', linkUser.id);
-                  
-                console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${linkUser.id}`);
-              }
-            }
-          }
-        }
+        eventRowId = inserted?.id ?? null;
+      }
+    }
+
+    // Robust user lookup including aliases
+    console.log(`🔍 Looking for user with app_user_id: ${event.app_user_id}`);
+    let user: { id: string; revenuecat_customer_id: string | null; subscription_tier: string; stripe_customer_id: string | null } | null = null;
+    user = await findUserFromRevenueCatEvent(event);
+    if (user) {
+      console.log(`✅ Mapped webhook to user ${user.id}`);
+      if (eventRowId) {
+        await supabaseAdmin
+          .from('revenuecat_webhook_events')
+          .update({ user_id: user.id })
+          .eq('id', eventRowId);
       }
     }
 
     if (!user) {
       console.log(`⚠️ User not found for RevenueCat ID: ${event.app_user_id}`);
-      // Store as unprocessed for later retry
-      await supabaseAdmin
-        .from('revenuecat_webhook_events')
-        .update({ 
-          processing_error: 'User not found',
-          retries: 1 
-        })
-        .eq('revenuecat_customer_id', event.app_user_id)
-        .eq('event_type', event.type)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      return res.status(200).json({ message: 'User not found, stored for retry' });
+      // If it's an anonymous/unlinkable id, mark processed with a helpful error to avoid backlog
+      const aliases = getAliasesFromEvent(event);
+      const onlyAnonymous = (!aliases.length || aliases.every(isRcAnonymous)) && isRcAnonymous(event.app_user_id);
+      const processing_error = onlyAnonymous ? 'Anonymous RC id with no linkable alias' : 'User not found';
+      if (eventRowId) {
+        await supabaseAdmin
+          .from('revenuecat_webhook_events')
+          .update({ processed_at: new Date().toISOString(), processing_error })
+          .eq('id', eventRowId);
+      } else {
+        await supabaseAdmin
+          .from('revenuecat_webhook_events')
+          .update({ processed_at: new Date().toISOString(), processing_error })
+          .eq('revenuecat_customer_id', event.app_user_id)
+          .eq('event_type', event.type);
+      }
+      return res.status(200).json({ message: 'No linkable user; marked processed' });
     }
 
     // Process different event types
@@ -237,14 +297,20 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         console.log(`🤷 Unhandled event type: ${event.type}`);
     }
 
-    // Mark webhook as processed
-    await supabaseAdmin
-      .from('revenuecat_webhook_events')
-      .update({ processed_at: new Date().toISOString() })
-      .eq('revenuecat_customer_id', event.app_user_id)
-      .eq('event_type', event.type)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // Mark webhook as processed for the specific inserted row
+    if (eventRowId) {
+      await supabaseAdmin
+        .from('revenuecat_webhook_events')
+        .update({ processed_at: new Date().toISOString(), processing_error: null })
+        .eq('id', eventRowId);
+    } else {
+      // Fallback if insert id was not captured
+      await supabaseAdmin
+        .from('revenuecat_webhook_events')
+        .update({ processed_at: new Date().toISOString(), processing_error: null })
+        .eq('revenuecat_customer_id', event.app_user_id)
+        .eq('event_type', event.type);
+    }
 
     res.status(200).json({ message: 'Webhook processed successfully' });
     
@@ -260,9 +326,7 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
           retries: 1 
         })
         .eq('revenuecat_customer_id', req.body.event.app_user_id)
-        .eq('event_type', req.body.event.type)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('event_type', req.body.event.type);
     }
     
     res.status(500).json({ error: 'Webhook processing failed' });
@@ -281,7 +345,18 @@ async function handleSubscriptionActive(userId: string, event: any) {
     }
     
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
-    
+    // Update tier/status via secure RPC
+    await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
+      p_user_id: userId,
+      p_tier: tier,
+      p_status: 'active',
+      p_product_id: productId,
+      p_expires_at: expiresAt.toISOString(),
+      p_entitlements: null,
+      p_event: event
+    });
+
+    // Non-tier metadata updates
     await supabaseAdmin
       .from('profiles') 
       .update({
@@ -289,8 +364,6 @@ async function handleSubscriptionActive(userId: string, event: any) {
         day_pass_expires_at: expiresAt.toISOString(),
         day_pass_granted_at: new Date().toISOString(),
         subscription_source: 'daypass',
-        subscription_tier: tier, // ensure UI unlocks immediately
-        subscription_status: 'active',
         revenuecat_customer_id: event.app_user_id,
         last_revenuecat_sync: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -338,6 +411,19 @@ async function handleSubscriptionActive(userId: string, event: any) {
     elite: mappedTier === 'elite'
   };
   
+  // Use RPC to set tier/status and core fields
+  const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
+  await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
+    p_user_id: userId,
+    p_tier: mappedTier || 'free',
+    p_status: mappedTier ? 'active' : 'inactive',
+    p_product_id: event.product_id || null,
+    p_expires_at: expiresAt,
+    p_entitlements: revenuecatEntitlements,
+    p_event: event
+  });
+
+  // Update non-tier metadata separately
   await supabaseAdmin
     .from('profiles')
     .update({
@@ -346,8 +432,6 @@ async function handleSubscriptionActive(userId: string, event: any) {
       revenuecat_customer_info: event,
       subscription_source: 'revenuecat',
       subscription_product_id: event.product_id,
-      subscription_tier: mappedTier || 'free',
-      subscription_status: mappedTier ? 'active' : 'inactive',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -366,15 +450,24 @@ async function handleSubscriptionInactive(userId: string, event: any) {
     .single();
 
   const hasActiveDayPass = !!(profile?.day_pass_expires_at && new Date(profile.day_pass_expires_at) > new Date());
+  // Update tier/status via secure RPC
+  await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
+    p_user_id: userId,
+    p_tier: hasActiveDayPass ? profile?.day_pass_tier : 'free',
+    p_status: hasActiveDayPass ? 'active' : 'expired',
+    p_product_id: event.product_id || null,
+    p_expires_at: hasActiveDayPass ? profile?.day_pass_expires_at : null,
+    p_entitlements: { predictiveplaypro: false, elite: false },
+    p_event: event
+  });
 
+  // Update non-tier metadata separately
   await supabaseAdmin
     .from('profiles')
     .update({
       revenuecat_entitlements: { predictiveplaypro: false, elite: false },
       revenuecat_customer_info: event,
       subscription_source: hasActiveDayPass ? 'daypass' : 'legacy',
-      subscription_tier: hasActiveDayPass ? profile?.day_pass_tier : 'free',
-      subscription_status: hasActiveDayPass ? 'active' : 'expired',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })

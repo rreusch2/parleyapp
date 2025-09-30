@@ -54,6 +54,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const steps = [
     {
@@ -88,6 +89,10 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     ]).start(() => {
       setCurrentStep(prev => prev + 1);
       slideAnim.setValue(screenWidth);
+      
+      // Scroll to top when moving to next step
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -130,6 +135,10 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       ]).start(() => {
         setCurrentStep(prev => prev - 1);
         slideAnim.setValue(-screenWidth);
+        
+        // Scroll to top when going back
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
@@ -149,19 +158,11 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const CurrentStepComponent = steps[currentStep]?.component;
 
   // Choose layout based on modal context
-  const ContainerComponent = isModal ? View : LinearGradient;
-  const containerProps = isModal 
-    ? { style: styles.modalContainer } 
-    : { 
-        colors: ['#1a1a2e', '#16213e', '#0f3460'], 
-        style: styles.container 
-      };
-
   const WrapperComponent = isModal ? View : SafeAreaView;
   const wrapperStyle = isModal ? styles.modalWrapper : styles.safeArea;
 
-  return (
-    <ContainerComponent {...containerProps}>
+  return isModal ? (
+    <View style={styles.modalContainer}>
       <WrapperComponent style={wrapperStyle}>
         <KeyboardAvoidingView 
           style={isModal ? styles.modalKeyboardAvoidingView : styles.keyboardAvoidingView}
@@ -251,6 +252,7 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
           {/* Scrollable Step Content */}
           <ScrollView 
+            ref={scrollViewRef}
             style={isModal ? styles.modalScrollContainer : styles.scrollContainer}
             contentContainerStyle={isModal ? styles.modalScrollContent : styles.scrollContent}
             showsVerticalScrollIndicator={false}
@@ -296,7 +298,145 @@ const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           </View>
         </KeyboardAvoidingView>
       </WrapperComponent>
-    </ContainerComponent>
+    </View>
+  ) : (
+    <LinearGradient colors={['#1a1a2e', '#16213e', '#0f3460']} style={styles.container}>
+      <WrapperComponent style={wrapperStyle}>
+        <KeyboardAvoidingView 
+          style={isModal ? styles.modalKeyboardAvoidingView : styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          {/* Regular Header for non-modal */}
+          {!isModal && (
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                {currentStep > 0 && (
+                  <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                    <Ionicons name="chevron-back" size={20} color="#fff" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <View style={styles.headerCenter}>
+                <Text style={styles.headerTitle}>Update Preferences</Text>
+              </View>
+              
+              <View style={styles.headerRight}>
+                {onSkip && (
+                  <TouchableOpacity onPress={onSkip} style={styles.skipButton}>
+                    <Text style={styles.skipText}>Skip</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Modal-optimized header */}
+          {isModal && (
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderContent}>
+                {currentStep > 0 && (
+                  <TouchableOpacity onPress={handleBack} style={styles.modalBackButton}>
+                    <Ionicons name="chevron-back" size={18} color="#fff" />
+                  </TouchableOpacity>
+                )}
+                <View style={styles.modalProgressContainer}>
+                  {steps.map((_, index) => (
+                    <Animated.View
+                      key={index}
+                      style={[
+                        styles.modalProgressDot,
+                        {
+                          backgroundColor: index <= currentStep ? '#00d4ff' : 'rgba(255,255,255,0.2)',
+                          transform: [
+                            {
+                              scale: index === currentStep ? 1.1 : 1,
+                            },
+                          ],
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.modalStepCounter}>
+                  {currentStep + 1}/{steps.length}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Regular Progress Indicators for non-modal */}
+          {!isModal && (
+            <View style={styles.progressContainer}>
+              {steps.map((_, index) => (
+                <Animated.View
+                  key={index}
+                  style={[
+                    styles.progressDot,
+                    {
+                      backgroundColor: index <= currentStep ? '#00d4ff' : 'rgba(255,255,255,0.3)',
+                      transform: [
+                        {
+                          scale: index === currentStep ? 1.2 : 1,
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Scrollable Step Content */}
+          <ScrollView 
+            ref={scrollViewRef}
+            style={isModal ? styles.modalScrollContainer : styles.scrollContainer}
+            contentContainerStyle={isModal ? styles.modalScrollContent : styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Animated.View
+              style={[
+                isModal ? styles.modalStepContainer : styles.stepContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateX: slideAnim }],
+                },
+              ]}
+            >
+              {CurrentStepComponent && (
+                <CurrentStepComponent
+                  onComplete={handleStepComplete}
+                  currentPreferences={preferences}
+                  isExistingUser={isExistingUser}
+                />
+              )}
+            </Animated.View>
+          </ScrollView>
+
+          {/* Compact Bottom Step Info */}
+          <View style={isModal ? styles.modalStepInfo : styles.stepInfo}>
+            <View style={isModal ? styles.modalStepIconContainer : styles.stepIconContainer}>
+              <Ionicons 
+                name={steps[currentStep]?.icon as any} 
+                size={isModal ? 18 : (isTablet ? 28 : 24)} 
+                color="#00d4ff" 
+              />
+            </View>
+            <Text style={isModal ? styles.modalStepTitle : styles.stepTitle}>
+              {steps[currentStep]?.title}
+            </Text>
+            {!isModal && (
+              <Text style={styles.stepCounter}>
+                {currentStep + 1} of {steps.length}
+              </Text>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </WrapperComponent>
+    </LinearGradient>
   );
 };
 

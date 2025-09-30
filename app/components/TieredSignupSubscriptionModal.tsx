@@ -50,6 +50,7 @@ interface TieredSignupSubscriptionModalProps {
   onClose: () => void;
   onSubscribe?: (planId: SubscriptionPlan, tier: SubscriptionTier) => Promise<void>;
   onContinueFree: () => void;
+  onPurchaseSuccess?: () => void; // New callback for successful purchases
 }
 
 const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps> = ({
@@ -57,6 +58,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   onClose,
   onSubscribe,
   onContinueFree,
+  onPurchaseSuccess,
 }) => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('pro'); // Default to Pro tier
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan>('pro_weekly'); // Default to Pro weekly
@@ -104,7 +106,12 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
       const success = await subscribe(selectedPlan, selectedTier as 'pro' | 'elite');
       if (success) {
         console.log('✅ Apple IAP purchase completed successfully!');
-        onClose();
+        // Call the purchase success callback to navigate directly to app
+        if (onPurchaseSuccess) {
+          onPurchaseSuccess();
+        } else {
+          onClose();
+        }
       }
       
     } catch (error: any) {

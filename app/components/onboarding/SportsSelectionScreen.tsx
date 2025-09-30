@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +27,7 @@ interface SportOption {
   name: string;
   fullName: string;
   icon: string;
+  logoUrl: string | number; // Can be URL string or require() import
   description: string;
   gradient: string[];
   season: string;
@@ -37,6 +39,7 @@ const sportOptions: SportOption[] = [
     name: 'NFL',
     fullName: 'National Football League',
     icon: '🏈',
+    logoUrl: 'https://upload.wikimedia.org/wikipedia/en/thumb/a/a2/National_Football_League_logo.svg/1200px-National_Football_League_logo.svg.png',
     description: 'America\'s most popular sport with thrilling matchups',
     gradient: ['#2c5aa0', '#1e3a8a'],
     season: 'Sep - Feb',
@@ -46,6 +49,7 @@ const sportOptions: SportOption[] = [
     name: 'CFB',
     fullName: 'College Football',
     icon: '🎓',
+    logoUrl: require('../../../assets/images/cfb.png'),
     description: 'College football with passionate fanbases and upsets',
     gradient: ['#dc2626', '#b91c1c'],
     season: 'Sep - Jan',
@@ -55,6 +59,7 @@ const sportOptions: SportOption[] = [
     name: 'MLB',
     fullName: 'Major League Baseball',
     icon: '⚾',
+    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Major_League_Baseball_logo.svg/1200px-Major_League_Baseball_logo.svg.png',
     description: 'America\'s pastime with daily games and player props',
     gradient: ['#059669', '#047857'],
     season: 'Apr - Oct',
@@ -64,6 +69,7 @@ const sportOptions: SportOption[] = [
     name: 'WNBA',
     fullName: 'Women\'s National Basketball Association',
     icon: '🏀',
+    logoUrl: require('../../../assets/images/wnba.png'),
     description: 'Elite women\'s basketball with exciting matchups',
     gradient: ['#7c3aed', '#6d28d9'],
     season: 'May - Sep',
@@ -73,6 +79,7 @@ const sportOptions: SportOption[] = [
     name: 'UFC',
     fullName: 'Ultimate Fighting Championship',
     icon: '🥊',
+    logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/UFC_Logo.svg/1200px-UFC_Logo.svg.png',
     description: 'Premier mixed martial arts fights every weekend',
     gradient: ['#ea580c', '#c2410c'],
     season: 'Year Round',
@@ -176,7 +183,13 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
                     style={styles.sportGradient}
                   >
                     <View style={styles.sportHeader}>
-                      <Text style={styles.sportIcon}>{sport.icon}</Text>
+                      <View style={styles.sportLogoContainer}>
+                        <Image 
+                          source={typeof sport.logoUrl === 'string' ? { uri: sport.logoUrl } : sport.logoUrl}
+                          style={styles.sportLogo}
+                          resizeMode="contain"
+                        />
+                      </View>
                       <Animated.View
                         style={[
                           styles.checkmark,
@@ -297,6 +310,24 @@ const styles = StyleSheet.create({
   },
   sportIcon: {
     fontSize: isTablet ? 28 : 24,
+  },
+  sportLogoContainer: {
+    width: isTablet ? 50 : 44,
+    height: isTablet ? 50 : 44,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: isTablet ? 12 : 10,
+    padding: isTablet ? 8 : 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sportLogo: {
+    width: '100%',
+    height: '100%',
   },
   checkmark: {
     backgroundColor: 'rgba(0, 212, 255, 0.1)',

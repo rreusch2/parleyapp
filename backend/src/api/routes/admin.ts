@@ -445,12 +445,11 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
     if (profileError || !profile) {
       logger.warn('No profile found for this transaction, skipping profile update.');
     } else {
-      let updateData = {};
+      let updateData: any = {};
       switch (notification.notificationType) {
         case 'SUBSCRIBed':
           updateData = {
             subscription_status: 'active',
-            subscription_tier: 'pro', 
             subscription_expires_at: new Date(decodedTransaction.expiresDate).toISOString(),
             welcome_bonus_claimed: false,
             welcome_bonus_expires_at: null,
@@ -507,126 +506,32 @@ router.post('/apple-server-notifications', async (req: express.Request, res: exp
 });
 
 router.post('/revenuecat-webhook', async (req: express.Request, res: express.Response) => {
-    const event = req.body.event;
+  const event = req.body.event;
   
-    try {
-      await supabaseAdmin
-        .from('webhook_events')
-        .insert({
-          source: 'revenuecat',
-          event_type: event.type,
-          notification_data: event,
-          revenuecat_customer_id: event.app_user_id,
-        });
-  
-      if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
-        const { data: profile, error } = await supabaseAdmin
-          .from('profiles')
-          .select('id')
-          .eq('revenuecat_customer_id', event.app_user_id)
-          .single();
-  
-        if (profile) {
-          await supabaseAdmin
-            .from('profiles')
-            .update({
-              subscription_status: 'active',
-              subscription_tier: 'pro', // Or determine from event data
-              subscription_expires_at: event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null,
-              welcome_bonus_claimed: false,
-              welcome_bonus_expires_at: null,
-            })
-            .eq('id', profile.id);
-        }
-      }
-  
-      res.status(200).json({ received: true });
-    } catch (error) {
-      logger.error('Error processing RevenueCat webhook:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-// Update a user's subscription tier (free | pro | elite) with comprehensive field updates
-router.patch('/users/:userId/tier', async (req: express.Request, res: express.Response) => {
   try {
-    const { userId } = req.params;
-    const { tier } = req.body as { tier?: 'free' | 'pro' | 'elite' };
-
-    if (!tier || !['free', 'pro', 'elite'].includes(tier)) {
-      return res.status(400).json({ error: 'Invalid or missing tier. Must be one of free | pro | elite' });
-    }
-
-    const now = new Date().toISOString();
-    const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-
-    const updateData: any = {
-      subscription_tier: tier,
-      subscription_status: tier === 'free' ? 'inactive' : 'active',
-      updated_at: now,
-    };
-
-    if (tier === 'free') {
-      updateData.max_daily_picks = 2;
-      updateData.subscription_plan_type = null;
-      updateData.subscription_product_id = null;
-      updateData.subscription_expires_at = null;
-      updateData.auto_renew_enabled = null;
-      updateData.revenuecat_customer_id = null;
-      // Clear welcome bonus to prevent UI override
-      updateData.welcome_bonus_claimed = false;
-      updateData.welcome_bonus_expires_at = null;
-    } else if (tier === 'pro') {
-      updateData.max_daily_picks = 20;
-      updateData.subscription_plan_type = 'admin_manual';
-      updateData.subscription_product_id = 'admin_override_pro';
-      updateData.subscription_expires_at = oneYearFromNow;
-      updateData.auto_renew_enabled = false;
-      updateData.subscription_started_at = now;
-      updateData.subscription_renewed_at = now;
-      updateData.revenuecat_customer_id = `admin_${userId}`;
-      updateData.welcome_bonus_claimed = false;
-      updateData.welcome_bonus_expires_at = null;
-    } else if (tier === 'elite') {
-      updateData.max_daily_picks = 30;
-      updateData.subscription_plan_type = 'admin_manual';
-      updateData.subscription_product_id = 'admin_override_elite';
-      updateData.subscription_expires_at = oneYearFromNow;
-      updateData.auto_renew_enabled = false;
-      updateData.subscription_started_at = now;
-      updateData.subscription_renewed_at = now;
-      updateData.revenuecat_customer_id = `admin_${userId}`;
-      updateData.welcome_bonus_claimed = false;
-      updateData.welcome_bonus_expires_at = null;
-    }
-
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .update(updateData)
-      .eq('id', userId);
-
-    if (error) {
-      console.error('Error updating user tier (admin):', error);
-      return res.status(500).json({ error: 'Failed to update user tier' });
-    }
-
-    // Return updated user
-    const { data: updated, error: fetchError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching updated user:', fetchError);
-      return res.status(200).json({ success: true });
-    }
-
-    res.json({ success: true, user: updated });
+    await supabaseAdmin
+      .from('webhook_events')
+      .insert({
+        source: 'revenuecat',
+        event_type: event.type,
+        notification_data: event,
+        revenuecat_customer_id: event.app_user_id,
+      });
+  
+    // Do not mutate subscription_tier here; handled exclusively by RevenueCat webhook handler
+  
+    res.status(200).json({ received: true });
   } catch (error) {
-    console.error('Error in admin update tier:', error);
+    logger.error('Error processing RevenueCat webhook:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Update a user's subscription tier (free | pro | elite) with comprehensive field updates
+router.patch('/users/:userId/tier', async (_req: express.Request, res: express.Response) => {
+  return res.status(403).json({
+    error: 'Manual tier changes are disabled. Subscription tier can only be changed by the RevenueCat webhook.'
+  });
 });
 
 // Clear a user's phone number (set phone_number to NULL)

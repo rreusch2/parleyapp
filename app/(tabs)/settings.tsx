@@ -38,8 +38,10 @@ import {
   Gift,
   Copy,
   Star,
-  Settings
+  Settings,
+  MessageCircle
 } from 'lucide-react-native';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { supabase } from '../services/api/supabaseClient';
 import { useSubscription } from '../services/subscriptionContext';
 import { useReview } from '../hooks/useReview';
@@ -921,6 +923,33 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleJoinDiscord = async () => {
+    try {
+      Vibration.vibrate(50);
+      const discordUrl = 'https://discord.gg/RdgAyqcx';
+      const canOpen = await Linking.canOpenURL(discordUrl);
+      
+      if (canOpen) {
+        await Linking.openURL(discordUrl);
+      } else {
+        Alert.alert(
+          'Unable to Open Discord',
+          'Please make sure you have Discord installed or try opening the link in your browser.',
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'Copy Link', onPress: async () => {
+              await Clipboard.setStringAsync(discordUrl);
+              Alert.alert('Copied!', 'Discord link copied to clipboard');
+            }}
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error opening Discord:', error);
+      Alert.alert('Error', 'Failed to open Discord. Please try again.');
+    }
+  };
+
   // Toggle push alerts handler (single definition)
   const handleTogglePushAlerts = async (value: boolean) => {
     setPushAlertsEnabled(value);
@@ -1432,6 +1461,31 @@ export default function SettingsScreen() {
           </View>
         )}
       </View>
+
+      {/* Discord Community Button */}
+      <TouchableOpacity 
+        style={styles.discordButton}
+        onPress={handleJoinDiscord}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#5865F2', '#4752C4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.discordGradient}
+        >
+          <View style={styles.discordContent}>
+            <View style={styles.discordIconContainer}>
+              <FontAwesome5 name="discord" size={28} color="#FFFFFF" />
+            </View>
+            <View style={styles.discordTextContainer}>
+              <Text style={styles.discordTitle}>Join Our Discord Community</Text>
+              <Text style={styles.discordSubtitle}>Connect with other bettors, share strategies & get exclusive tips</Text>
+            </View>
+            <ChevronRight size={24} color="rgba(255, 255, 255, 0.8)" />
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
 
       {/* Settings Sections */}
       {settingsSections.map((section, index) => (
@@ -2784,5 +2838,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center'
+  },
+  // Discord Button styles
+  discordButton: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#5865F2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  discordGradient: {
+    padding: 20,
+    borderRadius: 16,
+  },
+  discordContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  discordIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  discordTextContainer: {
+    flex: 1,
+  },
+  discordTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  discordSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 18,
   }
 });

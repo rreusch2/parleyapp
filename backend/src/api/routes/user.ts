@@ -331,20 +331,11 @@ router.get('/welcome-bonus-status', async (req, res) => {
           bonusType = 'elite_unlimited';
         }
       } else {
-        // Subscription expired - downgrade to free and clear welcome bonus
-        await supabase
-          .from('profiles')
-          .update({ 
-            subscription_tier: 'free', 
-            subscription_status: 'inactive',
-            welcome_bonus_claimed: false,
-            welcome_bonus_expires_at: null 
-          })
-          .eq('id', userId);
-        
-        dailyPickLimit = 2; // Free tier
+        // Subscription expired — per policy, do NOT mutate subscription fields here.
+        // RevenueCat webhook is the ONLY authority to update subscription_tier/status.
+        dailyPickLimit = 2; // Treat as free tier for UI purposes
         bonusType = null;
-        logger.info(`⚠️ Subscription expired for user ${userId}, downgraded to free tier`);
+        logger.info(`⚠️ Subscription expired for user ${userId}, no backend mutation (locked to RevenueCat webhook)`);
       }
     } else if (isWelcomeBonusActive) {
       dailyPickLimit = 5; // Welcome bonus (only for free tier users)

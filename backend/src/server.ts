@@ -1,11 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { startTemporaryUpgradeCleanup } from './jobs/temporaryUpgradeCleanup';
+// import { startTemporaryUpgradeCleanup } from './jobs/temporaryUpgradeCleanup';
 import app from './app';
 // import { initGameStartScheduler } from './services/notifications/scheduler'; // [REMOVED] Game start notifications
 import { initScheduler } from './services/sportsData/scheduler';
-import { subscriptionChecker } from './services/subscriptionChecker';
+// import { subscriptionChecker } from './services/subscriptionChecker';
 
 const PORT = process.env.PORT || 3000;
 
@@ -14,11 +14,11 @@ const PORT = process.env.PORT || 3000;
 // Initialize sports data scheduler (for game status updates)
 initScheduler();
 
-// Initialize subscription checker (for expired subscriptions)
-subscriptionChecker.start();
+// Disabled: subscription checker may mutate profiles.subscription_tier outside RevenueCat webhook
+// subscriptionChecker.start();
 
-// Initialize temporary upgrade cleanup job
-startTemporaryUpgradeCleanup();
+// Disabled: temporary upgrade cleanup job may mutate profiles.subscription_tier
+// startTemporaryUpgradeCleanup();
 
 // Start the server
 app.listen(PORT, async () => {
