@@ -136,12 +136,15 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     // Kelly Criterion: f = (bp - q) / b
     // Where: f = fraction of bankroll to bet, b = odds, p = probability of win, q = probability of loss
     try {
-      const odds = parseFloat(prediction.odds?.replace(/[+-]/g, '') || '100');
-      const confidence = prediction.confidence || 50;
+      // Normalize odds which may be string ("+120", "-140") or number (120, -140)
+      const rawOdds: any = (prediction as any).odds;
+      const americanOdds = typeof rawOdds === 'number' ? rawOdds : parseFloat(String(rawOdds || '100'));
+      const confRaw: any = (prediction as any).confidence;
+      const confidence = typeof confRaw === 'number' ? confRaw : parseFloat(String(confRaw ?? 50)) || 50;
       const impliedProbability = confidence / 100;
-      
-      // Convert American odds to decimal
-      const decimalOdds = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
+
+      // Convert American odds to decimal (preserve sign)
+      const decimalOdds = americanOdds > 0 ? (americanOdds / 100) + 1 : (100 / Math.abs(americanOdds)) + 1;
       const b = decimalOdds - 1; // Net odds
       const p = impliedProbability; // Our estimated probability
       const q = 1 - p; // Probability of loss
@@ -158,14 +161,16 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   const calculateExpectedValue = (prediction: AIPrediction): number => {
     // EV = (Probability of Win × Payout) - (Probability of Loss × Stake)
     try {
-      const confidence = prediction.confidence || 50;
-      const odds = parseFloat(prediction.odds?.replace(/[+-]/g, '') || '100');
+      const confRaw: any = (prediction as any).confidence;
+      const confidence = typeof confRaw === 'number' ? confRaw : parseFloat(String(confRaw ?? 50)) || 50;
+      const rawOdds: any = (prediction as any).odds;
+      const americanOdds = typeof rawOdds === 'number' ? rawOdds : parseFloat(String(rawOdds || '100'));
       
       const winProbability = confidence / 100;
       const lossProbability = 1 - winProbability;
       
       // Convert American odds to decimal payout
-      const payout = odds > 0 ? odds / 100 : 100 / Math.abs(odds);
+      const payout = americanOdds > 0 ? americanOdds / 100 : 100 / Math.abs(americanOdds);
       
       const ev = (winProbability * payout) - (lossProbability * 1);
       
@@ -179,43 +184,38 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     // Free users now have access to the analysis modal as well
     setIsLoadingAnalysis(true);
     
-    try {
-      // Calculate analytics from prediction data
-      setTimeout(() => {
-        try {
-          const kellyStake = calculateKellyStake(prediction);
-          const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
-          // Normalize key factors to a safe short string (avoid crashes if string vs array)
-          const keyFactorsText = (() => {
-            const kf: any = (prediction as any).key_factors;
-            if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
-            if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
-            return '';
-          })();
-          
-          setAdvancedAnalysis({
-            kellyStake: kellyStake,
-            expectedValue: expectedValue,
-            winProbability: prediction.confidence || 50,
-            confidenceInterval: [Math.max(0, (prediction.confidence || 50) - 8), Math.min(100, (prediction.confidence || 50) + 7)],
-            factors: {
-              predictiveAnalytics: `Win probability: ${prediction.confidence || 50}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
-              recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds || 'N/A'}`,
-              valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence || 50}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
-            },
-            toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
-          });
-          setShowAnalysis(true);
-          setIsLoadingAnalysis(false);
-        } catch (error) {
-          console.error('❌ Error calculating analysis:', error);
-          setIsLoadingAnalysis(false);
-        }
-      }, 300);
-    } catch (error) {
-      console.error('❌ Error in handleAdvancedAnalysis:', error);
+    // Calculate analytics from prediction data
+    setTimeout(() => {
+      const kellyStake = calculateKellyStake(prediction);
+      // Normalize ROI estimate which may arrive as string from API for free users
+      const roiRaw: any = (prediction as any).roi_estimate;
+      const roiParsed = typeof roiRaw === 'number' ? roiRaw : parseFloat(String(roiRaw ?? ''));
+      const expectedValue = Number.isFinite(roiParsed) ? roiParsed : calculateExpectedValue(prediction);
+      const confRaw: any = (prediction as any).confidence;
+      const winProb = typeof confRaw === 'number' ? confRaw : parseFloat(String(confRaw ?? 0)) || 0;
+      // Normalize key factors to a safe short string (avoid crashes if string vs array)
+      const keyFactorsText = (() => {
+        const kf: any = (prediction as any).key_factors;
+        if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
+        if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
+        return '';
+      })();
+      
+      setAdvancedAnalysis({
+        kellyStake: kellyStake,
+        expectedValue: expectedValue,
+        winProbability: winProb,
+        confidenceInterval: [Math.max(0, winProb - 8), Math.min(100, winProb + 7)],
+        factors: {
+          predictiveAnalytics: `Win probability: ${winProb}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
+          recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds}`,
+          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${winProb}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
+        },
+        toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
+      });
+      setShowAnalysis(true);
       setIsLoadingAnalysis(false);
-    }
+    }, 300);
   };
 
   const glowOpacity = glowAnimation.interpolate({
