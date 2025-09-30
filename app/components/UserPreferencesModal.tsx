@@ -89,15 +89,11 @@ const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
         console.log('✅ Verification - Database now contains:', verifyData);
       }
 
-      // Notify parent component
+      // Notify parent component first (this will trigger subscription modal)
       onPreferencesUpdated?.(preferences);
 
-      // Show success message
-      Alert.alert(
-        'Preferences Updated',
-        'Your preferences have been saved successfully!',
-        [{ text: 'OK', onPress: onClose }]
-      );
+      // Don't show alert or call onClose - let parent handle the flow
+      // The parent (signup.tsx) will show subscription modal next
 
     } catch (error) {
       console.error('❌ Failed to update preferences:', error);

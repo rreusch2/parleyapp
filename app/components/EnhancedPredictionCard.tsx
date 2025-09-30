@@ -179,33 +179,43 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
     // Free users now have access to the analysis modal as well
     setIsLoadingAnalysis(true);
     
-    // Calculate analytics from prediction data
-    setTimeout(() => {
-      const kellyStake = calculateKellyStake(prediction);
-      const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
-      // Normalize key factors to a safe short string (avoid crashes if string vs array)
-      const keyFactorsText = (() => {
-        const kf: any = (prediction as any).key_factors;
-        if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
-        if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
-        return '';
-      })();
-      
-      setAdvancedAnalysis({
-        kellyStake: kellyStake,
-        expectedValue: expectedValue,
-        winProbability: prediction.confidence,
-        confidenceInterval: [Math.max(0, prediction.confidence - 8), Math.min(100, prediction.confidence + 7)],
-        factors: {
-          predictiveAnalytics: `Win probability: ${prediction.confidence}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
-          recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds}`,
-          valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
-        },
-        toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
-      });
-      setShowAnalysis(true);
+    try {
+      // Calculate analytics from prediction data
+      setTimeout(() => {
+        try {
+          const kellyStake = calculateKellyStake(prediction);
+          const expectedValue = prediction.roi_estimate || calculateExpectedValue(prediction);
+          // Normalize key factors to a safe short string (avoid crashes if string vs array)
+          const keyFactorsText = (() => {
+            const kf: any = (prediction as any).key_factors;
+            if (Array.isArray(kf)) return kf.slice(0, 2).join(', ');
+            if (typeof kf === 'string') return kf.split(',').map((s: string) => s.trim()).filter(Boolean).slice(0, 2).join(', ');
+            return '';
+          })();
+          
+          setAdvancedAnalysis({
+            kellyStake: kellyStake,
+            expectedValue: expectedValue,
+            winProbability: prediction.confidence || 50,
+            confidenceInterval: [Math.max(0, (prediction.confidence || 50) - 8), Math.min(100, (prediction.confidence || 50) + 7)],
+            factors: {
+              predictiveAnalytics: `Win probability: ${prediction.confidence || 50}% | Kelly stake: ${kellyStake.toFixed(1)}% | Expected value: +${expectedValue.toFixed(1)}%`,
+              recentNews: `Based on ${(prediction as any).metadata?.research_insights_count || 'multiple'} data sources | Current odds: ${prediction.odds || 'N/A'}`,
+              valueAssessment: `${expectedValue > 0 ? 'Positive' : 'Negative'} expected value (${expectedValue > 0 ? '+' : ''}${expectedValue.toFixed(1)}%) with ${prediction.confidence || 50}% AI confidence. Optimal stake: ${kellyStake.toFixed(1)}% of bankroll.${keyFactorsText ? ` Key factors: ${keyFactorsText}.` : ''}`
+            },
+            toolsUsed: ['sportsDataIO', 'webSearch', 'aiAnalysis', 'realTimeData']
+          });
+          setShowAnalysis(true);
+          setIsLoadingAnalysis(false);
+        } catch (error) {
+          console.error('❌ Error calculating analysis:', error);
+          setIsLoadingAnalysis(false);
+        }
+      }, 300);
+    } catch (error) {
+      console.error('❌ Error in handleAdvancedAnalysis:', error);
       setIsLoadingAnalysis(false);
-    }, 300);
+    }
   };
 
   const glowOpacity = glowAnimation.interpolate({
