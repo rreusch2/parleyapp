@@ -671,7 +671,7 @@ Hard constraints:
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'grok-3-latest',
+                    'model': 'grok-4-0709',
                     'messages': [
                         {'role': 'system', 'content': system_prompt},
                         {'role': 'user', 'content': analysis_prompt}

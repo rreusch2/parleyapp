@@ -60,6 +60,7 @@ export default function SignupScreen() {
   // Password visibility states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [hasProcessedRedirect, setHasProcessedRedirect] = useState(false);
   
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -88,19 +89,27 @@ export default function SignupScreen() {
     }
     
     // Check if user was redirected from login after Apple/Google Sign In
-    if (params.appleSignInComplete === 'true' && params.userId) {
-      console.log('User redirected from Apple Sign In, showing subscription modal');
-      // Automatically agree to terms since they already authenticated
-      setAgreeToTerms(true);
-      // Show subscription modal immediately
-      setShowSubscriptionModal(true);
+    // Only process once to avoid reopening modals
+    if (!hasProcessedRedirect) {
+      if (params.appleSignInComplete === 'true' && params.userId) {
+        console.log('User redirected from Apple Sign In, showing subscription modal');
+        // Automatically agree to terms since they already authenticated
+        setAgreeToTerms(true);
+        setCurrentUserId(params.userId as string);
+        // Show subscription modal immediately
+        setShowSubscriptionModal(true);
+        setHasProcessedRedirect(true);
+      }
+      if (params.googleSignInComplete === 'true' && params.userId) {
+        console.log('User redirected from Google Sign In, showing preferences modal first');
+        console.log('🔍 Google redirect params:', params);
+        setAgreeToTerms(true);
+        setCurrentUserId(params.userId as string);
+        setShowPreferencesModal(true);
+        setHasProcessedRedirect(true);
+      }
     }
-    if (params.googleSignInComplete === 'true' && params.userId) {
-      console.log('User redirected from Google Sign In, showing preferences modal first');
-      setAgreeToTerms(true);
-      setShowPreferencesModal(true);
-    }
-  }, [params]);
+  }, [params, hasProcessedRedirect]);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
   const handleUsernameChange = useCallback((text: string) => {
@@ -1089,15 +1098,19 @@ export default function SignupScreen() {
       <UserPreferencesModal 
         visible={showPreferencesModal} 
         onClose={() => {
+          console.log('🔄 UserPreferencesModal onClose called');
           setShowPreferencesModal(false);
           // Show subscription modal after preferences
           setShowSubscriptionModal(true);
         }}
         onPreferencesUpdated={(preferences) => {
           console.log('✅ User preferences updated:', preferences);
+          console.log('🔄 Closing preferences modal and showing subscription modal');
           setShowPreferencesModal(false);
-          // Show subscription modal after preferences
-          setShowSubscriptionModal(true);
+          // Use setTimeout to ensure modal state updates properly
+          setTimeout(() => {
+            setShowSubscriptionModal(true);
+          }, 100);
         }}
       />
       

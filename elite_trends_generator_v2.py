@@ -190,7 +190,7 @@ Focus on games with the highest betting interest and trend potential."""
             }
             
             payload = {
-                'model': 'grok-3-latest',
+                'model': 'grok-4-0709',
                 'messages': [
                     {
                         'role': 'system',
@@ -645,7 +645,7 @@ Write in a sharp, confident tone for serious bettors."""
             }
             
             payload = {
-                'model': 'grok-3-latest',
+                'model': 'grok-4-0709',
                 'messages': [
                     {
                         'role': 'system',

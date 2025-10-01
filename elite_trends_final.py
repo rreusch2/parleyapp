@@ -170,7 +170,7 @@ Return JSON array of top 10 games:
             }
             
             payload = {
-                'model': 'grok-3-latest',
+                'model': 'grok-4-0709',
                 'messages': [
                     {'role': 'system', 'content': 'You are an expert sports analyst. Return only valid JSON.'},
                     {'role': 'user', 'content': prompt}
@@ -488,7 +488,7 @@ Write for serious bettors in a confident, data-driven tone."""
             }
             
             payload = {
-                'model': 'grok-3-latest',
+                'model': 'grok-4-0709',
                 'messages': [
                     {'role': 'system', 'content': 'You are a sharp sports betting analyst providing data-driven insights.'},
                     {'role': 'user', 'content': prompt}
