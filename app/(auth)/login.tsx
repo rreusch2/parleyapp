@@ -24,8 +24,6 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import { makeRedirectUri } from 'expo-auth-session';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 // Complete pending auth sessions (required by expo-auth-session)
 WebBrowser.maybeCompleteAuthSession();
@@ -65,60 +63,6 @@ export default function LoginScreen() {
       setIsAppleAuthAvailable(false);
     }
   }, []);
-
-  // Listen for Supabase auth changes (handles OAuth return for Discord)
-  React.useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          // Derive profile fields from user metadata
-          const user = session.user as any;
-          const emailAddr: string = user.email || '';
-          const meta = (user.user_metadata || {}) as any;
-          const fullName: string = meta.full_name || meta.name || meta.user_name || '';
-          const avatarUrl: string | null = meta.avatar_url || null;
-          const username: string = fullName || (emailAddr ? emailAddr.split('@')[0] : 'User');
-
-          // Upsert profile
-          await supabase
-            .from('profiles')
-            .upsert(
-              {
-                id: user.id,
-                username,
-                email: emailAddr,
-                avatar_url: avatarUrl,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'id' }
-            );
-
-          // Determine if this is a new user (missing username or very recent creation)
-          const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('created_at, username')
-            .eq('id', user.id)
-            .single();
-
-          const isNewUser = !profileRow?.username ||
-            (profileRow?.created_at && new Date(profileRow.created_at).getTime() > Date.now() - 60_000);
-
-          if (isNewUser) {
-            // Mirror Google/Apple: send to signup to continue onboarding with preferences first
-            router.replace({ pathname: '/signup', params: { discordSignInComplete: 'true', userId: user.id } });
-          } else {
-            router.replace('/(tabs)');
-          }
-        } catch (e) {
-          console.error('Post-OAuth profile upsert error:', e);
-          router.replace('/(tabs)');
-        }
-      }
-    });
-    return () => {
-      sub.subscription?.unsubscribe();
-    };
-  }, [router]);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
   const handleEmailChange = useCallback((text: string) => {
@@ -251,31 +195,6 @@ export default function LoginScreen() {
         ? 'Network error. Please check your connection and try again.'
         : 'Failed to sign in with Google. Please try again.';
       Alert.alert('Sign In Error', msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDiscordSignIn = async () => {
-    try {
-      setLoading(true);
-      // Deep link for returning to the app
-      const redirectTo = makeRedirectUri({
-        scheme: 'predictiveplay',
-        preferLocalhost: false,
-      });
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'discord',
-        options: {
-          redirectTo,
-          scopes: 'identify email',
-        },
-      });
-      if (error) throw error;
-      // WebBrowser will open; the auth state listener will handle the return
-    } catch (error: any) {
-      console.error('Discord Sign-In error:', error);
-      Alert.alert('Sign In Error', 'Failed to sign in with Discord. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -445,22 +364,6 @@ export default function LoginScreen() {
                       />
                       <Text style={styles.googleButtonText}>
                         {loading ? 'Working…' : 'Continue with Google'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-                {/* Discord Sign In Button */}
-                <View style={styles.discordButtonContainer}>
-                  <TouchableOpacity
-                    style={[styles.discordButton, loading && styles.buttonDisabled]}
-                    onPress={handleDiscordSignIn}
-                    disabled={loading}
-                    activeOpacity={0.85}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                      <FontAwesome5 name="discord" size={20} color="#5865F2" style={styles.discordIcon} />
-                      <Text style={styles.discordButtonText}>
-                        {loading ? 'Working…' : 'Continue with Discord'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -737,32 +640,6 @@ const styles = StyleSheet.create({
     height: 18,
     marginRight: 10,
     resizeMode: 'contain',
-  },
-  discordButtonContainer: {
-    marginBottom: normalize(12),
-  },
-  discordButton: {
-    width: '100%',
-    height: isTablet ? 60 : 50,
-    backgroundColor: '#FFFFFF',
-    borderRadius: normalize(30),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dadce0',
-    shadowColor: '#000',
-    shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  discordButtonText: {
-    color: '#3c4043',
-    fontWeight: '700',
-    fontSize: isTablet ? 18 : 16,
-  },
-  discordIcon: {
-    marginRight: 10,
   },
   divider: {
     flexDirection: 'row',

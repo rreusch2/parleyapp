@@ -1476,13 +1476,13 @@ export default function SettingsScreen() {
         >
           <View style={styles.discordContent}>
             <View style={styles.discordIconContainer}>
-              <FontAwesome5 name="discord" size={28} color="#FFFFFF" />
+              <FontAwesome5 name="discord" size={22} color="#FFFFFF" />
             </View>
             <View style={styles.discordTextContainer}>
               <Text style={styles.discordTitle}>Join Our Discord Community</Text>
               <Text style={styles.discordSubtitle}>Connect with other bettors, share strategies & get exclusive tips</Text>
             </View>
-            <ChevronRight size={24} color="rgba(255, 255, 255, 0.8)" />
+            <ChevronRight size={20} color="rgba(255, 255, 255, 0.8)" />
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -2847,23 +2847,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#5865F2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 6,
   },
   discordGradient: {
-    padding: 20,
+    padding: 14,
     borderRadius: 16,
   },
   discordContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 10,
   },
   discordIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -2872,14 +2872,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   discordTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   discordSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.85)',
-    lineHeight: 18,
+    lineHeight: 16,
   }
 });

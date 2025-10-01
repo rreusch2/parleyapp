@@ -28,8 +28,6 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
-import { makeRedirectUri } from 'expo-auth-session';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 // Complete pending auth sessions (required by expo-auth-session)
 WebBrowser.maybeCompleteAuthSession();
@@ -102,50 +100,7 @@ export default function SignupScreen() {
       setAgreeToTerms(true);
       setShowPreferencesModal(true);
     }
-    if ((params as any).discordSignInComplete === 'true' && params.userId) {
-      console.log('User redirected from Discord Sign In, showing preferences modal first');
-      setAgreeToTerms(true);
-      setShowPreferencesModal(true);
-    }
   }, [params]);
-
-  // Handle OAuth return when starting Discord from this screen
-  React.useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          const user = session.user as any;
-          const emailAddr: string = user.email || '';
-          const meta = (user.user_metadata || {}) as any;
-          const fullName: string = meta.full_name || meta.name || meta.user_name || '';
-          const avatarUrl: string | null = meta.avatar_url || null;
-          const displayName: string = fullName || (emailAddr ? emailAddr.split('@')[0] : 'DiscordUser');
-
-          await supabase
-            .from('profiles')
-            .upsert(
-              {
-                id: user.id,
-                username: displayName,
-                email: emailAddr,
-                avatar_url: avatarUrl,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'id' }
-            );
-
-          setCurrentUserId(user.id);
-          setAgreeToTerms(true);
-          setShowPreferencesModal(true);
-        } catch (e) {
-          console.error('Discord OAuth profile upsert error (signup):', e);
-          // Fallback to main app
-          router.replace('/(tabs)');
-        }
-      }
-    });
-    return () => sub.subscription?.unsubscribe();
-  }, [router]);
 
   // Optimized handlers using useCallback to prevent unnecessary re-renders
   const handleUsernameChange = useCallback((text: string) => {
@@ -908,42 +863,6 @@ export default function SignupScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Discord Sign Up Button */}
-              <View style={styles.discordButtonContainer}>
-                <TouchableOpacity
-                  style={[styles.discordButton, loading && styles.buttonDisabled]}
-                  onPress={async () => {
-                    try {
-                      if (!agreeToTerms) {
-                        Alert.alert('Terms Required', 'You must agree to the Terms of Service to create an account');
-                        return;
-                      }
-                      setLoading(true);
-                      const redirectTo = makeRedirectUri({ scheme: 'predictiveplay', preferLocalhost: false });
-                      const { error } = await supabase.auth.signInWithOAuth({
-                        provider: 'discord',
-                        options: { redirectTo, scopes: 'identify email' },
-                      });
-                      if (error) throw error;
-                    } catch (err: any) {
-                      console.error('Discord Sign Up error:', err);
-                      Alert.alert('Sign Up Error', 'Failed to sign up with Discord. Please try again.');
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
-                  disabled={loading}
-                  activeOpacity={0.85}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                    <FontAwesome5 name="discord" size={20} color="#5865F2" style={styles.discordIcon} />
-                    <Text style={styles.discordButtonText}>
-                      {loading ? 'Working…' : 'Sign up with Discord'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
               {/* Apple Sign Up Button - Show next for better UX */}
               {isAppleAuthAvailable && (
                 <View style={styles.appleButtonContainer}>
@@ -1315,32 +1234,6 @@ const styles = StyleSheet.create({
     height: 18,
     marginRight: 10,
     resizeMode: 'contain',
-  },
-  discordButtonContainer: {
-    marginBottom: normalize(12),
-  },
-  discordButton: {
-    width: '100%',
-    height: isTablet ? 60 : 50,
-    backgroundColor: '#FFFFFF',
-    borderRadius: normalize(30),
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dadce0',
-    shadowColor: '#000',
-    shadowOpacity: Platform.OS === 'ios' ? 0.1 : 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  discordButtonText: {
-    color: '#3c4043',
-    fontWeight: '700',
-    fontSize: isTablet ? 18 : 16,
-  },
-  discordIcon: {
-    marginRight: 10,
   },
   // Generic primary button used for email signup submit
   button: {
