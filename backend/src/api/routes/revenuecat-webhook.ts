@@ -345,18 +345,7 @@ async function handleSubscriptionActive(userId: string, event: any) {
     }
     
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
-    // Update tier/status via secure RPC
-    await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
-      p_user_id: userId,
-      p_tier: tier,
-      p_status: 'active',
-      p_product_id: productId,
-      p_expires_at: expiresAt.toISOString(),
-      p_entitlements: null,
-      p_event: event
-    });
-
-    // Non-tier metadata updates
+    
     await supabaseAdmin
       .from('profiles') 
       .update({
@@ -364,6 +353,8 @@ async function handleSubscriptionActive(userId: string, event: any) {
         day_pass_expires_at: expiresAt.toISOString(),
         day_pass_granted_at: new Date().toISOString(),
         subscription_source: 'daypass',
+        subscription_tier: tier, // ensure UI unlocks immediately
+        subscription_status: 'active',
         revenuecat_customer_id: event.app_user_id,
         last_revenuecat_sync: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -411,19 +402,6 @@ async function handleSubscriptionActive(userId: string, event: any) {
     elite: mappedTier === 'elite'
   };
   
-  // Use RPC to set tier/status and core fields
-  const expiresAt = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
-  await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
-    p_user_id: userId,
-    p_tier: mappedTier || 'free',
-    p_status: mappedTier ? 'active' : 'inactive',
-    p_product_id: event.product_id || null,
-    p_expires_at: expiresAt,
-    p_entitlements: revenuecatEntitlements,
-    p_event: event
-  });
-
-  // Update non-tier metadata separately
   await supabaseAdmin
     .from('profiles')
     .update({
@@ -432,6 +410,8 @@ async function handleSubscriptionActive(userId: string, event: any) {
       revenuecat_customer_info: event,
       subscription_source: 'revenuecat',
       subscription_product_id: event.product_id,
+      subscription_tier: mappedTier || 'free',
+      subscription_status: mappedTier ? 'active' : 'inactive',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
@@ -450,24 +430,15 @@ async function handleSubscriptionInactive(userId: string, event: any) {
     .single();
 
   const hasActiveDayPass = !!(profile?.day_pass_expires_at && new Date(profile.day_pass_expires_at) > new Date());
-  // Update tier/status via secure RPC
-  await supabaseAdmin.rpc('rc_update_subscription_from_webhook', {
-    p_user_id: userId,
-    p_tier: hasActiveDayPass ? profile?.day_pass_tier : 'free',
-    p_status: hasActiveDayPass ? 'active' : 'expired',
-    p_product_id: event.product_id || null,
-    p_expires_at: hasActiveDayPass ? profile?.day_pass_expires_at : null,
-    p_entitlements: { predictiveplaypro: false, elite: false },
-    p_event: event
-  });
 
-  // Update non-tier metadata separately
   await supabaseAdmin
     .from('profiles')
     .update({
       revenuecat_entitlements: { predictiveplaypro: false, elite: false },
       revenuecat_customer_info: event,
       subscription_source: hasActiveDayPass ? 'daypass' : 'legacy',
+      subscription_tier: hasActiveDayPass ? profile?.day_pass_tier : 'free',
+      subscription_status: hasActiveDayPass ? 'active' : 'expired',
       last_revenuecat_sync: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })

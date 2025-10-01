@@ -228,13 +228,13 @@ async function processAppleNotification(signedPayload: string) {
     
   } catch (error) {
     console.error('❌ Error processing Apple notification:', error);
-    const errMsg = error instanceof Error ? error.message : String(error);
+    
     // Mark webhook as failed
     await supabaseAdmin
       .from('webhook_events')
       .update({
         processed: false,
-        error_message: errMsg,
+        error_message: error.message,
         retry_count: 1 // Simple increment instead of raw SQL
       })
       .eq('notification_data->signedPayload', signedPayload);
@@ -295,10 +295,11 @@ const handleSubscriptionCancellation = async (userId: string, productId: string,
 const handleSubscriptionExpiration = async (userId: string, productId: string): Promise<void> => {
   console.log('⏰ Handling subscription expiration for user:', userId);
   
-  // Do NOT change subscription_tier here. Only RevenueCat webhook may do so.
+  // Downgrade user to free tier
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
+      subscription_tier: 'free',
       subscription_status: 'expired',
       subscription_expires_at: null,
       updated_at: new Date().toISOString()
@@ -336,10 +337,11 @@ const handlePaymentFailure = async (userId: string, productId: string): Promise<
 const handleRefund = async (userId: string, productId: string): Promise<void> => {
   console.log('💰 Handling refund for user:', userId);
   
-  // Do NOT change subscription_tier here. Only RevenueCat webhook may do so.
+  // Immediately downgrade user to free tier
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
+      subscription_tier: 'free',
       subscription_status: 'refunded',
       subscription_expires_at: null,
       updated_at: new Date().toISOString()

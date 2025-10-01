@@ -163,6 +163,9 @@ router.post('/verify', async (req, res) => {
       return res.status(400).json({ error: 'Invalid purchase' });
     }
 
+    // Map product ID to subscription tier
+    const subscriptionTier = getSubscriptionTier(productId);
+    
     // Store purchase in database using admin client
     const { error: purchaseError } = await supabaseAdmin
       .from('user_purchases')
@@ -187,9 +190,9 @@ router.post('/verify', async (req, res) => {
       // continue
     }
 
-    // Do NOT update profiles.subscription_tier here. Only RevenueCat webhook is allowed.
+    // Update user's subscription status using admin client
     const updateData: any = {
-      // subscription_tier: subscriptionTier, // forbidden here
+      subscription_tier: subscriptionTier,
       subscription_status: 'active',
       updated_at: new Date().toISOString(),
     };
@@ -263,7 +266,7 @@ router.post('/verify', async (req, res) => {
     
     res.json({
       success: true,
-      // subscriptionTier not set here; RevenueCat webhook will set it
+      subscriptionTier,
       expiresAt: expirationDate,
     });
 
@@ -476,10 +479,13 @@ router.post('/restore', async (req, res) => {
 
     const activePurchase = purchases?.[0];
     if (activePurchase) {
-      // Do not change subscription_tier here; only RevenueCat webhook may change tiers
+      // Update user's subscription status
+      const subscriptionTier = getSubscriptionTier(activePurchase.product_id);
+      
       await supabase
         .from('profiles')
         .update({
+          subscription_tier: subscriptionTier,
           subscription_status: 'active',
           subscription_expires_at: activePurchase.expires_at,
         })

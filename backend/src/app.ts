@@ -33,11 +33,11 @@ import playerPropsRouter from './api/routes/playerProps';
 import subscriptionPricingRouter from './api/routes/subscriptionPricing';
 import stripeRouter from './api/routes/stripe';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
+import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 import { initNotificationsCron } from './cron/notificationsCron';
 import { dayPassScheduler } from './schedulers/dayPassScheduler';
 import { startSubscriptionTierFixCron } from './cron/subscriptionTierFixCron';
-import { startRevenueCatBacklogCron } from './cron/revenuecatBacklogCron';
 
 const app = express();
 
@@ -189,12 +189,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
 });
+
 // Initialize cron jobs
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
   initRewardExpiryCron();
   initNotificationsCron();
   startSubscriptionTierFixCron();
-  startRevenueCatBacklogCron();
   // Ensure Day Pass expirations get processed hourly
   try {
     dayPassScheduler.start();
@@ -209,4 +209,4 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-export default app;
+export default app; 
