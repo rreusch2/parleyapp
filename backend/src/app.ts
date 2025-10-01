@@ -33,11 +33,12 @@ import playerPropsRouter from './api/routes/playerProps';
 import subscriptionPricingRouter from './api/routes/subscriptionPricing';
 import stripeRouter from './api/routes/stripe';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
-import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
-import { initRewardExpiryCron } from './cron/rewardExpiryCron';
+// Removed subscriptionCleanupJob and initRewardExpiryCron to prevent non-webhook subscription_tier mutations
+// import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
+// import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 import { initNotificationsCron } from './cron/notificationsCron';
 import { dayPassScheduler } from './schedulers/dayPassScheduler';
-import { startSubscriptionTierFixCron } from './cron/subscriptionTierFixCron';
+// import { startSubscriptionTierFixCron } from './cron/subscriptionTierFixCron';
 
 const app = express();
 
@@ -192,16 +193,18 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Initialize cron jobs
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
-  initRewardExpiryCron();
+  // Leave notifications cron enabled
   initNotificationsCron();
-  startSubscriptionTierFixCron();
-  // Ensure Day Pass expirations get processed hourly
+  // Do NOT start any cron that mutates profiles.subscription_tier outside RevenueCat webhook
+  // startSubscriptionTierFixCron(); // disabled
+  // initRewardExpiryCron(); // disabled
+  // Ensure Day Pass expirations scheduler (RPC expire_day_passes) is safe (does not alter subscription_tier)
   try {
     dayPassScheduler.start();
   } catch (e) {
     logger.warn('⚠️ Failed to start Day Pass scheduler', e as any);
   }
-  logger.info('🚀 Cron jobs initialized');
+  logger.info('🚀 Cron jobs initialized (subscription tier mutations locked to RevenueCat webhook only)');
 }
 
 // 404 handler

@@ -257,11 +257,9 @@ router.post('/verify', async (req, res) => {
       .update(updateData)
       .eq('id', userId);
 
-    // HOTFIX: If DB has a trigger/policy restricting direct subscription_tier updates,
-    // do NOT fail the purchase. We already stored user_purchases; status endpoint will
-    // fall back to purchases-based unlock.
     if (userError) {
-      console.warn('⚠️ Profile update blocked; proceeding with purchases-based unlock fallback. Details:', userError.message || userError);
+      console.error('❌ Failed to update user subscription:', userError);
+      return res.status(500).json({ error: 'Failed to update subscription' });
     }
 
     console.log(`✅ Purchase verified and stored for user ${userId}`);
@@ -543,10 +541,10 @@ router.get('/status', async (req, res) => {
       return res.status(404).json({ error: 'User profile not found' });
     }
 
-    // Calculate subscription status (primary: profile fields)
-    let tier = profile.subscription_tier || 'free';
-    let status = profile.subscription_status || 'inactive';
-    let expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+    // Calculate subscription status
+    const tier = profile.subscription_tier || 'free';
+    const status = profile.subscription_status || 'inactive';
+    const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
     const now = new Date();
 
     // Consider paid tiers broadly (covers mappings returning just 'pro'/'elite' and variants like 'pro_*')
@@ -577,26 +575,6 @@ router.get('/status', async (req, res) => {
       isActive = false;
       isPro = false;
       daysRemaining = null;
-    }
-
-    // Fallback: if not active via profile, check purchases log to unlock immediately
-    if (!isActive) {
-      const { data: purchases } = await supabaseAdmin
-        .from('user_purchases')
-        .select('product_id, expires_at, status')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .or('expires_at.is.null,expires_at.gte.' + now.toISOString());
-
-      const active = purchases && purchases[0];
-      if (active) {
-        tier = getSubscriptionTier(active.product_id);
-        status = 'active';
-        expiresAt = active.expires_at ? new Date(active.expires_at) : null;
-        isActive = true;
-        isPro = tier === 'pro' || tier === 'elite';
-        daysRemaining = expiresAt ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
-      }
     }
 
     const response = {
