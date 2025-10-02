@@ -875,7 +875,7 @@ Generate intelligent research plan as JSON:
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-3-latest",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
             )
@@ -937,7 +937,7 @@ Return ONLY compact JSON like:
 """
 
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
                 max_tokens=400
@@ -1355,7 +1355,7 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
         
         try:
             response = await self.grok_client.chat.completions.create(
-                model="grok-4-0709",
+                model="grok-4",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.4
             )
@@ -1664,63 +1664,162 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             
             sports_list = ", ".join(sorted(active_sports)) if active_sports else "MLB, WNBA, NFL"
             
-            # Create a much more concise prompt to avoid token limits
-            # Only include essential data
-            top_insights = [f"{i.source}: {str(i.data)[:100]}" for i in insights[:8]]
-            essential_props = props_data[:50]  # Limit props to avoid huge JSON
-            essential_games = [{"home_team": g.get("home_team"), "away_team": g.get("away_team"), "sport": g.get("sport")} for g in games[:5]]
-            
-            prompt = f"""Generate {target_picks} profitable player prop picks. Sports: {sports_list}
+            prompt = f"""
+You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props ({sports_list}).
+Your job is to find PROFITABLE betting opportunities across ALL available sports, not just predict outcomes.
 
-KEY INSIGHTS:
-{chr(10).join(top_insights)}
+🏆 **SPORT EXPERTISE:**
+- **NFL**: Quarterback efficiency, rushing matchups, receiving targets, weather/field conditions, injury reports
+- **MLB**: Batter performance trends, pitcher matchups, weather impacts, ballpark factors
+- **WNBA**: Player usage rates, pace of play, defensive matchups, rest/travel factors
+- **CFB**: College player development, team systems, conference strength
 
-SAMPLE PROPS (first 50):
-{json.dumps(essential_props[:50], separators=(',', ':'))}
+TODAY\'S DATA:
 
-GAMES:
-{json.dumps(essential_games, separators=(',', ':'))}
+🏟️ UPCOMING GAMES ({len(games)}):
+{games_info}
 
-RULES:
-- Return JSON array with this EXACT format:
-[{{
-  "player_name": "name",
-  "prop_type": "type",
-  "recommendation": "over/under",
-  "line": value,
-  "odds": number,
-  "confidence": 55-85,
-  "reasoning": "3-5 sentence detailed analysis. Start with the key statistical edge or trend supporting this pick. Explain the specific data points (recent performance, matchup history, situational factors) that led to this conclusion. Mention relevant player form, opponent weakness, or contextual factors. Conclude with why this represents betting value at the given odds. Be specific with numbers and trends.",
-  "sport": "sport",
-  "roi_estimate": "X%",
-  "value_percentage": "Y%",
-  "game": "team1 vs team2"
-}}]
+🎯 AVAILABLE PLAYER PROPS ({len(filtered_props)}) - **ONLY PICK FROM THESE FILTERED PROPS**:
+{props_info}
 
-REASONING QUALITY REQUIREMENTS:
-- **3-5 sentences minimum** - This is critical for user decision-making
-- **Lead with the edge**: Start with the main statistical advantage or trend
-- **Support with data**: Include specific numbers, recent stats, or matchup history
-- **Context matters**: Mention player form, opponent tendencies, situational factors
-- **Value justification**: Explain why the odds offer value based on your analysis
-- **Be specific**: Use actual stats like "15 TB in last 5 games" or "3-for-12 vs this pitcher"
+💡 **SMART FILTERING**: Long shot props (odds > +{MAX_ODDS}) have been removed to focus on PROFITABLE opportunities.
 
-BETTING STRATEGY:
-- Focus on VALUE and profitable opportunities
-- Diversify across sports and prop types
-- NEVER "UNDER 0.5" for Home Runs or Stolen Bases
-- Calculate ROI and value based on implied odds vs probability
-- Return ONLY the JSON array, no other text
-- Pick from exact players/props in the data above
+⚠️  **CRITICAL**: You MUST pick from the exact player names and prop types listed above. 
+Available prop types in this data: {set(prop.prop_type for prop in filtered_props[:50])}
+Available players in this data: {list(set(prop.player_name for prop in filtered_props[:30]))[:20]}
 
-Find {target_picks} market inefficiencies with betting edge:"""
+🔍 RESEARCH INSIGHTS ({len(insights_summary)}):
+
+**STATMUSE DATA FINDINGS:**
+{self._format_statmuse_insights(insights_summary)}
+
+**WEB SEARCH INTEL:**
+{self._format_web_insights(insights_summary)}
+
+**RAW RESEARCH DATA:**
+{research_summary}
+
+TASK: Generate exactly {target_picks} strategic player prop picks that maximize expected value and long-term profit.
+
+🚨 **MANDATORY SPORT DISTRIBUTION:**
+{self._format_sport_distribution_requirements(sport_distribution, target_picks)}
+
+🎯 **GAME DIVERSITY REQUIREMENTS:**
+{game_diversity_requirements}
+
+🏟️ **GAME-SPECIFIC PROP ANALYSIS:**
+{game_specific_props}
+
+🔍 **COMPREHENSIVE ANALYSIS REQUIRED:**
+- You have access to {len(filtered_props)} total player props across all games
+- DO NOT just pick the same star players repeatedly (Wilson, Stewart, etc.)
+- ANALYZE THE ENTIRE POOL of available props before making selections
+- Research data covers ALL players with props - use this broad analysis
+- Look for VALUE in lesser-known players, not just popular names
+- DIVERSIFY prop types: points, rebounds, assists, hits, home runs, RBIs, etc.
+- Select the BEST {target_picks} picks from your comprehensive analysis of ALL options
+
+🚨 **BETTING DISCIPLINE REQUIREMENTS:**
+1. **MANDATORY ODDS CHECK**: Before picking, check the over_odds and under_odds in the data
+2. **ODDS PRESENCE FOR CHOSEN SIDE**: Only recommend a pick if odds for your chosen side (over or under) are present; skip if the chosen side's odds are missing
+3. **NO HIGH-ODDS PICKS**: Never pick sides with odds higher than +{MAX_ODDS} (even if available)
+4. **AVOID LONG SHOTS**: Props with +450, +500, +950, +1300 odds are SUCKER BETS - ignore them!
+5. **FOCUS ON VALUE RANGE**: Target odds between -250 and +250 for best long-term profit
+6. **DIVERSIFY PROP TYPES**: 
+   - **MLB**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases, Total Bases
+   - **WNBA**: Points, Rebounds, Assists (see available props below)
+7. **MIX OVER/UNDER**: Don't just pick all overs - find spots where under has value
+8. **REALISTIC CONFIDENCE**: Most picks should be 55-65% confidence (sharp betting range)
+9. **VALUE HUNTING**: Focus on lines that seem mispriced based on data
+
+PROFITABLE BETTING STRATEGY:
+- **Focus on -200 to +200 odds**: This is the profitable betting sweet spot
+- **0.5 Hit props**: Look for struggling hitters vs tough pitchers (UNDER value)
+- **1.5 Hit props**: Target hot hitters vs weak pitching (OVER value)  
+- **1.5 Total Base props**: Consider park factors, weather, matchup history
+- **Fade public favorites**: Elite players often have inflated lines
+- **Target situational spots**: Day games, travel, pitcher handedness
+- **Avoid "lottery tickets"**: High-odds props (+500+) are designed to lose money
+
+CONFIDENCE SCALE (BE REALISTIC):
+- 52-55%: Marginal edge, small value (only if great odds)
+- 56-60%: Solid spot, good value (most picks should be here)
+- 61-65%: Strong conviction, clear edge
+- 66-70%: Exceptional opportunity (very rare)
+
+💰 **REMEMBER**: Professional bettors win by finding small edges consistently, NOT by chasing big payouts!
+- 71%+: Only for obvious mispricing
+
+🚨 CRITICAL RESPONSE FORMAT REQUIREMENTS:
+- MUST respond with ONLY a valid JSON array starting with [ and ending with ]
+- NO explanatory text before or after the JSON
+- NO markdown code blocks or formatting
+- NO comments or additional text
+- Just pure JSON array format
+
+FORMAT RESPONSE AS JSON ARRAY (ONLY JSON, NO OTHER TEXT):
+[
+  {{
+    "player_name": "Full Player Name",
+    "prop_type": "Hits", "Home Runs", "RBIs", "Runs Scored", "Stolen Bases", "Hits Allowed", "Innings Pitched", "Strikeouts (Pitcher)", "Walks Allowed",
+    "recommendation": "over" or "under",
+    "line": line_value,
+    "odds": american_odds_value,
+    "confidence": confidence_percentage,
+    "reasoning": "4-6 sentence comprehensive analysis. Start with the key edge or advantage identified, explain the supporting data or trends that led to this conclusion, mention any relevant player/team factors, and conclude with why this represents value. Be specific about numbers, trends, or situational factors that support the pick.",
+    "key_factors": ["factor_1", "factor_2", "factor_3"],
+    "roi_estimate": "percentage like 8.5% or 12.3%",
+    "value_percentage": "percentage like 15.2% or 22.8%",
+    "implied_probability": "percentage like 45.5% or 62.1%",
+    "fair_odds": "what the odds should be like -140 or +165"
+  }}
+]
+
+IMPORTANT: Your response must start with [ and end with ]. No other text allowed.
+
+🧮 **CALCULATION REQUIREMENTS:**
+
+**ROI Estimate:** (Expected Win Amount / Risk Amount) - 1
+- Example: If you bet $100 at +150 odds with 55% win rate: ROI = (55% × $150 - 45% × $100) / $100 = 37.5%
+- Target range: 5-25% for sustainable profit
+
+**Value Percentage:** (Your Win Probability - Implied Probability) × 100
+- Example: You think 60% chance, odds imply 52% = 8% value
+- Positive value = good bet, negative value = bad bet
+
+**Implied Probability:** Convert American odds to probability
+- Positive odds: 100 / (odds + 100)
+- Negative odds: |odds| / (|odds| + 100)
+
+**Fair Odds:** What odds should be based on your confidence
+- If you think 60% chance: Fair odds = +67 (100/40 - 1)
+- If you think 45% chance: Fair odds = +122 (100/45 - 1)
+
+THINK LIKE A SHARP: Find spots where the oddsmakers may have made mistakes or where public perception differs from reality.
+
+REMEMBER:
+- **DIVERSIFY ACROSS ALL PROP TYPES**: Use Hits, Home Runs, RBIs, Runs Scored, Stolen Bases, and Pitcher props
+- Mix overs and unders based on VALUE, not bias  
+- Keep confidence realistic (most picks 55-65%)
+- Focus on profitable opportunities, not just likely outcomes
+- Each pick should be one you\'d bet your own money on
+- **Available Batter Props**: Hits, Home Runs, RBIs, Runs Scored, Stolen Bases
+- **Available Pitcher Props**: Hits Allowed, Innings Pitched, Strikeouts, Walks Allowed
+
+**CRITICAL ODDS RULES:**
+- **NEVER recommend "UNDER 0.5 Home Runs"** - impossible (can't get negative home runs)
+- **NEVER recommend "UNDER 0.5 Stolen Bases"** - impossible (can't get negative steals)
+- **Only recommend props where both over/under make logical sense**
+- **Home Runs 0.5**: Only bet OVER (under is impossible)
+- **Stolen Bases 0.5**: Only bet OVER (under is impossible)
+"""
             
             try:
                 response = await self.grok_client.chat.completions.create(
                     model="grok-4",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.1,
-                    max_tokens=8000  # Increased for better response generation
+                    max_tokens=4000
                 )
                 
                 picks_text = response.choices[0].message.content.strip()
@@ -1756,11 +1855,6 @@ Find {target_picks} market inefficiencies with betting edge:"""
                     logger.error(f"Response length: {len(picks_text)}")
                     logger.error(f"First 1000 chars: {picks_text[:1000]}")
                     logger.error(f"Last 500 chars: {picks_text[-500:]}")
-                    
-                    # Check if it's a token limit issue (empty response)
-                    if len(picks_text) == 0:
-                        logger.error("Empty response - likely token limit exceeded")
-                        return []
                     
                     # Try to find if there's JSON object without array brackets
                     if "{" in picks_text and "}" in picks_text:
@@ -1908,7 +2002,7 @@ Find {target_picks} market inefficiencies with betting edge:"""
                             "research_support": pick.get("research_support", "Based on comprehensive analysis"),
                             "ai_generated": True,
                             "research_insights_count": len(insights),
-                            "model_used": "grok-4-0709"
+                            "model_used": "grok-4"
                         }
                     })
                 else:

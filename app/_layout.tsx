@@ -16,7 +16,7 @@ import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
 // ReviewDebugPanel removed (dev-only overlay disabled)
-import { runAfterInteractions, batchAsyncOperations } from './utils/performanceOptimizer';
+// Removed deferred initialization to ensure ATT prompt appears immediately on launch
 import Constants from 'expo-constants';
 import { StripeProvider } from './services/stripeService';
 // Remove the top-level import since it's not available on web
@@ -26,80 +26,52 @@ import { StripeProvider } from './services/stripeService';
 const { width: screenWidth } = Dimensions.get('window');
 const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
 const isWeb = Platform.OS === 'web';
-
 function AppContent() {
   const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
   const { initializeReview } = useReview();
   const router = useRouter();
 
-  // Initialize services with performance optimizations
   useEffect(() => {
     // Initialize review service immediately (lightweight)
     initializeReview();
-    
-    // Run heavy operations after interactions complete (non-blocking)
-    runAfterInteractions(async () => {
-      const initializationOperations = [
-        // iOS tracking permission + AppsFlyer initialization (sequential for proper ATE)
-        async () => {
-          if (Platform.OS === 'ios') {
-            try {
-              // 1. Request ATT permission first
-              const { requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
-              const { status } = await requestTrackingPermissionsAsync();
-              console.log(`📱 iOS ATT Status: ${status}`);
-              
-              // 2. Initialize AppsFlyer AFTER ATT decision (critical for ATE parameter)
-              await appsFlyerService.initialize();
-              console.log('✅ AppsFlyer initialized after ATT consent');
-              
-              return { attStatus: status, appsFlyerReady: true };
-            } catch (error) {
-              console.error('❌ ATT + AppsFlyer initialization failed:', error);
-              return null;
-            }
+
+    (async () => {
+      // 1) ATT request must occur BEFORE any SDK that may access IDFA
+      try {
+        if (Platform.OS === 'ios') {
+          const { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
+          const current = await getTrackingPermissionsAsync();
+          if (current.status === 'undetermined') {
+            const { status } = await requestTrackingPermissionsAsync();
+            console.log(`📱 iOS ATT Status: ${status}`);
           } else {
-            // Android - just initialize AppsFlyer
-            try {
-              await appsFlyerService.initialize();
-              console.log('✅ AppsFlyer initialized (Android)');
-              return { appsFlyerReady: true };
-            } catch (error) {
-              console.error('❌ AppsFlyer failed (Android):', error);
-              return null;
-            }
+            console.log(`📱 iOS ATT Existing Status: ${current.status}`);
           }
-        },
+          // Initialize AppsFlyer AFTER ATT decision
+          await appsFlyerService.initialize();
+          console.log('✅ AppsFlyer initialized after ATT decision');
+        } else {
+          // Android - initialize AppsFlyer normally
+          await appsFlyerService.initialize();
+          console.log('✅ AppsFlyer initialized (Android)');
+        }
+      } catch (error) {
+        console.error('❌ ATT/AppsFlyer initialization error:', error);
+      }
 
-
-        // Push notification registration
-        async () => {
-          try {
-            const token = await registerForPushNotificationsAsync();
-            if (token) {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user?.id) {
-                await savePushTokenToProfile(token, user.id);
-                return token;
-              }
-            }
-            return null;
-          } catch (err) {
-            console.error('Push notification registration failed', err);
-            return null;
+      // 2) Push notification registration (independent)
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (token) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            await savePushTokenToProfile(token, user.id);
           }
         }
-      ];
-
-      // Execute all operations concurrently instead of sequentially
-      const results = await batchAsyncOperations(initializationOperations);
-      console.log('🚀 App initialization completed:', {
-        tracking: results[0]?.status === 'fulfilled',
-        appsFlyer: results[1]?.status === 'fulfilled',
-        facebook: results[2]?.status === 'fulfilled',
-        pushNotifications: results[3]?.status === 'fulfilled'
-      });
-    });
+      } catch (err) {
+        console.error('Push notification registration failed', err);
+      }
+    })();
   }, [initializeReview]);
 
   // Handle notification taps (navigate to the right tab)

@@ -29,6 +29,7 @@ import {
   Palette
 } from 'lucide-react-native';
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
+import type { ParlayOptions, ParlayLeg } from '../services/api/aiService';
 import { FacebookPixel } from '../services/analytics';
 import appsFlyerService from '../services/appsFlyerService';
 import { supabase } from '../services/api/supabaseClient';
@@ -45,6 +46,8 @@ import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
 import HomeTrendsPreview from '../components/HomeTrendsPreview';
 import InstantIntel from '../components/InstantIntel';
+import ParlayBuilderCard from '../components/ParlayBuilderCard';
+import ParlayResultModal from '../components/ParlayResultModal';
 import MediaGallery from '../components/MediaGallery';
 import type { MediaItem as MediaItemType } from '../components/MediaGallery';
 import { listMedia } from '../services/api/mediaService';
@@ -99,6 +102,12 @@ export default function HomeScreen() {
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
 
+  // Parlay Builder state
+  const [parlayLoading, setParlayLoading] = useState(false);
+  const [parlayModalVisible, setParlayModalVisible] = useState(false);
+  const [parlayMarkdown, setParlayMarkdown] = useState('');
+  const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
+
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -133,7 +142,7 @@ export default function HomeScreen() {
 
       await loadData(operations);
     };
-    
+
     initializeDashboard();
     const stopAnimation = startSparkleAnimation();
     
@@ -337,6 +346,22 @@ export default function HomeScreen() {
     }
   };
 
+  // AI Parlay Builder handler
+  const handleGenerateParlay = async (options: ParlayOptions) => {
+    try {
+      setParlayLoading(true);
+      const res = await aiService.generateParlay(options);
+      setParlayMarkdown(res.markdown || '');
+      setParlayLegs(res.legs || []);
+      setParlayModalVisible(true);
+    } catch (e) {
+      console.error('Failed to generate parlay', e);
+      Alert.alert('Parlay Builder', 'Failed to generate parlay. Please try again shortly.');
+    } finally {
+      setParlayLoading(false);
+    }
+  };
+
   const handlePickAnalyze = (pick: AIPrediction) => {
     setSelectedPick(pick);
     
@@ -481,6 +506,9 @@ export default function HomeScreen() {
               </View>
             </View>
             
+            
+          </View>
+            
             {/* Enhanced Stats Row with new order */}
             <View style={[
               isElite ? styles.eliteStatsContainer : styles.statsContainer,
@@ -537,9 +565,8 @@ export default function HomeScreen() {
                 {!isPro && (
                   <View style={styles.lockOverlay}>
                       <Lock size={16} color="#64748B" />
-                    </View>
-                  )}
-                </View>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -773,6 +800,11 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* AI Parlay Builder (above Instant Intel) */}
+        <View style={styles.section}>
+          <ParlayBuilderCard onGenerate={handleGenerateParlay} isGenerating={parlayLoading} />
+        </View>
+
         {/* Instant Intel Section - StatMuse Integration */}
         <View style={styles.section}>
           <InstantIntel />
@@ -890,6 +922,12 @@ export default function HomeScreen() {
           setSelectedNewsItem(null);
         }}
         newsItem={selectedNewsItem}
+      />
+      <ParlayResultModal
+        visible={parlayModalVisible}
+        markdown={parlayMarkdown}
+        legs={parlayLegs}
+        onClose={() => setParlayModalVisible(false)}
       />
     </View>
   );

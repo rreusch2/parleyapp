@@ -33,6 +33,8 @@ module.exports = {
         "ITSAppUsesNonExemptEncryption": false,
         // App Tracking Transparency prompt text (required for IDFA on iOS 14.5+)
         "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
+        // Delay Google App Measurement until after ATT decision
+        "GADDelayAppMeasurementInit": true,
         // Camera permission (required by third-party SDKs even if not used)
         "NSCameraUsageDescription": "This app does not use the camera, but this permission is required by third-party SDKs.",
         // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.

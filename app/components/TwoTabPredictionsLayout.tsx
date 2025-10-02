@@ -52,9 +52,12 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   const isElite = user?.isElite || false;
   const isPro = user?.isPro || false;
 
-  const fetchTeamPicks = async () => {
-    if (teamPicks.length > 0) return; // Already loaded
-    if (!user?.id) return;
+  const fetchTeamPicks = async (force = false) => {
+    if (!force && teamPicks.length > 0) return; // Already loaded
+    if (!user?.id) {
+      setIsLoadingTeam(false); // Stop loading if no user
+      return;
+    }
     
     setIsLoadingTeam(true);
     try {
@@ -173,9 +176,12 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     }
   };
 
-  const fetchPlayerPropsPicks = async () => {
-    if (playerPropsPicks.length > 0) return; // Already loaded
-    if (!user?.id) return;
+  const fetchPlayerPropsPicks = async (force = false) => {
+    if (!force && playerPropsPicks.length > 0) return; // Already loaded
+    if (!user?.id) {
+      setIsLoadingProps(false); // Stop loading if no user
+      return;
+    }
     
     setIsLoadingProps(true);
     try {
@@ -281,30 +287,23 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     }
   };
 
-  // Load both team picks and player props for Elite users
-  // For Pro users, load the active tab immediately (Player Props by default)
+  // Load picks when user ID is available
   useEffect(() => {
-    // Always load team picks in background to enable quick switching
-    fetchTeamPicks();
+    if (!user?.id) {
+      // No user yet, stop loading states
+      setIsLoadingTeam(false);
+      setIsLoadingProps(false);
+      return;
+    }
+
+    // User is available, fetch data
+    fetchTeamPicks(true); // Force reload with user context
+    
     // Pre-load props for Elite users or when props tab is active (default)
     if (isElite || activeTab === 'props') {
-      fetchPlayerPropsPicks();
+      fetchPlayerPropsPicks(true); // Force reload with user context
     }
-  }, []);
-
-  // Re-fetch picks once we have a valid user ID (after auth)
-  useEffect(() => {
-    if (!user?.id) return;
-
-    // Clear any existing picks then reload with proper user context
-    setTeamPicks([]);
-    setPlayerPropsPicks([]);
-
-    fetchTeamPicks();
-    if (isElite) {
-      fetchPlayerPropsPicks();
-    }
-  }, [user?.id]);
+  }, [user?.id, isElite]);
 
   // Load player props when tab is selected (for Pro users)
   useEffect(() => {
@@ -320,10 +319,10 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
       // Clear existing data and refetch
       if (activeTab === 'team') {
         setTeamPicks([]);
-        await fetchTeamPicks();
+        await fetchTeamPicks(true);
       } else {
         setPlayerPropsPicks([]);
-        await fetchPlayerPropsPicks();
+        await fetchPlayerPropsPicks(true);
       }
     } catch (error) {
       console.error('Error during refresh:', error);
@@ -459,7 +458,7 @@ What are your thoughts on this prediction?`;
           </Text>
           <TouchableOpacity 
             style={styles.retryButton}
-            onPress={type === 'team' ? fetchTeamPicks : fetchPlayerPropsPicks}
+            onPress={() => type === 'team' ? fetchTeamPicks(true) : fetchPlayerPropsPicks(true)}
           >
             <Text style={styles.retryButtonText}>Generate Picks</Text>
           </TouchableOpacity>

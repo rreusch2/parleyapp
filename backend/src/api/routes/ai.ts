@@ -8,6 +8,7 @@ import { dailyInsightsService, DailyInsight } from '../../services/supabase/dail
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
 import { AuthenticatedRequest } from '../../types/auth';
 import { authenticateUser } from '../middleware/auth';
+import ParlayBuilderOrchestrator, { ParlayOptions as ParlayBuilderOptions } from '../../ai/orchestrator/parlayBuilderOrchestrator';
 
 // Utility function to determine current sports seasons
 const getSportsInSeason = (): string[] => {
@@ -812,6 +813,37 @@ router.get('/health', (req, res) => {
     success: true,
     message: 'AI orchestrator is healthy'
   });
+});
+
+/**
+ * @route POST /api/ai/parlay-builder
+ * @desc Build a Markdown parlay with optional headshots using Grok and DB context
+ * @access Private (requires userId)
+ */
+router.post('/parlay-builder', async (req: Request, res: Response) => {
+  try {
+    const { userId, options } = req.body as { userId?: string, options?: Partial<ParlayBuilderOptions> };
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    // Sanitize options with sensible defaults
+    const legs = Math.max(2, Math.min(6, Number(options?.legs || 3)));
+    const riskLevel: ParlayBuilderOptions['riskLevel'] = (['safe','balanced','risky'] as const).includes((options?.riskLevel as any))
+      ? options!.riskLevel as any
+      : 'balanced';
+    const includeTeams = options?.includeTeams !== false; // default true
+    const includeProps = options?.includeProps !== false; // default true
+    const sports = Array.isArray(options?.sports) && options!.sports!.length ? options!.sports : undefined;
+
+    const orchestrator = new ParlayBuilderOrchestrator();
+    const result = await orchestrator.generateParlayForOptions({ legs, riskLevel, includeTeams, includeProps, sports }, userId);
+
+    return res.status(200).json({ success: true, markdown: result.markdown, legs: result.legs, metadata: result.metadata });
+  } catch (error: any) {
+    logger.error(`parlay-builder error: ${error?.message || String(error)}`);
+    return res.status(500).json({ success: false, error: 'Failed to generate parlay' });
+  }
 });
 
 /**
