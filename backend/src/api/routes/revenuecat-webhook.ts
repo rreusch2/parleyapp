@@ -117,6 +117,16 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
     
     console.log(`🔍 Looking for user with app_user_id: ${event.app_user_id}`);
     
+    // Extract email and username from subscriber_attributes (available in new app version)
+    const emailFromWebhook = event.subscriber_attributes?.['$email']?.value || 
+                            event.subscriber_attributes?.['$Email']?.value;
+    const usernameFromWebhook = event.subscriber_attributes?.['$displayName']?.value ||
+                               event.subscriber_attributes?.['$DisplayName']?.value;
+    
+    if (emailFromWebhook || usernameFromWebhook) {
+      console.log(`📧 Webhook contains email: ${emailFromWebhook || 'N/A'}, username: ${usernameFromWebhook || 'N/A'}`);
+    }
+    
     // Strategy 1: Direct RevenueCat customer ID match
     const { data: rcUser } = await supabaseAdmin
       .from('profiles')
@@ -128,18 +138,94 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
       console.log(`✅ Found user by revenuecat_customer_id: ${rcUser.id}`);
       user = rcUser;
     } else {
-      // Strategy 2: Stripe customer ID match (for Stripe-originated purchases)
-      const { data: stripeUser } = await supabaseAdmin
-        .from('profiles')
-        .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-        .eq('stripe_customer_id', event.app_user_id)
-        .single();
+      // Strategy 2: Email lookup (NEW - for enhanced webhooks)
+      if (emailFromWebhook) {
+        const { data: emailUser } = await supabaseAdmin
+          .from('profiles')
+          .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+          .eq('email', emailFromWebhook)
+          .single();
+        
+        if (emailUser) {
+          console.log(`✅ Found user by email: ${emailUser.id}`);
+          user = emailUser;
+          
+          // Link this RevenueCat ID to the user for future webhooks
+          await supabaseAdmin
+            .from('profiles')
+            .update({ revenuecat_customer_id: event.app_user_id })
+            .eq('id', emailUser.id);
+          console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${emailUser.id} via email`);
+        }
+      }
       
-      if (stripeUser) {
-        console.log(`✅ Found user by stripe_customer_id: ${stripeUser.id}`);
-        user = stripeUser;
-      } else {
-        // Strategy 3: UUID match (for app-native purchases)
+      // Strategy 3: Username lookup (NEW - for enhanced webhooks)
+      if (!user && usernameFromWebhook) {
+        const { data: usernameUser } = await supabaseAdmin
+          .from('profiles')
+          .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+          .eq('username', usernameFromWebhook)
+          .single();
+        
+        if (usernameUser) {
+          console.log(`✅ Found user by username: ${usernameUser.id}`);
+          user = usernameUser;
+          
+          // Link this RevenueCat ID to the user for future webhooks
+          await supabaseAdmin
+            .from('profiles')
+            .update({ revenuecat_customer_id: event.app_user_id })
+            .eq('id', usernameUser.id);
+          console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${usernameUser.id} via username`);
+        }
+      }
+      
+      // Strategy 4: Search through aliases array (NEW - better alias handling)
+      if (!user && event.aliases && Array.isArray(event.aliases)) {
+        console.log(`🔍 Checking ${event.aliases.length} aliases: ${event.aliases.join(', ')}`);
+        
+        for (const alias of event.aliases) {
+          // Skip if we already checked this one
+          if (alias === event.app_user_id) continue;
+          
+          // Try each alias as a potential user ID or RevenueCat ID
+          const { data: aliasUser } = await supabaseAdmin
+            .from('profiles')
+            .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+            .or(`id.eq.${alias},revenuecat_customer_id.eq.${alias}`)
+            .single();
+          
+          if (aliasUser) {
+            console.log(`✅ Found user via alias ${alias}: ${aliasUser.id}`);
+            user = aliasUser;
+            
+            // Link the primary app_user_id to this profile
+            await supabaseAdmin
+              .from('profiles')
+              .update({ revenuecat_customer_id: event.app_user_id })
+              .eq('id', aliasUser.id);
+            console.log(`🔗 Linked primary RevenueCat ID ${event.app_user_id} to user ${aliasUser.id} via alias`);
+            break;
+          }
+        }
+      }
+      
+      // Strategy 5: Stripe customer ID match (for Stripe-originated purchases)
+      if (!user) {
+        const { data: stripeUser } = await supabaseAdmin
+          .from('profiles')
+          .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+          .eq('stripe_customer_id', event.app_user_id)
+          .single();
+        
+        if (stripeUser) {
+          console.log(`✅ Found user by stripe_customer_id: ${stripeUser.id}`);
+          user = stripeUser;
+        }
+      }
+      
+      // Strategy 6: UUID match (for app-native purchases)
+      if (!user) {
         const { data: uuidUser } = await supabaseAdmin
           .from('profiles')
           .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
@@ -149,35 +235,33 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         if (uuidUser) {
           console.log(`✅ Found user by UUID: ${uuidUser.id}`);
           user = uuidUser;
-        } else {
-          // Strategy 4: Handle anonymous RevenueCat IDs from Stripe purchases
-          if (event.app_user_id.startsWith('$RCAnonymousID:')) {
-            console.log(`🔍 Anonymous RevenueCat ID detected, checking for Stripe linkage...`);
+        }
+      }
+      
+      // Strategy 7: Handle anonymous RevenueCat IDs from Stripe purchases
+      if (!user && event.app_user_id.startsWith('$RCAnonymousID:')) {
+        console.log(`🔍 Anonymous RevenueCat ID detected, checking for Stripe linkage...`);
+        
+        const stripeCustomerId = event.subscriber_attributes?.['$stripeCustomerId']?.value;
+        
+        if (stripeCustomerId) {
+          const { data: linkUser } = await supabaseAdmin
+            .from('profiles')
+            .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+            .eq('stripe_customer_id', stripeCustomerId)
+            .single();
+          
+          if (linkUser) {
+            console.log(`✅ Found user via Stripe attribute linkage: ${linkUser.id}`);
+            user = linkUser;
             
-            // For anonymous IDs, try to find by recent Stripe customer creation
-            // This handles cases where Stripe purchase creates RevenueCat user before app linking
-            const stripeCustomerId = event.subscriber_attributes?.['$stripeCustomerId']?.value;
-            
-            if (stripeCustomerId) {
-              const { data: linkUser } = await supabaseAdmin
-                .from('profiles')
-                .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-                .eq('stripe_customer_id', stripeCustomerId)
-                .single();
+            // Update the user's RevenueCat customer ID for future webhooks
+            await supabaseAdmin
+              .from('profiles')
+              .update({ revenuecat_customer_id: event.app_user_id })
+              .eq('id', linkUser.id);
               
-              if (linkUser) {
-                console.log(`✅ Found user via Stripe attribute linkage: ${linkUser.id}`);
-                user = linkUser;
-                
-                // Update the user's RevenueCat customer ID for future webhooks
-                await supabaseAdmin
-                  .from('profiles')
-                  .update({ revenuecat_customer_id: event.app_user_id })
-                  .eq('id', linkUser.id);
-                  
-                console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${linkUser.id}`);
-              }
-            }
+            console.log(`🔗 Linked RevenueCat ID ${event.app_user_id} to user ${linkUser.id}`);
           }
         }
       }
