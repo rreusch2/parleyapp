@@ -48,6 +48,7 @@ import InstantIntel from '../components/InstantIntel';
 import MediaGallery from '../components/MediaGallery';
 import type { MediaItem as MediaItemType } from '../components/MediaGallery';
 import { listMedia } from '../services/api/mediaService';
+import ATTPermissionTrigger from '../components/ATTPermissionTrigger';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
@@ -572,6 +573,9 @@ export default function HomeScreen() {
             </TouchableOpacity>
           ) : null}
         </LinearGradient>
+
+        {/* ATT Permission Trigger - Shows only if permission not granted */}
+        <ATTPermissionTrigger />
 
         {/* Football Season Announcement Card - For all tiers */}
         <FootballSeasonCard 

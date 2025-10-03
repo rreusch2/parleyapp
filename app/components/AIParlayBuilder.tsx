@@ -11,6 +11,10 @@ import {
   Animated,
   Vibration,
   Image,
+  Platform,
+  TextInput,
+  Share,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -33,12 +37,16 @@ import {
   Info,
   BarChart,
   Brain,
-  Flame
+  Flame,
+  Share2,
+  Calculator,
+  Copy
 } from 'lucide-react-native';
 import EventSource from 'react-native-sse';
 import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '../services/subscriptionContext';
 import { supabase } from '../services/api/supabaseClient';
+import * as Clipboard from 'expo-clipboard';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -46,7 +54,6 @@ interface ParlayConfig {
   legs: number;
   riskLevel: 'safe' | 'balanced' | 'risky';
   betType: 'player' | 'team' | 'mixed';
-  bankrollPercentage: number;
 }
 
 interface ToolEvent {
@@ -67,7 +74,6 @@ export default function AIParlayBuilder() {
     legs: 3,
     riskLevel: 'balanced',
     betType: 'mixed',
-    bankrollPercentage: 1
   });
   
   const [modalVisible, setModalVisible] = useState(false);
@@ -77,8 +83,12 @@ export default function AIParlayBuilder() {
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [currentTool, setCurrentTool] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [betAmount, setBetAmount] = useState('10');
+  const [totalOdds, setTotalOdds] = useState<number>(0);
+  const [parlayLegs, setParlayLegs] = useState<any[]>([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Pulse animation for the generate button
   useEffect(() => {
@@ -178,14 +188,20 @@ export default function AIParlayBuilder() {
             message: data.message || getToolMessage(data.tool),
           };
           setToolEvents(prev => [...prev, toolEvent]);
-          Vibration.vibrate(50);
+          // Remove vibration to prevent excessive haptic feedback
         } else if (data.type === 'tool_end') {
           setCurrentTool(null);
         } else if (data.type === 'search_results') {
           setSearchResults(data.results || []);
         } else if (data.type === 'complete') {
           setParlayResult(data.parlay);
+          setTotalOdds(data.totalOdds || 0);
+          setParlayLegs(data.legs || []);
           setGenerating(false);
+          // Prevent automatic scrolling
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({ y: 0, animated: false });
+          }
         }
       });
 
@@ -237,27 +253,25 @@ export default function AIParlayBuilder() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#1E293B', '#0F172A']}
+      style={styles.container}
+    >
       {/* Header */}
-      <LinearGradient
-        colors={['#1E293B', '#0F172A']}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.titleContainer}>
-            <LinearGradient
-              colors={['#00E5FF', '#8B5CF6']}
-              style={styles.iconGradient}
-            >
-              <Sparkles size={24} color="#FFFFFF" />
-            </LinearGradient>
-            <View style={styles.titleText}>
-              <Text style={styles.title}>AI Parlay Builder</Text>
-              <Text style={styles.subtitle}>Intelligent parlay generation powered by Grok</Text>
-            </View>
+      <View style={styles.header}>
+        <View style={styles.titleContainer}>
+          <LinearGradient
+            colors={['#00E5FF', '#8B5CF6']}
+            style={styles.iconGradient}
+          >
+            <Sparkles size={24} color="#FFFFFF" />
+          </LinearGradient>
+          <View style={styles.titleText}>
+            <Text style={styles.title}>AI Parlay Builder</Text>
+            <Text style={styles.subtitle}>Powered by Grok intelligence</Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Configuration Section */}
       <View style={styles.configSection}>
@@ -354,127 +368,159 @@ export default function AIParlayBuilder() {
           </View>
         </View>
 
-        {/* Bankroll Percentage */}
-        <View style={styles.configGroup}>
-          <Text style={styles.configLabel}>Bankroll Allocation</Text>
-          <View style={styles.bankrollOptions}>
-            {[0.5, 1, 2, 3].map((value) => (
-              <TouchableOpacity
-                key={value}
-                style={[
-                  styles.bankrollOption,
-                  config.bankrollPercentage === value && styles.bankrollOptionActive
-                ]}
-                onPress={() => {
-                  setConfig({ ...config, bankrollPercentage: value });
-                  Vibration.vibrate(10);
-                }}
-              >
-                <Text style={[
-                  styles.bankrollText,
-                  config.bankrollPercentage === value && styles.bankrollTextActive
-                ]}>
-                  {value}%
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Generate Button */}
+        <TouchableOpacity onPress={generateParlay} disabled={generating} style={styles.generateButtonWrapper}>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <LinearGradient
+              colors={isPro || isElite ? ['#00E5FF', '#8B5CF6', '#F59E0B'] : ['#64748B', '#475569']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.generateButton}
+            >
+              {generating ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Sparkles size={24} color="#FFFFFF" />
+                  <Text style={styles.generateButtonText}>
+                    {isPro || isElite ? 'Generate Parlay' : 'Pro Feature'}
+                  </Text>
+                  <ChevronRight size={20} color="#FFFFFF" />
+                </>
+              )}
+            </LinearGradient>
+          </Animated.View>
+        </TouchableOpacity>
       </View>
 
-      {/* Generate Button */}
-      <TouchableOpacity onPress={generateParlay} disabled={generating}>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <LinearGradient
-            colors={isPro || isElite ? ['#00E5FF', '#8B5CF6', '#F59E0B'] : ['#64748B', '#475569']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.generateButton}
-          >
-            {generating ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Sparkles size={24} color="#FFFFFF" />
-                <Text style={styles.generateButtonText}>
-                  {isPro || isElite ? 'Generate Parlay' : 'Pro Feature'}
-                </Text>
-                <ChevronRight size={20} color="#FFFFFF" />
-              </>
-            )}
-          </LinearGradient>
-        </Animated.View>
-      </TouchableOpacity>
-
-      {/* Parlay Generation Modal */}
+      {/* Parlay Generation Modal - Full Screen */}
       <Modal
         visible={modalVisible}
         animationType="slide"
-        transparent={true}
+        transparent={false}
+        presentationStyle="fullScreen"
         onRequestClose={() => !generating && setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <LinearGradient
+          colors={['#0F172A', '#1E293B', '#0F172A']}
+          style={styles.modalContainer}
+        >
           <Animated.View 
             style={[
               styles.modalContent,
               { opacity: fadeAnim }
             ]}
           >
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleContainer}>
-                <Sparkles size={24} color="#00E5FF" />
-                <Text style={styles.modalTitle}>Generating Your Parlay</Text>
-              </View>
-              {!generating && (
+            {/* Modal Header with Safe Area */}
+            <View style={styles.modalHeaderWrapper}>
+              <LinearGradient
+                colors={['#1E293B', '#0F172A']}
+                style={styles.modalHeader}
+              >
+                <View style={styles.modalTitleContainer}>
+                  <LinearGradient
+                    colors={['#00E5FF', '#8B5CF6']}
+                    style={styles.modalIconGradient}
+                  >
+                    <Sparkles size={28} color="#FFFFFF" />
+                  </LinearGradient>
+                  <View style={styles.modalTitleText}>
+                    <Text style={styles.modalTitle}>AI Parlay Generator</Text>
+                    <Text style={styles.modalSubtitle}>
+                      {generating ? 'Building your intelligent parlay...' : 'Your parlay is ready!'}
+                    </Text>
+                  </View>
+                </View>
                 <TouchableOpacity
                   onPress={() => setModalVisible(false)}
                   style={styles.closeButton}
+                  disabled={generating}
                 >
-                  <X size={24} color="#94A3B8" />
+                  <LinearGradient
+                    colors={generating ? ['#334155', '#1E293B'] : ['#EF4444', '#DC2626']}
+                    style={styles.closeButtonGradient}
+                  >
+                    <X size={22} color="#FFFFFF" />
+                  </LinearGradient>
                 </TouchableOpacity>
-              )}
+              </LinearGradient>
             </View>
 
             {/* Content Area */}
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.modalScrollView} 
+              showsVerticalScrollIndicator={false}
+              scrollEnabled={!generating} // Disable scrolling while generating to prevent jumps
+            >
               {generating ? (
                 <>
-                  {/* Intro Message */}
-                  <View style={styles.introMessage}>
-                    <Text style={styles.introText}>
-                      🎯 Building your {config.legs}-leg {config.riskLevel} {config.betType === 'mixed' ? '' : config.betType} parlay...
-                    </Text>
-                  </View>
+                  {/* Intro Message with Animation */}
+                  <LinearGradient
+                    colors={['rgba(0, 229, 255, 0.1)', 'rgba(139, 92, 246, 0.05)', 'rgba(0, 229, 255, 0.1)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.introMessage}
+                  >
+                    <View style={styles.introMessageContent}>
+                      <View style={styles.introIcon}>
+                        <Sparkles size={32} color="#00E5FF" />
+                      </View>
+                      <View style={styles.introTextContainer}>
+                        <Text style={styles.introTitle}>Generating AI Parlay</Text>
+                        <Text style={styles.introText}>
+                          {config.legs}-leg {config.riskLevel} {config.betType === 'mixed' ? 'mixed' : config.betType} parlay
+                        </Text>
+                      </View>
+                      <ActivityIndicator size="large" color="#00E5FF" />
+                    </View>
+                  </LinearGradient>
 
-                  {/* Tool Events */}
+                  {/* Tool Events with Enhanced Cards */}
                   {toolEvents.map((event, index) => (
                     <Animated.View
                       key={index}
-                      style={[styles.toolEvent]}
+                      style={[
+                        styles.toolEvent,
+                        index === toolEvents.length - 1 && currentTool === event.type && styles.toolEventActive
+                      ]}
                     >
-                      <View style={styles.toolEventHeader}>
-                        {getToolIcon(event.type)}
-                        <Text style={styles.toolEventText}>{event.message}</Text>
-                      </View>
-                      
-                      {/* Show search results if available */}
-                      {event.type === 'web_search' && searchResults.length > 0 && (
-                        <View style={styles.searchResultsContainer}>
-                          {searchResults.slice(0, 3).map((result, idx) => (
-                            <View key={idx} style={styles.searchResult}>
-                              <View style={styles.searchResultHeader}>
-                                <Globe size={14} color="#00E5FF" />
-                                <Text style={styles.searchResultSource}>{result.source}</Text>
+                      <LinearGradient
+                        colors={
+                          index === toolEvents.length - 1 && currentTool === event.type 
+                            ? ['rgba(0, 229, 255, 0.15)', 'rgba(139, 92, 246, 0.08)']
+                            : ['rgba(30, 41, 59, 0.9)', 'rgba(15, 23, 42, 0.9)']
+                        }
+                        style={styles.toolEventGradient}
+                      >
+                        <View style={styles.toolEventHeader}>
+                          <View style={styles.toolIconWrapper}>
+                            {getToolIcon(event.type)}
+                          </View>
+                          <Text style={styles.toolEventText}>{event.message}</Text>
+                          {index === toolEvents.length - 1 && currentTool === event.type && (
+                            <ActivityIndicator size="small" color="#00E5FF" />
+                          )}
+                          </View>
+                        
+                        {/* Show search results if available */}
+                        {event.type === 'web_search' && searchResults.length > 0 && (
+                          <View style={styles.searchResultsContainer}>
+                            {searchResults.slice(0, 3).map((result, idx) => (
+                              <View key={idx} style={styles.searchResult}>
+                                <View style={styles.searchResultHeader}>
+                                  <Globe size={14} color="#00E5FF" />
+                                  <Text style={styles.searchResultSource}>{result.source}</Text>
+                                </View>
+                                <Text style={styles.searchResultTitle}>{result.title}</Text>
+                                <Text style={styles.searchResultSnippet} numberOfLines={2}>
+                                  {result.snippet}
+                                </Text>
                               </View>
-                              <Text style={styles.searchResultTitle}>{result.title}</Text>
-                              <Text style={styles.searchResultSnippet} numberOfLines={2}>
-                                {result.snippet}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
+                            ))}
+                          </View>
+                        )}
+                      </LinearGradient>
                     </Animated.View>
                   ))}
 
@@ -498,17 +544,114 @@ export default function AIParlayBuilder() {
                   )}
                 </>
               ) : parlayResult ? (
-                <View style={styles.resultContainer}>
-                  <Markdown style={markdownStyles}>
-                    {parlayResult}
-                  </Markdown>
-                </View>
+                <Animated.View 
+                  style={[
+                    styles.resultContainer,
+                    { opacity: fadeAnim }
+                  ]}
+                >
+                  {/* Success Header */}
+                  <LinearGradient
+                    colors={['rgba(16, 185, 129, 0.1)', 'rgba(0, 229, 255, 0.05)']}
+                    style={styles.successHeader}
+                  >
+                    <View style={styles.successContent}>
+                      <CheckCircle size={28} color="#10B981" />
+                      <View style={styles.successTextContainer}>
+                        <Text style={styles.successTitle}>Parlay Generated Successfully!</Text>
+                        <Text style={styles.successSubtitle}>
+                          Your {config.legs}-leg {config.riskLevel} parlay is ready
+                        </Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
+
+                  {/* Parlay Content */}
+                  <View style={styles.parlayContent}>
+                    <Markdown style={markdownStyles}>
+                      {parlayResult}
+                    </Markdown>
+                  </View>
+
+                  {/* Payout Calculator */}
+                  {totalOdds > 0 && (
+                    <View style={styles.payoutCalculator}>
+                      <View style={styles.payoutHeader}>
+                        <Calculator size={20} color="#00E5FF" />
+                        <Text style={styles.payoutTitle}>Quick Payout Calculator</Text>
+                      </View>
+                      <View style={styles.payoutInputRow}>
+                        <Text style={styles.payoutLabel}>Bet Amount:</Text>
+                        <View style={styles.payoutInputWrapper}>
+                          <Text style={styles.dollarSign}>$</Text>
+                          <TextInput
+                            style={styles.payoutInput}
+                            value={betAmount}
+                            onChangeText={setBetAmount}
+                            keyboardType="numeric"
+                            placeholder="10"
+                            placeholderTextColor="#64748B"
+                          />
+                        </View>
+                        <View style={styles.payoutResult}>
+                          <Text style={styles.payoutResultLabel}>To Win:</Text>
+                          <Text style={styles.payoutResultAmount}>
+                            ${((parseFloat(betAmount) || 0) * totalOdds).toFixed(2)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Action Buttons */}
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity 
+                      style={styles.copyButton}
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(parlayResult);
+                        // Optional: Add a toast notification here
+                      }}
+                    >
+                      <LinearGradient
+                        colors={['#8B5CF6', '#7C3AED']}
+                        style={styles.actionButtonGradient}
+                      >
+                        <Copy size={18} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Copy Parlay</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.shareButton}
+                      onPress={async () => {
+                        const shareMessage = `🎯 Check out my AI-generated parlay:\n\n${parlayResult}\n\n📱 Download Predictive Play for AI parlay building tools, daily picks and insights:\nhttps://apps.apple.com/us/app/predictive-play-ai-betting/id6748275790`;
+                        
+                        try {
+                          await Share.share({
+                            message: shareMessage,
+                            title: 'My AI Parlay'
+                          });
+                        } catch (error) {
+                          console.error('Error sharing:', error);
+                        }
+                      }}
+                    >
+                      <LinearGradient
+                        colors={['#00E5FF', '#0891B2']}
+                        style={styles.actionButtonGradient}
+                      >
+                        <Share2 size={18} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Share</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
               ) : null}
             </ScrollView>
           </Animated.View>
-        </View>
+        </LinearGradient>
       </Modal>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -586,18 +729,18 @@ const markdownStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#0F172A',
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: {
     padding: 16,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingBottom: 0,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -739,13 +882,15 @@ const styles = StyleSheet.create({
   bankrollTextActive: {
     color: '#00E5FF',
   },
+  generateButtonWrapper: {
+    marginTop: 16,
+  },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    margin: 16,
-    marginTop: 0,
+    marginHorizontal: 16,
     borderRadius: 12,
     gap: 8,
   },
@@ -756,15 +901,12 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: screenHeight * 0.85,
-    minHeight: screenHeight * 0.5,
+    flex: 1,
+  },
+  modalHeaderWrapper: {
+    paddingTop: Platform.OS === 'ios' ? 50 : 20, // Safe area for iOS
   },
   modalHeader: {
     flexDirection: 'row',
@@ -772,53 +914,125 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: 'rgba(0, 229, 255, 0.1)',
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   modalTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  modalIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00E5FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  modalTitleText: {
+    flex: 1,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
   closeButton: {
-    padding: 4,
+    padding: 0,
+  },
+  closeButtonGradient: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   modalScrollView: {
     flex: 1,
     padding: 20,
+    paddingBottom: 40,
   },
   introMessage: {
-    backgroundColor: '#1E293B',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)',
+  },
+  introMessageContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  introIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  introTextContainer: {
+    flex: 1,
+  },
+  introTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   introText: {
-    fontSize: 15,
-    color: '#CBD5E1',
-    lineHeight: 22,
+    fontSize: 14,
+    color: '#94A3B8',
   },
   toolEvent: {
-    backgroundColor: '#1E293B',
-    padding: 12,
     borderRadius: 12,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#00E5FF',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  toolEventActive: {
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)',
+  },
+  toolEventGradient: {
+    padding: 16,
   },
   toolEventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+  },
+  toolIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toolEventText: {
     fontSize: 14,
     color: '#CBD5E1',
     flex: 1,
+    fontWeight: '600',
   },
   searchResultsContainer: {
     marginTop: 12,
@@ -872,8 +1086,132 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   resultContainer: {
-    padding: 16,
+    flex: 1,
+  },
+  successHeader: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  successContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  successTextContainer: {
+    flex: 1,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 4,
+  },
+  parlayContent: {
     backgroundColor: '#1E293B',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    minHeight: 200,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 40, // Extra padding to avoid cutoff
+  },
+  copyButton: {
+    flex: 1,
+  },
+  shareButton: {
+    flex: 1,
+  },
+  actionButtonGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  payoutCalculator: {
+    backgroundColor: 'rgba(0, 229, 255, 0.05)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.1)',
+  },
+  payoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  payoutTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00E5FF',
+  },
+  payoutInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  payoutLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  payoutInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  dollarSign: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  payoutInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  payoutResult: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    minWidth: 100,
+  },
+  payoutResultLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 2,
+  },
+  payoutResultAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#10B981',
   },
 });

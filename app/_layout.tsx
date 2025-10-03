@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from '../hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
@@ -15,6 +15,7 @@ import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
+import { attService } from './services/attService';
 // ReviewDebugPanel removed (dev-only overlay disabled)
 // Removed deferred initialization to ensure ATT prompt appears immediately on launch
 import Constants from 'expo-constants';
@@ -30,36 +31,55 @@ function AppContent() {
   const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
   const { initializeReview } = useReview();
   const router = useRouter();
+  const appState = useRef(AppState.currentState);
+  const hasRequestedATT = useRef(false);
+
+  // Handle ATT permission when app becomes active (critical for iPad)
+  useEffect(() => {
+    const handleATTPermission = async () => {
+      if (Platform.OS !== 'ios') return;
+      if (hasRequestedATT.current) return;
+      
+      // Only request when app is active
+      if (AppState.currentState === 'active') {
+        console.log('📱 App is active, checking ATT...');
+        
+        // Use the dedicated ATT service for more robust handling
+        const status = await attService.checkAndRequestPermission();
+        if (status) {
+          hasRequestedATT.current = true;
+          console.log(`📱 ATT handled with status: ${status}`);
+          
+          // Initialize AppsFlyer after ATT
+          await appsFlyerService.initialize();
+          console.log('✅ AppsFlyer initialized after ATT');
+        }
+      }
+    };
+
+    // Handle app state changes (critical for iPad)
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('📱 App has come to foreground');
+        handleATTPermission();
+      }
+      appState.current = nextAppState;
+    });
+
+    // Initial ATT check
+    handleATTPermission();
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     // Initialize review service immediately (lightweight)
     initializeReview();
 
     (async () => {
-      // 1) ATT request must occur BEFORE any SDK that may access IDFA
-      try {
-        if (Platform.OS === 'ios') {
-          const { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } = await import('expo-tracking-transparency');
-          const current = await getTrackingPermissionsAsync();
-          if (current.status === 'undetermined') {
-            const { status } = await requestTrackingPermissionsAsync();
-            console.log(`📱 iOS ATT Status: ${status}`);
-          } else {
-            console.log(`📱 iOS ATT Existing Status: ${current.status}`);
-          }
-          // Initialize AppsFlyer AFTER ATT decision
-          await appsFlyerService.initialize();
-          console.log('✅ AppsFlyer initialized after ATT decision');
-        } else {
-          // Android - initialize AppsFlyer normally
-          await appsFlyerService.initialize();
-          console.log('✅ AppsFlyer initialized (Android)');
-        }
-      } catch (error) {
-        console.error('❌ ATT/AppsFlyer initialization error:', error);
-      }
-
-      // 2) Push notification registration (independent)
+      // Push notification registration (independent of ATT)
       try {
         const token = await registerForPushNotificationsAsync();
         if (token) {
@@ -70,6 +90,12 @@ function AppContent() {
         }
       } catch (err) {
         console.error('Push notification registration failed', err);
+      }
+      
+      // Initialize AppsFlyer for Android (iOS handled in ATT flow)
+      if (Platform.OS === 'android') {
+        await appsFlyerService.initialize();
+        console.log('✅ AppsFlyer initialized (Android)');
       }
     })();
   }, [initializeReview]);
