@@ -352,6 +352,10 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
           <Text style={styles.featureLabel}>📊 Live Analytics</Text>
           <Text style={styles.featureValue}>Real-time Updates</Text>
         </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>🤖 AI Parlay Builder</Text>
+          <Text style={selectedTier === 'elite' ? styles.featureValuePremium : styles.featureValue}>Included</Text>
+        </View>
         {selectedTier === 'elite' && (
           <View style={styles.featureRow}>
             <Text style={styles.featureLabel}>🎨 Ultra Customization</Text>

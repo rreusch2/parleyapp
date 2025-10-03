@@ -9,14 +9,13 @@ import {
   Dimensions,
   ActivityIndicator,
   Animated,
-  Vibration,
   Image,
   Platform,
-  TextInput,
   Share,
-  KeyboardAvoidingView,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import {
   Sparkles,
   TrendingUp,
@@ -38,15 +37,12 @@ import {
   BarChart,
   Brain,
   Flame,
-  Share2,
-  Calculator,
-  Copy
+  Share2
 } from 'lucide-react-native';
 import EventSource from 'react-native-sse';
 import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '../services/subscriptionContext';
 import { supabase } from '../services/api/supabaseClient';
-import * as Clipboard from 'expo-clipboard';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -83,32 +79,13 @@ export default function AIParlayBuilder() {
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [currentTool, setCurrentTool] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [betAmount, setBetAmount] = useState('10');
-  const [totalOdds, setTotalOdds] = useState<number>(0);
-  const [parlayLegs, setParlayLegs] = useState<any[]>([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-
-  // Pulse animation for the generate button
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, []);
+  const [betAmount, setBetAmount] = useState<string>('');
+  const [oddsType, setOddsType] = useState<'american' | 'decimal'>('american');
+  const [oddsInput, setOddsInput] = useState<string>('');
+  const [copied, setCopied] = useState<boolean>(false);
+  
 
   const getLegOptions = () => [
     { value: 2, label: '2-Leg', icon: '🎯' },
@@ -129,6 +106,26 @@ export default function AIParlayBuilder() {
     { value: 'team', label: 'Team Bets', icon: Trophy, color: '#00E5FF' },
     { value: 'mixed', label: 'Mixed', icon: Sparkles, color: '#F59E0B' },
   ];
+
+  // Pulse animation for the legacy Generate button
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, []);
 
   const generateParlay = async () => {
     if (!isPro && !isElite) {
@@ -188,20 +185,13 @@ export default function AIParlayBuilder() {
             message: data.message || getToolMessage(data.tool),
           };
           setToolEvents(prev => [...prev, toolEvent]);
-          // Remove vibration to prevent excessive haptic feedback
         } else if (data.type === 'tool_end') {
           setCurrentTool(null);
         } else if (data.type === 'search_results') {
           setSearchResults(data.results || []);
         } else if (data.type === 'complete') {
           setParlayResult(data.parlay);
-          setTotalOdds(data.totalOdds || 0);
-          setParlayLegs(data.legs || []);
           setGenerating(false);
-          // Prevent automatic scrolling
-          if (scrollViewRef.current) {
-            scrollViewRef.current.scrollTo({ y: 0, animated: false });
-          }
         }
       });
 
@@ -253,25 +243,45 @@ export default function AIParlayBuilder() {
   };
 
   return (
-    <LinearGradient
-      colors={['#1E293B', '#0F172A']}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <LinearGradient
-            colors={['#00E5FF', '#8B5CF6']}
-            style={styles.iconGradient}
-          >
-            <Sparkles size={24} color="#FFFFFF" />
-          </LinearGradient>
-          <View style={styles.titleText}>
-            <Text style={styles.title}>AI Parlay Builder</Text>
-            <Text style={styles.subtitle}>Powered by Grok intelligence</Text>
+      <LinearGradient
+        colors={['#1E293B', '#0F172A']}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.titleContainer}>
+            <LinearGradient
+              colors={['#00E5FF', '#8B5CF6']}
+              style={styles.iconGradient}
+            >
+              <Sparkles size={24} color="#FFFFFF" />
+            </LinearGradient>
+            <View style={styles.titleText}>
+              <Text style={styles.title}>AI Parlay Builder</Text>
+              <Text style={styles.subtitle}>Intelligent parlay generation</Text>
+            </View>
           </View>
+          {/* Header CTA */}
+          <TouchableOpacity onPress={generateParlay} disabled={generating}>
+            <LinearGradient
+              colors={['#00E5FF', '#8B5CF6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerCta}
+            >
+              {generating ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Sparkles size={18} color="#FFFFFF" />
+                  <Text style={styles.headerCtaText}>Generate</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Configuration Section */}
       <View style={styles.configSection}>
@@ -286,10 +296,7 @@ export default function AIParlayBuilder() {
                   styles.legOption,
                   config.legs === option.value && styles.legOptionActive
                 ]}
-                onPress={() => {
-                  setConfig({ ...config, legs: option.value });
-                  Vibration.vibrate(10);
-                }}
+                onPress={() => setConfig({ ...config, legs: option.value })}
               >
                 <Text style={styles.legEmoji}>{option.icon}</Text>
                 <Text style={[
@@ -317,10 +324,7 @@ export default function AIParlayBuilder() {
                     config.riskLevel === option.value && styles.riskOptionActive,
                     config.riskLevel === option.value && { borderColor: option.color }
                   ]}
-                  onPress={() => {
-                    setConfig({ ...config, riskLevel: option.value as any });
-                    Vibration.vibrate(10);
-                  }}
+                  onPress={() => setConfig({ ...config, riskLevel: option.value as any })}
                 >
                   <Icon size={24} color={config.riskLevel === option.value ? option.color : '#64748B'} />
                   <Text style={[
@@ -350,10 +354,7 @@ export default function AIParlayBuilder() {
                     config.betType === option.value && styles.betTypeOptionActive,
                     config.betType === option.value && { borderColor: option.color }
                   ]}
-                  onPress={() => {
-                    setConfig({ ...config, betType: option.value as any });
-                    Vibration.vibrate(10);
-                  }}
+                  onPress={() => setConfig({ ...config, betType: option.value as any })}
                 >
                   <Icon size={20} color={config.betType === option.value ? option.color : '#64748B'} />
                   <Text style={[
@@ -368,30 +369,32 @@ export default function AIParlayBuilder() {
           </View>
         </View>
 
-        {/* Generate Button */}
-        <TouchableOpacity onPress={generateParlay} disabled={generating} style={styles.generateButtonWrapper}>
-          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-            <LinearGradient
-              colors={isPro || isElite ? ['#00E5FF', '#8B5CF6', '#F59E0B'] : ['#64748B', '#475569']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.generateButton}
-            >
-              {generating ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Sparkles size={24} color="#FFFFFF" />
-                  <Text style={styles.generateButtonText}>
-                    {isPro || isElite ? 'Generate Parlay' : 'Pro Feature'}
-                  </Text>
-                  <ChevronRight size={20} color="#FFFFFF" />
-                </>
-              )}
-            </LinearGradient>
-          </Animated.View>
-        </TouchableOpacity>
+        {/* Bankroll selection removed */}
       </View>
+
+      {/* Generate Button (legacy placement) */}
+      <TouchableOpacity onPress={generateParlay} disabled={generating}>
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <LinearGradient
+            colors={isPro || isElite ? ['#00E5FF', '#8B5CF6', '#F59E0B'] : ['#64748B', '#475569']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.generateButton}
+          >
+            {generating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Sparkles size={24} color="#FFFFFF" />
+                <Text style={styles.generateButtonText}>
+                  {isPro || isElite ? 'Generate Parlay' : 'Pro Feature'}
+                </Text>
+                <ChevronRight size={20} color="#FFFFFF" />
+              </>
+            )}
+          </LinearGradient>
+        </Animated.View>
+      </TouchableOpacity>
 
       {/* Parlay Generation Modal - Full Screen */}
       <Modal
@@ -447,11 +450,12 @@ export default function AIParlayBuilder() {
             </View>
 
             {/* Content Area */}
-            <ScrollView 
-              ref={scrollViewRef}
-              style={styles.modalScrollView} 
+            <ScrollView
+              style={styles.modalScrollView}
               showsVerticalScrollIndicator={false}
-              scrollEnabled={!generating} // Disable scrolling while generating to prevent jumps
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             >
               {generating ? (
                 <>
@@ -574,66 +578,116 @@ export default function AIParlayBuilder() {
                   </View>
 
                   {/* Payout Calculator */}
-                  {totalOdds > 0 && (
-                    <View style={styles.payoutCalculator}>
-                      <View style={styles.payoutHeader}>
-                        <Calculator size={20} color="#00E5FF" />
-                        <Text style={styles.payoutTitle}>Quick Payout Calculator</Text>
+                  <View style={styles.calculatorCard}>
+                    <Text style={styles.calculatorTitle}>Payout Calculator</Text>
+                    <Text style={styles.calculatorSubtitle}>Enter your wager and combined odds to see potential payout.</Text>
+
+                    {/* Odds Type Toggle */}
+                    <View style={styles.oddsTypeRow}>
+                      <TouchableOpacity
+                        style={[styles.oddsTypeBtn, oddsType === 'american' && styles.oddsTypeBtnActive]}
+                        onPress={() => setOddsType('american')}
+                      >
+                        <Text style={[styles.oddsTypeText, oddsType === 'american' && styles.oddsTypeTextActive]}>American (+250 / -120)</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.oddsTypeBtn, oddsType === 'decimal' && styles.oddsTypeBtnActive]}
+                        onPress={() => setOddsType('decimal')}
+                      >
+                        <Text style={[styles.oddsTypeText, oddsType === 'decimal' && styles.oddsTypeTextActive]}>Decimal (3.50)</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Inputs */}
+                    <View style={styles.calcInputsRow}>
+                      <View style={styles.calcInputCol}>
+                        <Text style={styles.calcLabel}>Wager ($)</Text>
+                        <TextInput
+                          value={betAmount}
+                          onChangeText={setBetAmount}
+                          placeholder="25"
+                          placeholderTextColor="#64748B"
+                          keyboardType="numeric"
+                          style={styles.calcTextInput}
+                        />
                       </View>
-                      <View style={styles.payoutInputRow}>
-                        <Text style={styles.payoutLabel}>Bet Amount:</Text>
-                        <View style={styles.payoutInputWrapper}>
-                          <Text style={styles.dollarSign}>$</Text>
-                          <TextInput
-                            style={styles.payoutInput}
-                            value={betAmount}
-                            onChangeText={setBetAmount}
-                            keyboardType="numeric"
-                            placeholder="10"
-                            placeholderTextColor="#64748B"
-                          />
-                        </View>
-                        <View style={styles.payoutResult}>
-                          <Text style={styles.payoutResultLabel}>To Win:</Text>
-                          <Text style={styles.payoutResultAmount}>
-                            ${((parseFloat(betAmount) || 0) * totalOdds).toFixed(2)}
-                          </Text>
-                        </View>
+                      <View style={styles.calcInputCol}>
+                        <Text style={styles.calcLabel}>Combined Odds</Text>
+                        <TextInput
+                          value={oddsInput}
+                          onChangeText={setOddsInput}
+                          placeholder={oddsType === 'american' ? '+250' : '3.50'}
+                          placeholderTextColor="#64748B"
+                          keyboardType="default"
+                          style={styles.calcTextInput}
+                        />
                       </View>
                     </View>
-                  )}
+
+                    {/* Results */}
+                    <View style={styles.calcResultsRow}>
+                      {(() => {
+                        const wager = parseFloat(betAmount || '0');
+                        const oddsVal = parseFloat((oddsInput || '').replace(/[^0-9.-]/g, ''));
+                        let payout = 0;
+                        if (!isNaN(wager) && !isNaN(oddsVal) && wager > 0) {
+                          if (oddsType === 'american') {
+                            if ((oddsInput || '').trim().startsWith('-')) {
+                              payout = wager * (100 / Math.abs(oddsVal));
+                            } else {
+                              payout = wager * (oddsVal / 100);
+                            }
+                          } else {
+                            // decimal odds
+                            payout = wager * (oddsVal - 1);
+                          }
+                        }
+                        const totalReturn = wager + payout;
+                        return (
+                          <>
+                            <View style={styles.resultPill}>
+                              <Text style={styles.resultPillLabel}>Payout</Text>
+                              <Text style={styles.resultPillValue}>${Number.isFinite(payout) ? payout.toFixed(2) : '0.00'}</Text>
+                            </View>
+                            <View style={styles.resultPill}>
+                              <Text style={styles.resultPillLabel}>Total Return</Text>
+                              <Text style={styles.resultPillValue}>${Number.isFinite(totalReturn) ? totalReturn.toFixed(2) : '0.00'}</Text>
+                            </View>
+                          </>
+                        );
+                      })()}
+                    </View>
+                  </View>
 
                   {/* Action Buttons */}
                   <View style={styles.actionButtons}>
                     <TouchableOpacity 
                       style={styles.copyButton}
                       onPress={async () => {
-                        await Clipboard.setStringAsync(parlayResult);
-                        // Optional: Add a toast notification here
+                        const text = parlayResult || streamingText || '';
+                        if (!text) return;
+                        try {
+                          await Clipboard.setStringAsync(text);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1200);
+                        } catch (e) {
+                          console.warn('Clipboard copy failed', e);
+                        }
                       }}
                     >
                       <LinearGradient
                         colors={['#8B5CF6', '#7C3AED']}
                         style={styles.actionButtonGradient}
                       >
-                        <Copy size={18} color="#FFFFFF" />
-                        <Text style={styles.actionButtonText}>Copy Parlay</Text>
+                        <Text style={styles.actionButtonText}>{copied ? 'Copied!' : 'Copy Parlay'}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                     
                     <TouchableOpacity 
-                      style={styles.shareButton}
+                      style={styles.regenerateButton}
                       onPress={async () => {
-                        const shareMessage = `🎯 Check out my AI-generated parlay:\n\n${parlayResult}\n\n📱 Download Predictive Play for AI parlay building tools, daily picks and insights:\nhttps://apps.apple.com/us/app/predictive-play-ai-betting/id6748275790`;
-                        
-                        try {
-                          await Share.share({
-                            message: shareMessage,
-                            title: 'My AI Parlay'
-                          });
-                        } catch (error) {
-                          console.error('Error sharing:', error);
-                        }
+                        const text = `${parlayResult}\n\nDownload Predictive Play for AI Parlay building tools, daily AI picks and insights, and more: https://apps.apple.com/us/app/predictive-play-ai-betting/id6748275790`;
+                        try { await Share.share({ message: text }); } catch {}
                       }}
                     >
                       <LinearGradient
@@ -651,7 +705,7 @@ export default function AIParlayBuilder() {
           </Animated.View>
         </LinearGradient>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -660,6 +714,19 @@ const markdownStyles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#E2E8F0',
+  },
+  imageWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 0,
+  },
+  image: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    marginLeft: 6,
+    marginRight: 8,
+    top: 2,
   },
   heading1: {
     fontSize: 24,
@@ -729,18 +796,18 @@ const markdownStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#0F172A',
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   header: {
     padding: 16,
-    paddingBottom: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   titleContainer: {
     flexDirection: 'row',
@@ -882,15 +949,13 @@ const styles = StyleSheet.create({
   bankrollTextActive: {
     color: '#00E5FF',
   },
-  generateButtonWrapper: {
-    marginTop: 16,
-  },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    marginHorizontal: 16,
+    margin: 16,
+    marginTop: 0,
     borderRadius: 12,
     gap: 8,
   },
@@ -968,7 +1033,7 @@ const styles = StyleSheet.create({
   modalScrollView: {
     flex: 1,
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   introMessage: {
     padding: 16,
@@ -1124,12 +1189,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 20,
-    paddingBottom: 40, // Extra padding to avoid cutoff
+    paddingBottom: 20,
   },
   copyButton: {
     flex: 1,
   },
-  shareButton: {
+  regenerateButton: {
     flex: 1,
   },
   actionButtonGradient: {
@@ -1146,72 +1211,109 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  payoutCalculator: {
-    backgroundColor: 'rgba(0, 229, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    marginHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.1)',
-  },
-  payoutHeader: {
+  // Header CTA button
+  headerCta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
   },
-  payoutTitle: {
+  headerCtaText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  // Calculator styles
+  calculatorCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.15)',
+    marginBottom: 20,
+  },
+  calculatorTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#00E5FF',
+    color: '#E2E8F0',
+    marginBottom: 4,
   },
-  payoutInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  payoutLabel: {
-    fontSize: 14,
-    color: '#94A3B8',
-    fontWeight: '600',
-  },
-  payoutInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  dollarSign: {
-    fontSize: 16,
-    color: '#10B981',
-    fontWeight: '600',
-    marginRight: 4,
-  },
-  payoutInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  payoutResult: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    minWidth: 100,
-  },
-  payoutResultLabel: {
+  calculatorSubtitle: {
     fontSize: 12,
     color: '#94A3B8',
-    marginBottom: 2,
+    marginBottom: 12,
   },
-  payoutResultAmount: {
+  oddsTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  oddsTypeBtn: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  oddsTypeBtnActive: {
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
+    borderColor: '#00E5FF',
+  },
+  oddsTypeText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  oddsTypeTextActive: {
+    color: '#00E5FF',
+  },
+  calcInputsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  calcInputCol: {
+    flex: 1,
+  },
+  calcLabel: {
+    color: '#94A3B8',
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  calcTextInput: {
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#0B1220',
+    borderWidth: 1,
+    borderColor: '#334155',
+    color: '#E2E8F0',
+    paddingHorizontal: 12,
+  },
+  calcResultsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  resultPill: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  resultPillLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  resultPillValue: {
     fontSize: 18,
+    color: '#00E5FF',
     fontWeight: '700',
-    color: '#10B981',
   },
 });

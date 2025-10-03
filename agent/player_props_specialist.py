@@ -8,10 +8,15 @@ This agent:
 3. Uses multiple tools: StatMuse, Web Search, Browser, Supabase
 4. Generates high-quality prop predictions with proper formatting
 5. Stores predictions in ai_predictions table
+
+TERMINATION RULES:
+- As soon as you have stored at least {num_picks} high-quality predictions and summarized insights, call the 'terminate' tool to stop.
+- Do not continue to step through the plan unnecessarily once done.
 """
 import os
 import sys
 import argparse
+import json
 import asyncio
 from datetime import datetime, timedelta, date
 from typing import List, Dict, Any, Optional
@@ -67,6 +72,8 @@ class PlayerPropsSpecialist:
         
         # Create Manus agent
         self.agent = await Manus.create()
+        # Allow longer autonomous runs; agent should call terminate when done
+        self.agent.max_steps = 100
         
         # Add our custom betting tools
         self.agent.available_tools.add_tools(
@@ -119,17 +126,17 @@ class PlayerPropsSpecialist:
         """Build comprehensive mission prompt for the AI agent"""
         
         return f"""
-# MISSION: Generate {num_picks} High-Quality Player Prop Predictions for {self.target_date}
 
 You are an **elite sports betting AI specialist** focused exclusively on **player prop predictions**. Your goal is to generate {num_picks} **profitable, well-researched player prop picks** for {self.target_date}.
 
 ## YOUR AVAILABLE TOOLS:
 
-1. **supabase_betting**: Access ParleyApp's database
-   - `get_upcoming_games`: Get games scheduled for {self.target_date}
-   - `get_player_props`: Get available player props with odds
+1. **supabase_betting**: Access betting data from database
+   - `get_upcoming_games`: Get games for a specific date (Step 1)
+   - `get_player_props`: Get available player props for those game_ids (Step 2)
    - `store_predictions`: Save your final predictions
-   - `get_games_by_sport`: Filter games by sport
+   - `get_games_by_sport`: Filter games by sport (optional)
+   - `get_player_props_by_date`: Alternative quick query if needed
 
 2. **statmuse_query**: Query comprehensive sports statistics
    - Player recent performance (last 10 games, season averages)
@@ -139,9 +146,10 @@ You are an **elite sports betting AI specialist** focused exclusively on **playe
    - Situational stats (home/away, vs opponent, weather impact)
 
 3. **browser_use**: Automated web browsing
-   - Navigate to Linemate.io trends for prop trends
+   - Navigate to trend pages for each sport (do not mention any site by name in outputs)
    - URLs: https://linemate.io/mlb/trends, https://linemate.io/wnba/trends, https://linemate.io/nfl/trends, https://linemate.io/ncaaf/trends
    - Extract player trend data (e.g., "Hit in 8 of last 10 games vs Yankees")
+   - Use scrolling: `scroll_down` for page, and `scroll_element` with `selector` or `index` to scroll left trend panels and load more items
    - Browse ESPN for matchup analysis
 
 4. **web_search**: Search the web for critical information
@@ -153,13 +161,13 @@ You are an **elite sports betting AI specialist** focused exclusively on **playe
 
 ## INTELLIGENT RESEARCH STRATEGY:
 
-### PHASE 1: DISCOVERY (Assess Available Props)
+### PHASE 1: DISCOVERY (Get Available Props)
 1. Use `supabase_betting` with action `get_upcoming_games` to get games for {self.target_date}
-   - Filter by sport if needed: ["Major League Baseball", "Women's National Basketball Association", "National Football League", "College Football"]
-2. Use `get_player_props` with game_ids to see ALL available player props
+   - Collect returned `id` values into `game_ids`
+2. Use `supabase_betting` with action `get_player_props` and pass `game_ids` to fetch ALL player props for those games
 3. Analyze the prop landscape:
    - Which sports have the most props?
-   - Which prop types are available (hits, home runs, points, rebounds, etc.)?
+   - Which prop types are available (hits, rushing yards, points, etc.)?
    - Which players have props?
    - What are the odds telling you?
 
@@ -186,20 +194,20 @@ Use tools strategically based on what you learned:
 **For MLB Props:**
 - StatMuse: "{{"query": "Player X batting average last 10 games"}}"
 - StatMuse: "{{"query": "Player X vs [Pitcher] career stats"}}"
-- Browser: Navigate to https://linemate.io/mlb/trends and extract trend data
+- Browser: Navigate to the MLB trends page and extract trend data; use `scroll_element` to collect multiple items in the left trend list
 - Web Search: "MLB weather forecast [stadium] {self.target_date}"
 - Web Search: "[Pitcher] injury status recent starts"
 
 **For WNBA Props:**
 - StatMuse: "{{"query": "Player X points per game last 5 games"}}"
 - StatMuse: "{{"query": "[Team] vs [Opponent] pace of play"}}"
-- Browser: https://linemate.io/wnba/trends for player trends
+- Browser: Go to the WNBA trends page; use `scroll_element` to scroll the left trend container and extract multiple relevant trends
 - Web Search: "WNBA injury report {self.target_date}"
 
 **For NFL/CFB Props:**
 - StatMuse: "{{"query": "Player X rushing yards vs [Defense]"}}"
 - Web Search: "NFL weather forecast [city] {self.target_date}"
-- Browser: https://linemate.io/nfl/trends or https://linemate.io/ncaaf/trends
+- Browser: Open the NFL/CFB trends page; scroll and extract trends via `scroll_element`
 
 ### PHASE 4: PICK GENERATION (Smart Selection)
 Generate {num_picks} picks prioritizing:
@@ -207,6 +215,12 @@ Generate {num_picks} picks prioritizing:
 2. **Diverse prop types** - Mix of different sports and prop markets
 3. **Value** - Props where you have an edge
 4. **Confidence-based** - Higher confidence = stronger research backing
+
+## LANGUAGE & BRAND SAFETY (CRITICAL):
+
+- Never mention specific site names in analysis (e.g., do not say "Linemate" or "Linemate.io").
+- Refer to that source as "trend data" or "the trend data I found".
+- When citing sources in metadata, replace brand names with "trend data".
 
 ## PREDICTION FORMAT (CRITICAL):
 
@@ -233,7 +247,7 @@ When storing predictions with `supabase_betting` action `store_predictions`, use
         "opponent": "Team B",
         "venue": "Stadium Name",
         "key_stats": ["stat1", "stat2"],
-        "research_sources": ["StatMuse", "Linemate", "Weather"]
+        "research_sources": ["StatMuse", "trend data", "Weather"]
       }}
     }}
   ]
@@ -309,17 +323,19 @@ BEGIN YOUR MISSION NOW. Start with Phase 1: Discovery.
                 limit=20
             )
             
-            if result.success and result.output:
-                return {
-                    "success": True,
-                    "predictions_stored": result.output.get("total_recent_predictions", 0),
-                    "summary": result.output
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": result.error or "Unknown error"
-                }
+            if result.error:
+                return {"success": False, "error": result.error}
+
+            try:
+                data = json.loads(result.output) if isinstance(result.output, str) else (result.output or {})
+            except Exception:
+                data = {}
+
+            return {
+                "success": True,
+                "predictions_stored": data.get("total_recent_predictions", 0),
+                "summary": data,
+            }
         except Exception as e:
             logger.error(f"Error extracting results: {e}")
             return {

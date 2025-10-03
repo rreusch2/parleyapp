@@ -13,7 +13,6 @@ interface ParlayConfig {
   legs: number;
   riskLevel: 'safe' | 'balanced' | 'risky';
   betType: 'player' | 'team' | 'mixed';
-  bankrollPercentage: number;
 }
 
 interface ParlayRequest {
@@ -98,7 +97,7 @@ export class ParlayOrchestrator {
 
       // Tool 5: Web search for latest insights
       onChunk({ type: 'tool_start', tool: 'web_search', message: 'Searching for breaking news and insider insights...' });
-      const searchResults = await this.performWebSearch(request.config, todaysGames);
+      const searchResults = await this.performWebSearch(request.config, todaysGames, aiPredictions, playerProps);
       onChunk({ 
         type: 'search_results', 
         results: searchResults.map(r => ({
@@ -320,38 +319,77 @@ export class ParlayOrchestrator {
     return results;
   }
 
-  private async performWebSearch(config: ParlayConfig, games: any[]): Promise<GoogleSearchResult[]> {
+  private async performWebSearch(
+    config: ParlayConfig,
+    games: any[],
+    predictions: any[] = [],
+    props: any[] = []
+  ): Promise<GoogleSearchResult[]> {
     try {
-      // Build search query based on context
-      let searchQuery = 'today betting picks ';
-      
-      if (games.length > 0) {
-        const sports = [...new Set(games.map(g => g.sport))];
-        searchQuery += sports.slice(0, 2).join(' ') + ' ';
-      }
-      
-      if (config.betType === 'player') {
-        searchQuery += 'player props ';
-      } else if (config.betType === 'team') {
-        searchQuery += 'moneyline spread ';
-      }
-      
-      searchQuery += config.riskLevel === 'safe' ? 'best bets' : 'value picks';
+      // Build intelligent, context-aware queries (avoid generic picks/predictions)
+      const queries = new Set<string>();
 
-      const url = `https://www.googleapis.com/customsearch/v1?key=${this.googleApiKey}&cx=${this.googleSearchEngineId}&q=${encodeURIComponent(searchQuery)}&num=5`;
-      
-      const response = await axios.get(url);
-      
-      if (response.data?.items) {
-        return response.data.items.map((item: any) => ({
-          title: item.title,
-          snippet: item.snippet,
-          link: item.link,
-          displayLink: item.displayLink
-        }));
+      const topGames = games.slice(0, 3);
+      for (const g of topGames) {
+        const sport = (g.sport || '').toString().toLowerCase();
+        queries.add(`${g.home_team} injuries today`);
+        queries.add(`${g.away_team} injuries today`);
+        if (sport.includes('baseball')) {
+          queries.add(`${g.home_team} lineup today`);
+          queries.add(`${g.away_team} lineup today`);
+          queries.add(`${g.home_team} vs ${g.away_team} weather`);
+          queries.add(`probable pitchers ${g.home_team}`);
+        } else if (sport.includes('basketball')) {
+          queries.add(`${g.home_team} vs ${g.away_team} injuries`);
+          queries.add(`${g.home_team} minutes restriction`);
+          queries.add(`${g.away_team} minutes restriction`);
+        } else if (sport.includes('mma') || sport.includes('ufc')) {
+          queries.add(`${g.home_team} vs ${g.away_team} weigh-in results`);
+          queries.add(`${g.home_team} vs ${g.away_team} late replacement`);
+        }
       }
-      
-      return [];
+
+      // Add player-specific items if available
+      const topProps = (props || []).slice(0, 3);
+      for (const p of topProps) {
+        const name = p?.players?.player_name;
+        if (name) {
+          queries.add(`${name} injury status today`);
+          queries.add(`${name} starting lineup`);
+        }
+      }
+
+      const topPreds = (predictions || []).slice(0, 2);
+      for (const pred of topPreds) {
+        if (typeof pred?.match_teams === 'string' && pred.match_teams.includes('vs')) {
+          queries.add(`${pred.match_teams} weather today`);
+          queries.add(`${pred.match_teams} injury report`);
+        }
+      }
+
+      // Clean and limit queries, avoiding "picks"/"predictions" noise
+      const cleaned = Array.from(queries)
+        .filter(q => !/(^|\s)(picks?|predictions?)(\s|$)/i.test(q))
+        .slice(0, 6);
+
+      const results: GoogleSearchResult[] = [];
+      for (const q of cleaned) {
+        const query = `${q} -picks -predictions -parlay`;
+        const url = `https://www.googleapis.com/customsearch/v1?key=${this.googleApiKey}&cx=${this.googleSearchEngineId}&q=${encodeURIComponent(query)}&num=1`;
+        const response = await axios.get(url);
+        if (response.data?.items && response.data.items.length > 0) {
+          const item = response.data.items[0];
+          results.push({
+            title: item.title,
+            snippet: item.snippet,
+            link: item.link,
+            displayLink: item.displayLink,
+          });
+        }
+        if (results.length >= 5) break;
+      }
+
+      return results;
     } catch (error) {
       logger.error('Web search failed:', error);
       return [];
@@ -367,19 +405,10 @@ export class ParlayOrchestrator {
     searchResults: GoogleSearchResult[],
     currentDate: string
   ): string {
-    return `Build a ${config.legs}-leg parlay for ${currentDate} with the following requirements:
-    
-Risk Level: ${config.riskLevel}
-- Safe: High confidence picks (65%+ confidence), lower odds but more likely to hit
-- Balanced: Mix of safe and value picks (55-70% confidence)  
-- Risky: High risk/reward picks, longer odds, potential big payout
+    return `Build a ${config.legs}-leg parlay for ${currentDate}. Keep it concise, clear, and impactful.
 
-Bet Type: ${config.betType}
-- Player: Focus on player prop bets
-- Team: Focus on moneyline, spread, and totals
-- Mixed: Combination of both
-
-Bankroll: ${config.bankrollPercentage}% allocation (${config.bankrollPercentage <= 1 ? 'conservative' : 'aggressive'} sizing)
+Risk Profile: ${config.riskLevel}
+Bet Type Focus: ${config.betType}
 
 AVAILABLE DATA:
 
@@ -388,7 +417,7 @@ ${games.slice(0, 10).map(g => `- ${g.away_team} @ ${g.home_team} (${g.sport}) - 
 
 ${props.length > 0 ? `
 PLAYER PROPS (${props.length} available):
-${props.slice(0, 15).map(p => `- ${p.players?.player_name} (${p.players?.team}): ${p.player_prop_types?.prop_name} ${p.line > 0 ? 'Over' : 'Under'} ${Math.abs(p.line)} @ ${p.over_odds || p.under_odds}${p.headshot_url ? ` [headshot: ${p.headshot_url}]` : ''}`).join('\n')}
+${props.slice(0, 15).map(p => `- ${p.players?.player_name} (${p.players?.team}): ${p.player_prop_types?.prop_name} ${p.line > 0 ? 'Over' : 'Under'} ${Math.abs(p.line)} @ ${p.over_odds || p.under_odds}${p.headshot_url ? ` ![](${p.headshot_url})` : ''}`).join('\n')}
 ` : ''}
 
 TOP AI PREDICTIONS (by confidence):
@@ -401,44 +430,37 @@ WEB SEARCH INSIGHTS:
 ${searchResults.slice(0, 3).map(r => `- ${r.title}: ${r.snippet}`).join('\n')}
 
 INSTRUCTIONS:
-1. Select exactly ${config.legs} legs that fit the risk profile
-2. For each leg, include:
-   - **Pick**: Team/player and specific bet
-   - **Odds**: Current odds (use realistic odds from the data)
-   - **Confidence**: Your confidence level (%)
-   - **Reasoning**: Brief explanation why this is a good pick
-   - For player props with headshots, include the image using: ![Player Name](headshot_url)
-3. Calculate combined parlay odds and potential payout
-4. Provide overall parlay analysis and edge explanation
-5. Format the response in clean Markdown with proper headers and formatting
-6. Use emojis sparingly but effectively (🔥 for hot picks, ⚡ for value, 🎯 for locks)
-7. End with bankroll management advice for this specific parlay
+1. Select exactly ${config.legs} legs.
+2. For each leg, provide ONE short bullet (12–20 words):
+   - **Pick** (bold) with odds, plus 1 key stat/context that justifies the edge.
+   - If a headshot URL is provided, include it inline next to the player name via ![](url). If none, do not mention headshots.
+3. After legs, include a brief "Why this parlay works" section (2–3 bullets) summarizing the edge.
+4. Use clean Markdown with headers and bullets. No payout math, no bankroll advice, no lengthy paragraphs.
 
-Be specific, use actual data from above, and format beautifully in Markdown.`;
+Be specific, use only the provided data, and keep the writing tight and readable.`;
   }
-
   private getSystemPrompt(): string {
     return `You are Professor Lock, the world's sharpest AI sports betting expert. You specialize in building intelligent, data-driven parlays that find real edges in the market.
 
 Your expertise includes:
-- Advanced statistical analysis and predictive modeling
-- Understanding line movements and finding value
-- Bankroll management and Kelly Criterion
-- Identifying correlated and uncorrelated legs
-- Risk assessment and probability calculation
+ Advanced statistical analysis and predictive modeling
+ Understanding line movements and finding value
+ Identifying correlated and uncorrelated legs
+ Risk assessment and probability calculation
 
 Communication style:
 - Professional but engaging
 - Use betting terminology naturally (juice, vig, sharp money, etc.)
 - Bold all picks, odds, and key numbers
 - Be confident in your analysis but honest about risk
-- Keep explanations concise but insightful
+ Keep explanations concise and impactful (no fluff, 1–2 lines per leg)
+ Do not calculate payouts or provide bankroll advice.
+ Never mention when a headshot is unavailable; only include them if provided.
 
 Format all responses in clean, readable Markdown with:
 - Clear headers for each section
 - Bold for picks and important numbers
 - Bullet points for leg breakdowns
-- Tables for odds calculations when helpful
 - Emojis sparingly for emphasis (🔥 for hot picks, ⚡ for value, 🎯 for locks)
 
 Never make up data - only use the provided information. If data is missing, work with what's available.`;

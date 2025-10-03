@@ -39,7 +39,8 @@ class SupabaseBettingTool(BaseTool):
                 "enum": [
                     "get_upcoming_games", 
                     "get_team_odds", 
-                    "get_player_props", 
+                    "get_player_props",
+                    "get_player_props_by_date",
                     "store_predictions",
                     "get_recent_predictions",
                     "get_games_by_sport"
@@ -66,6 +67,24 @@ class SupabaseBettingTool(BaseTool):
             },
             "predictions": {
                 "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "match_teams": {"type": "string"},
+                        "pick": {"type": "string"},
+                        "odds": {"type": "string"},
+                        "confidence": {"type": "integer"},
+                        "sport": {"type": "string"},
+                        "bet_type": {"type": "string"},
+                        "prop_market_type": {"type": "string"},
+                        "event_time": {"type": "string"},
+                        "reasoning": {"type": "string"},
+                        "value_percentage": {"type": "number"},
+                        "roi_estimate": {"type": "number"},
+                        "metadata": {"type": "object"}
+                    },
+                    "required": ["match_teams", "pick", "odds", "confidence", "sport"]
+                },
                 "description": "Array of prediction objects to store in ai_predictions table"
             },
             "limit": {
@@ -126,6 +145,8 @@ class SupabaseBettingTool(BaseTool):
                 return await self._get_team_odds(kwargs)
             elif action == "get_player_props":
                 return await self._get_player_props(kwargs)
+            elif action == "get_player_props_by_date":
+                return await self._get_player_props_by_date(kwargs)
             elif action == "store_predictions":
                 return await self._store_predictions(kwargs)
             elif action == "get_recent_predictions":
@@ -353,12 +374,9 @@ class SupabaseBettingTool(BaseTool):
         try:
             # Query player props with joins
             response = self._supabase.table("player_props_odds").select(
-                """
-                id, line, over_odds, under_odds, event_id,
-                players!inner(name, player_name, team),
-                player_prop_types!inner(prop_name),
-                bookmakers!inner(bookmaker_name)
-                """
+                "id, line, over_odds, under_odds, event_id, "
+                "players(name, player_name, team), "
+                "player_prop_types(prop_name)"
             ).in_("event_id", game_ids).limit(limit).execute()
             
             props = []
@@ -370,7 +388,7 @@ class SupabaseBettingTool(BaseTool):
                         continue
                     
                     prop_data = {
-                        "prop_id": row["id"],
+                        "prop_id": row.get("id"),
                         "event_id": row["event_id"],
                         "player_name": player_name,
                         "team": row["players"].get("team", "Unknown"),
@@ -378,7 +396,7 @@ class SupabaseBettingTool(BaseTool):
                         "line": float(row["line"]) if row["line"] else None,
                         "over_odds": int(float(row["over_odds"])) if row["over_odds"] else None,
                         "under_odds": int(float(row["under_odds"])) if row["under_odds"] else None,
-                        "bookmaker": row["bookmakers"]["bookmaker_name"] if row.get("bookmakers") else "Unknown"
+                        "bookmaker": "Unknown"
                     }
                     props.append(prop_data)
             
@@ -404,6 +422,95 @@ class SupabaseBettingTool(BaseTool):
         except Exception as e:
             return self.fail_response(f"Error fetching player props: {str(e)}")
 
+    async def _get_player_props_by_date(self, params: Dict) -> ToolResult:
+        """Get player props directly by date (queries player_props_odds table)"""
+        
+        # Determine target date
+        date_str = params.get("date")
+        target_date = None
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                return self.fail_response(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
+        elif self._forced_date:
+            target_date = self._forced_date
+        else:
+            target_date = date.today()
+        
+        limit = params.get("limit", 100)
+        
+        try:
+            # Query player props updated recently (within last 24 hours of target date)
+            # Since player_props_odds.last_update is when the prop was last updated,
+            # we look for props updated on or after the target date
+            target_datetime_start = datetime.combine(target_date, datetime.min.time())
+            start_iso = target_datetime_start.isoformat() + "Z"
+            
+            logger.info(f"Querying player props with last_update >= {start_iso}")
+            
+            # Query player props with joins
+            response = self._supabase.table("player_props_odds").select(
+                """
+                id, line, over_odds, under_odds, event_id, last_update,
+                players!inner(name, player_name, team),
+                player_prop_types!inner(prop_name),
+                bookmakers(bookmaker_name)
+                """
+            ).gte("last_update", start_iso).order("last_update", desc=True).limit(limit).execute()
+            
+            props = []
+            for row in response.data:
+                if row.get("players") and row.get("player_prop_types"):
+                    # Use full name if available, fallback to player_name
+                    player_name = row["players"].get("name") or row["players"].get("player_name")
+                    if not player_name:
+                        continue
+                    
+                    prop_data = {
+                        "prop_id": row["id"],
+                        "event_id": row["event_id"],
+                        "player_name": player_name,
+                        "team": row["players"].get("team", "Unknown"),
+                        "prop_type": row["player_prop_types"]["prop_name"],
+                        "line": float(row["line"]) if row["line"] else None,
+                        "over_odds": int(float(row["over_odds"])) if row["over_odds"] else None,
+                        "under_odds": int(float(row["under_odds"])) if row["under_odds"] else None,
+                        "bookmaker": row["bookmakers"]["bookmaker_name"] if row.get("bookmakers") else "FanDuel",
+                        "last_update": row.get("last_update")
+                    }
+                    props.append(prop_data)
+            
+            # Group props by sport and prop type for analysis
+            props_by_sport = {}
+            props_by_type = {}
+            for prop in props:
+                # Infer sport from team
+                sport = self._infer_sport_from_team(prop["team"])
+                if sport not in props_by_sport:
+                    props_by_sport[sport] = []
+                props_by_sport[sport].append(prop)
+                
+                prop_type = prop["prop_type"]
+                if prop_type not in props_by_type:
+                    props_by_type[prop_type] = 0
+                props_by_type[prop_type] += 1
+            
+            result = {
+                "query_date": target_date.isoformat(),
+                "total_props_found": len(props),
+                "props_by_sport": {sport: len(sport_props) for sport, sport_props in props_by_sport.items()},
+                "props_by_type": props_by_type,
+                "player_props": props
+            }
+            
+            logger.info(f"Retrieved {len(props)} player props for {target_date} across {len(props_by_sport)} sports")
+            return self.success_response(result)
+            
+        except Exception as e:
+            logger.error(f"Error fetching player props by date: {str(e)}")
+            return self.fail_response(f"Error fetching player props by date: {str(e)}")
+
     async def _store_predictions(self, params: Dict) -> ToolResult:
         """Store AI predictions in the database"""
         
@@ -417,6 +524,15 @@ class SupabaseBettingTool(BaseTool):
         try:
             for i, pred in enumerate(predictions):
                 try:
+                    # Brand-safety scrubber: never mention Linemate in user-visible text
+                    def _scrub_brand(val):
+                        if isinstance(val, str):
+                            txt = val
+                            for bad in ["linemate.io", "linemate", "Linemate.io", "Linemate"]:
+                                txt = txt.replace(bad, "trend data")
+                            return txt
+                        return val
+
                     # Validate required fields
                     required_fields = ["match_teams", "pick", "odds", "confidence", "sport"]
                     missing_fields = [field for field in required_fields if field not in pred]
@@ -439,36 +555,53 @@ class SupabaseBettingTool(BaseTool):
                     if not event_time:
                         event_time = (datetime.utcnow() + timedelta(hours=8)).isoformat() + "Z"
                     
+                    # Scrub reasoning and any brand mentions
+                    reasoning = _scrub_brand(pred.get("reasoning", "AI-generated prediction"))
+                    pick_text = _scrub_brand(pred.get("pick", ""))
+                    match_teams = _scrub_brand(pred.get("match_teams", ""))
+
+                    # Scrub research_sources if present in metadata
+                    metadata = pred.get("metadata", {}) or {}
+                    if isinstance(metadata, dict) and "research_sources" in metadata and isinstance(metadata["research_sources"], list):
+                        metadata["research_sources"] = [
+                            ("trend data" if isinstance(s, str) and "linemate" in s.lower() else s)
+                            for s in metadata["research_sources"]
+                        ]
+
                     # Prepare prediction data for database
                     prediction_data = {
                         "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",  # AI user ID
-                        "match_teams": pred.get("match_teams", ""),
-                        "pick": pred.get("pick", ""),
+                        "match_teams": match_teams,
+                        "pick": pick_text,
                         "odds": str(pred.get("odds", 0)),
                         "confidence": confidence,
                         "sport": pred.get("sport", ""),
                         "event_time": event_time,
-                        "reasoning": pred.get("reasoning", "AI-generated prediction"),
+                        "reasoning": reasoning,
                         "bet_type": pred.get("bet_type", "moneyline"),
                         "game_id": str(pred.get("game_id", "")),
                         "status": "pending",
                         # Optional columns that exist in ai_predictions
-                        "metadata": pred.get("metadata", {}),
+                        "metadata": metadata,
                         "value_percentage": pred.get("value_percentage"),
                         "roi_estimate": pred.get("roi_estimate"),
                         "line_value": pred.get("line_value"),
                         "prop_market_type": pred.get("prop_market_type"),
+                        # Advanced analytics (store directly if provided)
+                        "implied_probability": pred.get("implied_probability"),
+                        "expected_value": pred.get("expected_value"),
+                        "kelly_stake": pred.get("kelly_stake"),
+                        "risk_level": pred.get("risk_level"),
+                        "fair_odds": pred.get("fair_odds"),
+                        # Parlay support
+                        "is_parlay_leg": pred.get("is_parlay_leg"),
+                        "parlay_id": pred.get("parlay_id"),
                     }
 
                     # Move extra analytical fields into metadata to avoid unknown columns
                     extra_meta = {}
                     for k in [
-                        "implied_probability",
-                        "fair_odds",
                         "key_factors",
-                        "kelly_stake",
-                        "expected_value",
-                        "risk_level",
                     ]:
                         if pred.get(k) is not None:
                             extra_meta[k] = pred.get(k)

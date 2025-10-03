@@ -51,6 +51,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                     "scroll_down",
                     "scroll_up",
                     "scroll_to_text",
+                    "scroll_element",
                     "send_keys",
                     "get_dropdown_options",
                     "select_dropdown_option",
@@ -79,6 +80,10 @@ class BrowserUseTool(BaseTool, Generic[Context]):
             "scroll_amount": {
                 "type": "integer",
                 "description": "Pixels to scroll (positive for down, negative for up) for 'scroll_down' or 'scroll_up' actions",
+            },
+            "selector": {
+                "type": "string",
+                "description": "CSS selector for element-specific actions like 'scroll_element'",
             },
             "tab_id": {
                 "type": "integer",
@@ -111,6 +116,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
             "scroll_down": ["scroll_amount"],
             "scroll_up": ["scroll_amount"],
             "scroll_to_text": ["text"],
+            "scroll_element": ["scroll_amount"],
             "send_keys": ["keys"],
             "get_dropdown_options": ["index"],
             "select_dropdown_option": ["index", "text"],
@@ -199,6 +205,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
         goal: Optional[str] = None,
         keys: Optional[str] = None,
         seconds: Optional[int] = None,
+        selector: Optional[str] = None,
         **kwargs,
     ) -> ToolResult:
         """
@@ -308,6 +315,47 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                     return ToolResult(
                         output=f"Scrolled {'down' if direction > 0 else 'up'} by {amount} pixels"
                     )
+
+                elif action == "scroll_element":
+                    # Scroll a specific container element by index or CSS selector
+                    if scroll_amount is None:
+                        return ToolResult(error="scroll_amount is required for 'scroll_element'")
+                    page = await context.get_current_page()
+                    try:
+                        if index is not None:
+                            element = await context.get_dom_element_by_index(index)
+                            if not element:
+                                return ToolResult(error=f"Element with index {index} not found")
+                            js = """
+                                (xpath, amount) => {
+                                    const el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                    if (!el) return false;
+                                    el.scrollTop = (el.scrollTop || 0) + amount;
+                                    el.scrollBy?.(0, amount);
+                                    return true;
+                                }
+                            """
+                            ok = await page.evaluate(js, element.xpath, scroll_amount)
+                            if not ok:
+                                return ToolResult(error="Failed to scroll element by index")
+                        elif selector:
+                            js = """
+                                (sel, amount) => {
+                                    const el = document.querySelector(sel);
+                                    if (!el) return false;
+                                    el.scrollTop = (el.scrollTop || 0) + amount;
+                                    el.scrollBy?.(0, amount);
+                                    return true;
+                                }
+                            """
+                            ok = await page.evaluate(js, selector, scroll_amount)
+                            if not ok:
+                                return ToolResult(error="Failed to scroll element by selector")
+                        else:
+                            return ToolResult(error="Provide either index or selector for 'scroll_element'")
+                        return ToolResult(output=f"Scrolled element by {scroll_amount} pixels")
+                    except Exception as e:
+                        return ToolResult(error=f"Failed 'scroll_element': {str(e)}")
 
                 elif action == "scroll_to_text":
                     if not text:
