@@ -46,30 +46,6 @@ export interface UserStats {
   profitLoss: string;
 }
 
-// Parlay Builder types
-export interface ParlayOptions {
-  legs: number; // 2-6
-  riskLevel: 'safe' | 'balanced' | 'risky';
-  includeTeams: boolean;
-  includeProps: boolean;
-  sports?: string[]; // e.g., ['Major League Baseball', "Women's National Basketball Association", 'Ultimate Fighting Championship']
-}
-
-export interface ParlayLeg {
-  type: 'team' | 'prop';
-  match: string;
-  pick: string;
-  odds?: number | string;
-  confidence?: number;
-  sport?: string;
-  player_name?: string;
-  team?: string;
-  prop_type?: string;
-  line?: number;
-  side?: 'over' | 'under';
-  headshot_url?: string | null;
-}
-
 // Enhanced interface for daily insights (matches Supabase schema)
 export interface DailyInsight {
   id?: string;
@@ -112,9 +88,9 @@ class AIService {
   private async makeRequest(url: string, options: RequestInit & { timeout?: number } = {}): Promise<any> {
     const token = await this.getAuthToken();
     
-    const headers: Record<string, string> = {
+    const headers = {
       'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
+      ...options.headers,
     };
 
     if (token) {
@@ -557,17 +533,6 @@ class AIService {
     }
   }
 
-  // Generate a parlay via backend orchestrator
-  async generateParlay(options: ParlayOptions): Promise<{ markdown: string; legs: ParlayLeg[] }>{
-    const currentUserId = await this.getCurrentUserId();
-    const res = await this.makeRequest(`${BACKEND_URL}/api/ai/parlay-builder`, {
-      method: 'POST',
-      body: JSON.stringify({ userId: currentUserId, options }),
-      timeout: 30000
-    });
-    return { markdown: res.markdown || '', legs: res.legs || [] };
-  }
-
   /**
    * Generate and store daily insights for a user
    */
@@ -693,7 +658,7 @@ class AIService {
         title: 'Smart Stake Calculator',
         description: 'Optimal bankroll management calculated: Average 2.8% of bankroll recommended. Expected values range 8-12%. Model confidence intervals tightened. Risk-adjusted recommendations active.',
         type: 'value',
-        category: 'analysis',
+        category: 'calculator',
         source: 'Statistical Analyzer',
         impact: 'high',
         timestamp: new Date(Date.now() - 600000).toISOString(),
@@ -709,7 +674,7 @@ class AIService {
         title: 'Performance Validation',
         description: 'Backtesting complete: Current strategies show 58.3% win rate over 312 similar games. Average ROI: +11.8%. Model accuracy trending upward.',
         type: 'trend',
-        category: 'analysis',
+        category: 'performance',
         source: 'Historical Data',
         impact: 'medium',
         timestamp: new Date(Date.now() - 900000).toISOString(),
@@ -721,7 +686,5 @@ class AIService {
     ];
   }
 }
-
-// Inject method before class closes (apply above if not present)
 
 export const aiService = new AIService();

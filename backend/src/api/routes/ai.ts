@@ -8,7 +8,6 @@ import { dailyInsightsService, DailyInsight } from '../../services/supabase/dail
 import { supabase, supabaseAdmin } from '../../services/supabase/client';
 import { AuthenticatedRequest } from '../../types/auth';
 import { authenticateUser } from '../middleware/auth';
-import ParlayBuilderOrchestrator, { ParlayOptions as ParlayBuilderOptions } from '../../ai/orchestrator/parlayBuilderOrchestrator';
 
 // Utility function to determine current sports seasons
 const getSportsInSeason = (): string[] => {
@@ -813,37 +812,6 @@ router.get('/health', (req, res) => {
     success: true,
     message: 'AI orchestrator is healthy'
   });
-});
-
-/**
- * @route POST /api/ai/parlay-builder
- * @desc Build a Markdown parlay with optional headshots using Grok and DB context
- * @access Private (requires userId)
- */
-router.post('/parlay-builder', async (req: Request, res: Response) => {
-  try {
-    const { userId, options } = req.body as { userId?: string, options?: Partial<ParlayBuilderOptions> };
-    if (!userId) {
-      return res.status(400).json({ success: false, error: 'userId is required' });
-    }
-
-    // Sanitize options with sensible defaults
-    const legs = Math.max(2, Math.min(6, Number(options?.legs || 3)));
-    const riskLevel: ParlayBuilderOptions['riskLevel'] = (['safe','balanced','risky'] as const).includes((options?.riskLevel as any))
-      ? options!.riskLevel as any
-      : 'balanced';
-    const includeTeams = options?.includeTeams !== false; // default true
-    const includeProps = options?.includeProps !== false; // default true
-    const sports = Array.isArray(options?.sports) && options!.sports!.length ? options!.sports : undefined;
-
-    const orchestrator = new ParlayBuilderOrchestrator();
-    const result = await orchestrator.generateParlayForOptions({ legs, riskLevel, includeTeams, includeProps, sports }, userId);
-
-    return res.status(200).json({ success: true, markdown: result.markdown, legs: result.legs, metadata: result.metadata });
-  } catch (error: any) {
-    logger.error(`parlay-builder error: ${error?.message || String(error)}`);
-    return res.status(500).json({ success: false, error: 'Failed to generate parlay' });
-  }
 });
 
 /**
@@ -2994,6 +2962,71 @@ router.get('/lock-of-the-day', async (req, res) => {
     logger.error(`💥 Error fetching Lock of the Day: ${error instanceof Error ? error.message : String(error)}`);
     res.status(500).json({
       error: 'Failed to fetch Lock of the Day',
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Parlay generation endpoint
+router.post('/parlay/generate', async (req, res) => {
+  try {
+    const { legs, risk, type, userTier } = req.body;
+    
+    logger.info(`🎲 Parlay generation request: ${legs}-leg ${risk} ${type} parlay for ${userTier} user`);
+    
+    // Validate inputs
+    if (!legs || !risk || !type || !userTier) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters: legs, risk, type, userTier' 
+      });
+    }
+    
+    if (![2, 3, 4, 5].includes(legs)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Legs must be 2, 3, 4, or 5' 
+      });
+    }
+    
+    if (!['conservative', 'balanced', 'aggressive'].includes(risk)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Risk must be conservative, balanced, or aggressive' 
+      });
+    }
+    
+    if (!['team', 'props', 'mixed'].includes(type)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Type must be team, props, or mixed' 
+      });
+    }
+    
+    // Import parlay orchestrator
+    const { parlayOrchestrator } = await import('../../ai/orchestrator/parlayOrchestrator');
+    
+    // Generate parlay
+    const result = await parlayOrchestrator.generateParlay({
+      legs,
+      risk,
+      type,
+      userTier,
+    });
+    
+    if (result.success) {
+      logger.info(`✅ Parlay generated successfully with ${result.parlay?.stats.legs} legs`);
+    } else {
+      logger.error(`❌ Parlay generation failed: ${result.error}`);
+    }
+    
+    res.json(result);
+    
+  } catch (error: any) {
+    logger.error(`💥 Error in parlay generation: ${error instanceof Error ? error.message : String(error)}`);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate parlay',
       details: error instanceof Error ? error.message : String(error)
     });
   }

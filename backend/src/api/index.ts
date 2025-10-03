@@ -56,11 +56,8 @@ const corsOptions = {
 };
 
 // Middleware
-// Put CORS before Helmet so Access-Control headers are set first
-app.use(cors(corsOptions)); // Enable CORS with proper configuration
-// Handle preflight for all routes (some proxies may not pass through otherwise)
-app.options('*', cors(corsOptions));
 app.use(helmet()); // Security headers
+app.use(cors(corsOptions)); // Enable CORS with proper configuration
 app.use(express.json()); // Parse JSON bodies
 app.use(morgan('dev')); // HTTP request logging
 
@@ -130,7 +127,7 @@ app.get('/api/debug-date', async (req, res) => {
     // Test ESPN API call for today
     const testUrl = `http://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates=${todayFormatted}`;
     
-    let testResponse: any = null;
+    let testResponse = null;
     try {
       const fetch = require('node-fetch');
       const response = await fetch(testUrl);

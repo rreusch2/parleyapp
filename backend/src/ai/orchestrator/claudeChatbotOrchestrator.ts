@@ -40,15 +40,6 @@ interface ChatResponse {
   streamId?: string;
 }
 
-// Options for parlay generation requested by the UI
-export interface ParlayOptions {
-  legs: number; // 2-6
-  riskLevel: 'safe' | 'balanced' | 'risky';
-  includeTeams: boolean;
-  includeProps: boolean;
-  sports?: string[]; // e.g., ['MLB','WNBA','MMA']
-}
-
 /**
  * AI Chatbot Orchestrator - provides intelligent sports betting responses
  */
@@ -1342,43 +1333,4 @@ Remember: Elite users are paying premium prices for premium analysis. Deliver ac
 
     return "I'm having trouble processing that request right now. Please try again!";
   }
-
-  /**
-   * Extract JSON block from markdown
-   */
-  private extractJsonBlockFromMarkdown(markdown: string): any {
-    const regex = /\{([^{}]+)\}/;
-    const match = markdown.match(regex);
-    if (match && match[1]) {
-      try {
-        return JSON.parse(match[1]);
-      } catch (error) {
-        logger.error(`Error parsing JSON block: ${error}`);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Generate a parlay using latest predictions and return markdown plus structured legs with optional headshots
-   */
-  public async generateParlay(headshots: boolean = false): Promise<string> {
-    const predictions = await this.getLatest20Predictions();
-    const parlayLegs = predictions.map((prediction: any) => {
-      const team = prediction.home_team?.name || prediction.away_team?.name;
-      const spread = prediction.spread;
-      const odds = prediction.odds;
-      const headshot = headshots ? `![${team} Headshot](${prediction.headshot_url})` : '';
-      return `${headshot} ${team} ${spread > 0 ? `+${spread}` : spread < 0 ? `-${Math.abs(spread)}` : 'PK'} @ ${odds}`;
-    });
-    const parlayMarkdown = parlayLegs.join('\n');
-    const parlayJson = {
-      legs: parlayLegs.map((leg: string) => ({
-        team: leg.split(' ')[0],
-        spread: parseFloat(leg.split(' ')[1].replace(/[+-]?\d*\.\d+|\d+/g, '')),
-        odds: parseFloat(leg.split(' ')[2].replace(/[+-]?\d*\.\d+|\d+/g, ''))
-      }))
-    };
-    return `${parlayMarkdown}\n\n${JSON.stringify(parlayJson, null, 2)}`;
-  }
-}
+} 
