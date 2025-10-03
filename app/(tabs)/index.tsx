@@ -45,10 +45,7 @@ import DailyProfessorInsights from '../components/DailyProfessorInsights';
 import NewsModal from '../components/NewsModal';
 import HomeTrendsPreview from '../components/HomeTrendsPreview';
 import InstantIntel from '../components/InstantIntel';
-import MediaGallery from '../components/MediaGallery';
 import AIParleyBuilder from '../components/AIParleyBuilder';
-import type { MediaItem as MediaItemType } from '../components/MediaGallery';
-import { listMedia } from '../services/api/mediaService';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
 import FootballSeasonCard from '../components/FootballSeasonCard';
@@ -96,7 +93,6 @@ export default function HomeScreen() {
     sportPreferences: { mlb: true, wnba: false, ufc: false }
   });
   const [userId, setUserId] = useState<string>('');
-  const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
 
@@ -113,7 +109,6 @@ export default function HomeScreen() {
         () => fetchTodaysPicks(abortController.signal),
         () => fetchUserStats(abortController.signal),
         () => fetchUserPreferencesData(abortController.signal),
-        () => loadMediaItems(abortController.signal),
         
         // Analytics tracking (non-critical)
         async () => {
@@ -198,17 +193,6 @@ export default function HomeScreen() {
       }
     }
   }, []);
-
-  const loadMediaItems = useCallback(async (signal?: AbortSignal) => {
-    if (signal?.aborted) return;
-    try {
-      const items = await listMedia();
-      if (!signal?.aborted) setMediaItems(items);
-    } catch (err) {
-      if (!signal?.aborted) console.error('Failed to load media items:', err);
-    }
-  }, []);
-
 
 
   const fetchTodaysPicks = async (signal?: AbortSignal) => {
@@ -322,8 +306,7 @@ export default function HomeScreen() {
       const operations = [
         () => fetchTodaysPicks(abortController.signal),
         () => fetchUserStats(abortController.signal),
-        () => fetchUserPreferencesData(abortController.signal),
-        () => loadMediaItems(abortController.signal)
+        () => fetchUserPreferencesData(abortController.signal)
       ];
       
       await loadData(operations);
@@ -852,11 +835,6 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
-        </View>
-
-        {/* Media Gallery Section */}
-        <View style={styles.section}>
-          <MediaGallery title="Media" items={mediaItems.length ? mediaItems : undefined} />
         </View>
 
         {/* AI Disclaimer */}

@@ -240,7 +240,9 @@ export default function GamesScreen() {
     { id: 'UFC', name: 'UFC' },
     { id: 'MMA', name: 'MMA' },
     { id: 'NBA', name: 'NBA' },
-    { id: 'NHL', name: 'NHL' }
+    { id: 'NHL', name: 'NHL' },
+    { id: 'SOCCER', name: 'Soccer' },
+    { id: 'TENNIS', name: 'Tennis' }
   ];
 
   const checkSession = async () => {
@@ -275,6 +277,10 @@ export default function GamesScreen() {
           leagueFilter = 'MMA'; // UFC fights are stored as MMA in backend
         } else if (selectedSport === 'CFB') {
           leagueFilter = 'NCAAF'; // College Football is stored as NCAAF in backend
+        } else if (selectedSport === 'SOCCER') {
+          leagueFilter = 'SOCCER'; // Will match all soccer leagues
+        } else if (selectedSport === 'TENNIS') {
+          leagueFilter = 'TENNIS'; // Will match tennis tournaments
         } else {
           leagueFilter = selectedSport.toUpperCase();
         }
@@ -692,6 +698,19 @@ export default function GamesScreen() {
       } else if (selectedSport === 'CFB') {
         // CFB tab should show NCAAF games (since College Football is stored as NCAAF)
         leagueToMatch = 'ncaaf';
+      } else if (selectedSport === 'SOCCER') {
+        // Soccer tab should show all soccer leagues (EPL, La Liga, etc.)
+        filtered = filtered.filter(game => 
+          game.league.toLowerCase().includes('soccer') || 
+          ['epl', 'la liga', 'bundesliga', 'serie a', 'ligue 1', 'mls', 'champions league'].some(l => 
+            game.league.toLowerCase().includes(l.toLowerCase())
+          )
+        );
+        return filtered; // Skip the exact match filter below
+      } else if (selectedSport === 'TENNIS') {
+        // Tennis tab should show all tennis tournaments
+        filtered = filtered.filter(game => game.league.toLowerCase().includes('tennis'));
+        return filtered; // Skip the exact match filter below
       }
       
       filtered = filtered.filter(game => game.league.toLowerCase() === leagueToMatch);
