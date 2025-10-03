@@ -17,12 +17,12 @@ export interface ParlayOptions {
 }
 
 export default class ParlayBuilderOrchestrator {
-  private openai: OpenAI;
+  private openai?: OpenAI;
 
   constructor() {
     if (!XAI_API_KEY) {
-      logger.error('XAI_API_KEY not set');
-      throw new Error('XAI_API_KEY not set');
+      logger.warn('XAI_API_KEY not set — will use DB-only fallback for parlay builder');
+      return;
     }
     this.openai = new OpenAI({ apiKey: XAI_API_KEY, baseURL: 'https://api.x.ai/v1' });
   }
@@ -82,6 +82,7 @@ export default class ParlayBuilderOrchestrator {
 
   private async fetchPlayerProps(sports?: string[]) {
     const { startISO, endISO } = this.getTodayIsoRange();
+    // Prefer filtering by the props' own created_at to avoid PostgREST nested filter quirks
     let q = supabaseAdmin
       .from('player_props_odds')
       .select(`
@@ -90,8 +91,8 @@ export default class ParlayBuilderOrchestrator {
         player_prop_types(prop_key, prop_name),
         sports_events(start_time, sport, home_team, away_team)
       `)
-      .gte('sports_events.start_time', startISO)
-      .lte('sports_events.start_time', endISO)
+      .gte('created_at', startISO)
+      .lte('created_at', endISO)
       .limit(100);
     if (sports && sports.length) q = q.in('sports_events.sport', sports);
     const { data, error } = await q;
@@ -172,19 +173,116 @@ RULES:
       sports: options.sports && options.sports.length ? options.sports : undefined,
     };
 
-    const [preds, games, props] = await Promise.all([
-      this.fetchLatestPredictions(30),
-      opts.includeTeams ? this.fetchTeamMarkets(opts.sports) : Promise.resolve([]),
-      opts.includeProps ? this.fetchPlayerProps(opts.sports) : Promise.resolve([]),
-    ]);
+    // Fetch with fallbacks to ensure we always provide real data to the LLM
+    let preds = await this.fetchLatestPredictions(30);
+    if (!preds.length) {
+      try {
+        const { data: fallbackPreds } = await supabaseAdmin
+          .from('ai_predictions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(30);
+        preds = fallbackPreds || [];
+      } catch (e) { /* ignore */ }
+    }
 
-    const system = this.buildParlayPrompt(opts, preds, games, props);
-    const messages: any[] = [ { role: 'system', content: system } ];
-    const resp = await this.openai.chat.completions.create({ model: 'grok-3', max_tokens: 1400, temperature: 0.7, messages });
+    let games: any[] = [];
+    if (opts.includeTeams) {
+      games = await this.fetchTeamMarkets(opts.sports);
+    }
 
-    const markdown = resp.choices?.[0]?.message?.content || 'No result';
-    const structured = this.extractJsonFromMarkdown(markdown) || {};
-    const legs = await this.enrichHeadshots(structured.legs || []);
+    let props: any[] = [];
+    if (opts.includeProps) {
+      props = await this.fetchPlayerProps(opts.sports);
+      if (!props.length) {
+        try {
+          let q = supabaseAdmin
+            .from('player_props_odds')
+            .select(`
+              id, event_id, player_id, line, over_odds, under_odds, created_at,
+              players(name, team, sport, headshot_url),
+              player_prop_types(prop_key, prop_name),
+              sports_events(start_time, sport, home_team, away_team)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(100);
+          if (opts.sports && opts.sports.length) q = q.in('sports_events.sport', opts.sports);
+          const { data: fallbackProps } = await q;
+          props = fallbackProps || [];
+        } catch (e) { /* ignore */ }
+      }
+    }
+
+    let markdown = '';
+    let structured: any = {};
+    let legs: any[] = [];
+    if (this.openai) {
+      try {
+        const system = this.buildParlayPrompt(opts, preds, games, props);
+        const messages: any[] = [ { role: 'system', content: system } ];
+        const resp = await this.openai.chat.completions.create({ model: 'grok-3', max_tokens: 1400, temperature: 0.7, messages });
+        markdown = resp.choices?.[0]?.message?.content || '';
+        structured = this.extractJsonFromMarkdown(markdown) || {};
+        legs = await this.enrichHeadshots(structured.legs || []);
+      } catch (e: any) {
+        logger.warn(`LLM call failed, using DB fallback. Error: ${e?.message || e}`);
+        markdown = '';
+        structured = {};
+        legs = [];
+      }
+    }
+
+    const looksPlaceholder = !markdown || /placeholder|awaiting data|tbd/i.test(markdown);
+    if (!legs.length || looksPlaceholder) {
+      // Fallback: construct legs from available player props (preferred) or predictions
+      const builtLegs: any[] = [];
+      const pool = (props && props.length) ? props.slice(0, opts.legs) : [];
+
+      if (pool.length) {
+        for (const p of pool) {
+          const pl = p.players || {};
+          const ev = p.sports_events || {};
+          const t = p.player_prop_types || {};
+          const match = `${ev.away_team || 'Away'} @ ${ev.home_team || 'Home'}`;
+          const side = 'over';
+          const odds = typeof p.over_odds === 'string' ? parseFloat(p.over_odds) : (p.over_odds ?? -110);
+          builtLegs.push({
+            type: 'prop',
+            match,
+            pick: `${pl.name || 'Player'} ${t.prop_name || t.prop_key || 'prop'} ${p.line ?? ''} ${side}`.trim(),
+            odds,
+            confidence: 70,
+            sport: ev.sport || pl.sport || 'Unknown',
+            player_name: pl.name || undefined,
+            team: pl.team || undefined,
+            prop_type: t.prop_key || undefined,
+            line: p.line ?? undefined,
+            side,
+            headshot_url: (pl && pl.headshot_url) || undefined,
+          });
+        }
+      } else if (preds && preds.length) {
+        for (const pr of preds.slice(0, opts.legs)) {
+          builtLegs.push({
+            type: 'team',
+            match: pr.match_teams || pr.match || 'TBD',
+            pick: pr.pick || 'Pick',
+            odds: pr.odds ? (typeof pr.odds === 'string' ? pr.odds : String(pr.odds)) : '-110',
+            confidence: pr.confidence || 65,
+            sport: pr.sport || 'Unknown',
+          });
+        }
+      }
+      if (builtLegs.length) {
+        legs = await this.enrichHeadshots(builtLegs);
+        // Minimal markdown summary
+        const title = `Elite ${opts.legs}-Leg Parlay — ${opts.legs} legs • ${opts.riskLevel.toUpperCase()} • ${opts.includeProps ? 'Props' : 'Teams'}`;
+        const lines = legs.map((l: any, i: number) => `- Leg ${i+1}: ${l.pick} (${l.odds}) — ${l.match}`).join('\n');
+        const bankroll = `Bankroll Note: Stake ~1–2% for this ${opts.legs}-leg parlay.`;
+        markdown = `# ${title}\n\n${lines}\n\n${bankroll}`;
+        structured = { legs };
+      }
+    }
 
     return { markdown, legs, metadata: { usedPredictions: preds.length, usedGames: games.length, usedProps: props.length, options: opts } };
   }
