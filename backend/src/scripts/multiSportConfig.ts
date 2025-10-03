@@ -139,6 +139,162 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
       end: '2026-02-28',
       current: '2025'
     }
+  },
+
+  // SOCCER LEAGUES - Tier 1 (Top 7 Most Popular)
+  SOCCER_EPL: {
+    sportKey: 'SOCCER_EPL',
+    sportName: 'English Premier League',
+    theoddsKey: 'soccer_epl',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-08-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_UCL: {
+    sportKey: 'SOCCER_UCL',
+    sportName: 'UEFA Champions League',
+    theoddsKey: 'soccer_uefa_champs_league',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-09-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_LA_LIGA: {
+    sportKey: 'SOCCER_LA_LIGA',
+    sportName: 'La Liga',
+    theoddsKey: 'soccer_spain_la_liga',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-08-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_BUNDESLIGA: {
+    sportKey: 'SOCCER_BUNDESLIGA',
+    sportName: 'Bundesliga',
+    theoddsKey: 'soccer_germany_bundesliga',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-08-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_SERIE_A: {
+    sportKey: 'SOCCER_SERIE_A',
+    sportName: 'Serie A',
+    theoddsKey: 'soccer_italy_serie_a',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-08-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_LIGUE_1: {
+    sportKey: 'SOCCER_LIGUE_1',
+    sportName: 'Ligue 1',
+    theoddsKey: 'soccer_france_ligue_one',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-08-01',
+      end: '2026-05-31',
+      current: '2025'
+    }
+  },
+
+  SOCCER_MLS: {
+    sportKey: 'SOCCER_MLS',
+    sportName: 'Major League Soccer',
+    theoddsKey: 'soccer_usa_mls',
+    propMarkets: [
+      'player_shots_on_goal',
+      'player_shots',
+      'player_tackles',
+      'player_passes',
+      'player_anytime_goalscorer'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true',
+    seasonInfo: {
+      start: '2025-02-01',
+      end: '2025-12-31',
+      current: '2025'
+    }
+  },
+
+  // TENNIS - Dynamic tournament support (Grand Slams when active)
+  TENNIS: {
+    sportKey: 'TENNIS',
+    sportName: 'Tennis',
+    theoddsKey: 'tennis_atp_us_open', // Will be dynamically determined based on active tournaments
+    propMarkets: [], // Tennis doesn't have player props - only match winner
+    teamOddsMarkets: ['h2h'], // Match winner only
+    isActive: getActiveSports().includes('TENNIS') && process.env.ENABLE_TENNIS_DATA === 'true',
+    seasonInfo: {
+      start: '2025-01-01',
+      end: '2025-12-31',
+      current: '2025'
+    }
   }
 };
 
@@ -160,6 +316,13 @@ export const getActiveSportConfigs = (): SportConfig[] => {
     }
     if (sport.sportKey === 'NFL') {
       return activeSports.includes('NFL') && process.env.ENABLE_NFL_DATA === 'true';
+    }
+    // Soccer leagues (all 7 use same enable flag)
+    if (sport.sportKey.startsWith('SOCCER_')) {
+      return activeSports.includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true';
+    }
+    if (sport.sportKey === 'TENNIS') {
+      return activeSports.includes('TENNIS') && process.env.ENABLE_TENNIS_DATA === 'true';
     }
     return false;
   });

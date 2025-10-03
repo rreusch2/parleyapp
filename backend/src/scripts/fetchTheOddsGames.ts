@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { supabaseAdmin } from '../services/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { getActiveSportConfigs } from './multiSportConfig';
 
 // Load environment variables from backend directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -56,15 +57,16 @@ interface GameData {
 const THEODDS_API_KEY = process.env.THEODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
-// Multi-sport leagues based on environment configuration
-// September 2025: NFL, CFB, MLB, WNBA, and UFC are active
-const ACTIVE_LEAGUES = [
-  { key: 'baseball_mlb', name: 'MLB' },
-  { key: 'basketball_wnba', name: 'WNBA' },
-  { key: 'mma_mixed_martial_arts', name: 'UFC' },
-  { key: 'americanfootball_nfl', name: 'NFL' },
-  { key: 'americanfootball_ncaaf', name: 'CFB' }
-];
+// Multi-sport leagues dynamically loaded from configuration
+const getActiveLeagues = () => {
+  const activeSports = getActiveSportConfigs();
+  return activeSports.map(sport => ({
+    key: sport.theoddsKey,
+    name: sport.sportKey
+  }));
+};
+
+const ACTIVE_LEAGUES = getActiveLeagues();
 
 // Function to fetch games for a specific sport
 async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extendedRange = false): Promise<number> {
