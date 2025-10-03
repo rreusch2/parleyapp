@@ -32,6 +32,7 @@ import { handleRevenueCatWebhook } from './api/routes/revenuecat-webhook';
 import playerPropsRouter from './api/routes/playerProps';
 import subscriptionPricingRouter from './api/routes/subscriptionPricing';
 import stripeRouter from './api/routes/stripe';
+import parlayRouter from './api/routes/parlayRouter';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 // Removed subscriptionCleanupJob and initRewardExpiryCron to prevent non-webhook subscription_tier mutations
 // import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
@@ -127,6 +128,7 @@ app.use('/api/bets', betHistoryRouter);
 app.use('/api/sports-data-admin', sportsDataAdminRouter);
 app.use('/api/sports-data', sportsDataRouter);
 app.use('/api/ai', aiRoutes);
+app.use('/api/ai/parlay', parlayRouter);
 app.use('/api/news', newsRouter);
 app.use('/api/trends', trendsRouter);
 app.use('/api/insights', insightsRouter);

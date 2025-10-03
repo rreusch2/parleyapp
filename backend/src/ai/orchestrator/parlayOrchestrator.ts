@@ -8,42 +8,31 @@ dotenv.config();
 
 const logger = createLogger('parlayOrchestrator');
 const XAI_API_KEY = process.env.XAI_API_KEY;
-const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
-const GOOGLE_SEARCH_ENGINE_ID = process.env.GOOGLE_SEARCH_ENGINE_ID;
-const STATMUSE_API_URL = 'https://web-production-f090e.up.railway.app';
 
 interface ParlayConfig {
   legs: number;
-  risk: 'conservative' | 'balanced' | 'aggressive';
-  type: 'team' | 'props' | 'mixed';
-  userTier: 'pro' | 'elite';
+  riskLevel: 'safe' | 'balanced' | 'risky';
+  betType: 'player' | 'team' | 'mixed';
+  bankrollPercentage: number;
 }
 
-interface ParlayResult {
-  success: boolean;
-  parlay?: {
-    content: string;
-    shareText: string;
-    stats: {
-      legs: number;
-      odds: string;
-      risk: string;
-    };
-    players?: Array<{
-      name: string;
-      team: string;
-      headshotUrl?: string;
-    }>;
-  };
-  error?: string;
+interface ParlayRequest {
+  config: ParlayConfig;
+  userId: string;
 }
 
-/**
- * AI Parlay Orchestrator - Intelligent parlay generation using Grok AI
- * with access to multiple data sources and tools
- */
+interface GoogleSearchResult {
+  title: string;
+  snippet: string;
+  link: string;
+  displayLink: string;
+}
+
 export class ParlayOrchestrator {
   private openai: OpenAI;
+  private statmuseUrl: string;
+  private googleApiKey: string;
+  private googleSearchEngineId: string;
 
   constructor() {
     if (!XAI_API_KEY) {
@@ -55,615 +44,405 @@ export class ParlayOrchestrator {
       apiKey: XAI_API_KEY,
       baseURL: "https://api.x.ai/v1",
     });
-    logger.info('✅ Parlay orchestrator initialized');
+
+    // Use the Railway deployed StatMuse API (fallback to local if needed)
+    this.statmuseUrl = process.env.STATMUSE_API_URL || 'https://feisty-nurturing-production-9c29.up.railway.app';
+    
+    // Google Search API credentials from env
+    this.googleApiKey = process.env.GOOGLE_SEARCH_API_KEY || 'AIzaSyBjrKXEOS_JiF7MtNPkliCTRWaYvRlDBbc';
+    this.googleSearchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID || 'a6a9783103e2c46de';
+    
+    logger.info('✅ Parlay Orchestrator initialized');
   }
 
   /**
-   * Generate an intelligent parlay
+   * Generate an intelligent parlay with streaming updates
    */
-  async generateParlay(config: ParlayConfig): Promise<ParlayResult> {
+  async generateParlay(request: ParlayRequest, onChunk: (data: any) => void): Promise<void> {
     const startTime = Date.now();
-    logger.info(`🎲 Generating ${config.legs}-leg ${config.risk} ${config.type} parlay`);
-
+    
     try {
-      // Step 1: Gather all necessary data
-      const contextData = await this.gatherContextData(config);
+      logger.info(`🎯 Generating ${request.config.legs}-leg parlay for user ${request.userId}`);
       
-      // Step 2: Build intelligent prompt
-      const prompt = this.buildParlayPrompt(config, contextData);
-      
-      // Step 3: Generate parlay with Grok AI
-      const parlayContent = await this.generateWithGrok(prompt, config);
-      
-      // Step 4: Extract player info and headshots
-      const players = await this.extractPlayerInfo(parlayContent, contextData);
-      
-      // Step 5: Calculate parlay stats
-      const stats = this.calculateParlayStats(parlayContent, config);
-      
-      // Step 6: Create share text
-      const shareText = this.createShareText(parlayContent, stats);
+      // Send initial message
+      onChunk({
+        type: 'text',
+        content: `I'll build you an intelligent **${request.config.legs}-leg ${request.config.riskLevel} parlay** focusing on ${request.config.betType === 'mixed' ? 'both player props and team bets' : request.config.betType}. Let me analyze today's best opportunities...\n\n`
+      });
 
-      const processingTime = Date.now() - startTime;
-      logger.info(`✅ Parlay generated successfully in ${processingTime}ms`);
+      // Get current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      
+      // Tool 1: Fetch today's games
+      onChunk({ type: 'tool_start', tool: 'database', message: 'Analyzing today\'s games and matchups...' });
+      const todaysGames = await this.fetchTodaysGames(currentDate);
+      onChunk({ type: 'tool_end', tool: 'database' });
+      
+      // Tool 2: Fetch player props if needed
+      let playerProps: any[] = [];
+      if (request.config.betType === 'player' || request.config.betType === 'mixed') {
+        onChunk({ type: 'tool_start', tool: 'player_props', message: 'Evaluating player prop opportunities...' });
+        playerProps = await this.fetchPlayerProps(currentDate);
+        onChunk({ type: 'tool_end', tool: 'player_props' });
+      }
 
-      return {
-        success: true,
-        parlay: {
-          content: parlayContent,
-          shareText,
-          stats,
-          players,
-        },
-      };
+      // Tool 3: Get AI predictions
+      onChunk({ type: 'tool_start', tool: 'ai_predictions', message: 'Reviewing AI predictions and confidence levels...' });
+      const aiPredictions = await this.fetchAIPredictions();
+      onChunk({ type: 'tool_end', tool: 'ai_predictions' });
+
+      // Tool 4: StatMuse for key stats
+      onChunk({ type: 'tool_start', tool: 'statmuse', message: 'Gathering player and team statistics...' });
+      const statmuseData = await this.queryStatMuse(request.config, todaysGames, playerProps);
+      onChunk({ type: 'tool_end', tool: 'statmuse' });
+
+      // Tool 5: Web search for latest insights
+      onChunk({ type: 'tool_start', tool: 'web_search', message: 'Searching for breaking news and insider insights...' });
+      const searchResults = await this.performWebSearch(request.config, todaysGames);
+      onChunk({ 
+        type: 'search_results', 
+        results: searchResults.map(r => ({
+          title: r.title,
+          snippet: r.snippet,
+          source: r.displayLink
+        }))
+      });
+      onChunk({ type: 'tool_end', tool: 'web_search' });
+
+      // Build the comprehensive prompt for Grok
+      const prompt = this.buildParlayPrompt(
+        request.config,
+        todaysGames,
+        playerProps,
+        aiPredictions,
+        statmuseData,
+        searchResults,
+        currentDate
+      );
+
+      // Generate the parlay with Grok
+      const stream = await this.openai.chat.completions.create({
+        model: "grok-3",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "system",
+            content: this.getSystemPrompt()
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        stream: true
+      });
+
+      let fullResponse = '';
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullResponse += content;
+          onChunk({ type: 'text', content });
+        }
+      }
+
+      // Send completion
+      onChunk({ 
+        type: 'complete', 
+        parlay: fullResponse,
+        processingTime: Date.now() - startTime
+      });
+
+      logger.info(`✅ Parlay generated successfully in ${Date.now() - startTime}ms`);
+
     } catch (error) {
       logger.error(`❌ Error generating parlay: ${error instanceof Error ? error.message : String(error)}`);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate parlay',
-      };
+      onChunk({ 
+        type: 'error', 
+        message: 'Failed to generate parlay. Please try again.'
+      });
     }
   }
 
-  /**
-   * Gather all context data from multiple sources
-   */
-  private async gatherContextData(config: ParlayConfig) {
-    logger.info('📊 Gathering context data from multiple sources...');
-
-    const now = new Date();
-    const currentDate = now.toISOString().split('T')[0];
-    const currentTime = now.toLocaleTimeString('en-US', { timeZone: 'America/New_York' });
-
-    // Parallel data fetching for speed
-    const [
-      todaysGames,
-      playerProps,
-      aiPredictions,
-      recentTrends,
-      statMuseData,
-      webSearchData,
-    ] = await Promise.all([
-      this.getTodaysGames(),
-      config.type !== 'team' ? this.getTodaysPlayerProps() : Promise.resolve([]),
-      this.getAIPredictions(),
-      this.getRecentTrends(),
-      this.queryStatMuse(config),
-      this.performWebSearch(config),
-    ]);
-
-    logger.info(`✅ Data gathered: ${todaysGames.length} games, ${playerProps.length} props, ${aiPredictions.length} predictions`);
-
-    return {
-      currentDate,
-      currentTime,
-      todaysGames,
-      playerProps,
-      aiPredictions,
-      recentTrends,
-      statMuseData,
-      webSearchData,
-    };
-  }
-
-  /**
-   * Get today's games from sports_events
-   */
-  private async getTodaysGames() {
+  private async fetchTodaysGames(date: string): Promise<any[]> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 2);
-
       const { data, error } = await supabaseAdmin
         .from('sports_events')
-        .select('*')
-        .gte('start_time', today.toISOString())
-        .lte('start_time', tomorrow.toISOString())
-        .eq('status', 'scheduled')
-        .order('start_time', { ascending: true })
-        .limit(30);
+        .select(`
+          id,
+          sport,
+          home_team,
+          away_team,
+          start_time,
+          metadata
+        `)
+        .gte('start_time', `${date}T00:00:00`)
+        .lte('start_time', `${date}T23:59:59`)
+        .order('start_time', { ascending: true });
 
-      if (error) {
-        logger.error(`Error fetching games: ${error.message}`);
-        return [];
-      }
-
+      if (error) throw error;
+      
+      logger.info(`Found ${data?.length || 0} games for ${date}`);
       return data || [];
     } catch (error) {
-      logger.error(`Error in getTodaysGames: ${error}`);
+      logger.error('Error fetching games:', error);
       return [];
     }
   }
 
-  /**
-   * Get today's player props from player_props_odds
-   */
-  private async getTodaysPlayerProps() {
+  private async fetchPlayerProps(date: string): Promise<any[]> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Get events for today
-      const { data: events } = await supabaseAdmin
+      const { data: games } = await supabaseAdmin
         .from('sports_events')
         .select('id')
-        .gte('start_time', today.toISOString())
-        .eq('status', 'scheduled');
+        .gte('start_time', `${date}T00:00:00`)
+        .lte('start_time', `${date}T23:59:59`);
 
-      if (!events || events.length === 0) return [];
+      if (!games || games.length === 0) return [];
 
-      const eventIds = events.map(e => e.id);
+      const gameIds = games.map(g => g.id);
 
-      // Get props for today's events
       const { data, error } = await supabaseAdmin
         .from('player_props_odds')
         .select(`
-          *,
-          player:players(name, team, sport),
-          prop_type:player_prop_types(prop_name, stat_category)
+          id,
+          event_id,
+          player_id,
+          prop_type_id,
+          line,
+          over_odds,
+          under_odds,
+          implied_prob_over,
+          implied_prob_under,
+          players!inner (
+            id,
+            player_name,
+            sport,
+            team
+          ),
+          player_prop_types!inner (
+            prop_name,
+            prop_key,
+            sport_key
+          )
         `)
-        .in('event_id', eventIds)
-        .order('line', { ascending: false })
+        .in('event_id', gameIds)
+        .not('over_odds', 'is', null)
         .limit(100);
 
-      if (error) {
-        logger.error(`Error fetching player props: ${error.message}`);
-        return [];
+      if (error) throw error;
+      
+      // Fetch player headshots for the props
+      if (data && data.length > 0) {
+        const playerNames = [...new Set(data.map((p: any) => p.players?.player_name).filter(Boolean))];
+        const { data: headshots } = await supabaseAdmin
+          .from('players_with_headshots')
+          .select('player_name, headshot_url')
+          .in('player_name', playerNames);
+        
+        // Map headshots to props
+        if (headshots) {
+          const headshotMap = new Map(headshots.map(h => [h.player_name, h.headshot_url]));
+          data.forEach((prop: any) => {
+            if (prop.players?.player_name) {
+              prop.headshot_url = headshotMap.get(prop.players.player_name) || null;
+            }
+          });
+        }
       }
-
+      
+      logger.info(`Found ${data?.length || 0} player props`);
       return data || [];
     } catch (error) {
-      logger.error(`Error in getTodaysPlayerProps: ${error}`);
+      logger.error('Error fetching player props:', error);
       return [];
     }
   }
 
-  /**
-   * Get AI predictions from ai_predictions table
-   */
-  private async getAIPredictions() {
+  private async fetchAIPredictions(): Promise<any[]> {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
+      const today = new Date().toISOString().split('T')[0];
+      
       const { data, error } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .gte('created_at', today.toISOString())
+        .gte('created_at', `${today}T00:00:00`)
         .eq('status', 'pending')
         .order('confidence', { ascending: false })
         .limit(20);
 
-      if (error) {
-        logger.error(`Error fetching AI predictions: ${error.message}`);
-        return [];
-      }
-
+      if (error) throw error;
+      
+      logger.info(`Found ${data?.length || 0} AI predictions`);
       return data || [];
     } catch (error) {
-      logger.error(`Error in getAIPredictions: ${error}`);
+      logger.error('Error fetching AI predictions:', error);
       return [];
     }
   }
 
-  /**
-   * Get recent trends from ai_trends table
-   */
-  private async getRecentTrends() {
-    try {
-      const threeDaysAgo = new Date();
-      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
-      const { data, error } = await supabaseAdmin
-        .from('ai_trends')
-        .select('*')
-        .gte('created_at', threeDaysAgo.toISOString())
-        .order('confidence', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        logger.error(`Error fetching trends: ${error.message}`);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      logger.error(`Error in getRecentTrends: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Query StatMuse API for intelligent stats
-   */
-  private async queryStatMuse(config: ParlayConfig): Promise<Array<{ query: string; answer: string }>> {
-    try {
-      // Build intelligent queries based on parlay config
-      const queries = this.buildStatMuseQueries(config);
-      const results: Array<{ query: string; answer: string }> = [];
-
-      for (const query of queries) {
-        try {
-          const response = await axios.post(`${STATMUSE_API_URL}/query`, {
-            query,
-          }, {
-            timeout: 5000,
-          });
-
-          if (response.data && response.data.answer) {
-            results.push({
-              query,
-              answer: response.data.answer,
-            });
-          }
-        } catch (error) {
-          logger.warn(`StatMuse query failed: ${query}`);
-        }
-      }
-
-      logger.info(`✅ StatMuse: ${results.length}/${queries.length} queries successful`);
-      return results;
-    } catch (error) {
-      logger.error(`Error in queryStatMuse: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Build StatMuse queries based on config
-   */
-  private buildStatMuseQueries(config: ParlayConfig): string[] {
+  private async queryStatMuse(config: ParlayConfig, games: any[], props: any[]): Promise<any> {
     const queries: string[] = [];
-
-    if (config.type === 'team' || config.type === 'mixed') {
-      queries.push(
-        'Best MLB teams by record last 7 days',
-        'NFL teams with best offensive stats this week',
-        'WNBA teams with highest scoring average this season'
-      );
-    }
-
-    if (config.type === 'props' || config.type === 'mixed') {
-      queries.push(
-        'MLB players with most hits last 5 games',
-        'NFL players with most receiving yards this season',
-        'WNBA scoring leaders last 3 games'
-      );
-    }
-
-    // Add 2 more based on risk level
-    if (config.risk === 'conservative') {
-      queries.push('Most consistent MLB hitters this season');
-    } else if (config.risk === 'aggressive') {
-      queries.push('Players with biggest recent performance improvements');
-    }
-
-    return queries.slice(0, 5); // Limit to 5 queries
-  }
-
-  /**
-   * Perform web search for latest news and insights
-   */
-  private async performWebSearch(config: ParlayConfig): Promise<Array<{ title: string; snippet: string; query: string }>> {
-    if (!GOOGLE_SEARCH_API_KEY || !GOOGLE_SEARCH_ENGINE_ID) {
-      logger.warn('Google Search API not configured');
-      return [];
-    }
-
-    try {
-      const searchQueries = this.buildWebSearchQueries(config);
-      const results: Array<{ title: string; snippet: string; query: string }> = [];
-
-      for (const query of searchQueries) {
-        try {
-          const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
-            params: {
-              key: GOOGLE_SEARCH_API_KEY,
-              cx: GOOGLE_SEARCH_ENGINE_ID,
-              q: query,
-              num: 3,
-            },
-            timeout: 5000,
-          });
-
-          if (response.data.items) {
-            results.push(...response.data.items.map((item: any) => ({
-              title: item.title,
-              snippet: item.snippet,
-              query,
-            })));
-          }
-        } catch (error) {
-          logger.warn(`Web search failed: ${query}`);
-        }
-      }
-
-      logger.info(`✅ Web search: ${results.length} results found`);
-      return results;
-    } catch (error) {
-      logger.error(`Error in performWebSearch: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Build web search queries
-   */
-  private buildWebSearchQueries(config: ParlayConfig): string[] {
-    const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     
-    const queries = [
-      `MLB injury report ${today}`,
-      `NFL injury news ${today}`,
-      `sports betting trends ${today}`,
-    ];
-
-    return queries.slice(0, 2); // Limit to 2 searches
-  }
-
-  /**
-   * Build the intelligent parlay prompt for Grok
-   */
-  private buildParlayPrompt(config: ParlayConfig, contextData: any): string {
-    const riskDescriptions = {
-      conservative: 'low-risk, high-confidence picks with proven trends',
-      balanced: 'balanced risk-reward with solid reasoning',
-      aggressive: 'high-risk, high-reward picks with value opportunities',
-    };
-
-    const typeDescriptions = {
-      team: 'team-based bets only (spreads, moneylines, totals)',
-      props: 'player prop bets only (individual player performances)',
-      mixed: 'intelligent mix of both team and player prop bets',
-    };
-
-    return `You are an elite sports betting AI analyst tasked with building an optimal ${config.legs}-leg parlay.
-
-# CURRENT CONTEXT
-- **Date**: ${contextData.currentDate}
-- **Time**: ${contextData.currentTime} ET
-- **Parlay Type**: ${config.legs}-leg ${config.risk} ${config.type} parlay
-- **Risk Profile**: ${riskDescriptions[config.risk]}
-- **Bet Types**: ${typeDescriptions[config.type]}
-
-# AVAILABLE DATA SOURCES
-
-## Today's Games (${contextData.todaysGames.length} total)
-${this.formatGames(contextData.todaysGames)}
-
-${config.type !== 'team' ? `## Today's Player Props (${contextData.playerProps.length} available)
-${this.formatPlayerProps(contextData.playerProps)}` : ''}
-
-## AI Predictions (${contextData.aiPredictions.length} high-confidence picks)
-${this.formatAIPredictions(contextData.aiPredictions)}
-
-${contextData.recentTrends.length > 0 ? `## Recent Trends
-${this.formatTrends(contextData.recentTrends)}` : ''}
-
-${contextData.statMuseData.length > 0 ? `## StatMuse Intelligence
-${contextData.statMuseData.map(d => `**Q**: ${d.query}\n**A**: ${d.answer}`).join('\n\n')}` : ''}
-
-${contextData.webSearchData.length > 0 ? `## Latest News & Insights
-${contextData.webSearchData.map(d => `- ${d.title}: ${d.snippet}`).join('\n')}` : ''}
-
-# YOUR TASK
-
-Build a **${config.legs}-leg parlay** that:
-1. Matches the **${config.risk}** risk profile
-2. Uses **${config.type}** bet types
-3. Maximizes value and winning probability
-4. Considers all available data intelligently
-
-# OUTPUT REQUIREMENTS
-
-Format your response in **Markdown** with this EXACT structure for mobile readability:
-
-\`\`\`markdown
-# 🎯 ${config.legs}-Leg Parlay
-
-**Combined Odds**: [+XXX]  
-**Risk**: ${config.risk.charAt(0).toUpperCase() + config.risk.slice(1)}
-
----
-
-${Array.from({ length: config.legs }, (_, i) => `
-## Leg ${i + 1}: [SPORT]
-
-**[TEAM/PLAYER]** [BET DETAILS]  
-**Odds**: [+/-XXX] | **Confidence**: XX%
-
-**Why**: [ONE compelling sentence with key stat]
-
-**Key Edge**: [ONE specific factor that makes this bet valuable]
-`).join('\n---\n')}
-
----
-
-## Strategy
-
-[2-3 sentences MAX explaining the parlay logic and why these picks work together]
-
-## Risk Check
-
-✅ **Strong**: [Most important strength]  
-⚠️ **Watch**: [Key concern to monitor]
-
-## Stake
-
-**Recommended**: X% of bankroll  
-Max bet for ${config.risk} profile
-
----
-
-**Bottom Line**: [ONE punchy sentence summarizing the value]
-
-\`\`\`
-
-# CRITICAL RULES
-
-1. **BE CONCISE** - Mobile users need quick, impactful info
-2. **ONE sentence for "Why"** - Get straight to the point with the key stat
-3. **ONE factor for "Key Edge"** - The single most important reason
-4. **Use ONLY the data provided** - Don't invent games or players
-5. **Bold all picks, odds, and numbers** for visual impact
-6. **Match the risk profile**: 
-   - Conservative: 60-70% confidence per leg
-   - Balanced: 55-65% confidence per leg
-   - Aggressive: 50-60% confidence per leg
-7. **Avoid correlated picks** - Don't pick related bets from same game
-8. **Include specific player names** so we can fetch headshots
-9. **SHORT paragraphs** - 2-3 sentences MAX for Strategy/Risk sections
-10. **PUNCHY conclusion** - One memorable sentence for Bottom Line
-
-**MOBILE-FIRST**: Keep everything tight and scannable. Users read on phones!
-
-Generate the parlay now using the Markdown format above.`;
-  }
-
-  /**
-   * Generate parlay content with Grok AI
-   */
-  private async generateWithGrok(prompt: string, config: ParlayConfig): Promise<string> {
-    try {
-      logger.info('🤖 Generating parlay with Grok AI...');
-
-      const response = await this.openai.chat.completions.create({
-        model: "grok-3",
-        max_tokens: 2500,
-        messages: [
-          {
-            role: "system",
-            content: "You are an elite sports betting analyst with deep knowledge of statistics, trends, and betting strategy. You build intelligent, data-driven parlays with professional analysis.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-      });
-
-      const content = response.choices[0]?.message?.content || '';
+    // Build relevant queries based on config and available data
+    if (games.length > 0) {
+      // Get key teams involved
+      const teams = [...new Set(games.slice(0, 5).flatMap(g => [g.home_team, g.away_team]))];
+      queries.push(`${teams[0]} record this season`);
       
-      if (!content) {
-        throw new Error('No content generated from Grok');
+      if (teams.length > 1) {
+        queries.push(`${teams[0]} vs ${teams[1]} last 5 games`);
       }
-
-      logger.info(`✅ Generated ${content.length} characters of parlay content`);
-      return content;
-    } catch (error) {
-      logger.error(`Error in generateWithGrok: ${error}`);
-      throw error;
     }
+
+    if (props.length > 0 && (config.betType === 'player' || config.betType === 'mixed')) {
+      // Get stats for top players in props
+      const topPlayers = [...new Set(props.slice(0, 3).map(p => p.players?.player_name))].filter(Boolean);
+      topPlayers.forEach(player => {
+        queries.push(`${player} stats last 10 games`);
+      });
+    }
+
+    const results: any = {};
+    
+    for (const query of queries.slice(0, 3)) { // Limit to 3 queries for speed
+      try {
+        const response = await axios.post(`${this.statmuseUrl}/query`, { query });
+        if (response.data?.success) {
+          results[query] = response.data.answer;
+        }
+      } catch (error) {
+        logger.error(`StatMuse query failed for: ${query}`, error);
+      }
+    }
+
+    return results;
   }
 
-  /**
-   * Extract player information from parlay content
-   */
-  private async extractPlayerInfo(content: string, contextData: any): Promise<Array<{ name: string; team: string; headshotUrl?: string }>> {
+  private async performWebSearch(config: ParlayConfig, games: any[]): Promise<GoogleSearchResult[]> {
     try {
-      // Extract player names from content (looking for bold player names or specific patterns)
-      const playerNames: string[] = [];
+      // Build search query based on context
+      let searchQuery = 'today betting picks ';
       
-      // Pattern 1: **Player Name** format
-      const boldPattern = /\*\*([A-Z][a-z]+ [A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\*\*/g;
-      let match;
-      while ((match = boldPattern.exec(content)) !== null) {
-        playerNames.push(match[1]);
+      if (games.length > 0) {
+        const sports = [...new Set(games.map(g => g.sport))];
+        searchQuery += sports.slice(0, 2).join(' ') + ' ';
       }
-
-      // Get unique player names
-      const uniqueNames = [...new Set(playerNames)].slice(0, 6); // Max 6 players
-
-      if (uniqueNames.length === 0) return [];
-
-      // Fetch player data with headshots
-      const players: Array<{ name: string; team: string; headshotUrl?: string }> = [];
-      for (const name of uniqueNames) {
-        const { data } = await supabaseAdmin
-          .from('players_with_headshots')
-          .select('name, team, headshot_url, has_headshot')
-          .ilike('name', `%${name}%`)
-          .limit(1)
-          .single();
-
-        if (data) {
-          players.push({
-            name: data.name,
-            team: data.team,
-            headshotUrl: data.has_headshot ? data.headshot_url : undefined,
-          });
-        }
+      
+      if (config.betType === 'player') {
+        searchQuery += 'player props ';
+      } else if (config.betType === 'team') {
+        searchQuery += 'moneyline spread ';
       }
+      
+      searchQuery += config.riskLevel === 'safe' ? 'best bets' : 'value picks';
 
-      logger.info(`✅ Extracted ${players.length} players with headshots`);
-      return players;
+      const url = `https://www.googleapis.com/customsearch/v1?key=${this.googleApiKey}&cx=${this.googleSearchEngineId}&q=${encodeURIComponent(searchQuery)}&num=5`;
+      
+      const response = await axios.get(url);
+      
+      if (response.data?.items) {
+        return response.data.items.map((item: any) => ({
+          title: item.title,
+          snippet: item.snippet,
+          link: item.link,
+          displayLink: item.displayLink
+        }));
+      }
+      
+      return [];
     } catch (error) {
-      logger.error(`Error extracting player info: ${error}`);
+      logger.error('Web search failed:', error);
       return [];
     }
   }
 
-  /**
-   * Calculate parlay stats from content
-   */
-  private calculateParlayStats(content: string, config: ParlayConfig) {
-    // Extract odds from content (look for patterns like +450, -110, etc.)
-    const oddsPattern = /Combined Odds[:\s]+([+-]\d+)/i;
-    const oddsMatch = content.match(oddsPattern);
-    const odds = oddsMatch ? oddsMatch[1] : '+350'; // Default fallback
+  private buildParlayPrompt(
+    config: ParlayConfig,
+    games: any[],
+    props: any[],
+    predictions: any[],
+    statmuseData: any,
+    searchResults: GoogleSearchResult[],
+    currentDate: string
+  ): string {
+    return `Build a ${config.legs}-leg parlay for ${currentDate} with the following requirements:
+    
+Risk Level: ${config.riskLevel}
+- Safe: High confidence picks (65%+ confidence), lower odds but more likely to hit
+- Balanced: Mix of safe and value picks (55-70% confidence)  
+- Risky: High risk/reward picks, longer odds, potential big payout
 
-    return {
-      legs: config.legs,
-      odds,
-      risk: config.risk.charAt(0).toUpperCase() + config.risk.slice(1),
-    };
+Bet Type: ${config.betType}
+- Player: Focus on player prop bets
+- Team: Focus on moneyline, spread, and totals
+- Mixed: Combination of both
+
+Bankroll: ${config.bankrollPercentage}% allocation (${config.bankrollPercentage <= 1 ? 'conservative' : 'aggressive'} sizing)
+
+AVAILABLE DATA:
+
+TODAY'S GAMES (${games.length} total):
+${games.slice(0, 10).map(g => `- ${g.away_team} @ ${g.home_team} (${g.sport}) - ${new Date(g.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`).join('\n')}
+
+${props.length > 0 ? `
+PLAYER PROPS (${props.length} available):
+${props.slice(0, 15).map(p => `- ${p.players?.player_name} (${p.players?.team}): ${p.player_prop_types?.prop_name} ${p.line > 0 ? 'Over' : 'Under'} ${Math.abs(p.line)} @ ${p.over_odds || p.under_odds}${p.headshot_url ? ` [headshot: ${p.headshot_url}]` : ''}`).join('\n')}
+` : ''}
+
+TOP AI PREDICTIONS (by confidence):
+${predictions.slice(0, 10).map(p => `- ${p.match_teams}: ${p.pick} @ ${p.odds} (${p.confidence}% confidence) - ${p.bet_type}`).join('\n')}
+
+STATMUSE INSIGHTS:
+${Object.entries(statmuseData).map(([query, answer]) => `- ${query}: ${answer}`).join('\n')}
+
+WEB SEARCH INSIGHTS:
+${searchResults.slice(0, 3).map(r => `- ${r.title}: ${r.snippet}`).join('\n')}
+
+INSTRUCTIONS:
+1. Select exactly ${config.legs} legs that fit the risk profile
+2. For each leg, include:
+   - **Pick**: Team/player and specific bet
+   - **Odds**: Current odds (use realistic odds from the data)
+   - **Confidence**: Your confidence level (%)
+   - **Reasoning**: Brief explanation why this is a good pick
+   - For player props with headshots, include the image using: ![Player Name](headshot_url)
+3. Calculate combined parlay odds and potential payout
+4. Provide overall parlay analysis and edge explanation
+5. Format the response in clean Markdown with proper headers and formatting
+6. Use emojis sparingly but effectively (🔥 for hot picks, ⚡ for value, 🎯 for locks)
+7. End with bankroll management advice for this specific parlay
+
+Be specific, use actual data from above, and format beautifully in Markdown.`;
   }
 
-  /**
-   * Create shareable text version
-   */
-  private createShareText(content: string, stats: any): string {
-    // Strip markdown and create clean text version
-    const cleanText = content
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-      .split('\n')
-      .filter(line => line.trim())
-      .join('\n');
+  private getSystemPrompt(): string {
+    return `You are Professor Lock, the world's sharpest AI sports betting expert. You specialize in building intelligent, data-driven parlays that find real edges in the market.
 
-    return `🎯 AI-Generated ${stats.legs}-Leg Parlay (${stats.odds})\n\n${cleanText}\n\n🤖 Generated by Predictive Play AI`;
-  }
+Your expertise includes:
+- Advanced statistical analysis and predictive modeling
+- Understanding line movements and finding value
+- Bankroll management and Kelly Criterion
+- Identifying correlated and uncorrelated legs
+- Risk assessment and probability calculation
 
-  // Helper formatting methods
-  private formatGames(games: any[]): string {
-    return games.slice(0, 15).map((game, i) => 
-      `${i + 1}. **${game.away_team}** @ **${game.home_team}** (${new Date(game.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })})`
-    ).join('\n');
-  }
+Communication style:
+- Professional but engaging
+- Use betting terminology naturally (juice, vig, sharp money, etc.)
+- Bold all picks, odds, and key numbers
+- Be confident in your analysis but honest about risk
+- Keep explanations concise but insightful
 
-  private formatPlayerProps(props: any[]): string {
-    return props.slice(0, 20).map((prop, i) => 
-      `${i + 1}. **${prop.player?.name}** (${prop.player?.team}) - ${prop.prop_type?.prop_name}: O/U ${prop.line} (${prop.over_odds}/${prop.under_odds})`
-    ).join('\n');
-  }
+Format all responses in clean, readable Markdown with:
+- Clear headers for each section
+- Bold for picks and important numbers
+- Bullet points for leg breakdowns
+- Tables for odds calculations when helpful
+- Emojis sparingly for emphasis (🔥 for hot picks, ⚡ for value, 🎯 for locks)
 
-  private formatAIPredictions(predictions: any[]): string {
-    return predictions.slice(0, 10).map((pred, i) => 
-      `${i + 1}. **${pred.pick}** - ${pred.match_teams} (${pred.confidence}% confidence, ${pred.odds})`
-    ).join('\n');
-  }
-
-  private formatTrends(trends: any[]): string {
-    return trends.map((trend, i) => 
-      `${i + 1}. ${trend.insight_text} (${trend.confidence}% confidence)`
-    ).join('\n');
+Never make up data - only use the provided information. If data is missing, work with what's available.`;
   }
 }
 
-// Export singleton instance
 export const parlayOrchestrator = new ParlayOrchestrator();
