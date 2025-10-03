@@ -185,27 +185,49 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         console.log(`🔍 Checking ${event.aliases.length} aliases: ${event.aliases.join(', ')}`);
         
         for (const alias of event.aliases) {
-          // Skip if we already checked this one
-          if (alias === event.app_user_id) continue;
+          // Skip if we already checked this one or if it's a RevenueCat anonymous ID
+          if (alias === event.app_user_id || alias.startsWith('$RCAnonymousID:')) continue;
           
-          // Try each alias as a potential user ID or RevenueCat ID
-          const { data: aliasUser } = await supabaseAdmin
-            .from('profiles')
-            .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
-            .or(`id.eq.${alias},revenuecat_customer_id.eq.${alias}`)
-            .single();
-          
-          if (aliasUser) {
-            console.log(`✅ Found user via alias ${alias}: ${aliasUser.id}`);
-            user = aliasUser;
-            
-            // Link the primary app_user_id to this profile
-            await supabaseAdmin
-              .from('profiles')
-              .update({ revenuecat_customer_id: event.app_user_id })
-              .eq('id', aliasUser.id);
-            console.log(`🔗 Linked primary RevenueCat ID ${event.app_user_id} to user ${aliasUser.id} via alias`);
-            break;
+          // Try to validate as UUID and lookup
+          try {
+            // Check if alias is a valid UUID format
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(alias)) {
+              // Try as Supabase user ID
+              const { data: aliasUser } = await supabaseAdmin
+                .from('profiles')
+                .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+                .eq('id', alias)
+                .single();
+              
+              if (aliasUser) {
+                console.log(`✅ Found user via UUID alias ${alias}: ${aliasUser.id}`);
+                user = aliasUser;
+                
+                // Link the primary app_user_id to this profile
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({ revenuecat_customer_id: event.app_user_id })
+                  .eq('id', aliasUser.id);
+                console.log(`🔗 Linked primary RevenueCat ID ${event.app_user_id} to user ${aliasUser.id} via alias`);
+                break;
+              }
+            } else {
+              // Try as RevenueCat customer ID or other identifier
+              const { data: aliasUser } = await supabaseAdmin
+                .from('profiles')
+                .select('id, revenuecat_customer_id, subscription_tier, stripe_customer_id')
+                .eq('revenuecat_customer_id', alias)
+                .single();
+              
+              if (aliasUser) {
+                console.log(`✅ Found user via RC alias ${alias}: ${aliasUser.id}`);
+                user = aliasUser;
+                break;
+              }
+            }
+          } catch (err) {
+            console.log(`⚠️ Error processing alias ${alias}:`, err);
           }
         }
       }
@@ -321,10 +343,14 @@ export async function handleRevenueCatWebhook(req: Request, res: Response) {
         console.log(`🤷 Unhandled event type: ${event.type}`);
     }
 
-    // Mark webhook as processed
+    // Mark webhook as processed with user_id if found
     await supabaseAdmin
       .from('revenuecat_webhook_events')
-      .update({ processed_at: new Date().toISOString() })
+      .update({ 
+        processed_at: new Date().toISOString(),
+        user_id: user.id,
+        processing_error: null
+      })
       .eq('revenuecat_customer_id', event.app_user_id)
       .eq('event_type', event.type)
       .order('created_at', { ascending: false })
@@ -396,8 +422,10 @@ async function handleSubscriptionActive(userId: string, event: any) {
     
     if (entitlementIds.includes('elite')) {
       mappedTier = 'elite';
+      console.log('💎 Elite tier detected from entitlement_ids');
     } else if (entitlementIds.includes('predictiveplaypro')) {
       mappedTier = 'pro';
+      console.log('⭐ Pro tier detected from entitlement_ids');
     }
   }
   
@@ -422,22 +450,38 @@ async function handleSubscriptionActive(userId: string, event: any) {
     elite: mappedTier === 'elite'
   };
   
-  await supabaseAdmin
+  // Update subscription immediately for INITIAL_PURCHASE events
+  const updateData: any = {
+    revenuecat_entitlements: revenuecatEntitlements,
+    revenuecat_customer_id: event.app_user_id,
+    revenuecat_customer_info: event,
+    subscription_source: 'revenuecat',
+    subscription_product_id: event.product_id,
+    subscription_tier: mappedTier || 'free',
+    subscription_status: mappedTier ? 'active' : 'inactive',
+    last_revenuecat_sync: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  
+  // For INITIAL_PURCHASE, also update subscription dates
+  if (event.type === 'INITIAL_PURCHASE' && mappedTier) {
+    updateData.subscription_started_at = new Date().toISOString();
+    if (event.expiration_at_ms) {
+      updateData.subscription_expires_at = new Date(event.expiration_at_ms).toISOString();
+    }
+  }
+  
+  const { error } = await supabaseAdmin
     .from('profiles')
-    .update({
-      revenuecat_entitlements: revenuecatEntitlements,
-      revenuecat_customer_id: event.app_user_id,
-      revenuecat_customer_info: event,
-      subscription_source: 'revenuecat',
-      subscription_product_id: event.product_id,
-      subscription_tier: mappedTier || 'free',
-      subscription_status: mappedTier ? 'active' : 'inactive',
-      last_revenuecat_sync: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
+    .update(updateData)
     .eq('id', userId);
     
-  console.log(`✅ Entitlements updated:`, revenuecatEntitlements);
+  if (error) {
+    console.error(`❌ Failed to update user ${userId}:`, error);
+    throw error;
+  }
+    
+  console.log(`✅ User ${userId} updated to ${mappedTier} tier with entitlements:`, revenuecatEntitlements);
 }
 
 async function handleSubscriptionInactive(userId: string, event: any) {
