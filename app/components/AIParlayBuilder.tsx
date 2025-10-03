@@ -85,6 +85,8 @@ export default function AIParlayBuilder() {
   const [oddsType, setOddsType] = useState<'american' | 'decimal'>('american');
   const [oddsInput, setOddsInput] = useState<string>('');
   const [copied, setCopied] = useState<boolean>(false);
+  const [oddsManuallyEdited, setOddsManuallyEdited] = useState<boolean>(false);
+  const [autoCombinedOdds, setAutoCombinedOdds] = useState<{ american: number; decimal: number } | null>(null);
   
 
   const getLegOptions = () => [
@@ -137,6 +139,9 @@ export default function AIParlayBuilder() {
     setGenerating(true);
     setStreamingText('');
     setParlayResult(null);
+    setOddsManuallyEdited(false);
+    setOddsInput('');
+    setAutoCombinedOdds(null);
     setToolEvents([]);
     setCurrentTool(null);
     setSearchResults([]);
@@ -192,6 +197,7 @@ export default function AIParlayBuilder() {
         } else if (data.type === 'complete') {
           setParlayResult(data.parlay);
           setGenerating(false);
+          try { es.close(); } catch {}
         }
       });
 
@@ -210,6 +216,46 @@ export default function AIParlayBuilder() {
       setGenerating(false);
     }
   };
+
+  // --- Odds utilities & auto-compute combined odds from generated legs ---
+  const americanToDecimal = (odd: number) => {
+    if (!isFinite(odd)) return 1;
+    return odd > 0 ? 1 + odd / 100 : 1 + 100 / Math.abs(odd);
+  };
+
+  const decimalToAmerican = (dec: number) => {
+    if (!isFinite(dec) || dec <= 1) return 0;
+    if (dec >= 2) return Math.round((dec - 1) * 100);
+    return -Math.round(100 / (dec - 1));
+  };
+
+  const computeCombinedOddsFromText = (text: string) => {
+    if (!text) return null;
+    const matches = Array.from(text.matchAll(/([+\-]\d{2,4})/g));
+    const legs = matches
+      .map((m) => parseInt(m[1], 10))
+      .filter((n) => Number.isFinite(n) && Math.abs(n) >= 100 && Math.abs(n) <= 10000);
+    if (!legs.length) return null;
+    const combinedDecimal = legs.map(americanToDecimal).reduce((acc, d) => acc * d, 1);
+    if (!isFinite(combinedDecimal) || combinedDecimal <= 1) return null;
+    const american = decimalToAmerican(combinedDecimal);
+    return { american, decimal: combinedDecimal };
+  };
+
+  // When parlay is generated (or odds type changes), prefill calculator with combined odds
+  useEffect(() => {
+    if (!parlayResult) return;
+    const text = typeof parlayResult === 'string' ? parlayResult : JSON.stringify(parlayResult);
+    const combined = computeCombinedOddsFromText(text);
+    if (!combined) return;
+    setAutoCombinedOdds(combined);
+    if (!oddsManuallyEdited) {
+      const formatted = oddsType === 'decimal'
+        ? combined.decimal.toFixed(2)
+        : (combined.american > 0 ? `+${Math.round(combined.american)}` : `${Math.round(combined.american)}`);
+      setOddsInput(formatted);
+    }
+  }, [parlayResult, oddsType]);
 
   const getToolMessage = (tool: string): string => {
     const messages: { [key: string]: string } = {
@@ -262,24 +308,7 @@ export default function AIParlayBuilder() {
               <Text style={styles.subtitle}>Intelligent parlay generation</Text>
             </View>
           </View>
-          {/* Header CTA */}
-          <TouchableOpacity onPress={generateParlay} disabled={generating}>
-            <LinearGradient
-              colors={['#00E5FF', '#8B5CF6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerCta}
-            >
-              {generating ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Sparkles size={18} color="#FFFFFF" />
-                  <Text style={styles.headerCtaText}>Generate</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* Header CTA removed per request */}
         </View>
       </LinearGradient>
 
@@ -454,8 +483,11 @@ export default function AIParlayBuilder() {
               style={styles.modalScrollView}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               bounces={false}
-              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              overScrollMode="never"
+              contentInsetAdjustmentBehavior="never"
+              scrollEventThrottle={16}
             >
               {generating ? (
                 <>
@@ -615,7 +647,7 @@ export default function AIParlayBuilder() {
                         <Text style={styles.calcLabel}>Combined Odds</Text>
                         <TextInput
                           value={oddsInput}
-                          onChangeText={setOddsInput}
+                          onChangeText={(t) => { setOddsManuallyEdited(true); setOddsInput(t); }}
                           placeholder={oddsType === 'american' ? '+250' : '3.50'}
                           placeholderTextColor="#64748B"
                           keyboardType="default"
