@@ -458,87 +458,66 @@ Build a **${config.legs}-leg parlay** that:
 
 # OUTPUT REQUIREMENTS
 
-Format your response in **Markdown** with this exact structure:
+Format your response in **Markdown** with this EXACT structure for mobile readability:
 
 \`\`\`markdown
-# 🎯 ${config.legs}-Leg ${config.risk.charAt(0).toUpperCase() + config.risk.slice(1)} Parlay
+# 🎯 ${config.legs}-Leg Parlay
 
-## 📊 Parlay Overview
-- **Total Legs**: ${config.legs}
-- **Combined Odds**: [Calculate and show American odds, e.g., +450]
-- **Risk Level**: ${config.risk.charAt(0).toUpperCase() + config.risk.slice(1)}
-- **Expected Value**: [Your EV assessment]
+**Combined Odds**: [+XXX]  
+**Risk**: ${config.risk.charAt(0).toUpperCase() + config.risk.slice(1)}
 
 ---
 
-## 🏆 The Picks
+${Array.from({ length: config.legs }, (_, i) => `
+## Leg ${i + 1}: [SPORT]
 
-### Leg 1: [Sport] - [Bet Type]
-**Pick**: **[Team/Player Name]** [Bet Details]  
-**Odds**: [American odds]  
-**Confidence**: [XX]%
+**[TEAM/PLAYER]** [BET DETAILS]  
+**Odds**: [+/-XXX] | **Confidence**: XX%
 
-**Analysis**:
-[2-3 sentences explaining WHY this pick, citing specific data]
+**Why**: [ONE compelling sentence with key stat]
 
-**Key Factors**:
-- [Factor 1]
-- [Factor 2]
-- [Factor 3]
+**Key Edge**: [ONE specific factor that makes this bet valuable]
+`).join('\n---\n')}
 
 ---
 
-### Leg 2: [Sport] - [Bet Type]
-[Same format as Leg 1]
+## Strategy
+
+[2-3 sentences MAX explaining the parlay logic and why these picks work together]
+
+## Risk Check
+
+✅ **Strong**: [Most important strength]  
+⚠️ **Watch**: [Key concern to monitor]
+
+## Stake
+
+**Recommended**: X% of bankroll  
+Max bet for ${config.risk} profile
 
 ---
 
-[Continue for all ${config.legs} legs...]
-
----
-
-## 💰 Parlay Strategy
-
-[Explain the overall parlay construction strategy - why these picks work together, correlation considerations, timing, etc.]
-
-## 🎲 Risk Assessment
-
-**Strengths**:
-- [Strength 1]
-- [Strength 2]
-
-**Concerns to Monitor**:
-- [Concern 1]
-- [Concern 2]
-
-## 📈 Recommended Stake
-
-Based on **${config.risk}** risk tolerance:
-- Suggested unit size: [X]% of bankroll
-- Max recommended: [X]% of bankroll
-
----
-
-### ⚡ Quick Summary
-[One compelling sentence about why this parlay has value]
+**Bottom Line**: [ONE punchy sentence summarizing the value]
 
 \`\`\`
 
 # CRITICAL RULES
 
-1. **Use ONLY the data provided** - Don't invent games or players
-2. **Bold all picks, odds, and numbers** for visual impact
-3. **Cite specific stats** from the data sources
-4. **Be realistic** with confidence levels (50-75% for individual legs)
-5. **Calculate accurate combined odds** for the parlay
+1. **BE CONCISE** - Mobile users need quick, impactful info
+2. **ONE sentence for "Why"** - Get straight to the point with the key stat
+3. **ONE factor for "Key Edge"** - The single most important reason
+4. **Use ONLY the data provided** - Don't invent games or players
+5. **Bold all picks, odds, and numbers** for visual impact
 6. **Match the risk profile**: 
    - Conservative: 60-70% confidence per leg
    - Balanced: 55-65% confidence per leg
    - Aggressive: 50-60% confidence per leg
-7. **Avoid correlated picks** (e.g., don't pick player prop + team total from same game unless explicitly noted)
-8. **Use professional betting terminology**
-9. **Include specific player names for prop bets** so we can fetch headshots
-10. **Make it ACTIONABLE** - users should feel confident about placing this parlay
+7. **Avoid correlated picks** - Don't pick related bets from same game
+8. **Include specific player names** so we can fetch headshots
+9. **SHORT paragraphs** - 2-3 sentences MAX for Strategy/Risk sections
+10. **PUNCHY conclusion** - One memorable sentence for Bottom Line
+
+**MOBILE-FIRST**: Keep everything tight and scannable. Users read on phones!
 
 Generate the parlay now using the Markdown format above.`;
   }

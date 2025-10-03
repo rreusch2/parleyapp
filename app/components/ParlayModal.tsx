@@ -34,7 +34,7 @@ interface ParlayModalProps {
   parlayData: any;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function ParlayModal({ visible, onClose, parlayData }: ParlayModalProps) {
   const { theme } = useUITheme();
@@ -90,36 +90,36 @@ export default function ParlayModal({ visible, onClose, parlayData }: ParlayModa
   // Markdown styles matching Professor Lock chat
   const markdownStyles = {
     body: {
-      fontSize: 15,
-      lineHeight: 24,
+      fontSize: 14,
+      lineHeight: 22,
       color: theme.cardTextPrimary,
       fontFamily: 'System',
     },
     heading1: {
-      fontSize: 24,
+      fontSize: 22,
       fontWeight: '700' as any,
       color: theme.accentPrimary,
-      marginTop: 16,
-      marginBottom: 12,
-    },
-    heading2: {
-      fontSize: 20,
-      fontWeight: '600' as any,
-      color: theme.cardTextPrimary,
-      marginTop: 14,
+      marginTop: 12,
       marginBottom: 10,
     },
-    heading3: {
+    heading2: {
       fontSize: 18,
       fontWeight: '600' as any,
       color: theme.cardTextPrimary,
       marginTop: 12,
       marginBottom: 8,
     },
+    heading3: {
+      fontSize: 16,
+      fontWeight: '600' as any,
+      color: theme.cardTextPrimary,
+      marginTop: 10,
+      marginBottom: 6,
+    },
     strong: {
       fontWeight: '700' as any,
       color: theme.accentPrimary,
-      fontSize: 16,
+      fontSize: 15,
     },
     em: {
       fontStyle: 'normal' as any,
@@ -137,8 +137,8 @@ export default function ParlayModal({ visible, onClose, parlayData }: ParlayModa
       marginVertical: 8,
     },
     paragraph: {
-      marginVertical: 6,
-      lineHeight: 24,
+      marginVertical: 4,
+      lineHeight: 22,
     },
     code_inline: {
       backgroundColor: `${theme.accentPrimary}1A`,
@@ -160,7 +160,7 @@ export default function ParlayModal({ visible, onClose, parlayData }: ParlayModa
     hr: {
       backgroundColor: theme.borderColor,
       height: 1,
-      marginVertical: 16,
+      marginVertical: 12,
     },
   };
 
@@ -170,6 +170,7 @@ export default function ParlayModal({ visible, onClose, parlayData }: ParlayModa
       animationType="fade"
       transparent={true}
       onRequestClose={onClose}
+      statusBarTranslucent={true}
     >
       <View style={styles.modalOverlay}>
         <Animated.View
@@ -231,7 +232,9 @@ export default function ParlayModal({ visible, onClose, parlayData }: ParlayModa
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
+            nestedScrollEnabled={true}
           >
             {/* Player Headshots Section (if available) */}
             {parlayData.players && parlayData.players.length > 0 && (
@@ -314,10 +317,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 20,
   },
   modalContainer: {
-    width: screenWidth * 0.92,
-    maxHeight: '90%',
+    width: screenWidth > 600 ? 600 : screenWidth * 0.94,
+    maxHeight: screenHeight * 0.92,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 10,
+    flexDirection: 'column',
   },
   header: {
     padding: 20,
@@ -375,7 +380,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 24,
   },
   playersSection: {
     marginBottom: 20,
@@ -420,7 +426,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   markdownContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
+    maxWidth: '100%',
   },
   disclaimer: {
     padding: 12,
