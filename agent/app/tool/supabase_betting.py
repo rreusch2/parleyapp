@@ -147,6 +147,8 @@ class SupabaseBettingTool(BaseTool):
                 return await self._get_player_props(kwargs)
             elif action == "get_player_props_by_date":
                 return await self._get_player_props_by_date(kwargs)
+            elif action == "get_all_props_for_date":
+                return await self._get_all_props_for_date(kwargs)
             elif action == "store_predictions":
                 return await self._store_predictions(kwargs)
             elif action == "get_recent_predictions":
@@ -372,21 +374,23 @@ class SupabaseBettingTool(BaseTool):
         limit = params.get("limit", 50)
         
         try:
-            # Query player props with joins
+            # Query player props with joins including event details
             response = self._supabase.table("player_props_odds").select(
                 "id, line, over_odds, under_odds, event_id, "
                 "players(name, player_name, team), "
-                "player_prop_types(prop_name)"
+                "player_prop_types(prop_name), "
+                "sports_events!inner(home_team, away_team, sport, start_time)"
             ).in_("event_id", game_ids).limit(limit).execute()
             
             props = []
             for row in response.data:
-                if row.get("players") and row.get("player_prop_types"):
+                if row.get("players") and row.get("player_prop_types") and row.get("sports_events"):
                     # Use full name if available, fallback to player_name
                     player_name = row["players"].get("name") or row["players"].get("player_name")
                     if not player_name:
                         continue
                     
+                    event = row["sports_events"]
                     prop_data = {
                         "prop_id": row.get("id"),
                         "event_id": row["event_id"],
@@ -396,15 +400,19 @@ class SupabaseBettingTool(BaseTool):
                         "line": float(row["line"]) if row["line"] else None,
                         "over_odds": int(float(row["over_odds"])) if row["over_odds"] else None,
                         "under_odds": int(float(row["under_odds"])) if row["under_odds"] else None,
-                        "bookmaker": "Unknown"
+                        "bookmaker": "Unknown",
+                        # Add event details for proper formatting
+                        "home_team": event.get("home_team"),
+                        "away_team": event.get("away_team"),
+                        "sport": event.get("sport"),
+                        "event_time": event.get("start_time")
                     }
                     props.append(prop_data)
             
             # Group props by sport for analysis
             props_by_sport = {}
             for prop in props:
-                # We'd need to join with sports_events to get sport, for now use team patterns
-                sport = self._infer_sport_from_team(prop["team"])
+                sport = prop.get("sport", "Unknown")
                 if sport not in props_by_sport:
                     props_by_sport[sport] = []
                 props_by_sport[sport].append(prop)
@@ -511,12 +519,77 @@ class SupabaseBettingTool(BaseTool):
             logger.error(f"Error fetching player props by date: {str(e)}")
             return self.fail_response(f"Error fetching player props by date: {str(e)}")
 
+    async def _get_all_props_for_date(self, params: Dict) -> ToolResult:
+        """Get ALL player props for a date by automatically fetching games first, then props"""
+        
+        date_str = params.get("date")
+        limit = params.get("limit", 500)
+        
+        try:
+            # Step 1: Get all games for the date
+            games_result = await self._get_upcoming_games({"date": date_str, "limit": 100, "exclude_past": False})
+            if games_result.error:
+                return games_result
+            
+            # Parse games response
+            import json
+            games_data = json.loads(games_result.output) if isinstance(games_result.output, str) else games_result.output
+            games = games_data.get("games", [])
+            
+            if not games:
+                return self.success_response({
+                    "query_date": date_str,
+                    "games_found": 0,
+                    "total_props_found": 0,
+                    "player_props": [],
+                    "message": "No games found for this date"
+                })
+            
+            # Step 2: Extract ALL game IDs
+            game_ids = [g["id"] for g in games]
+            logger.info(f"Fetching props for {len(game_ids)} games on {date_str}")
+            
+            # Step 3: Get all props for those games
+            props_result = await self._get_player_props({"game_ids": game_ids, "limit": limit})
+            if props_result.error:
+                return props_result
+            
+            # Parse props response and add date context
+            props_data = json.loads(props_result.output) if isinstance(props_result.output, str) else props_result.output
+            props_data["query_date"] = date_str
+            props_data["games_found"] = len(games)
+            
+            logger.info(f"Successfully fetched {props_data.get('total_props_found', 0)} props for {date_str}")
+            return self.success_response(props_data)
+            
+        except Exception as e:
+            logger.error(f"Error in get_all_props_for_date: {str(e)}")
+            return self.fail_response(f"Error fetching all props for date: {str(e)}")
+
     async def _store_predictions(self, params: Dict) -> ToolResult:
         """Store AI predictions in the database"""
         
         predictions = params.get("predictions", [])
         if not predictions:
             return self.fail_response("predictions parameter is required and must be a non-empty array")
+        
+        # Validation: Check for sport/team mismatches
+        for pred in predictions:
+            sport = pred.get("sport", "")
+            teams = pred.get("match_teams", "")
+            
+            # CFB validation
+            if sport == "CFB" and any(mlb in teams.lower() for mlb in ["brewers", "cubs", "yankees", "dodgers", "mariners", "tigers", "phillies"]):
+                return self.fail_response(f"Sport/team mismatch: CFB player cannot have MLB teams ({teams}). Use the actual CFB teams from the prop data!")
+            
+            # MLB validation  
+            if sport == "MLB" and any(cfb in teams.lower() for cfb in ["eagles", "panthers", "wolfpack", "fighting", "college"]):
+                return self.fail_response(f"Sport/team mismatch: MLB player cannot have CFB teams ({teams}). Use the actual MLB teams from the prop data!")
+            
+            # Name validation
+            pick = pred.get("pick", "")
+            if ". " in pick[:5]:  # Abbreviated name like "J. Smith"
+                return self.fail_response(f"Use full player names from props data, not abbreviations: {pick}")
         
         stored_predictions = []
         errors = []

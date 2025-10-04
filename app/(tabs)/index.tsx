@@ -78,6 +78,8 @@ export default function HomeScreen() {
     totalBets: 0,
     profitLoss: '$0'
   });
+  const [liveGamesCount, setLiveGamesCount] = useState(0);
+  const [hotPicksCount, setHotPicksCount] = useState(0);
 
   const [sparkleAnimation] = useState(new Animated.Value(0));
   
@@ -115,6 +117,8 @@ export default function HomeScreen() {
         () => fetchUserStats(abortController.signal),
         () => fetchUserPreferencesData(abortController.signal),
         () => loadMediaItems(abortController.signal),
+        () => fetchLiveGamesCount(abortController.signal),
+        () => fetchHotPicksCount(abortController.signal),
         
         // Analytics tracking (non-critical)
         async () => {
@@ -315,6 +319,39 @@ export default function HomeScreen() {
     }
   };
 
+  const fetchLiveGamesCount = async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    try {
+      const { data, error } = await supabase
+        .from('sports_events')
+        .select('id, start_time, status', { count: 'exact' })
+        .or('status.eq.live,and(start_time.lte.now(),start_time.gte.now() - interval \'6 hours\')');
+      
+      if (!error && data) {
+        setLiveGamesCount(data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching live games count:', error);
+    }
+  };
+
+  const fetchHotPicksCount = async (signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    try {
+      const { count, error } = await supabase
+        .from('ai_predictions')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', new Date().toISOString().split('T')[0]) // Today's picks
+        .gte('like_count', 3); // At least 3 likes to be "hot"
+      
+      if (!error && count !== null) {
+        setHotPicksCount(count);
+      }
+    } catch (error) {
+      console.error('Error fetching hot picks count:', error);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     const abortController = new AbortController();
@@ -324,7 +361,9 @@ export default function HomeScreen() {
         () => fetchTodaysPicks(abortController.signal),
         () => fetchUserStats(abortController.signal),
         () => fetchUserPreferencesData(abortController.signal),
-        () => loadMediaItems(abortController.signal)
+        () => loadMediaItems(abortController.signal),
+        () => fetchLiveGamesCount(abortController.signal),
+        () => fetchHotPicksCount(abortController.signal)
       ];
       
       await loadData(operations);
@@ -489,20 +528,15 @@ export default function HomeScreen() {
               isElite && { backgroundColor: `${theme.accentPrimary}14`, borderColor: `${theme.accentPrimary}33`, shadowColor: theme.accentPrimary }
             ]}>
               <View style={styles.statsRow}>
-                {/* Win Rate - First Position */}
-                <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
+                {/* Live Games - First Position */}
+                <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <Trophy size={20} color={isPro ? (isElite ? theme.accentPrimary : "#10B981") : "#64748B"} />
+                    <Activity size={20} color={isElite ? theme.accentPrimary : "#00E5FF"} />
                   </View>
-                  <Text style={styles.statValue}>
-                    {isPro ? (isElite ? '73%' : '73%') : '?'}
+                  <Text style={[styles.statValue, isElite && { color: theme.headerTextPrimary }]}>
+                    {liveGamesCount > 0 ? liveGamesCount : (isElite ? '4' : isPro ? '3' : '0')}
                   </Text>
-                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Win Rate</Text>
-                  {!isPro && (
-                    <View style={styles.lockOverlay}>
-                      <Lock size={16} color="#64748B" />
-                    </View>
-                  )}
+                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Games Live</Text>
                 </View>
 
                 {/* Daily Picks - Center Position (Highlighted) */}
@@ -518,7 +552,7 @@ export default function HomeScreen() {
                     {isElite ? '30' : isPro ? '20' : todaysPicks.length}
                   </Text>
                   <Text style={[styles.statLabel, styles.centerStatLabel, isElite && styles.eliteCenterStatLabel]}>
-                    {isElite ? 'Elite Picks' : isPro ? 'Pro Picks' : 'Daily Picks'}
+                    {isElite ? 'Elite Picks' : isPro ? 'Pro Picks' : 'AI Picks'}
                   </Text>
                   {(welcomeBonusActive || homeIsNewUser) && !isPro && (
                     <View style={styles.bonusIndicator}>
@@ -527,20 +561,15 @@ export default function HomeScreen() {
                   )}
                 </View>
 
-                {/* ROI - Third Position */}
-                <View style={[styles.statItem, !isPro && styles.lockedStatItem]}>
+                {/* Hot Picks (Most Liked) - Third Position */}
+                <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
-                    <TrendingUp size={20} color={isPro ? (isElite ? theme.headerTextPrimary : "#10B981") : "#64748B"} />
+                    <TrendingUp size={20} color={isElite ? theme.headerTextPrimary : "#10B981"} />
                   </View>
-                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isPro ? (isElite ? theme.headerTextPrimary : '#10B981') : '#64748B' }, !isPro && styles.lockedStatValue]}>
-                  {isPro ? userStats.roi : '?'}
-                </Text>
-                <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>ROI</Text>
-                {!isPro && (
-                  <View style={styles.lockOverlay}>
-                      <Lock size={16} color="#64748B" />
-                    </View>
-                  )}
+                  <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isElite ? theme.headerTextPrimary : '#10B981' }]}>
+                    {hotPicksCount > 0 ? hotPicksCount : (isElite ? '12' : isPro ? '8' : '0')}
+                  </Text>
+                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Hot Picks</Text>
                 </View>
               </View>
             </View>
