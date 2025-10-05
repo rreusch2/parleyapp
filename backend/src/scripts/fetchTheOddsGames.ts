@@ -75,10 +75,20 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     
     // Calculate date range 
     const now = new Date();
+    let startDate = new Date(now);
     let endDate = new Date();
     
-    // Check if we should extend range for NFL week (next N days, default 7)
-    if (extendedRange && sportInfo.key === 'americanfootball_nfl') {
+    // Check if we should extend range for UFC events (next 14 days) or NFL week (next N days, default 7)
+    if (sportInfo.key === 'mma_mixed_martial_arts') {
+      const ufcDays = Number(process.env.UFC_AHEAD_DAYS || 14);
+      // For UFC, start from beginning of today to catch events that already started
+      startDate = new Date(now);
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate = new Date(startDate);
+      endDate.setUTCDate(startDate.getUTCDate() + ufcDays);
+      endDate.setUTCHours(23, 59, 59, 999);
+      console.log(`🥊 UFC Mode: Extended range ${ufcDays} days ahead from start of today through ${endDate.toISOString()}`);
+    } else if (extendedRange && sportInfo.key === 'americanfootball_nfl') {
       const extendedDays = Number(process.env.NFL_AHEAD_DAYS || 7);
       endDate = new Date(now);
       endDate.setUTCDate(now.getUTCDate() + extendedDays);
@@ -92,7 +102,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     }
     
     // Format dates in the required format YYYY-MM-DDTHH:MM:SSZ using UTC consistently
-    const commenceTimeFrom = now.toISOString().split('.')[0] + 'Z';
+    const commenceTimeFrom = (sportInfo.key === 'mma_mixed_martial_arts' ? startDate : now).toISOString().split('.')[0] + 'Z';
     const commenceTimeTo = endDate.toISOString().split('T')[0] + 'T23:59:59Z';
     
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);

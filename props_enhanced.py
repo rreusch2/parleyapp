@@ -2370,17 +2370,14 @@ REMEMBER:
         return None
 
     def _format_pick_string(self, pick: Dict, matching_prop: PlayerProp) -> str:
-        """Formats the pick string for clarity."""
+        """Formats the pick string for clarity in the new format: 'Player Name OVER/UNDER Line Prop Type'"""
         player_name = pick.get("player_name", "")
         prop_type = pick.get("prop_type", "")
-        recommendation = pick.get("recommendation", "").lower()
+        recommendation = pick.get("recommendation", "").upper()
         line = pick.get("line")
 
-        if prop_type in ["Hits", "Home Runs", "RBIs", "Runs Scored", "Stolen Bases"]:
-            return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
-        elif prop_type in ["Hits Allowed", "Innings Pitched", "Strikeouts (Pitcher)", "Walks Allowed"]:
-            return f"{player_name} {prop_type} {recommendation.capitalize()} {line}"
-        return f"{player_name} {prop_type} {recommendation} {line}" # Fallback
+        # New format: "Player Name OVER/UNDER Line Prop Type"
+        return f"{player_name} {recommendation} {line} {prop_type}"
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Generate AI player prop betting picks')

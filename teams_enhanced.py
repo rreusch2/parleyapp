@@ -23,6 +23,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Try to import UFC API for fighter data
+try:
+    from ufc import get_fighter, get_event
+    UFC_API_AVAILABLE = True
+    logger.info("UFC API loaded successfully")
+except ImportError:
+    UFC_API_AVAILABLE = False
+    logger.warning("UFC API not available. Install with: pip install ufc_api lxml")
+
 @dataclass
 class TeamBet:
     id: str
@@ -165,8 +174,9 @@ class DatabaseClient:
             current_date = now.date()
             
             if target_date == current_date:
-                # Today - start from now
-                start_time = now
+                # Today - start from beginning of day to catch events that already started
+                start_time_local = datetime.combine(current_date, datetime.min.time())
+                start_time = start_time_local - timedelta(hours=8)  # Pad for timezone differences
                 # End of day in EST, converted to UTC (EST games can run until ~3 AM UTC next day)
                 end_time_local = datetime.combine(current_date, datetime.min.time().replace(hour=23, minute=59, second=59))
                 end_time = end_time_local + timedelta(hours=8)  # EST to UTC conversion (worst case)
@@ -1892,9 +1902,17 @@ async def main():
     # Determine target date
     if args.date:
         try:
-            target_date = datetime.strptime(args.date, '%Y-%m-%d').date()
+            # Try multiple date formats
+            for fmt in ['%Y-%m-%d', '%m-%d-%Y', '%m/%d/%Y']:
+                try:
+                    target_date = datetime.strptime(args.date, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            else:
+                raise ValueError("No valid format found")
         except ValueError:
-            logger.error("Invalid date format. Use YYYY-MM-DD")
+            logger.error("Invalid date format. Use YYYY-MM-DD, MM-DD-YYYY, or MM/DD/YYYY")
             return
     elif args.tomorrow:
         target_date = datetime.now().date() + timedelta(days=1)
