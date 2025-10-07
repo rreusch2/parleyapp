@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
 // Use proper environment variables with better fallback logic
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
@@ -24,7 +24,7 @@ export interface AIPrediction {
   fair_odds?: string;
   key_factors?: string[];
   status?: 'pending' | 'won' | 'lost';
-    metadata?: any;
+  created_at?: string;
 }
 
 export interface AIInsight {
@@ -65,8 +65,8 @@ export interface DailyInsight {
     processingTime?: number;
     confidence?: number;
   };
-    metadata?: any;
-updated_at?: string;
+  created_at?: string;
+  updated_at?: string;
   
   // Legacy fields for backward compatibility (frontend expects these)
   userId?: string;
@@ -192,11 +192,11 @@ class AIService {
       if (userTier) queryParams.append('userTier', userTier);
       
       const url = `${BACKEND_URL}/api/ai/daily-picks-combined?${queryParams.toString()}`;
-      console.log('ðŸ”— Requesting URL:', url);
+      console.log('🔗 Requesting URL:', url);
       
       const data = await this.makeRequest(url);
       
-      console.log('ðŸ”§ DEBUG - Raw API response:', {
+      console.log('🔧 DEBUG - Raw API response:', {
         success: data.success,
         total_picks: data.total_picks,
         team_picks_count: data.team_picks?.length || 0,
@@ -212,7 +212,7 @@ class AIService {
           ...(data.player_props_picks || [])
         ];
         
-        console.log('ðŸ”§ DEBUG - Raw pick sample BEFORE transformation:', {
+        console.log('🔧 DEBUG - Raw pick sample BEFORE transformation:', {
           pick: rawPicks[0],
           fields: rawPicks[0] ? Object.keys(rawPicks[0]) : 'NO PICKS'
         });
@@ -239,11 +239,11 @@ class AIService {
               fair_odds: pick.fair_odds,
               key_factors: pick.key_factors,
               status: pick.status as 'pending' | 'won' | 'lost',
-              ,
-              metadata: pick.metadata || {}};
+              created_at: pick.created_at
+            };
             
             if (index === 0) {
-              console.log('ðŸ”§ DEBUG - First pick transformation:', {
+              console.log('🔧 DEBUG - First pick transformation:', {
                 original: pick,
                 transformed: transformed
               });
@@ -251,7 +251,7 @@ class AIService {
             
             return transformed;
           } catch (error) {
-            console.error(`âš ï¸ Error transforming pick ${index}:`, error, pick);
+            console.error(`⚠️ Error transforming pick ${index}:`, error, pick);
             return {
               id: pick.id || 'unknown',
               match: 'Error loading match',
@@ -265,13 +265,13 @@ class AIService {
           }
         });
         
-        console.log(`ðŸ“š Loaded ${allPicks.length} AI picks (${data.breakdown?.team_picks || 0} team + ${data.breakdown?.player_props_picks || 0} props)`);
-        console.log('ðŸ”§ DEBUG - Transformed picks sample:', allPicks.slice(0, 2));
+        console.log(`📚 Loaded ${allPicks.length} AI picks (${data.breakdown?.team_picks || 0} team + ${data.breakdown?.player_props_picks || 0} props)`);
+        console.log('🔧 DEBUG - Transformed picks sample:', allPicks.slice(0, 2));
         return allPicks;
       }
       
       // If no predictions found, return empty array
-      console.log('ðŸ“š No predictions found in database');
+      console.log('📚 No predictions found in database');
       return [];
     } catch (error) {
       console.error('Error fetching today\'s picks:', error);
@@ -283,7 +283,7 @@ class AIService {
   // Generate new AI picks from your backend
   async generateNewPicks(userId?: string): Promise<AIPrediction[]> {
     try {
-      console.log('ðŸ¤– Generating new AI picks via DeepSeek orchestrator...');
+      console.log('🤖 Generating new AI picks via DeepSeek orchestrator...');
       const currentUserId = userId || await this.getCurrentUserId();
       
       const data = await this.makeRequest(`${BACKEND_URL}/api/ai/generate-picks`, {
@@ -292,7 +292,7 @@ class AIService {
         timeout: 30000 // Increase timeout to 30 seconds for DeepSeek processing
       });
       
-      console.log('âœ… New AI picks generated successfully');
+      console.log('✅ New AI picks generated successfully');
       return data.predictions || [];
     } catch (error) {
       console.error('Error generating new picks:', error);
@@ -342,13 +342,13 @@ class AIService {
   async getStarterPicks(userId?: string): Promise<AIPrediction[]> {
     try {
       const currentUserId = userId || await this.getCurrentUserId();
-      console.log('ðŸŽ Getting instant starter picks for new user...');
+      console.log('🎁 Getting instant starter picks for new user...');
       
       const data = await this.makeRequest(`${BACKEND_URL}/api/ai/starter-picks?userId=${currentUserId}`);
       
       if (data.success && data.predictions) {
-        console.log(`âœ… Received ${data.predictions.length} starter picks instantly!`);
-        console.log(`ðŸ“¦ Source: ${data.metadata?.picksSource}`);
+        console.log(`✅ Received ${data.predictions.length} starter picks instantly!`);
+        console.log(`📦 Source: ${data.metadata?.picksSource}`);
         return data.predictions;
       }
       
@@ -363,7 +363,7 @@ class AIService {
   async generateFirstPicks(userId?: string): Promise<AIPrediction[]> {
     try {
       const currentUserId = userId || await this.getCurrentUserId();
-      console.log('ðŸŽ Generating first picks for new user...');
+      console.log('🎁 Generating first picks for new user...');
       
       const data = await this.makeRequest(`${BACKEND_URL}/api/ai/generate-picks`, {
         method: 'POST',
@@ -375,7 +375,7 @@ class AIService {
         timeout: 30000
       });
       
-      console.log('âœ… First picks generated for new user');
+      console.log('✅ First picks generated for new user');
       return data.predictions || [];
     } catch (error) {
       console.error('Error generating first picks:', error);

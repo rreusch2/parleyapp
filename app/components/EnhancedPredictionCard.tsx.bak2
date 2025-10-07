@@ -11,7 +11,6 @@ import {
   
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import OptimizedImage from './OptimizedImage';
 import {
   Brain,
   TrendingUp,
@@ -67,13 +66,6 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
   const [advancedAnalysis, setAdvancedAnalysis] = useState<AdvancedAnalysis | null>(null);
   const [glowAnimation] = useState(new Animated.Value(0));
   const [showFullReasoning, setShowFullReasoning] = useState(false);
-  // Rich metadata from backend generator
-  const meta: any = (prediction as any).metadata || {};
-  const headshotUri: string | undefined = meta.player_headshot_url;
-  const leagueLogoUri: string | undefined = meta.league_logo_url;
-  const isAlt: boolean = !!meta.is_alt;
-  const playerName: string = meta.player_name || String(prediction.pick || '').split(' ').slice(0, 2).join(' ');
-  const initials: string = playerName ? playerName.split(' ').map((p: string) => p[0]).filter(Boolean).slice(0,2).join('').toUpperCase() : '?';
 
   React.useEffect(() => {
     if (isPro || isElite) {
@@ -257,21 +249,9 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
 
           {/* Header */}
           <View style={styles.header}>
-            {/* Player avatar */}
-            <View style={styles.avatarContainer}>
-              {headshotUri ? (
-                <OptimizedImage source={{ uri: headshotUri }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarInitials}>{initials}</Text>
-                </View>
-              )}
-            </View>
             <View style={styles.matchInfo}>
               <View style={styles.sportBadge}>
-                {leagueLogoUri ? (
-                  <OptimizedImage source={{ uri: leagueLogoUri }} style={styles.leagueLogo} />
-                ) : null}                <Text style={styles.sportIcon}>{getSportIcon(prediction.sport)}</Text>
+                <Text style={styles.sportIcon}>{getSportIcon(prediction.sport)}</Text>
                 <Text style={styles.sportText}>{prediction.sport || 'Unknown'}</Text>
               </View>
               {/* Display the matchup â€“ fall back to `match_teams` if `match` is missing (e.g., Pro picks) */}
@@ -304,15 +284,7 @@ export default function EnhancedPredictionCard({ prediction, index, onAnalyze, w
             <View style={styles.pickSection}>
               <Text style={styles.pickLabel}>AI Prediction</Text>
               <Text style={[styles.pickValue, isElite && { color: theme.accentPrimary }]}>{prediction.pick || 'Loading...'}</Text>
-                            <View style={styles.oddsRow}>
-                {((prediction as any).metadata?.bookmaker_logo_url) ? (
-                  <OptimizedImage source={{ uri: (prediction as any).metadata.bookmaker_logo_url }} style={styles.bookLogo} />
-                ) : null}
-                <Text style={styles.oddsText}>Odds: {formatOdds(prediction.odds)}</Text>
-                {((prediction as any).metadata?.is_alt) ? (
-                  <Text style={styles.altPill}>ALT</Text>
-                ) : null}
-              </View>
+              <Text style={styles.oddsText}>Odds: {formatOdds(prediction.odds)}</Text>
             </View>
 
             {prediction.value && prediction.value > 0 && (
@@ -545,40 +517,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
-  },  avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0F172A',
   },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 22,
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1F2937',
-  },
-  avatarInitials: {
-    color: '#E2E8F0',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  leagueLogo: {
-    width: 14,
-    height: 14,
-    marginRight: 6,
-    borderRadius: 3,
-  },
-  
   matchInfo: {
     flex: 1,
     marginRight: 12,
@@ -642,6 +581,29 @@ const styles = StyleSheet.create({
   oddsText: {
     fontSize: 13,
     color: '#E2E8F0',
+  },
+  oddsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bookLogo: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  altPill: {
+    marginLeft: 8,
+    fontSize: 11,
+    color: '#FCD34D',
+    backgroundColor: 'rgba(252, 211, 77, 0.15)',
+    borderColor: 'rgba(252, 211, 77, 0.3)',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   valueSection: {
     marginTop: 8,
@@ -889,7 +851,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 }); 
-
-
-
-
