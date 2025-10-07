@@ -63,6 +63,31 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
     }
   },
   
+  NBA: {
+    sportKey: 'NBA',
+    sportName: 'National Basketball Association',
+    theoddsKey: 'basketball_nba',
+    propMarkets: [
+      'player_points',
+      'player_rebounds',
+      'player_assists',
+      'player_threes',
+      'player_blocks',
+      'player_steals',
+      'player_turnovers',
+      'player_double_double',
+      'player_triple_double',
+      'player_points_rebounds_assists'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('NBA') && process.env.ENABLE_NBA_DATA === 'true',
+    seasonInfo: {
+      start: '2025-10-22',
+      end: '2026-06-30',
+      current: '2025'
+    }
+  },
+  
   UFC: {
     sportKey: 'UFC',
     sportName: 'Ultimate Fighting Championship',
@@ -137,6 +162,26 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
     seasonInfo: {
       start: '2025-09-01',
       end: '2026-02-28',
+      current: '2025'
+    }
+  },
+
+  NHL: {
+    sportKey: 'NHL',
+    sportName: 'National Hockey League',
+    theoddsKey: 'icehockey_nhl',
+    propMarkets: [
+      'player_points',
+      'player_goals',
+      'player_assists',
+      'player_shots_on_goal',
+      'player_saves'
+    ],
+    teamOddsMarkets: ['h2h', 'spreads', 'totals'],
+    isActive: getActiveSports().includes('NHL') && process.env.ENABLE_NHL_DATA === 'true',
+    seasonInfo: {
+      start: '2025-10-01',
+      end: '2026-06-30',
       current: '2025'
     }
   },
@@ -331,7 +376,16 @@ export const getActiveSportConfigs = (): SportConfig[] => {
 // Bookmaker configurations
 export const BOOKMAKER_CONFIG = {
   teamOdds: ['fanduel', 'draftkings', 'betmgm', 'caesars'],
-  playerProps: 'fanduel', // Single bookmaker for consistency
+  
+  // Top US sportsbooks for player props (line shopping for best odds)
+  playerProps: [
+    'fanduel',      // Most popular, great coverage
+    'draftkings',   // Competitive lines
+    'betmgm',       // Wide prop selection
+    'caesars',      // Good odds
+    'fanatics'      // Fanatics Sportsbook (growing fast)
+  ], // 5 bookmakers < 10 = 1 region cost
+  
   ufcFights: ['fanduel', 'draftkings', 'betmgm']
 };
 

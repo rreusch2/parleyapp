@@ -152,8 +152,8 @@ fi
 # Step 4: Generate Enhanced Props Predictions
 log "🏈 Step 4/6: Generating enhanced props predictions..."
 
-if python3 props_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
-    log "✅ Enhanced props predictions completed successfully"
+if python3 props_enhanced.py --tomorrow --picks 25 >> "$LOG_FILE" 2>&1; then
+    log "✅ Enhanced props predictions completed successfully (25 picks for Elite tier support)"
 else
     handle_error "Enhanced props predictions failed" "Props generation"
 fi
@@ -161,8 +161,8 @@ fi
 # Step 5: Generate Enhanced Teams Predictions  
 log "🏆 Step 5/6: Generating enhanced teams predictions..."
 
-if python3 teams_enhanced.py --tomorrow >> "$LOG_FILE" 2>&1; then
-    log "✅ Enhanced teams predictions completed successfully"  
+if python3 teams_enhanced.py --tomorrow --picks 25 >> "$LOG_FILE" 2>&1; then
+    log "✅ Enhanced teams predictions completed successfully (25 picks for Elite tier support)"  
 else
     handle_error "Enhanced teams predictions failed" "Teams generation"
 fi

@@ -19,7 +19,9 @@ interface GroupedProp {
 // Legacy constants for backwards compatibility
 const MLB_PROP_MARKETS = SUPPORTED_SPORTS.MLB.propMarkets;
 const TEAM_ODDS_BOOKMAKERS = BOOKMAKER_CONFIG.teamOdds;
-const PLAYER_PROPS_BOOKMAKER = BOOKMAKER_CONFIG.playerProps;
+const PLAYER_PROPS_BOOKMAKERS = Array.isArray(BOOKMAKER_CONFIG.playerProps)
+  ? BOOKMAKER_CONFIG.playerProps
+  : [BOOKMAKER_CONFIG.playerProps];
 
 /**
  * Converts decimal odds format to American odds format
@@ -251,19 +253,22 @@ async function fetchPlayerPropsForGame(eventId: string, sportKey: string): Promi
     }
     
     const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/events/${eventId}/odds`;
+    const alternateMarkets = propMarkets.map((m) => `alternate_${m}`);
+    const marketsParam = Array.from(new Set([...propMarkets, ...alternateMarkets])).join(',');
+    const bookmakersParam = PLAYER_PROPS_BOOKMAKERS.join(',');
+
     const params = {
       apiKey,
       regions: 'us',
-      markets: propMarkets.join(','),
+      markets: marketsParam,
       oddsFormat: 'american',
-      // Request multiple bookmakers to increase chance of available prop markets
-      bookmakers: [PLAYER_PROPS_BOOKMAKER, 'draftkings', 'betmgm', 'caesars'].join(',')
+      bookmakers: bookmakersParam
     };
     
     console.log(`  🎯 Fetching player props for event ${eventId}...`);
     console.log(`  🔍 API URL: ${url}`);
-    console.log(`  🔍 Markets: ${propMarkets.join(',')}`);
-    console.log(`  🔍 Bookmaker: ${PLAYER_PROPS_BOOKMAKER}`);
+    console.log(`  🔍 Markets: ${marketsParam}`);
+    console.log(`  🔍 Bookmakers: ${bookmakersParam}`);
     const response = await axios.get(url, { params, timeout: 30000 });
     
     if (response.status === 200 && response.data) {

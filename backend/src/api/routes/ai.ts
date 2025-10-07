@@ -2660,6 +2660,38 @@ router.get('/daily-picks-combined', async (req, res) => {
     const { test, userId, userTier } = req.query;
     logger.info(`🏆 Fetching combined daily picks from database - Test Mode: ${test === 'true'}, User: ${userId}, Tier: ${userTier}`);
     
+    // Get user's betting style preference from profiles table
+    let bettingStyle = 'balanced'; // Default
+    let allowedRiskLevels: string[] = ['Low', 'Medium']; // Default for balanced
+    
+    if (userId) {
+      try {
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('betting_style')
+          .eq('id', userId)
+          .single();
+        
+        if (!profileError && profile) {
+          bettingStyle = profile.betting_style || 'balanced';
+          logger.info(`👤 User ${userId} betting style: ${bettingStyle}`);
+          
+          // Determine allowed risk levels based on betting style
+          if (bettingStyle === 'conservative') {
+            allowedRiskLevels = ['Low']; // Only safe picks
+          } else if (bettingStyle === 'balanced') {
+            allowedRiskLevels = ['Low', 'Medium']; // Safe + moderate picks
+          } else if (bettingStyle === 'aggressive') {
+            allowedRiskLevels = ['Low', 'Medium', 'High']; // All picks including high risk
+          }
+          
+          logger.info(`🎯 Allowed risk levels for ${bettingStyle}: ${allowedRiskLevels.join(', ')}`);
+        }
+      } catch (err) {
+        logger.warn(`Could not fetch betting style for user ${userId}, using balanced default`);
+      }
+    }
+    
     // Determine pick limits based on user tier
     let teamPicksLimit = 1; // Default for free users
     let playerPropsLimit = 1;
@@ -2783,11 +2815,26 @@ router.get('/daily-picks-combined', async (req, res) => {
       return selected;
     };
 
-    // Apply sport-aware limiting separately for teams and props
+    // Apply betting style filtering FIRST, then sport-aware limiting
     const teamPool = teamPicksResult.data || [];
     const propsPool = playerPropsResult.data || [];
-    const teamSelected = selectRoundRobin(teamPool, teamPicksLimit);
-    let propsSelected = selectRoundRobin(propsPool, playerPropsLimit);
+    
+    // Filter by risk level based on user's betting style
+    const teamFiltered = teamPool.filter(pick => {
+      const riskLevel = pick.risk_level || 'Medium'; // Default to Medium if not set
+      return allowedRiskLevels.includes(riskLevel);
+    });
+    
+    const propsFiltered = propsPool.filter(pick => {
+      const riskLevel = pick.risk_level || 'Medium'; // Default to Medium if not set
+      return allowedRiskLevels.includes(riskLevel);
+    });
+    
+    logger.info(`🔍 Betting style filtering (${bettingStyle}): Teams ${teamPool.length} → ${teamFiltered.length}, Props ${propsPool.length} → ${propsFiltered.length}`);
+    
+    // Now apply sport-aware limiting to filtered picks
+    const teamSelected = selectRoundRobin(teamFiltered, teamPicksLimit);
+    let propsSelected = selectRoundRobin(propsFiltered, playerPropsLimit);
 
     // Smart diversity: if returning 1 team + 1 prop and both are same sport, swap prop to a different sport if available
     try {

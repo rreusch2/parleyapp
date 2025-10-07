@@ -17,7 +17,8 @@
     "odds:nfl-week:7": "ts-node src/scripts/setupOddsIntegration.ts --nfl-week --nfl-days=7",
     "odds:nfl-week:10": "ts-node src/scripts/setupOddsIntegration.ts --nfl-week --nfl-days=10",
     "orchestrator": "ts-node src/scripts/run-orchestrator.ts",
-    "nfl-preseason": "ts-node src/scripts/fetchNFLPreseason.ts"
+    "nfl-preseason": "ts-node src/scripts/fetchNFLPreseason.ts",
+    "sgo-props": "ts-node src/scripts/setupSportsGameOddsProps.ts"
   },
   "dependencies": {
     "@babel/cli": "^7.28.0",

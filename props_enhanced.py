@@ -356,14 +356,20 @@ class DatabaseClient:
                 except:
                     expected_value = 5.0
                 
-                # Determine risk level
-                confidence = pred.get("confidence", 75)
-                if confidence >= 80:
-                    risk_level = "Low"
-                elif confidence >= 65:
-                    risk_level = "Medium"
-                else:
-                    risk_level = "High"
+                # Get risk level from AI (preferred) or determine from confidence as fallback
+                risk_level = pred.get("risk_level")
+                if not risk_level:
+                    # Fallback logic if AI didn't provide risk_level
+                    confidence = pred.get("confidence", 75)
+                    odds = pred.get("odds", 0)
+                    
+                    # Determine risk based on confidence AND odds alignment
+                    if confidence >= 70 and odds <= -110:
+                        risk_level = "Low"  # Conservative: high confidence + favorite odds
+                    elif confidence >= 60 and -150 <= odds <= 150:
+                        risk_level = "Medium"  # Balanced: good confidence + reasonable odds
+                    else:
+                        risk_level = "High"  # Aggressive: lower confidence or underdog odds
                 
                 prediction_data = {
                     "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",
@@ -1666,7 +1672,55 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
             
             prompt = f"""
 You are a professional sports betting analyst with 15+ years experience handicapping multi-sport player props ({sports_list}).
-Your job is to find PROFITABLE betting opportunities across ALL available sports, not just predict outcomes.
+Your job is to find PROFITABLE betting opportunities across ALL available sports AND across DIFFERENT RISK PROFILES to serve users with varying betting strategies.
+
+🎯 **CRITICAL: RISK-STRATIFIED PICK GENERATION**
+
+You MUST generate picks across 3 DISTINCT risk categories to serve different user betting styles:
+
+**CONSERVATIVE PICKS (~35% of total):**
+- Target odds: -200 to -110 (heavy favorites, safer bets)
+- Confidence range: 70-85% 
+- Focus: Strong favorites, proven performers, home advantages
+- Risk level tag: "Low"
+- Example: Star player hits vs weak pitcher, home team favorite ML
+
+**BALANCED PICKS (~50% of total):**
+- Target odds: -150 to +150 (slight favorites to slight underdogs)
+- Confidence range: 60-75%
+- Focus: Value bets, statistical edges, matchup advantages  
+- Risk level tag: "Medium"
+- Example: Quality player with favorable matchup, trend-based totals
+
+**AGGRESSIVE PICKS (~15% of total):**
+- Target odds: +120 to +300 (underdogs with upside)
+- Confidence range: 55-70%
+- Focus: High value, contrarian plays, market inefficiencies
+- Risk level tag: "High"
+- Example: Underdog with hidden edge, inflated lines on public favorites
+
+**REQUIRED DISTRIBUTION FOR {target_picks} PICKS:**
+- Conservative (Low risk): ~{int(target_picks * 0.36)} picks (target: 9 for 25 picks)
+- Balanced (Medium risk): ~{int(target_picks * 0.52)} picks (target: 13 for 25 picks)
+- Aggressive (High risk): ~{int(target_picks * 0.12)} picks (target: 3 for 25 picks)
+
+🚨 **CRITICAL: QUALITY OVER QUANTITY**
+
+You are generating {target_picks} picks to ensure Elite subscribers across ALL betting styles get 30+ picks.
+
+HOWEVER:
+- Only select picks where you see REAL value and a clear edge
+- If you can't find {target_picks} quality picks, return FEWER picks - that's OK!
+- DO NOT stretch or force picks just to hit the target number
+- Skip any prop where the value isn't obvious
+- A smaller set of great picks is better than hitting the number with mediocre picks
+
+**MINIMUM QUALITY STANDARDS:**
+- Conservative (Low risk): 70%+ confidence, 5%+ value edge, odds -200 to -110
+- Balanced (Medium risk): 60%+ confidence, 8%+ value edge, odds -150 to +150
+- Aggressive (High risk): 55%+ confidence, 12%+ value edge, odds +120 to +300
+
+If a pick doesn't meet these standards, DON'T include it. Quality > Quantity always.
 
 🏆 **SPORT EXPERTISE:**
 - **NFL**: Quarterback efficiency, rushing matchups, receiving targets, weather/field conditions, injury reports
@@ -1742,13 +1796,19 @@ PROFITABLE BETTING STRATEGY:
 - **Avoid "lottery tickets"**: High-odds props (+500+) are designed to lose money
 
 CONFIDENCE SCALE (BE REALISTIC):
-- 52-55%: Marginal edge, small value (only if great odds)
-- 56-60%: Solid spot, good value (most picks should be here)
-- 61-65%: Strong conviction, clear edge
-- 66-70%: Exceptional opportunity (very rare)
+- **AGGRESSIVE (High Risk)**: 55-70% confidence, odds +120 to +300
+- **BALANCED (Medium Risk)**: 60-75% confidence, odds -150 to +150  
+- **CONSERVATIVE (Low Risk)**: 70-85% confidence, odds -200 to -110
 
-💰 **REMEMBER**: Professional bettors win by finding small edges consistently, NOT by chasing big payouts!
-- 71%+: Only for obvious mispricing
+💰 **REMEMBER**: Different users have different risk tolerances!
+- Conservative bettors want safer picks with higher win rates (lower payouts)
+- Balanced bettors want value with moderate risk/reward  
+- Aggressive bettors want higher upside even with lower win probability
+
+🚨 **DIVERSIFICATION IS KEY**: 
+- Don't make ALL picks conservative or ALL picks aggressive
+- Generate a BALANCED MIX across all three risk categories
+- This ensures ALL users (conservative/balanced/aggressive) get quality picks
 
 🚨 CRITICAL RESPONSE FORMAT REQUIREMENTS:
 - MUST respond with ONLY a valid JSON array starting with [ and ending with ]
@@ -1766,6 +1826,7 @@ FORMAT RESPONSE AS JSON ARRAY (ONLY JSON, NO OTHER TEXT):
     "line": line_value,
     "odds": american_odds_value,
     "confidence": confidence_percentage,
+    "risk_level": "Low" OR "Medium" OR "High" (REQUIRED - must match confidence/odds ranges above),
     "reasoning": "4-6 sentence comprehensive analysis. Start with the key edge or advantage identified, explain the supporting data or trends that led to this conclusion, mention any relevant player/team factors, and conclude with why this represents value. Be specific about numbers, trends, or situational factors that support the pick.",
     "key_factors": ["factor_1", "factor_2", "factor_3"],
     "roi_estimate": "percentage like 8.5% or 12.3%",
@@ -2385,8 +2446,8 @@ def parse_arguments():
                       help='Generate picks for tomorrow instead of today')
     parser.add_argument('--date', type=str, 
                       help='Specific date to generate picks for (YYYY-MM-DD)')
-    parser.add_argument('--picks', type=int, default=15,
-                      help='Target number of total props to generate (default: 15)')
+    parser.add_argument('--picks', type=int, default=25,
+                      help='Target number of total props to generate (default: 25, scaled for Elite tier support)')
     parser.add_argument('--wnba', action='store_true',
                       help='Generate 5 best WNBA picks only (overrides --picks)')
     parser.add_argument('--nfl-week', action='store_true',
