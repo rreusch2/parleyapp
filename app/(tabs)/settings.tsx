@@ -932,7 +932,7 @@ export default function SettingsScreen() {
   const handleJoinDiscord = async () => {
     try {
       Vibration.vibrate(50);
-      const discordUrl = 'https://discord.gg/RdgAyqcx';
+      const discordUrl = 'https://discord.gg/8mg9GxXrEx';
       const canOpen = await Linking.canOpenURL(discordUrl);
       
       if (canOpen) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -82,7 +82,7 @@ export default function HomeScreen() {
     profitLoss: '$0'
   });
   const [liveGamesCount, setLiveGamesCount] = useState(0);
-  const [hotPicksCount, setHotPicksCount] = useState(0);
+  const [hitRate, setHitRate] = useState('72.4'); // AI Hit Rate percentage from backend
 
   const [sparkleAnimation] = useState(new Animated.Value(0));
   
@@ -99,7 +99,8 @@ export default function HomeScreen() {
   
   // User preferences for Elite features
   const [userPreferences, setUserPreferences] = useState<any>({
-    sportPreferences: { mlb: true, wnba: false, ufc: false }
+    sportPreferences: { mlb: true, wnba: false, ufc: false },
+    bettingStyle: 'balanced'
   });
   const [userId, setUserId] = useState<string>('');
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
@@ -109,6 +110,9 @@ export default function HomeScreen() {
   // Onboarding tutorial state
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  
+  // Polling ref for live games count
+  const liveGamesPollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -125,7 +129,7 @@ export default function HomeScreen() {
         () => fetchUserPreferencesData(abortController.signal),
         () => loadMediaItems(abortController.signal),
         () => fetchLiveGamesCount(abortController.signal),
-        () => fetchHotPicksCount(abortController.signal),
+        () => fetchHitRate(abortController.signal),
         
         // Analytics tracking (non-critical)
         async () => {
@@ -156,6 +160,42 @@ export default function HomeScreen() {
       if (stopAnimation) stopAnimation();
     };
   }, [isPro, loadData]); // Added loadData to dependencies
+  
+  // Poll live games count every 45 seconds to keep it in sync with Games tab
+  useEffect(() => {
+    // Clear any existing interval
+    if (liveGamesPollRef.current) {
+      clearInterval(liveGamesPollRef.current);
+      liveGamesPollRef.current = null;
+    }
+    
+    // Start polling for live games count
+    const pollLiveGames = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('sports_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'live');
+        
+        if (!error && count !== null) {
+          setLiveGamesCount(count);
+        }
+      } catch (err) {
+        console.error('Live games count poll failed:', err);
+      }
+    };
+    
+    // Poll every 45 seconds (same as Games tab)
+    liveGamesPollRef.current = setInterval(pollLiveGames, 45000);
+    
+    // Cleanup on unmount
+    return () => {
+      if (liveGamesPollRef.current) {
+        clearInterval(liveGamesPollRef.current);
+        liveGamesPollRef.current = null;
+      }
+    };
+  }, []);
 
   const startSparkleAnimation = () => {
     const animation = Animated.loop(
@@ -232,7 +272,59 @@ export default function HomeScreen() {
     }
   }, []);
 
-
+  /**
+   * Smart pick filtering based on betting style
+   * Prioritizes picks by risk level based on user preference, falls back if needed
+   */
+  const filterPicksByBettingStyle = (picks: any[], targetCount: number, bettingStyle: string) => {
+    // Define risk priority order based on betting style
+    let riskPriority: string[] = [];
+    
+    if (bettingStyle === 'risky' || bettingStyle === 'aggressive') {
+      riskPriority = ['High', 'Medium', 'Low'];
+    } else if (bettingStyle === 'conservative') {
+      riskPriority = ['Low', 'Medium', 'High'];
+    } else {
+      // Balanced: evenly distribute across all risk levels
+      riskPriority = ['Medium', 'High', 'Low'];
+    }
+    
+    const selectedPicks: any[] = [];
+    
+    if (bettingStyle === 'balanced') {
+      // For balanced, try to get equal distribution
+      const targetPerRisk = Math.ceil(targetCount / 3);
+      
+      ['Low', 'Medium', 'High'].forEach(risk => {
+        const riskPicks = picks.filter(p => (p.risk_level || 'Medium') === risk);
+        selectedPicks.push(...riskPicks.slice(0, targetPerRisk));
+      });
+      
+      // If we don't have enough, fill with any remaining picks
+      if (selectedPicks.length < targetCount) {
+        const remaining = picks.filter(p => !selectedPicks.includes(p));
+        selectedPicks.push(...remaining.slice(0, targetCount - selectedPicks.length));
+      }
+    } else {
+      // For risky/conservative, prioritize by risk order
+      for (const risk of riskPriority) {
+        if (selectedPicks.length >= targetCount) break;
+        
+        const riskPicks = picks.filter(p => 
+          (p.risk_level || 'Medium') === risk && 
+          !selectedPicks.includes(p)
+        );
+        
+        const needed = targetCount - selectedPicks.length;
+        selectedPicks.push(...riskPicks.slice(0, needed));
+      }
+    }
+    
+    // Sort by created_at (newest first) and limit
+    return selectedPicks
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, targetCount);
+  };
 
   const fetchTodaysPicks = async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
@@ -242,84 +334,159 @@ export default function HomeScreen() {
       const currentUserId = user?.id;
       const currentUserTier = isElite ? 'elite' : (isPro ? 'pro' : 'free');
       
-      // For consistency with Predictions tab, let's also check the metadata here
+      // For consistency with Predictions tab, fetch directly from database
       if (!isPro && !isElite && currentUserId) {
-        // Get API response directly to check metadata
         try {
-          const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-          const apiResponse = await fetch(`${baseUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
-          const data = await apiResponse.json();
+          // Check welcome bonus status
+          let bonusActive = false;
+          try {
+            const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+            const response = await fetch(`${baseUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
+            const bonusData = await response.json();
+            
+            if (bonusData.success && bonusData.status.welcome_bonus_active) {
+              bonusActive = true;
+              setWelcomeBonusActive(true);
+            }
+          } catch (err) {
+            console.log('Could not fetch welcome bonus status:', err);
+          }
           
-          if (data.success && data.predictions) {
-            setTodaysPicks(data.predictions);
+          // Check if new user (created within last 7 days)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('created_at')
+            .eq('id', currentUserId)
+            .single();
+          
+          const isNewUserCheck = profile && new Date(profile.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          setHomeIsNewUser(isNewUserCheck || false);
+          
+          // Determine pick limit: 5 if welcome bonus or new user, otherwise 2
+          const pickLimit = (bonusActive || isNewUserCheck) ? 5 : 2;
+          
+          // Get betting style preference
+          const bettingStyle = userPreferences.bettingStyle || 'balanced';
+          
+          console.log(`🎲 Free user on Home tab - ${bettingStyle} style, ${pickLimit} picks`);
+          
+          // Fetch MORE picks to allow for betting style filtering
+          const { data: rawPicks, error } = await supabase
+            .from('ai_predictions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(pickLimit * 5); // Fetch 5x to ensure variety
+          
+          if (!error && rawPicks) {
+            // Apply betting style filtering
+            const filteredPicks = filterPicksByBettingStyle(rawPicks, pickLimit, bettingStyle);
+            
+            // Transform to AIPrediction format
+            const transformedPicks = filteredPicks.map(pred => ({
+              id: pred.id,
+              match: pred.match_teams || pred.match || '',
+              sport: pred.sport || 'Unknown',
+              eventTime: pred.event_time || pred.created_at,
+              pick: pred.pick,
+              odds: pred.odds,
+              confidence: pred.confidence,
+              reasoning: pred.reasoning || '',
+              value: pred.value_percentage,
+              value_percentage: pred.value_percentage,
+              bet_type: pred.bet_type || '',
+              risk_level: pred.risk_level,
+              roi_estimate: pred.roi_estimate ? parseFloat(String(pred.roi_estimate)) : undefined,
+              status: pred.status as 'pending' | 'won' | 'lost',
+              created_at: pred.created_at,
+              metadata: pred.metadata,
+              prop_market_type: pred.prop_market_type,
+              line_value: pred.line_value,
+            }));
+            
+            setTodaysPicks(transformedPicks);
             
             // Track daily picks viewing for potential review prompt
-            if (data.predictions.length > 0) {
+            if (transformedPicks.length > 0) {
               trackPositiveInteraction({ 
                 eventType: 'daily_picks_viewed', 
-                metadata: { picksViewed: data.predictions.length } 
+                metadata: { picksViewed: transformedPicks.length } 
               });
             }
             
-            // Check metadata for new user or welcome bonus status
-            if (data.metadata) {
-              const isNewUserScenario = data.metadata.isNewUser || false;
-              const bonusActiveFromAPI = data.metadata.welcomeBonusActive || false;
-              
-              setHomeIsNewUser(isNewUserScenario);
-              setWelcomeBonusActive(bonusActiveFromAPI);
-              
-              if (isNewUserScenario) {
-                console.log(`🆕 New user on Home tab: ${data.predictions.length} picks (automatic welcome bonus)`);
-              } else if (bonusActiveFromAPI) {
-                console.log(`🎁 Welcome bonus active on Home tab: ${data.predictions.length} picks`);
-              } else {
-                console.log(`🎲 Free user on Home tab: ${data.predictions.length} picks`);
-              }
+            if (isNewUserCheck) {
+              console.log(`🆕 New user on Home tab: ${transformedPicks.length} picks (automatic welcome bonus)`);
+            } else if (bonusActive) {
+              console.log(`🎁 Welcome bonus active on Home tab: ${transformedPicks.length} picks`);
+            } else {
+              console.log(`🎲 Free user on Home tab: ${transformedPicks.length} picks`);
             }
           } else {
-          // Fallback to service method
-          const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-          setTodaysPicks(picks);
-          
-          // Track daily picks viewing for potential review prompt
-          if (picks.length > 0) {
-            trackPositiveInteraction({ 
-              eventType: 'daily_picks_viewed', 
-              metadata: { picksViewed: picks.length } 
-            });
+            console.error('Error fetching free user picks:', error);
+            setTodaysPicks([]);
           }
-        }
         } catch (error) {
           console.error('Error fetching picks with metadata:', error);
-          // Fallback to service method
-          const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-          setTodaysPicks(picks);
-          
-          // Track daily picks viewing for potential review prompt
-          if (picks.length > 0) {
-            trackPositiveInteraction({ 
-              eventType: 'daily_picks_viewed', 
-              metadata: { picksViewed: picks.length } 
-            });
-          }
+          setTodaysPicks([]);
         }
       } else {
-        // Pro users or no user ID - use service method
-        const picks = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-        console.log('🏠 HOME TAB DEBUG - getTodaysPicks returned:', {
-          picksCount: picks.length,
-          samplePick: picks[0] || null,
-          allPickIds: picks.map(p => p.id)
-        });
-        setTodaysPicks(picks);
+        // Pro/Elite users - fetch from database with betting style filtering
+        const bettingStyle = userPreferences.bettingStyle || 'balanced';
+        const pickLimit = isElite ? 30 : (isPro ? 20 : 2);
         
-        // Track daily picks viewing for potential review prompt
-        if (picks.length > 0) {
-          trackPositiveInteraction({ 
-            eventType: 'daily_picks_viewed', 
-            metadata: { picksViewed: picks.length } 
+        console.log(`🏠 ${isElite ? 'Elite' : 'Pro'} user on Home tab - fetching with ${bettingStyle} style`);
+        
+        // Fetch MORE picks to allow for betting style filtering
+        const { data: rawPicks, error } = await supabase
+          .from('ai_predictions')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(pickLimit * 3); // Fetch 3x to ensure variety
+        
+        if (!error && rawPicks) {
+          // Apply betting style filtering
+          const filteredPicks = filterPicksByBettingStyle(rawPicks, pickLimit, bettingStyle);
+          
+          // Transform to AIPrediction format
+          const transformedPicks = filteredPicks.map(pred => ({
+            id: pred.id,
+            match: pred.match_teams || pred.match || '',
+            sport: pred.sport || 'Unknown',
+            eventTime: pred.event_time || pred.created_at,
+            pick: pred.pick,
+            odds: pred.odds,
+            confidence: pred.confidence,
+            reasoning: pred.reasoning || '',
+            value: pred.value_percentage,
+            value_percentage: pred.value_percentage,
+            bet_type: pred.bet_type || '',
+            risk_level: pred.risk_level,
+            roi_estimate: pred.roi_estimate ? parseFloat(String(pred.roi_estimate)) : undefined,
+            status: pred.status as 'pending' | 'won' | 'lost',
+            created_at: pred.created_at,
+            metadata: pred.metadata,
+            prop_market_type: pred.prop_market_type,
+            line_value: pred.line_value,
+          }));
+          
+          console.log('🏠 HOME TAB DEBUG - Filtered picks:', {
+            picksCount: transformedPicks.length,
+            bettingStyle,
+            samplePick: transformedPicks[0] || null,
+            allPickIds: transformedPicks.map(p => p.id)
           });
+          
+          setTodaysPicks(transformedPicks);
+          
+          // Track daily picks viewing for potential review prompt
+          if (transformedPicks.length > 0) {
+            trackPositiveInteraction({ 
+              eventType: 'daily_picks_viewed', 
+              metadata: { picksViewed: transformedPicks.length } 
+            });
+          }
+        } else {
+          console.error('Error fetching picks from database:', error);
+          setTodaysPicks([]);
         }
       }
     } catch (error) {
@@ -340,33 +507,43 @@ export default function HomeScreen() {
   const fetchLiveGamesCount = async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
     try {
-      const { data, error } = await supabase
+      // Only count games that are actually marked as live in the database
+      // This matches what the Games tab shows as live
+      const { count, error } = await supabase
         .from('sports_events')
-        .select('id, start_time, status', { count: 'exact' })
-        .or('status.eq.live,and(start_time.lte.now(),start_time.gte.now() - interval \'6 hours\')');
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'live');
       
-      if (!error && data) {
-        setLiveGamesCount(data.length);
+      if (!error && count !== null) {
+        setLiveGamesCount(count);
+        console.log(`🔴 Live games count: ${count}`);
+      } else {
+        console.error('Error fetching live games count:', error);
+        setLiveGamesCount(0);
       }
     } catch (error) {
       console.error('Error fetching live games count:', error);
+      setLiveGamesCount(0);
     }
   };
 
-  const fetchHotPicksCount = async (signal?: AbortSignal) => {
+  const fetchHitRate = async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
     try {
-      const { count, error } = await supabase
-        .from('ai_predictions')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', new Date().toISOString().split('T')[0]) // Today's picks
-        .gte('like_count', 3); // At least 3 likes to be "hot"
+      // Fetch hit rate from app_settings table (backend controlled)
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'hit_rate_percentage')
+        .single();
       
-      if (!error && count !== null) {
-        setHotPicksCount(count);
+      if (!error && data) {
+        setHitRate(data.setting_value);
+        console.log(`🎯 Hit Rate: ${data.setting_value}%`);
       }
     } catch (error) {
-      console.error('Error fetching hot picks count:', error);
+      console.error('Error fetching hit rate:', error);
+      setHitRate('72.4'); // Fallback to default
     }
   };
 
@@ -381,7 +558,7 @@ export default function HomeScreen() {
         () => fetchUserPreferencesData(abortController.signal),
         () => loadMediaItems(abortController.signal),
         () => fetchLiveGamesCount(abortController.signal),
-        () => fetchHotPicksCount(abortController.signal)
+        () => fetchHitRate(abortController.signal)
       ];
       
       await loadData(operations);
@@ -579,15 +756,15 @@ export default function HomeScreen() {
                   )}
                 </View>
 
-                {/* Hot Picks (Most Liked) - Third Position */}
+                {/* Hit Rate - Third Position */}
                 <View style={styles.statItem}>
                   <View style={styles.statIconContainer}>
                     <TrendingUp size={20} color={isElite ? theme.headerTextPrimary : "#10B981"} />
                   </View>
                   <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.statValue, { color: isElite ? theme.headerTextPrimary : '#10B981' }]}>
-                    {hotPicksCount > 0 ? hotPicksCount : (isElite ? '12' : isPro ? '8' : '0')}
+                    {hitRate}%
                   </Text>
-                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Hot Picks</Text>
+                  <Text style={[styles.statLabel, isElite && styles.eliteStatLabel]}>Hit Rate</Text>
                 </View>
               </View>
             </View>

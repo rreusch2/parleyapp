@@ -138,8 +138,9 @@ class RevenueCatService {
     try {
       console.log('🔄 Initializing RevenueCat...');
       
-      if (!REVENUECAT_API_KEY) {
-        throw new Error('RevenueCat API key not configured');
+      if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY === 'your_ios_key_here' || REVENUECAT_API_KEY === 'your_android_key_here') {
+        console.warn('⚠️ RevenueCat API key not configured - skipping initialization');
+        return; // Silently skip initialization instead of throwing
       }
 
       // Configure RevenueCat
@@ -695,6 +696,18 @@ class RevenueCatService {
         await this.initialize();
       }
 
+      // If still not initialized after attempting, return empty customer info
+      if (!this.isInitialized) {
+        console.warn('⚠️ RevenueCat not initialized - returning empty customer info');
+        return {
+          entitlements: { active: {}, all: {} },
+          activeSubscriptions: [],
+          allPurchasedProductIdentifiers: [],
+          originalAppUserId: '',
+          firstSeen: new Date().toISOString(),
+        } as CustomerInfo;
+      }
+
       const customerInfo = await Purchases.getCustomerInfo();
       console.log('📊 Customer info:', {
         activeEntitlements: Object.keys(customerInfo.entitlements.active),
@@ -704,7 +717,14 @@ class RevenueCatService {
       return customerInfo;
     } catch (error) {
       console.error('❌ Failed to get customer info:', error);
-      throw error;
+      // Return empty customer info instead of throwing
+      return {
+        entitlements: { active: {}, all: {} },
+        activeSubscriptions: [],
+        allPurchasedProductIdentifiers: [],
+        originalAppUserId: '',
+        firstSeen: new Date().toISOString(),
+      } as CustomerInfo;
     }
   }
 

@@ -67,7 +67,8 @@ export default function PredictionsScreen() {
   // Elite user preferences for filtering predictions
   const [userPreferences, setUserPreferences] = useState<any>({
     sportPreferences: { mlb: true, wnba: false, ufc: false, cfb: false },
-    pickDistribution: { auto: true }
+    pickDistribution: { auto: true },
+    bettingStyle: 'balanced'
   });
   const [userId, setUserId] = useState<string>('');
   const [showEliteDistribution, setShowEliteDistribution] = useState(false);
@@ -85,14 +86,15 @@ export default function PredictionsScreen() {
         setUserId(user.id);
         const { data: profile } = await supabase
           .from('profiles')
-          .select('sport_preferences, pick_distribution')
+          .select('sport_preferences, pick_distribution, betting_style')
           .eq('id', user.id)
           .single();
         
         if (profile) {
           setUserPreferences({
             sportPreferences: profile.sport_preferences || { mlb: true, wnba: false, ufc: false, cfb: false },
-            pickDistribution: profile.pick_distribution || { auto: true }
+            pickDistribution: profile.pick_distribution || { auto: true },
+            bettingStyle: profile.betting_style || 'balanced'
           });
         }
       }
@@ -101,24 +103,81 @@ export default function PredictionsScreen() {
     }
   };
 
+  /**
+   * Smart pick filtering based on betting style
+   * Prioritizes picks by risk level based on user preference, falls back if needed
+   */
+  const filterPicksByBettingStyle = (picks: any[], targetCount: number, bettingStyle: string) => {
+    // Define risk priority order based on betting style
+    let riskPriority: string[] = [];
+    
+    if (bettingStyle === 'risky' || bettingStyle === 'aggressive') {
+      riskPriority = ['High', 'Medium', 'Low'];
+    } else if (bettingStyle === 'conservative') {
+      riskPriority = ['Low', 'Medium', 'High'];
+    } else {
+      // Balanced: evenly distribute across all risk levels
+      riskPriority = ['Medium', 'High', 'Low'];
+    }
+    
+    const selectedPicks: any[] = [];
+    
+    if (bettingStyle === 'balanced') {
+      // For balanced, try to get equal distribution
+      const targetPerRisk = Math.ceil(targetCount / 3);
+      
+      ['Low', 'Medium', 'High'].forEach(risk => {
+        const riskPicks = picks.filter(p => (p.risk_level || 'Medium') === risk);
+        selectedPicks.push(...riskPicks.slice(0, targetPerRisk));
+      });
+      
+      // If we don't have enough, fill with any remaining picks
+      if (selectedPicks.length < targetCount) {
+        const remaining = picks.filter(p => !selectedPicks.includes(p));
+        selectedPicks.push(...remaining.slice(0, targetCount - selectedPicks.length));
+      }
+    } else {
+      // For risky/conservative, prioritize by risk order
+      for (const risk of riskPriority) {
+        if (selectedPicks.length >= targetCount) break;
+        
+        const riskPicks = picks.filter(p => 
+          (p.risk_level || 'Medium') === risk && 
+          !selectedPicks.includes(p)
+        );
+        
+        const needed = targetCount - selectedPicks.length;
+        selectedPicks.push(...riskPicks.slice(0, needed));
+      }
+    }
+    
+    // Sort by created_at (newest first) and limit
+    return selectedPicks
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, targetCount);
+  };
+
   const loadElitePredictions = async () => {
     try {
       console.log('🏆 Loading Elite predictions (30 picks: 15 Team, 15 Prop)');
       
-      // Get user's preferred sports
+      // Get user's preferred sports and betting style
       const preferredSports = Object.entries(userPreferences.sportPreferences || {})
         .filter(([sport, enabled]) => enabled)
         .map(([sport]) => sport.toUpperCase());
       
-      console.log('🎯 User preferred sports:', preferredSports);
+      const bettingStyle = userPreferences.bettingStyle || 'balanced';
       
-      // Fetch 15 Team picks with sport preferences - FIXED: Use bet_type instead of pick text
+      console.log('🎯 User preferred sports:', preferredSports);
+      console.log('🎲 Betting style:', bettingStyle);
+      
+      // Fetch MORE team picks to allow for betting style filtering
       let teamQuery = supabase
         .from('ai_predictions')
         .select('*')
         .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(50); // Fetch more to ensure we have picks of all risk levels
       
       // Apply sport filters for team picks if preferences exist
       if (preferredSports.length > 0) {
@@ -133,7 +192,7 @@ export default function PredictionsScreen() {
         }
       }
       
-      const { data: teamPicks, error: teamError } = await teamQuery;
+      const { data: allTeamPicks, error: teamError } = await teamQuery;
       
       if (teamError) {
         console.error('Error fetching team picks:', teamError);
@@ -141,13 +200,16 @@ export default function PredictionsScreen() {
         // Don't throw - we'll try to continue with props
       }
       
-      // Fetch 15 Prop picks with sport preferences - FIXED: Use bet_type instead of pick text
+      // Apply betting style filtering to get 15 team picks
+      const teamPicks = filterPicksByBettingStyle(allTeamPicks || [], 15, bettingStyle);
+      
+      // Fetch MORE prop picks to allow for betting style filtering
       let propsQuery = supabase
         .from('ai_predictions')
         .select('*')
         .eq('bet_type', 'player_prop')
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(50); // Fetch more to ensure we have picks of all risk levels
       
       // Apply sport filters for props picks if preferences exist
       if (preferredSports.length > 0) {
@@ -162,12 +224,15 @@ export default function PredictionsScreen() {
         }
       }
       
-      const { data: propPicks, error: propError } = await propsQuery;
+      const { data: allPropPicks, error: propError } = await propsQuery;
       
       if (propError) {
         console.error('Error fetching prop picks:', propError);
         // Don't throw - we'll use whatever data we have
       }
+      
+      // Apply betting style filtering to get 15 prop picks
+      const propPicks = filterPicksByBettingStyle(allPropPicks || [], 15, bettingStyle);
       
       // Combine team picks and prop picks
       const allPicks = [
@@ -245,12 +310,17 @@ export default function PredictionsScreen() {
         // Elite users get 30 picks (15 Team, 15 Prop) filtered by preferences
         await loadElitePredictions();
       } else if (isPro) {
-        // Pro users get 20 picks from ai_predictions table
+        // Pro users get 20 picks from ai_predictions table with betting style filtering
+        const bettingStyle = userPreferences.bettingStyle || 'balanced';
+        
+        console.log('💎 Pro user betting style:', bettingStyle);
+        
+        // Fetch MORE picks to allow for betting style filtering
         const { data: rawPredictions, error } = await supabase
           .from('ai_predictions')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(60); // Fetch more to ensure variety
 
         if (error) {
           console.error('Error fetching Pro predictions from database:', error);
@@ -258,8 +328,11 @@ export default function PredictionsScreen() {
           // Try to load any existing predictions or show empty state gracefully
           setPredictions([]);
         } else {
+          // Apply betting style filtering to get 20 picks
+          const filteredPredictions = filterPicksByBettingStyle(rawPredictions || [], 20, bettingStyle);
+          
           // Transform database records to AIPrediction interface
-          const transformedPredictions: AIPrediction[] = (rawPredictions || []).map(pred => ({
+          const transformedPredictions: AIPrediction[] = filteredPredictions.map(pred => ({
             id: pred.id,
             match: pred.match_teams || 'TBD vs TBD',
             pick: pred.pick,
@@ -274,7 +347,7 @@ export default function PredictionsScreen() {
             created_at: pred.created_at
           }));
 
-          console.log(`🎯 Loaded ${transformedPredictions.length} predictions for Pro user from database`);
+          console.log(`🎯 Loaded ${transformedPredictions.length} predictions for Pro user (${bettingStyle} style)`);
           setPredictions(transformedPredictions);
         }
       } else {
@@ -314,19 +387,25 @@ export default function PredictionsScreen() {
           const pickLimit = (bonusActive || isNewUserCheck) ? 5 : 2;
           setApiDailyPickLimit(pickLimit);
           
-          // Fetch most recent picks from ai_predictions table
+          // Get betting style preference
+          const bettingStyle = userPreferences.bettingStyle || 'balanced';
+          
+          // Fetch MORE picks to allow for betting style filtering
           const { data: rawPredictions, error } = await supabase
             .from('ai_predictions')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(pickLimit);
+            .limit(pickLimit * 5); // Fetch 5x the limit to ensure variety
           
           if (error) {
             console.error('Error fetching Free user predictions from database:', error);
             setPredictions([]);
           } else {
+            // Apply betting style filtering to get the right picks
+            const filteredPredictions = filterPicksByBettingStyle(rawPredictions || [], pickLimit, bettingStyle);
+            
             // Transform to AIPrediction format
-            const transformedPredictions = (rawPredictions || []).map(pred => ({
+            const transformedPredictions = filteredPredictions.map(pred => ({
               id: pred.id,
               match: pred.match_teams || pred.match || '',
               sport: pred.sport || 'Unknown',
@@ -350,7 +429,7 @@ export default function PredictionsScreen() {
             
             setPredictions(transformedPredictions);
             
-            console.log(`🎲 Free user on Picks tab: ${transformedPredictions.length} picks (${pickLimit} limit${bonusActive ? ', welcome bonus active' : ''}${isNewUserCheck ? ', new user' : ''})`);
+            console.log(`🎲 Free user on Picks tab: ${transformedPredictions.length} picks (${pickLimit} limit, ${bettingStyle} style${bonusActive ? ', welcome bonus active' : ''}${isNewUserCheck ? ', new user' : ''})`);
           }
         } else {
           setPredictions([]);
