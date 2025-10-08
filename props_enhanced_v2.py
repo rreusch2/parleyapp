@@ -133,18 +133,10 @@ class DB:
     def get_flat_props_for_games(self, game_ids: List[str]) -> List[FlatProp]:
         if not game_ids:
             return []
-        # Use pre-filtered view to restrict odds to [-300, +300]
+        # Use fast materialized view with inline odds filter [-300, +300]
         sel = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
-        view_used = 'player_props_v2_flat_quick_fast'
-        try:
-            # Fast path: materialized-view-backed endpoint if available
-            resp = self.client.table(view_used).select(sel).in_('event_id', game_ids).execute()
-        except Exception:
-            # Fallback to lightweight view-only version
-            view_used = 'player_props_v2_flat_quick_filtered'
-            resp = self.client.table(view_used).select(sel).in_('event_id', game_ids).execute()
+        resp = self.client.table('player_props_v2_flat_quick_mat').select(sel).in_('event_id', game_ids).or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)').execute()
         rows = resp.data or []
-        logger.info(f"Fetched {len(rows)} props from {view_used}")
         props: List[FlatProp] = []
         for r in rows:
             try:
@@ -188,6 +180,7 @@ class DB:
         return logos
 
     def store_predictions(self, picks: List[Dict[str, Any]], event_map: Dict[str, Dict[str, Any]]) -> None:
+        stored_count = 0
         for p in picks:
             event = event_map.get(str(p.get('event_id')))
             game_info = None
@@ -197,6 +190,24 @@ class DB:
                 sport = self._abbr_sport(event.get('sport', sport))
             # Build ai_predictions row
             metadata = p.pop('metadata', {})
+            
+            # Enrich metadata with game info for frontend display
+            if event:
+                away_team = event.get('away_team', 'Unknown')
+                home_team = event.get('home_team', 'Unknown')
+                
+                # Try to get abbreviations from teams table
+                away_abbr = self._get_team_abbreviation(away_team)
+                home_abbr = self._get_team_abbreviation(home_team)
+                
+                metadata['game_info'] = {
+                    'away_team': away_team,
+                    'home_team': home_team,
+                    'away_team_abbr': away_abbr,
+                    'home_team_abbr': home_abbr,
+                    'start_time': event.get('start_time'),
+                }
+            
             row = {
                 'user_id': 'c19a5e12-4297-4b0f-8d21-39d2bb1a2c08',
                 'confidence': p.get('confidence', 0),
@@ -224,8 +235,23 @@ class DB:
             }
             # Remove None values
             row = {k: v for k, v in row.items() if v is not None}
-            self.client.table('ai_predictions').insert(row).execute()
-        logger.info(f"Stored {len(picks)} predictions to ai_predictions")
+            try:
+                self.client.table('ai_predictions').insert(row).execute()
+                stored_count += 1
+                logger.info(f"Stored pick {stored_count}/{len(picks)}: {row.get('pick', 'Unknown')}")
+            except Exception as e:
+                logger.error(f"Failed to store pick: {e}")
+        logger.info(f"Successfully stored {stored_count}/{len(picks)} predictions to ai_predictions")
+
+    def _get_team_abbreviation(self, team_name: str) -> str:
+        """Get team abbreviation from teams table."""
+        try:
+            resp = self.client.table('teams').select('team_abbreviation').eq('team_name', team_name).limit(1).execute()
+            if resp.data and len(resp.data) > 0:
+                return resp.data[0].get('team_abbreviation', team_name)
+        except Exception:
+            pass
+        return team_name
 
     @staticmethod
     def _abbr_sport(full: str) -> str:
@@ -250,11 +276,13 @@ class Agent:
         if not games:
             logger.warning(f"No games found for {target_date}")
             return
+        logger.info(f"Found {len(games)} games for {target_date}")
         event_ids = [g['id'] for g in games]
         props = self.db.get_flat_props_for_games(event_ids)
         if not props:
-            logger.warning("No props found from quick views; aborting")
+            logger.warning("No props found in player_props_v2_flat_quick_mat")
             return
+        logger.info(f"Found {len(props)} total props across all games")
         # Limit prompt size: take top N per game/player/market random or ordered
         # Here we just pass through; DB already filtered odds.
         # Build prompt data
@@ -281,8 +309,10 @@ class Agent:
 
         prompt = self._build_prompt(props_payload, games, picks_target)
         ai_picks = await self._call_llm(prompt)
+        logger.info(f"AI returned {len(ai_picks) if ai_picks else 0} picks")
         if not ai_picks:
-            logger.warning("LLM returned no picks; will attempt deterministic fallback")
+            logger.warning("AI returned no picks")
+            return
 
         # Validate picks and enrich metadata
         final: List[Dict[str, Any]] = []
@@ -329,78 +359,18 @@ class Agent:
                         'is_alt': cand.get('is_alt', False),
                         'player_headshot_url': cand.get('player_headshot_url'),
                         'stat_key': cand.get('stat_key'),
-                        'league_logo_url': league_logos.get({
-                            'MAJOR LEAGUE BASEBALL': 'MLB',
-                            'NATIONAL FOOTBALL LEAGUE': 'NFL',
-                            'COLLEGE FOOTBALL': 'CFB',
-                            'NATIONAL HOCKEY LEAGUE': 'NHL',
-                            'NATIONAL BASKETBALL ASSOCIATION': 'NBA',
-                            "WOMEN'S NATIONAL BASKETBALL ASSOCIATION": 'WNBA',
-                            'MLB': 'MLB', 'NFL': 'NFL', 'CFB': 'CFB', 'NHL': 'NHL', 'NBA': 'NBA', 'WNBA': 'WNBA'
-                        }.get(cand['sport'], cand['sport']), {}).get('logo_url'),
+                        'league_logo_url': league_logos.get(cand['sport'], {}).get('logo_url'),
                     }
                 })
                 seen.add(key)
             except Exception:
                 continue
         if not final:
-            logger.warning('No valid picks after validation; building deterministic fallback from available props')
-            # Build simple deterministic candidates from provided props
-            cand_list = []
-            for c in props_payload:
-                for rec, od in (("over", c.get('over_odds')), ("under", c.get('under_odds'))):
-                    if od is None:
-                        continue
-                    # Keep within sane range (view already filtered, but double-check)
-                    if abs(int(od)) > 300:
-                        continue
-                    # Score: prefer odds near -120 to +120
-                    score = abs(abs(int(od)) - 120)
-                    cand_list.append((score, c, rec, int(od)))
-            cand_list.sort(key=lambda x: x[0])
-
-            used_keys = set()
-            for _, c, rec, od in cand_list:
-                if len(final) >= max(1, min(5, picks_target)):
-                    break
-                key = (str(c['event_id']), c['player'], c['prop_type'], rec, float(c['line']), (c['bookmaker'] or '').lower())
-                if key in used_keys:
-                    continue
-                used_keys.add(key)
-                # Build fallback pick
-                final.append({
-                    'event_id': str(c['event_id']),
-                    'sport': c['sport'],
-                    'pick': f"{c['player']} {rec.upper()} {c['line']} {c['prop_type']}",
-                    'odds': od,
-                    'confidence': 65 if abs(od) <= 150 else 58,
-                    'prop_type': c['prop_type'],
-                    'line': float(c['line']),
-                    'risk_level': 'Medium' if abs(od) <= 150 else 'High',
-                    'reasoning': 'Deterministic fallback selection based on available props and moderate odds range.',
-                    'roi_estimate': 8.0,
-                    'value_percentage': 10.0,
-                    'implied_probability': 57.0 if od < 0 else round(100 / (od + 100) * 100, 1),
-                    'fair_odds': od,
-                    'key_factors': ['Available odds within target band', 'Simplified fallback selection'],
-                    'metadata': {
-                        'player_name': c['player'],
-                        'prop_type': c['prop_type'],
-                        'recommendation': rec.upper(),
-                        'line': float(c['line']),
-                        'bookmaker': (c['bookmaker'] or '').lower(),
-                        'bookmaker_logo_url': c.get('bookmaker_logo_url'),
-                        'is_alt': c.get('is_alt', False),
-                        'player_headshot_url': c.get('player_headshot_url'),
-                        'stat_key': c.get('stat_key'),
-                        'league_logo_url': league_logos.get(c['sport'], {}).get('logo_url'),
-                    }
-                })
-
-            if not final:
-                logger.warning('Fallback also produced no picks; aborting without writes')
-                return
+            logger.warning('No valid picks after validation')
+            return
+        logger.info(f"Storing {len(final)} validated picks to database")
         self.db.store_predictions(final, games_map)
+        logger.info(f"✅ Successfully stored {len(final)} player prop predictions")
 
     @staticmethod
     def _pct_to_float(val: Any, default: float = 0.0) -> float:
@@ -475,20 +445,43 @@ Generate up to {picks_target} best picks.
     async def _call_llm(self, prompt: str) -> List[Dict[str, Any]]:
         try:
             resp = await self.llm.chat.completions.create(
-                model='grok-4',
+                model='grok-4-0709',  
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=3000
+                max_tokens=8000  # Increased for larger responses
             )
             text = resp.choices[0].message.content.strip()
+            logger.info(f"AI response length: {len(text)} chars")
+            
             # Extract JSON array
             start = text.find('[')
             end = text.rfind(']')
             if start == -1 or end == -1:
                 logger.error('LLM response missing JSON array')
+                logger.debug(f"Response preview: {text[:500]}")
                 return []
+            
             json_str = text[start:end+1]
-            return json.loads(json_str)
+            try:
+                parsed = json.loads(json_str)
+                return parsed
+            except json.JSONDecodeError as je:
+                # Try to salvage partial JSON
+                logger.warning(f"JSON decode error: {je}")
+                logger.debug(f"Problematic JSON preview (first 1000 chars): {json_str[:1000]}")
+                logger.debug(f"Problematic JSON preview (around error): {json_str[max(0, je.pos-100):je.pos+100]}")
+                # Try to find complete objects before the error
+                truncated = json_str[:je.pos]
+                last_complete = truncated.rfind('}')
+                if last_complete > 0:
+                    salvaged = truncated[:last_complete+1] + ']'
+                    try:
+                        parsed = json.loads(salvaged)
+                        logger.info(f"Salvaged {len(parsed)} picks from partial JSON")
+                        return parsed
+                    except:
+                        pass
+                return []
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             return []

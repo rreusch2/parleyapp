@@ -13,6 +13,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Sparkles, Target, Brain } from 'lucide-react-native';
 import Colors from '../constants/Colors';
 import EnhancedPredictionCard from './EnhancedPredictionCard';
+import PropPredictionCard from './PropPredictionCard';
+import TeamPredictionCard from './TeamPredictionCard';
+import SportFilterDropdown from './SportFilterDropdown';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
 import { useUITheme } from '../services/uiThemeContext';
@@ -45,6 +48,7 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
   const [isLoadingTeam, setIsLoadingTeam] = useState(true);
   const [isLoadingProps, setIsLoadingProps] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string>('ALL'); // NEW: Sport filter
   const { openChatWithContext } = useAIChat();
   const { theme } = useUITheme();
   
@@ -54,10 +58,6 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
 
   const fetchTeamPicks = async (force = false) => {
     if (!force && teamPicks.length > 0) return; // Already loaded
-    if (!user?.id) {
-      setIsLoadingTeam(false); // Stop loading if no user
-      return;
-    }
     
     setIsLoadingTeam(true);
     try {
@@ -65,19 +65,27 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         // Elite users: Get 15 team picks from Supabase with sport preferences
         console.log('🏆 Loading Elite team picks (15 picks)');
         
-        // First get user's sport preferences
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences')
-          .eq('id', user.id)
-          .single();
-        
-        // Get preferred sports and normalize them
-        const preferredSports = profile?.sport_preferences 
-          ? Object.entries(profile.sport_preferences)
-              .filter(([sport, enabled]) => enabled)
-              .map(([sport]) => sport.toLowerCase())
-          : [];
+        // NEW: Check if sport filter is active (overrides preferences)
+        let preferredSports: string[] = [];
+        if (selectedSportFilter !== 'ALL') {
+          // Sport filter overrides user preferences
+          preferredSports = [selectedSportFilter.toLowerCase()];
+          console.log(`🎯 Sport filter active: ${selectedSportFilter}`);
+        } else if (user?.id) {
+          // Use user preferences when no filter is set
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('sport_preferences')
+            .eq('id', user.id)
+            .single();
+          
+          // Get preferred sports and normalize them
+          preferredSports = profile?.sport_preferences 
+            ? Object.entries(profile.sport_preferences)
+                .filter(([sport, enabled]) => enabled)
+                .map(([sport]) => sport.toLowerCase())
+            : [];
+        }
         
         console.log('🎯 User preferred sports:', preferredSports);
         
@@ -102,8 +110,12 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
               sportFilters.push('sport.ilike.%NFL%', 'sport.ilike.%Football%');
             } else if (sport === 'cfb' || sport === 'college football') {
               sportFilters.push('sport.ilike.%College Football%', 'sport.ilike.%CFB%');
-            } else if (sport === 'wnba' || sport === 'basketball') {
+            } else if (sport === 'wnba' || sport === 'basketball' || sport === 'women\'s basketball') {
               sportFilters.push('sport.ilike.%WNBA%', 'sport.ilike.%Basketball%');
+            } else if (sport === 'nba') {
+              sportFilters.push('sport.ilike.%NBA%', 'sport.ilike.%National Basketball Association%');
+            } else if (sport === 'nhl' || sport === 'hockey') {
+              sportFilters.push('sport.ilike.%NHL%', 'sport.ilike.%Hockey%');
             } else if (sport === 'ufc' || sport === 'mma') {
               sportFilters.push('sport.ilike.%UFC%', 'sport.ilike.%MMA%');
             } else {
@@ -131,18 +143,26 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         // Pro users: Get 10 team picks from Supabase with sport preferences
         console.log('💎 Loading Pro team picks (10 picks)');
 
-        // Get user sport preferences
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences')
-          .eq('id', user.id)
-          .single();
+        // NEW: Check if sport filter is active (overrides preferences)
+        let preferredSports: string[] = [];
+        if (selectedSportFilter !== 'ALL') {
+          // Sport filter overrides user preferences
+          preferredSports = [selectedSportFilter.toUpperCase()];
+          console.log(`🎯 Sport filter active: ${selectedSportFilter}`);
+        } else if (user?.id) {
+          // Use user preferences when no filter is set
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('sport_preferences')
+            .eq('id', user.id)
+            .single();
 
-        const preferredSports = profile?.sport_preferences
-          ? Object.entries(profile.sport_preferences)
-              .filter(([sport, enabled]) => enabled)
-              .map(([sport]) => sport.toUpperCase())
-          : [];
+          preferredSports = profile?.sport_preferences
+            ? Object.entries(profile.sport_preferences)
+                .filter(([sport, enabled]) => enabled)
+                .map(([sport]) => sport.toUpperCase())
+            : [];
+        }
 
         let query = supabase
           .from('ai_predictions')
@@ -178,10 +198,6 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
 
   const fetchPlayerPropsPicks = async (force = false) => {
     if (!force && playerPropsPicks.length > 0) return; // Already loaded
-    if (!user?.id) {
-      setIsLoadingProps(false); // Stop loading if no user
-      return;
-    }
     
     setIsLoadingProps(true);
     try {
@@ -189,19 +205,26 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         // Elite users: Get 15 player props picks from Supabase with sport preferences
         console.log('🏆 Loading Elite player props picks (15 picks)');
         
-        // First get user's sport preferences
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences')
-          .eq('id', user.id)
-          .single();
-        
-        // Get preferred sports
-        const preferredSports = profile?.sport_preferences 
-          ? Object.entries(profile.sport_preferences)
-              .filter(([sport, enabled]) => enabled)
-              .map(([sport]) => sport.toUpperCase())
-          : [];
+        // NEW: Check if sport filter is active (overrides preferences)
+        let preferredSports: string[] = [];
+        if (selectedSportFilter !== 'ALL') {
+          // Sport filter overrides user preferences
+          preferredSports = [selectedSportFilter.toUpperCase()];
+          console.log(`🎯 Sport filter active for props: ${selectedSportFilter}`);
+        } else if (user?.id) {
+          // Use user preferences when no filter is set
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('sport_preferences')
+            .eq('id', user.id)
+            .single();
+          
+          preferredSports = profile?.sport_preferences 
+            ? Object.entries(profile.sport_preferences)
+                .filter(([sport, enabled]) => enabled)
+                .map(([sport]) => sport.toUpperCase())
+            : [];
+        }
         
         console.log('🎯 User preferred sports for props:', preferredSports);
         
@@ -242,18 +265,26 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
         // Pro users: Get 10 player prop picks from Supabase with sport preferences
         console.log('💎 Loading Pro player props picks (10 picks)');
 
-        // Get user sport preferences
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('sport_preferences')
-          .eq('id', user.id)
-          .single();
+        // NEW: Check if sport filter is active (overrides preferences)
+        let preferredSports: string[] = [];
+        if (selectedSportFilter !== 'ALL') {
+          // Sport filter overrides user preferences
+          preferredSports = [selectedSportFilter.toUpperCase()];
+          console.log(`🎯 Sport filter active for props: ${selectedSportFilter}`);
+        } else if (user?.id) {
+          // Use user preferences when no filter is set
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('sport_preferences')
+            .eq('id', user.id)
+            .single();
 
-        const preferredSports = profile?.sport_preferences
-          ? Object.entries(profile.sport_preferences)
-              .filter(([sport, enabled]) => enabled)
-              .map(([sport]) => sport.toUpperCase())
-          : [];
+          preferredSports = profile?.sport_preferences
+            ? Object.entries(profile.sport_preferences)
+                .filter(([sport, enabled]) => enabled)
+                .map(([sport]) => sport.toUpperCase())
+            : [];
+        }
 
         let query = supabase
           .from('ai_predictions')
@@ -287,23 +318,24 @@ export function TwoTabPredictionsLayout({ user }: TwoTabPredictionsLayoutProps) 
     }
   };
 
-  // Load picks when user ID is available
+  // NEW: Refetch picks when sport filter changes
   useEffect(() => {
-    if (!user?.id) {
-      // No user yet, stop loading states
-      setIsLoadingTeam(false);
-      setIsLoadingProps(false);
-      return;
+    if (selectedSportFilter) {
+      fetchTeamPicks(true);
+      fetchPlayerPropsPicks(true);
     }
+  }, [selectedSportFilter]);
 
-    // User is available, fetch data
-    fetchTeamPicks(true); // Force reload with user context
+  // Load picks when component mounts
+  useEffect(() => {
+    // Fetch data (with or without user context)
+    fetchTeamPicks(true);
     
     // Pre-load props for Elite users or when props tab is active (default)
     if (isElite || activeTab === 'props') {
-      fetchPlayerPropsPicks(true); // Force reload with user context
+      fetchPlayerPropsPicks(true);
     }
-  }, [user?.id, isElite]);
+  }, [isElite]);
 
   // Load player props when tab is selected (for Pro users)
   useEffect(() => {
@@ -430,10 +462,17 @@ What are your thoughts on this prediction?`;
     eventTime: p.event_time || p.created_at || new Date().toISOString(),
     reasoning: p.reasoning,
     value: p.value_percentage,
+    value_percentage: p.value_percentage,
+    bet_type: p.bet_type,
     // Pass through ROI so the card can render it instead of "Calculating..."
     roi_estimate: p.roi_estimate !== undefined && p.roi_estimate !== null
       ? parseFloat(String(p.roi_estimate))
       : undefined,
+    // Pass through metadata for new prop card
+    metadata: (p as any).metadata,
+    prop_market_type: (p as any).prop_market_type,
+    line_value: (p as any).line_value,
+    risk_level: (p as any).risk_level,
   });
 
   const renderPicks = (picks: Pick[], isLoading: boolean, type: string) => {
@@ -477,14 +516,32 @@ What are your thoughts on this prediction?`;
           />
         }
       >
-        {picks.map((pick, index) => (
-          <EnhancedPredictionCard
-            key={pick.id}
-            prediction={toAIPrediction(pick)}
-            index={index}
-            onAnalyze={() => handlePickAnalyze(pick)}
-          />
-        ))}
+        {picks.map((pick, index) => {
+          const prediction = toAIPrediction(pick);
+          const isPlayerProp = pick.bet_type === 'player_prop' || type === 'player props';
+          
+          // Use new PropPredictionCard for player props
+          if (isPlayerProp) {
+            return (
+              <PropPredictionCard
+                key={pick.id}
+                prediction={prediction}
+                index={index}
+                onPress={() => handlePickAnalyze(pick)}
+              />
+            );
+          }
+          
+          // Use new TeamPredictionCard for team picks (moneyline, spread, total)
+          return (
+            <TeamPredictionCard
+              key={pick.id}
+              prediction={prediction}
+              index={index}
+              onPress={() => handlePickAnalyze(pick)}
+            />
+          );
+        })}
       </ScrollView>
     );
   };
@@ -511,6 +568,14 @@ What are your thoughts on this prediction?`;
               </View>
               <Sparkles size={20} color={isElite ? theme.accentPrimary : '#00E5FF'} />
             </View>
+            
+            {/* NEW: Sport Filter Dropdown */}
+            <SportFilterDropdown
+              selectedSport={selectedSportFilter}
+              onSelectSport={setSelectedSportFilter}
+              isElite={isElite}
+              theme={theme}
+            />
           </View>
 
           {/* Compact Tabs under Title */}

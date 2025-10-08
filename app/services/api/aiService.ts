@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
 // Use proper environment variables with better fallback logic
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
@@ -24,7 +24,10 @@ export interface AIPrediction {
   fair_odds?: string;
   key_factors?: string[];
   status?: 'pending' | 'won' | 'lost';
-    metadata?: any;
+  prop_market_type?: string;
+  line_value?: number;
+  bet_type?: string;
+  metadata?: any;
 }
 
 export interface AIInsight {
@@ -65,8 +68,7 @@ export interface DailyInsight {
     processingTime?: number;
     confidence?: number;
   };
-    metadata?: any;
-updated_at?: string;
+  updated_at?: string;
   
   // Legacy fields for backward compatibility (frontend expects these)
   userId?: string;
@@ -239,11 +241,19 @@ class AIService {
               fair_odds: pick.fair_odds,
               key_factors: pick.key_factors,
               status: pick.status as 'pending' | 'won' | 'lost',
-              ,
-              metadata: pick.metadata || {}};
+              prop_market_type: pick.prop_market_type,
+              line_value: pick.line_value,
+              bet_type: pick.bet_type,
+              metadata: pick.metadata || {
+                source: pick.source || 'DeepSeek AI',
+                tools_used: pick.tools_used || ['DeepSeek AI'],
+                processing_time: pick.processing_time || 0,
+                confidence: pick.confidence || 0
+              }
+            };
             
             if (index === 0) {
-              console.log('ðŸ”§ DEBUG - First pick transformation:', {
+              console.log('🔧 DEBUG - First pick transformation:', {
                 original: pick,
                 transformed: transformed
               });
@@ -251,7 +261,7 @@ class AIService {
             
             return transformed;
           } catch (error) {
-            console.error(`âš ï¸ Error transforming pick ${index}:`, error, pick);
+            console.error(`⚠️ Error transforming pick ${index}:`, error, pick);
             return {
               id: pick.id || 'unknown',
               match: 'Error loading match',
@@ -657,8 +667,8 @@ class AIService {
         userId, // Legacy field
         title: 'Smart Stake Calculator',
         description: 'Optimal bankroll management calculated: Average 2.8% of bankroll recommended. Expected values range 8-12%. Model confidence intervals tightened. Risk-adjusted recommendations active.',
-        type: 'value',
-        category: 'calculator',
+        type: 'analysis',
+        category: 'analysis',
         source: 'Statistical Analyzer',
         impact: 'high',
         timestamp: new Date(Date.now() - 600000).toISOString(),
@@ -674,13 +684,12 @@ class AIService {
         title: 'Performance Validation',
         description: 'Backtesting complete: Current strategies show 58.3% win rate over 312 similar games. Average ROI: +11.8%. Model accuracy trending upward.',
         type: 'trend',
-        category: 'performance',
+        category: 'analysis',
         source: 'Historical Data',
         impact: 'medium',
         timestamp: new Date(Date.now() - 900000).toISOString(),
         date: today,
         tools_used: ['sportsBetting_backtestStrategy'],
-        toolsUsed: ['sportsBetting_backtestStrategy'], // Legacy field
         impact_score: 8.0
       }
     ];

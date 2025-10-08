@@ -23,7 +23,7 @@ interface SportsSelectionScreenProps {
 }
 
 interface SportOption {
-  key: 'nfl' | 'cfb' | 'mlb' | 'wnba' | 'ufc';
+  key: 'nfl' | 'cfb' | 'mlb' | 'nhl' | 'nba' | 'wnba' | 'ufc';
   name: string;
   fullName: string;
   icon: string;
@@ -65,6 +65,26 @@ const sportOptions: SportOption[] = [
     season: 'Apr - Oct',
   },
   {
+    key: 'nhl',
+    name: 'NHL',
+    fullName: 'National Hockey League',
+    icon: '🏒',
+    logoUrl: 'https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nhl.png',
+    description: 'Fast-paced hockey action with high-scoring games',
+    gradient: ['#0891b2', '#0e7490'],
+    season: 'Oct - Jun',
+  },
+  {
+    key: 'nba',
+    name: 'NBA',
+    fullName: 'National Basketball Association',
+    icon: '🏀',
+    logoUrl: 'https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nba.png',
+    description: 'Premier professional basketball with star players',
+    gradient: ['#dc2626', '#b91c1c'],
+    season: 'Oct - Jun',
+  },
+  {
     key: 'wnba',
     name: 'WNBA',
     fullName: 'Women\'s National Basketball Association',
@@ -92,7 +112,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
   isExistingUser,
 }) => {
   const [selectedSports, setSelectedSports] = useState(
-    currentPreferences?.sportPreferences || { nfl: true, cfb: true, mlb: true, wnba: false, ufc: false }
+    currentPreferences?.sportPreferences || { nfl: true, cfb: true, mlb: true, nhl: false, nba: false, wnba: false, ufc: false }
   );
   const [animatedValues] = useState(
     sportOptions.reduce((acc, sport) => {
@@ -101,7 +121,7 @@ const SportsSelectionScreen: React.FC<SportsSelectionScreenProps> = ({
     }, {} as Record<string, Animated.Value>)
   );
 
-  const toggleSport = (sportKey: 'nfl' | 'cfb' | 'mlb' | 'wnba' | 'ufc') => {
+  const toggleSport = (sportKey: 'nfl' | 'cfb' | 'mlb' | 'nhl' | 'nba' | 'wnba' | 'ufc') => {
     const newSelected = { ...selectedSports, [sportKey]: !selectedSports[sportKey] };
     setSelectedSports(newSelected);
 

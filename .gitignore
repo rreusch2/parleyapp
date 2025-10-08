@@ -102,6 +102,7 @@ htmlcov/
 # SECURITY: Files with credentials/secrets
 railway-credentials-secure.txt
 *-credentials-*.txt
+context.txt
 
 # Google OAuth credentials (NEVER COMMIT THESE!)
 email-automation/credentials.json

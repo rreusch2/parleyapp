@@ -207,6 +207,8 @@ class DatabaseClient:
             else:
                 sports = [
                     "Major League Baseball",
+                    "National Hockey League",
+                    "National Basketball Association",
                     "Women's National Basketball Association",
                     "Ultimate Fighting Championship",
                     "National Football League",
@@ -450,6 +452,37 @@ class DatabaseClient:
                     else:
                         risk_level = "High"  # Aggressive: lower confidence or underdog odds
                 
+                # Fetch bookmaker logo URL
+                bookmaker_logo_url = None
+                league_logo_url = None
+                
+                try:
+                    # Get bookmaker logo
+                    bookmaker_result = self.supabase.table("bookmaker_logos").select("logo_url").eq("bookmaker_key", matching_bet.bookmaker).single().execute()
+                    if bookmaker_result.data:
+                        bookmaker_logo_url = bookmaker_result.data.get("logo_url")
+                    
+                    # Get league logo
+                    league_key = display_sport  # Use the display sport name
+                    league_result = self.supabase.table("league_logos").select("logo_url").eq("league_key", league_key).single().execute()
+                    if league_result.data:
+                        league_logo_url = league_result.data.get("logo_url")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch logos: {e}")
+                
+                # Enrich metadata with bookmaker, team logos, and league logo
+                enriched_metadata = {
+                    **metadata,
+                    "bookmaker": matching_bet.bookmaker,
+                    "bookmaker_logo_url": bookmaker_logo_url,
+                    "league_logo_url": league_logo_url,
+                    "home_team": pick.get("home_team", ""),
+                    "away_team": pick.get("away_team", ""),
+                    "bet_type": pick.get("bet_type", ""),
+                    "recommendation": pick.get("recommendation", ""),
+                    "line": pick.get("line"),
+                }
+                
                 # Map to actual ai_predictions table schema
                 prediction_data = {
                     "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",  # Global AI user
@@ -457,7 +490,7 @@ class DatabaseClient:
                     "pick": pred.get("pick", ""),
                     "odds": str(pred.get("odds", 0)),
                     "confidence": pred.get("confidence", 75),
-                    "sport": pred.get("sport", "MLB"),
+                    "sport": display_sport,
                     "event_time": pred.get("event_time"),
                     "reasoning": reasoning,
                     "value_percentage": value_percentage,
@@ -466,15 +499,15 @@ class DatabaseClient:
                     "expected_value": expected_value,
                     "risk_level": risk_level,
                     "implied_probability": implied_probability,
-                    "fair_odds": metadata.get("fair_odds", pred.get("odds", 0)),
-                    "key_factors": metadata.get("key_factors", []),
+                    "fair_odds": enriched_metadata.get("fair_odds", pred.get("odds", 0)),
+                    "key_factors": enriched_metadata.get("key_factors", []),
                     "status": "pending",
                     "game_id": str(pred.get("event_id", "")),
                     "bet_type": pred.get("bet_type", "moneyline"),
                     "prop_market_type": pred.get("prop_market_type"),
                     "line_value": pred.get("line_value") or pred.get("line"),
                     "prediction_value": pred.get("prediction_value"),
-                    "metadata": metadata
+                    "metadata": enriched_metadata
                 }
                 
                 # Remove None values to avoid database errors
@@ -507,13 +540,17 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 15) -> Dict[str, int]:
         """Distribute picks optimally across available sports"""
-        sport_counts = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        sport_counts = {"MLB": 0, "NHL": 0, "NBA": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
             if sport == "Major League Baseball":
                 sport_counts["MLB"] += 1
+            elif sport == "National Hockey League":
+                sport_counts["NHL"] += 1
+            elif sport == "National Basketball Association":
+                sport_counts["NBA"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
@@ -526,7 +563,7 @@ class IntelligentTeamsAgent:
         logger.info(f"Available games by sport: {sport_counts}")
         
         # Initialize distribution
-        distribution = {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        distribution = {"MLB": 0, "NHL": 0, "NBA": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # NFL-only mode: allocate all picks to NFL
         if hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
@@ -541,7 +578,7 @@ class IntelligentTeamsAgent:
         active_sports = [sport for sport, count in sport_counts.items() if count > 0]
         
         if not active_sports:
-            return {"MLB": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+            return {"MLB": 0, "NHL": 0, "NBA": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Smart distribution logic for exactly target_picks picks
         remaining_picks = target_picks
@@ -554,16 +591,30 @@ class IntelligentTeamsAgent:
             remaining_picks -= nfl_picks
             logger.info(f"🏈 Allocated {nfl_picks} picks to NFL (priority sport)")
         
+        # NHL gets good allocation (major sport, fast pace)
+        if sport_counts["NHL"] > 0 and remaining_picks > 0:
+            nhl_picks = min(4, sport_counts["NHL"] * 2, remaining_picks)  # Up to 4 NHL picks
+            distribution["NHL"] = nhl_picks
+            remaining_picks -= nhl_picks
+            logger.info(f"🏒 Allocated {nhl_picks} picks to NHL")
+        
+        # NBA gets good allocation (major sport)
+        if sport_counts["NBA"] > 0 and remaining_picks > 0:
+            nba_picks = min(4, sport_counts["NBA"] * 2, remaining_picks)  # Up to 4 NBA picks
+            distribution["NBA"] = nba_picks
+            remaining_picks -= nba_picks
+            logger.info(f"🏀 Allocated {nba_picks} picks to NBA")
+        
         # MLB gets good allocation (major sport with multiple games)
         if sport_counts["MLB"] > 0 and remaining_picks > 0:
-            mlb_picks = min(8, sport_counts["MLB"] * 2, remaining_picks)  # Up to 8 MLB picks
+            mlb_picks = min(6, sport_counts["MLB"] * 2, remaining_picks)  # Up to 6 MLB picks
             distribution["MLB"] = mlb_picks
             remaining_picks -= mlb_picks
             logger.info(f"⚾ Allocated {mlb_picks} picks to MLB")
         
         # WNBA gets solid allocation
         if sport_counts["WNBA"] > 0 and remaining_picks > 0:
-            wnba_picks = min(4, sport_counts["WNBA"] * 2, remaining_picks)  # Up to 4 WNBA picks
+            wnba_picks = min(3, sport_counts["WNBA"] * 2, remaining_picks)  # Up to 3 WNBA picks
             distribution["WNBA"] = wnba_picks
             remaining_picks -= wnba_picks
             logger.info(f"🏀 Allocated {wnba_picks} picks to WNBA")
@@ -592,7 +643,7 @@ class IntelligentTeamsAgent:
         if total_allocated > target_picks:
             # Trim excess picks starting from lowest priority sports
             excess = total_allocated - target_picks
-            for sport in ["CFB", "MMA", "WNBA", "MLB", "NFL"]:
+            for sport in ["CFB", "MMA", "WNBA", "MLB", "NBA", "NHL", "NFL"]:
                 if excess <= 0:
                     break
                 reduction = min(excess, distribution[sport])
@@ -617,7 +668,7 @@ class IntelligentTeamsAgent:
         total_expected = sum(active_sports.values())
         
         # Generate requirements for each sport
-        sport_order = ["NFL", "MLB", "WNBA", "CFB", "MMA"]  # Include CFB explicitly
+        sport_order = ["NFL", "NHL", "NBA", "MLB", "WNBA", "CFB", "MMA"]  # Include all sports
         for sport in sport_order:
             if sport in active_sports:
                 picks_count = active_sports[sport]
@@ -642,8 +693,12 @@ class IntelligentTeamsAgent:
             def map_display_sport(full_name: str) -> str:
                 if full_name == "Women's National Basketball Association":
                     return "WNBA"
+                if full_name == "National Basketball Association":
+                    return "NBA"
                 if full_name == "Major League Baseball":
                     return "MLB"
+                if full_name == "National Hockey League":
+                    return "NHL"
                 if full_name == "National Football League":
                     return "NFL"
                 if full_name == "College Football":
@@ -651,12 +706,12 @@ class IntelligentTeamsAgent:
                 if full_name == "Ultimate Fighting Championship":
                     return "MMA"
                 return "OTHER"
-            capacities: Dict[str, int] = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
+            capacities: Dict[str, int] = {"MLB": 0, "NHL": 0, "NBA": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
             for b in bets:
                 sport_full = event_sport.get(str(b.event_id), "")
                 capacities[map_display_sport(sport_full)] = capacities.get(map_display_sport(sport_full), 0) + 1
 
-            games_by_sport = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
+            games_by_sport = {"MLB": 0, "NHL": 0, "NBA": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
             for g in games:
                 games_by_sport[map_display_sport(g.get("sport", ""))] += 1
 
@@ -665,19 +720,21 @@ You are an elite betting strategist. Allocate EXACTLY {target_picks} TEAM picks 
 
 Sports and availability today (games, available_bets):
 - MLB: {games_by_sport['MLB']} games, {capacities['MLB']} bets
+- NHL: {games_by_sport['NHL']} games, {capacities['NHL']} bets
+- NBA: {games_by_sport['NBA']} games, {capacities['NBA']} bets
 - WNBA: {games_by_sport['WNBA']} games, {capacities['WNBA']} bets
 - NFL: {games_by_sport['NFL']} games, {capacities['NFL']} bets
 - CFB: {games_by_sport['CFB']} games, {capacities['CFB']} bets
 - MMA: {games_by_sport['MMA']} events, {capacities['MMA']} bets
 
 Rules:
-- Output JSON only with keys: MLB, WNBA, NFL, CFB, MMA
+- Output JSON only with keys: MLB, NHL, NBA, WNBA, NFL, CFB, MMA
 - Sum of values MUST equal {target_picks}
 - Do not assign picks to sports with 0 games or 0 available bets
 - Prefer richer slates (more games and bets)
 
 Return JSON like:
-{{"MLB": 7, "WNBA": 3, "NFL": 4, "CFB": 1, "MMA": 0}}
+{{"MLB": 5, "NHL": 3, "NBA": 2, "WNBA": 2, "NFL": 2, "CFB": 1, "MMA": 0}}
 """
 
             response = await self.grok_client.chat.completions.create(
@@ -692,8 +749,8 @@ Return JSON like:
             ai_dist = json.loads(text[start:end]) if start != -1 and end > start else {}
 
             # Sanitize and normalize with capacities and exact total
-            order = ["NFL", "CFB", "MLB", "WNBA", "MMA"]
-            sanitized = {s: max(0, int(ai_dist.get(s, 0))) for s in ["MLB","WNBA","NFL","CFB","MMA"]}
+            order = ["NFL", "NHL", "NBA", "CFB", "MLB", "WNBA", "MMA"]
+            sanitized = {s: max(0, int(ai_dist.get(s, 0))) for s in ["MLB","NHL","NBA","WNBA","NFL","CFB","MMA"]}
             # Zero out sports with no capacity
             for s in list(sanitized.keys()):
                 if capacities.get(s, 0) <= 0:
@@ -839,6 +896,8 @@ Return JSON like:
         
         # STEP 3: Calculate research allocation based on mode or AI-decided distribution
         target_nfl_queries = 0
+        target_nhl_queries = 0
+        target_nba_queries = 0
         target_wnba_queries = 0
         target_mlb_queries = 0
         target_cfb_queries = 0
@@ -847,6 +906,8 @@ Return JSON like:
             # NFL Week Mode or NFL Only Mode - Focus exclusively on NFL
             nfl_games = len([g for g in games if g.get('sport') == 'National Football League'])
             target_nfl_queries = min(22, max(15, nfl_games))  # 15-22 NFL team queries
+            target_nhl_queries = 0
+            target_nba_queries = 0
             target_wnba_queries = 0
             target_mlb_queries = 0
             target_web_searches = 6  # NFL injury/lineup/weather searches
@@ -863,6 +924,8 @@ Return JSON like:
                 return max(min_q, min(max_q, picks * per_pick)) if picks > 0 else 0
 
             target_mlb_queries = q_for(sport_distribution.get("MLB", 0))
+            target_nhl_queries = q_for(sport_distribution.get("NHL", 0), per_pick=2)
+            target_nba_queries = q_for(sport_distribution.get("NBA", 0), per_pick=2)
             target_wnba_queries = q_for(sport_distribution.get("WNBA", 0))
             target_nfl_queries = q_for(sport_distribution.get("NFL", 0), per_pick=3)
             target_cfb_queries = q_for(sport_distribution.get("CFB", 0), per_pick=3)
@@ -871,7 +934,7 @@ Return JSON like:
 
             research_focus = "Multi-sport"
             parts = []
-            for label, q in [("MLB", target_mlb_queries), ("WNBA", target_wnba_queries), ("NFL", target_nfl_queries), ("CFB", target_cfb_queries), ("MMA", target_mma_queries)]:
+            for label, q in [("MLB", target_mlb_queries), ("NHL", target_nhl_queries), ("NBA", target_nba_queries), ("WNBA", target_wnba_queries), ("NFL", target_nfl_queries), ("CFB", target_cfb_queries), ("MMA", target_mma_queries)]:
                 if q > 0:
                     parts.append(f"**{label} Team Research**: {q} different teams/matchups")
             sport_queries_text = "\n".join(["- " + p for p in parts]) if parts else "- Balanced team research across active sports"
@@ -911,12 +974,16 @@ Return JSON like:
             task_focus = f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups (mix of favorites, underdogs, different conferences)"
         elif sport_distribution and sum(sport_distribution.values()) > 0:
             mlb_game_count = len([g for g in games if g.get('sport') == 'Major League Baseball'])
+            nhl_game_count = len([g for g in games if g.get('sport') == 'National Hockey League'])
+            nba_game_count = len([g for g in games if g.get('sport') == 'National Basketball Association'])
             wnba_game_count = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])            
             nfl_game_count = len([g for g in games if g.get('sport') == 'National Football League'])
             cfb_game_count = len([g for g in games if g.get('sport') == 'College Football'])
-            sport_info = f"MLB Games: {mlb_game_count}, WNBA Games: {wnba_game_count}, NFL Games: {nfl_game_count}, CFB Games: {cfb_game_count}"
+            sport_info = f"MLB Games: {mlb_game_count}, NHL Games: {nhl_game_count}, NBA Games: {nba_game_count}, WNBA Games: {wnba_game_count}, NFL Games: {nfl_game_count}, CFB Games: {cfb_game_count}"
             focus_parts = []
             if target_mlb_queries: focus_parts.append(f"**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups")
+            if target_nhl_queries: focus_parts.append(f"**NHL Focus**: Research {target_nhl_queries} DIFFERENT NHL teams/matchups")
+            if target_nba_queries: focus_parts.append(f"**NBA Focus**: Research {target_nba_queries} DIFFERENT NBA teams/matchups")
             if target_wnba_queries: focus_parts.append(f"**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups")
             if target_nfl_queries: focus_parts.append(f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups")
             if target_cfb_queries: focus_parts.append(f"**CFB Focus**: Research {target_cfb_queries} DIFFERENT CFB matchups")
@@ -1679,6 +1746,10 @@ REMEMBER:
                         game_sport = game.get("sport", "Major League Baseball") if game else "Major League Baseball"
                         if game_sport == "Women's National Basketball Association":
                             display_sport = "WNBA"
+                        elif game_sport == "National Basketball Association":
+                            display_sport = "NBA"
+                        elif game_sport == "National Hockey League":
+                            display_sport = "NHL"
                         elif game_sport == "Ultimate Fighting Championship":
                             display_sport = "MMA"
                         elif game_sport == "Major League Baseball":

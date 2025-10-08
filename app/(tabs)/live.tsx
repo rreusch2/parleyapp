@@ -102,12 +102,15 @@ export default function GamesScreen() {
   const [liveGames, setLiveGames] = useState<EnhancedSportsEvent[]>([]);
   const [upcomingGames, setUpcomingGames] = useState<EnhancedSportsEvent[]>([]);
   const [completedGames, setCompletedGames] = useState<EnhancedSportsEvent[]>([]);
-  const [selectedSport, setSelectedSport] = useState('all');
+  const [selectedSport, setSelectedSport] = useState('featured');
   const [viewMode, setViewMode] = useState<'list' | 'featured'>('list');
   const [selectedGame, setSelectedGame] = useState<EnhancedSportsEvent | null>(null);
   const [showGameModal, setShowGameModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [gameStats, setGameStats] = useState({ total: 0, withAI: 0, live: 0 });
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
 
   const { openChatWithContext } = useAIChat();
   const [selectedBooks, setSelectedBooks] = useState<Record<string, string>>({});
@@ -232,7 +235,7 @@ export default function GamesScreen() {
 
 
   const sportFilters = [
-    { id: 'all', name: 'All' },
+    { id: 'featured', name: '⭐ Featured' },
     { id: 'CFB', name: 'CFB' },
     { id: 'NFL', name: 'NFL' },
     { id: 'MLB', name: 'MLB' },
@@ -272,7 +275,7 @@ export default function GamesScreen() {
       
       // Map frontend sport filters to backend league values
       let leagueFilter = undefined;
-      if (selectedSport !== 'all') {
+      if (selectedSport !== 'featured' && selectedSport !== 'all') {
         if (selectedSport === 'UFC') {
           leagueFilter = 'MMA'; // UFC fights are stored as MMA in backend
         } else if (selectedSport === 'CFB') {
@@ -685,7 +688,22 @@ export default function GamesScreen() {
       return true;
     });
 
-    if (selectedSport !== 'all') {
+    // Handle Featured filter: Show live games + games starting in next hour
+    if (selectedSport === 'featured') {
+      const now = new Date();
+      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+      
+      filtered = filtered.filter(game => {
+        // Include all live games
+        if (game.status === 'live' || liveScores[getEventKey(game)]) {
+          return true;
+        }
+        
+        // Include games starting within the next hour
+        const gameTime = new Date(game.start_time);
+        return gameTime <= oneHourFromNow && gameTime >= now;
+      });
+    } else if (selectedSport !== 'all') {
       // Map frontend sport filters to backend league values (same as fetchGames)
       let leagueToMatch = selectedSport.toLowerCase();
       
@@ -716,6 +734,15 @@ export default function GamesScreen() {
       filtered = filtered.filter(game => game.league.toLowerCase() === leagueToMatch);
     }
 
+    // Apply date filter if a specific date is selected
+    if (selectedDate) {
+      const selectedDateStr = selectedDate.toDateString();
+      filtered = filtered.filter(game => {
+        const gameDate = new Date(game.start_time).toDateString();
+        return gameDate === selectedDateStr;
+      });
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(game => 
@@ -725,7 +752,7 @@ export default function GamesScreen() {
       );
     }
 
-    console.log(`🔍 Filtered games for sport '${selectedSport}':`, filtered.length);
+    console.log(`🔍 Filtered games for sport '${selectedSport}' ${selectedDate ? `on ${selectedDate.toDateString()}` : ''}:`, filtered.length);
     console.log('Games by league:', filtered.reduce((acc, game) => {
       acc[game.league] = (acc[game.league] || 0) + 1;
       return acc;
@@ -1233,23 +1260,81 @@ export default function GamesScreen() {
           </View>
         </View>
 
-        {/* View Mode Toggle */}
-        <View style={styles.viewModeContainer}>
-          <View style={styles.viewModeToggle}>
-            <TouchableOpacity
-              style={[styles.toggleButton, styles.toggleButtonActive]}
-              onPress={() => setViewMode('list')}
-            >
-              <BarChart3 size={16} color="#FFF" />
-              <Text style={[
-                styles.toggleButtonText,
-                styles.toggleButtonTextActive
-              ]}>
-                All Games
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Date Filter Button */}
+        <View style={styles.dateFilterContainer}>
+          <TouchableOpacity
+            style={[styles.dateFilterButton, isElite && { borderColor: theme.accentPrimary }]}
+            onPress={() => setShowDatePicker(!showDatePicker)}
+          >
+            <Calendar size={18} color={isElite ? theme.accentPrimary : "#00E5FF"} />
+            <Text style={[styles.dateFilterText, isElite && { color: theme.accentPrimary }]}>
+              {selectedDate 
+                ? selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : 'All Dates'}
+            </Text>
+            {selectedDate && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedDate(null);
+                }}
+                style={styles.clearDateButton}
+              >
+                <Text style={styles.clearDateText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </TouchableOpacity>
         </View>
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <View style={styles.datePickerModal}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datePickerScroll}>
+              {(() => {
+                const dates = [];
+                const today = new Date();
+                for (let i = 0; i < 7; i++) {
+                  const date = new Date(today);
+                  date.setDate(today.getDate() + i);
+                  dates.push(date);
+                }
+                return dates.map((date, index) => {
+                  const isSelected = selectedDate?.toDateString() === date.toDateString();
+                  const isToday = index === 0;
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.dateOption,
+                        isSelected && styles.dateOptionSelected,
+                        isElite && isSelected && { backgroundColor: theme.accentPrimary, borderColor: theme.accentPrimary }
+                      ]}
+                      onPress={() => {
+                        setSelectedDate(date);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dateOptionDay,
+                        isSelected && styles.dateOptionTextSelected,
+                        isElite && isSelected && { color: '#0F172A' }
+                      ]}>
+                        {isToday ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </Text>
+                      <Text style={[
+                        styles.dateOptionDate,
+                        isSelected && styles.dateOptionTextSelected,
+                        isElite && isSelected && { color: '#0F172A' }
+                      ]}>
+                        {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                });
+              })()}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Sport Filters */}
         <ScrollView 
@@ -1560,35 +1645,83 @@ const styles = StyleSheet.create({
     fontSize: normalize(16),
     color: '#FFFFFF',
   },
-  viewModeContainer: {
+  dateFilterContainer: {
     paddingHorizontal: normalize(16),
     marginBottom: normalize(12),
   },
-  viewModeToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#1E293B',
-    borderRadius: normalize(12),
-    padding: normalize(4),
-  },
-  toggleButton: {
-    flex: 1,
+  dateFilterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: normalize(8),
-    borderRadius: normalize(8),
-    gap: normalize(6),
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    borderRadius: normalize(12),
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    gap: normalize(10),
   },
-  toggleButtonActive: {
+  dateFilterText: {
+    color: '#00E5FF',
+    fontSize: normalize(15),
+    fontWeight: '700',
+  },
+  clearDateButton: {
+    marginLeft: 'auto',
+    width: normalize(24),
+    height: normalize(24),
+    borderRadius: normalize(12),
     backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  toggleButtonText: {
-    color: '#717171',
-    fontSize: normalize(14),
+  clearDateText: {
+    color: '#CBD5E1',
+    fontSize: normalize(12),
+    fontWeight: '700',
+  },
+  datePickerModal: {
+    backgroundColor: '#1E293B',
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(8),
+    marginHorizontal: normalize(16),
+    marginBottom: normalize(12),
+    borderRadius: normalize(12),
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  datePickerScroll: {
+    flexGrow: 0,
+  },
+  dateOption: {
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+    marginHorizontal: normalize(4),
+    borderRadius: normalize(10),
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    minWidth: normalize(80),
+  },
+  dateOptionSelected: {
+    backgroundColor: '#00E5FF',
+    borderColor: '#00E5FF',
+  },
+  dateOptionDay: {
+    color: '#94A3B8',
+    fontSize: normalize(11),
     fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: normalize(4),
   },
-  toggleButtonTextActive: {
+  dateOptionDate: {
     color: '#FFFFFF',
+    fontSize: normalize(14),
+    fontWeight: '700',
+  },
+  dateOptionTextSelected: {
+    color: '#0F172A',
   },
   filterContainer: {
     maxHeight: normalize(50),

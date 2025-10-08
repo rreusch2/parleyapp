@@ -353,6 +353,12 @@ export const getActiveSportConfigs = (): SportConfig[] => {
     if (sport.sportKey === 'WNBA') {
       return activeSports.includes('WNBA') && process.env.ENABLE_WNBA_DATA === 'true';
     }
+    if (sport.sportKey === 'NBA') {
+      return activeSports.includes('NBA') && process.env.ENABLE_NBA_DATA === 'true';
+    }
+    if (sport.sportKey === 'NHL') {
+      return activeSports.includes('NHL') && process.env.ENABLE_NHL_DATA === 'true';
+    }
     if (sport.sportKey === 'UFC') {
       return activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
     }

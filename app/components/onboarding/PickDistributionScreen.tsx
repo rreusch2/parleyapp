@@ -40,20 +40,28 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
     currentPreferences?.pickDistribution?.auto ?? true
   );
   const [customDistribution, setCustomDistribution] = useState({
-    mlb_team: 5,
-    mlb_props: 5,
-    wnba_team: 3,
-    wnba_props: 3,
-    ufc: 4,
+    nfl_team: 3,
+    nfl_props: 3,
+    cfb_team: 2,
+    cfb_props: 2,
+    mlb_team: 3,
+    mlb_props: 3,
+    nhl_team: 2,
+    nhl_props: 2,
+    nba_team: 2,
+    nba_props: 2,
+    wnba_team: 2,
+    wnba_props: 2,
+    ufc: 2,
   });
 
-  const sportPreferences = currentPreferences?.sportPreferences || { mlb: true, wnba: false, ufc: false };
+  const sportPreferences = currentPreferences?.sportPreferences || { nfl: true, cfb: true, mlb: true, nhl: false, nba: false, wnba: false, ufc: false };
   const activeSports = Object.keys(sportPreferences).filter(sport => sportPreferences[sport]);
   const totalPicks = 20; // Default for Pro tier
 
   // Calculate auto distribution based on selected sports
   const getAutoDistribution = () => {
-    if (activeSports.length === 0) return { mlb_team: 10, mlb_props: 10 };
+    if (activeSports.length === 0) return { nfl_team: 7, nfl_props: 7, mlb_team: 3, mlb_props: 3 };
     
     const sportsCount = activeSports.length;
     const picksPerSport = Math.floor(totalPicks / sportsCount);
@@ -236,10 +244,34 @@ const PickDistributionScreen: React.FC<PickDistributionScreenProps> = ({
             </View>
           ) : (
             <View style={styles.customContainer}>
+              {activeSports.includes('nfl') && (
+                <>
+                  {renderCustomSlider('NFL Team Picks', 'nfl_team')}
+                  {renderCustomSlider('NFL Player Props', 'nfl_props')}
+                </>
+              )}
+              {activeSports.includes('cfb') && (
+                <>
+                  {renderCustomSlider('CFB Team Picks', 'cfb_team')}
+                  {renderCustomSlider('CFB Player Props', 'cfb_props')}
+                </>
+              )}
               {activeSports.includes('mlb') && (
                 <>
                   {renderCustomSlider('MLB Team Picks', 'mlb_team')}
                   {renderCustomSlider('MLB Player Props', 'mlb_props')}
+                </>
+              )}
+              {activeSports.includes('nhl') && (
+                <>
+                  {renderCustomSlider('NHL Team Picks', 'nhl_team')}
+                  {renderCustomSlider('NHL Player Props', 'nhl_props')}
+                </>
+              )}
+              {activeSports.includes('nba') && (
+                <>
+                  {renderCustomSlider('NBA Team Picks', 'nba_team')}
+                  {renderCustomSlider('NBA Player Props', 'nba_props')}
                 </>
               )}
               {activeSports.includes('wnba') && (

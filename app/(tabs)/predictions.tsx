@@ -36,6 +36,8 @@ import { aiService, AIPrediction } from '../services/api/aiService';
 import { useSubscription } from '../services/subscriptionContext';
 import { ElitePickDistribution } from '../components/ElitePickDistribution';
 import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
+import PropPredictionCard from '../components/PropPredictionCard';
+import TeamPredictionCard from '../components/TeamPredictionCard';
 import { TwoTabPredictionsLayout } from '../components/TwoTabPredictionsLayout';
 import { useAIChat } from '../services/aiChatContext';
 import { supabase } from '../services/api/supabaseClient';
@@ -114,7 +116,6 @@ export default function PredictionsScreen() {
       let teamQuery = supabase
         .from('ai_predictions')
         .select('*')
-        .eq('user_id', userId)
         .in('bet_type', ['moneyline', 'spread', 'total'])
         .order('created_at', { ascending: false })
         .limit(15);
@@ -144,7 +145,6 @@ export default function PredictionsScreen() {
       let propsQuery = supabase
         .from('ai_predictions')
         .select('*')
-        .eq('user_id', userId)
         .eq('bet_type', 'player_prop')
         .order('created_at', { ascending: false })
         .limit(15);
@@ -205,7 +205,6 @@ export default function PredictionsScreen() {
       const { data: fallbackPicks, error: fallbackError } = await supabase
         .from('ai_predictions')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
       
@@ -250,7 +249,6 @@ export default function PredictionsScreen() {
         const { data: rawPredictions, error } = await supabase
           .from('ai_predictions')
           .select('*')
-          .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(20);
 
@@ -280,63 +278,82 @@ export default function PredictionsScreen() {
           setPredictions(transformedPredictions);
         }
       } else {
-        // For free users, use the existing service WITH user context for welcome bonus logic
+        // Free users: Fetch directly from ai_predictions table like Home tab
+        // Get the 2 most recent picks (or 5 if in welcome bonus period)
         const { data: { user } } = await supabase.auth.getUser();
         const currentUserId = user?.id;
-        const currentUserTier = 'free';
         
-        // Get picks with welcome bonus logic applied - this returns the full API response
-        const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-        const apiResponse = await fetch(`${baseUrl}/api/ai/picks?userId=${currentUserId}&userTier=${currentUserTier}`);
-        
-        const data = await apiResponse.json();
-        
-        if (data.success && data.predictions) {
-          setPredictions(data.predictions);
-          
-          // Check if this is a new user scenario or welcome bonus scenario
-          if (data.metadata) {
-            const isNewUserScenario = data.metadata.isNewUser || false;
-            const bonusActiveFromAPI = data.metadata.welcomeBonusActive || false;
+        if (currentUserId) {
+          // First check welcome bonus status
+          let bonusActive = false;
+          try {
+            const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
+            const response = await fetch(`${baseUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
+            const bonusData = await response.json();
             
-            setIsNewUser(isNewUserScenario);
-            setWelcomeBonusActive(bonusActiveFromAPI);
-            // NEW: capture API-provided limits and ad reward counters
-            if (typeof data.metadata.dailyPickLimit === 'number') {
-              setApiDailyPickLimit(data.metadata.dailyPickLimit);
+            if (bonusData.success && bonusData.status.welcome_bonus_active) {
+              bonusActive = true;
+              setWelcomeBonusActive(true);
+              setWelcomeBonusExpires(bonusData.status.welcome_bonus_expires_at);
             }
-            // ad metadata ignored in this build; backend still limits results
-            
-            console.log(`📊 Predictions API Metadata:`, JSON.stringify(data.metadata, null, 2));
-            
-            if (isNewUserScenario) {
-              console.log(`🆕 New user on Predictions tab: ${data.predictions.length} picks (automatic welcome bonus)`);
-            } else if (bonusActiveFromAPI) {
-              console.log(`🎁 Welcome bonus active on Predictions tab: ${data.predictions.length} picks`);
-            } else {
-              console.log(`🎲 Free user on Predictions tab: ${data.predictions.length} picks`);
-            }
+          } catch (error) {
+            console.log('Could not fetch welcome bonus status:', error);
           }
           
-          // Also check database welcome bonus status for additional context
-          if (currentUserId && !data.metadata?.isNewUser) {
-            try {
-              const baseUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-              const response = await fetch(`${baseUrl}/api/user/welcome-bonus-status?userId=${currentUserId}`);
-              const bonusData = await response.json();
-              
-              if (bonusData.success && bonusData.status.welcome_bonus_active) {
-                setWelcomeBonusActive(true);
-                setWelcomeBonusExpires(bonusData.status.welcome_bonus_expires_at);
-              }
-            } catch (error) {
-              console.error('Error fetching welcome bonus status:', error);
-            }
+          // Check if new user (created within last 7 days)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('created_at')
+            .eq('id', currentUserId)
+            .single();
+          
+          const isNewUserCheck = profile && new Date(profile.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          setIsNewUser(isNewUserCheck || false);
+          
+          // Determine pick limit: 5 if welcome bonus or new user, otherwise 2
+          const pickLimit = (bonusActive || isNewUserCheck) ? 5 : 2;
+          setApiDailyPickLimit(pickLimit);
+          
+          // Fetch most recent picks from ai_predictions table
+          const { data: rawPredictions, error } = await supabase
+            .from('ai_predictions')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(pickLimit);
+          
+          if (error) {
+            console.error('Error fetching Free user predictions from database:', error);
+            setPredictions([]);
+          } else {
+            // Transform to AIPrediction format
+            const transformedPredictions = (rawPredictions || []).map(pred => ({
+              id: pred.id,
+              match: pred.match_teams || pred.match || '',
+              sport: pred.sport || 'Unknown',
+              eventTime: pred.event_time || pred.created_at,
+              pick: pred.pick,
+              odds: pred.odds,
+              confidence: pred.confidence,
+              reasoning: pred.reasoning || '',
+              value: pred.value_percentage,
+              value_percentage: pred.value_percentage,
+              bet_type: pred.bet_type || '',
+              risk_level: pred.risk_level,
+              roi_estimate: pred.roi_estimate ? parseFloat(String(pred.roi_estimate)) : undefined,
+              status: pred.status as 'pending' | 'won' | 'lost',
+              created_at: pred.created_at,
+              // Pass through metadata for new cards
+              metadata: pred.metadata,
+              prop_market_type: pred.prop_market_type,
+              line_value: pred.line_value,
+            }));
+            
+            setPredictions(transformedPredictions);
+            
+            console.log(`🎲 Free user on Picks tab: ${transformedPredictions.length} picks (${pickLimit} limit${bonusActive ? ', welcome bonus active' : ''}${isNewUserCheck ? ', new user' : ''})`);
           }
         } else {
-          // Fallback to the original service method
-          const fallbackData = await aiService.getTodaysPicks(currentUserId, currentUserTier);
-          setPredictions(fallbackData);
+          setPredictions([]);
         }
       }
     } catch (error) {
@@ -670,15 +687,33 @@ What are your thoughts on this prediction?`;
             </View>
           ) : (
             <View style={styles.predictionsContainer}>
-              {filteredPredictions.map((prediction, index) => (
-                <EnhancedPredictionCard
-                  key={prediction.id}
-                  prediction={prediction}
-                  index={index}
-                  onAnalyze={() => handlePredictionAnalyze(prediction)}
-                  welcomeBonusActive={welcomeBonusActive || isNewUser}
-                />
-              ))}
+              {filteredPredictions.map((prediction, index) => {
+                const isPlayerProp = prediction.bet_type === 'player_prop' || 
+                                    (prediction as any).prop_market_type ||
+                                    (prediction as any).line_value !== undefined;
+                
+                // Use PropPredictionCard for player props
+                if (isPlayerProp) {
+                  return (
+                    <PropPredictionCard
+                      key={prediction.id}
+                      prediction={prediction}
+                      index={index}
+                      onPress={() => handlePredictionAnalyze(prediction)}
+                    />
+                  );
+                }
+                
+                // Use TeamPredictionCard for team picks
+                return (
+                  <TeamPredictionCard
+                    key={prediction.id}
+                    prediction={prediction}
+                    index={index}
+                    onPress={() => handlePredictionAnalyze(prediction)}
+                  />
+                );
+              })}
 
               {/* Show locked predictions for free users (only when NOT new user and welcome bonus is NOT active) */}
               {!isPro && !isNewUser && !welcomeBonusActive && predictions.length > 2 && (

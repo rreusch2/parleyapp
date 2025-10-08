@@ -37,6 +37,8 @@ import { router } from 'expo-router';
 import { useSubscription } from '../services/subscriptionContext';
 import EnhancedPredictionCard from '../components/EnhancedPredictionCard';
 import ProAIPicksDisplay from '../components/ProAIPicksDisplay';
+import PropPredictionCard from '../components/PropPredictionCard';
+import TeamPredictionCard from '../components/TeamPredictionCard';
 import EliteLockOfTheDay from '../components/EliteLockOfTheDay';
 import EliteThemeModal from '../components/EliteThemeModal';
 import EliteThemeQuickPicker from '../components/EliteThemeQuickPicker';
@@ -56,6 +58,7 @@ import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { useUITheme } from '../services/uiThemeContext';
 import AIParlayBuilder from '../components/AIParlayBuilder';
+import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -102,6 +105,10 @@ export default function HomeScreen() {
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
+  
+  // Onboarding tutorial state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -190,7 +197,7 @@ export default function HomeScreen() {
       setUserId(user.id);
       const { data: profile } = await supabase
         .from('profiles')
-        .select('sport_preferences, betting_style, risk_tolerance')
+        .select('sport_preferences, betting_style, risk_tolerance, onboarding_completed')
         .eq('id', user.id)
         .single();
       
@@ -200,9 +207,20 @@ export default function HomeScreen() {
           bettingStyle: profile.betting_style || 'balanced',
           riskTolerance: profile.risk_tolerance || 'medium'
         });
+        
+        // Check if user needs to see onboarding
+        if (!profile.onboarding_completed && !onboardingChecked) {
+          // Small delay to let the home screen load first
+          setTimeout(() => {
+            setShowOnboarding(true);
+            setOnboardingChecked(true);
+          }, 1000);
+        } else {
+          setOnboardingChecked(true);
+        }
       }
     }
-  }, []);
+  }, [onboardingChecked]);
 
   const loadMediaItems = useCallback(async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
@@ -656,31 +674,46 @@ export default function HomeScreen() {
               </Text>
             </View>
             
-            <ProAIPicksDisplay 
-              limit={2}
-              showViewAllButton={false}
-              isElite={isElite}
-              onPickPress={(pick) => {
-                // Transform the pick to match expected interface
-                const transformedPick: AIPrediction = {
-                  id: pick.id,
-                  match: pick.match_teams || '',
-                  sport: pick.league || '',
-                  eventTime: pick.eventTime || pick.created_at || new Date().toISOString(),
-                  pick: pick.pick,
-                  odds: pick.odds,
-                  confidence: pick.confidence,
-                  reasoning: pick.reasoning || ''
-                };
-                setSelectedPick(transformedPick);
-                openChatWithContext({ 
-                  screen: 'home', 
-                  selectedPick: transformedPick 
-                }, transformedPick);
-              }}
-              onRefresh={onRefresh}
-              refreshing={refreshing}
-            />
+            {/* Display 2 most recent AI predictions with new card UI */}
+            {todaysPicks.slice(0, 2).map((pick, index) => {
+              const isPlayerProp = pick.bet_type === 'player_prop' || 
+                                  (pick as any).prop_market_type ||
+                                  (pick as any).line_value !== undefined;
+              
+              // Use PropPredictionCard for player props
+              if (isPlayerProp) {
+                return (
+                  <PropPredictionCard
+                    key={pick.id}
+                    prediction={pick}
+                    index={index}
+                    onPress={() => {
+                      setSelectedPick(pick);
+                      openChatWithContext({ 
+                        screen: 'home', 
+                        selectedPick: pick 
+                      }, pick);
+                    }}
+                  />
+                );
+              }
+              
+              // Use TeamPredictionCard for team picks
+              return (
+                <TeamPredictionCard
+                  key={pick.id}
+                  prediction={pick}
+                  index={index}
+                  onPress={() => {
+                    setSelectedPick(pick);
+                    openChatWithContext({ 
+                      screen: 'home', 
+                      selectedPick: pick 
+                    }, pick);
+                  }}
+                />
+              );
+            })}
             
             {/* Pro: Add View All button below preview cards */}
             {!isElite && (
@@ -757,15 +790,33 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ) : (
               <>
-                {displayPicks.map((pick, index) => (
-                  <EnhancedPredictionCard
-                    key={pick.id}
-                    prediction={pick}
-                    index={index}
-                    onAnalyze={() => handlePickAnalyze(pick)}
-                    welcomeBonusActive={welcomeBonusActive || homeIsNewUser}
-                  />
-                ))}
+                {displayPicks.map((pick, index) => {
+                  const isPlayerProp = pick.bet_type === 'player_prop' || 
+                                      (pick as any).prop_market_type ||
+                                      (pick as any).line_value !== undefined;
+                  
+                  // Use PropPredictionCard for player props
+                  if (isPlayerProp) {
+                    return (
+                      <PropPredictionCard
+                        key={pick.id}
+                        prediction={pick}
+                        index={index}
+                        onPress={() => handlePickAnalyze(pick)}
+                      />
+                    );
+                  }
+                  
+                  // Use TeamPredictionCard for team picks
+                  return (
+                    <TeamPredictionCard
+                      key={pick.id}
+                      prediction={pick}
+                      index={index}
+                      onPress={() => handlePickAnalyze(pick)}
+                    />
+                  );
+                })}
 
                 {/* Show locked picks for free users */}
                 {additionalPicksCount > 0 && (
@@ -929,6 +980,14 @@ export default function HomeScreen() {
           setSelectedNewsItem(null);
         }}
         newsItem={selectedNewsItem}
+      />
+      
+      {/* Onboarding Tutorial */}
+      <OnboardingTutorial
+        visible={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        tier={isElite ? 'elite' : isPro ? 'pro' : 'free'}
+        userId={userId}
       />
     </View>
   );
