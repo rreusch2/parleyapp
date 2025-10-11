@@ -19,7 +19,7 @@ import trendsRoutes from './routes/trends';
 import insightsRoutes from './routes/insights';
 import adminRoutes from './routes/admin';
 import adsRoutes from './routes/ads';
-import videosRoutes from './routes/videos';
+import soraVideosRoutes from './routes/soraVideos';
 
 // Initialize express app
 const app = express();
@@ -79,7 +79,7 @@ app.use('/api/trends', trendsRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ads', adsRoutes);
-app.use('/api/videos', videosRoutes);
+app.use('/api/sora', soraVideosRoutes);
 
 // Fetch tomorrow's games endpoint
 app.post('/api/fetch-tomorrow-games', async (req, res) => {

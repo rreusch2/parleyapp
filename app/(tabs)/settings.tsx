@@ -39,7 +39,8 @@ import {
   Copy,
   Star,
   Settings,
-  MessageCircle
+  MessageCircle,
+  Film
 } from 'lucide-react-native';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { supabase } from '../services/api/supabaseClient';
@@ -64,6 +65,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
 import EliteThemeModal from '../components/EliteThemeModal';
 import revenueCatService from '../services/revenueCatService';
+import MyVideosGallery from '../components/MyVideosGallery';
 
 // Platform-specific import to prevent web bundling issues
 let RevenueCatUI;
@@ -1137,6 +1139,20 @@ export default function SettingsScreen() {
       ]
     },
     {
+      title: 'AI Video Studio',
+      icon: Film,
+      iconColor: '#A78BFA',
+      items: [
+        {
+          id: 'my_videos',
+          title: 'My Videos 🎬',
+          type: 'component',
+          subtitle: 'View and manage your AI-generated videos',
+          renderComponent: () => <MyVideosGallery />
+        }
+      ]
+    },
+    {
       title: 'Referrals & Points',
       icon: Share2,
       iconColor: '#10B981',
@@ -1228,6 +1244,15 @@ export default function SettingsScreen() {
   ];
 
   const renderSettingItem = (item: any) => {
+    // Special handling for component type
+    if (item.type === 'component' && item.renderComponent) {
+      return (
+        <View key={item.id} style={styles.componentContainer}>
+          {item.renderComponent()}
+        </View>
+      );
+    }
+
     return (
       <TouchableOpacity 
         key={item.id}
@@ -1259,6 +1284,9 @@ export default function SettingsScreen() {
           <Text style={[styles.settingTitle, item.locked && styles.settingTitleLocked]}>
             {item.title}
           </Text>
+          {item.subtitle && (
+            <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+          )}
           {item.locked && (
             <Lock size={14} color="#6B7280" style={{ marginLeft: 8 }} />
           )}
@@ -2431,6 +2459,17 @@ const styles = StyleSheet.create({
   copyrightText: {
     color: '#64748B',
     fontSize: 12,
+  },
+  componentContainer: {
+    padding: 16,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  settingSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 4,
   },
   subscriptionSection: {
     backgroundColor: '#1E293B',
