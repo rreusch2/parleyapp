@@ -59,8 +59,16 @@ Choose the most appropriate category for each insight:
 - **weather**: ONLY if EXTREME impact (sustained 20+ mph winds, heavy rain/snow, extreme temps affecting gameplay)
 - **pitcher**: Starting pitcher analysis, matchups (MLB)
 - **bullpen**: Relief pitcher situations, workload (MLB)
-- **line_movement**: Market/line movement and sharp money positioning
+- **Line Movement**: Market/line movement and sharp money positioning
 - **research**: General research insights and analytics
+
+**🚨 ANTI-HALLUCINATION RULES (CRITICAL):**
+- **NEVER MAKE UP GAMES**: Every game matchup MUST come from the sports_events table
+- **ALWAYS QUERY sports_events FIRST**: Before writing ANY insight, you MUST use supabase_betting.get_upcoming_games to see REAL games
+- **USE EXACT TEAM NAMES**: Use the EXACT team names from the database, not variations
+- **VERIFY EVERY MATCHUP**: If you didn't see it in sports_events, DON'T WRITE AN INSIGHT ABOUT IT
+- **NO FAKE STATS**: Every stat, trend, or data point must come from actual tool queries (StatMuse, web_search, browser_use)
+- **IF YOU MAKE UP A GAME, YOU HAVE FAILED**: Hallucinated games are completely unacceptable
 
 **🚨 WEATHER INSIGHT RULES (CRITICAL):**
 - **RARELY USE**: Weather insights have historically been low-value
@@ -130,10 +138,12 @@ INSIGHTS_NEXT_STEP_PROMPT = """## INSIGHTS GENERATION WORKFLOW
 
 **Your Research Strategy:**
 
-1. **📊 ANALYZE AVAILABLE GAMES** (MANDATORY FIRST STEP):
-   - Use supabase_betting.get_upcoming_games to see what games are scheduled for target date
+1. **📊 ANALYZE AVAILABLE GAMES** (🚨 MANDATORY FIRST STEP - DO NOT SKIP):
+   - **CRITICAL**: Use supabase_betting.get_upcoming_games to fetch REAL games from database for target date
+   - **WRITE DOWN** all game matchups (Away @ Home) you see in the response
    - Review sports distribution and game count per sport
    - Identify sports with most games and betting activity
+   - **ONLY THESE GAMES EXIST** - if you write an insight about a game not in this list, you have FAILED
 
 2. **🎯 DETERMINE SPORT DISTRIBUTION**:
    - Allocate insights based on available games (more games = more insights for that sport)
@@ -187,7 +197,7 @@ When ready to store your insights, output EXACTLY this format:
     {
       "title": "Short Catchy Title (3-7 words)",
       "description": "Full insight text with game matchup and analysis",
-      "category": "injury|trends|matchup|pace|offense|defense|coaching|weather|pitcher|bullpen|line_movement|research",
+      "category": "injury|trends|matchup|pace|offense|defense|coaching|weather|pitcher|bullpen|Line Movement|research",
       "confidence": 75,
       "impact": "medium|high"
     }
@@ -365,19 +375,25 @@ async def generate_insights(target_date: Optional[str] = None, use_tomorrow: boo
         agent = InsightsAgent()
         
         # Create task prompt
-        task = f"""Generate daily sports betting insights for {target_date_obj.strftime('%Y-%m-%d')}.
+        task = f"""🚨 CURRENT DATE: {target_date_obj.strftime('%Y-%m-%d')} (THIS IS THE DATE YOU'RE GENERATING INSIGHTS FOR)
+
+Generate daily sports betting insights for games on {target_date_obj.strftime('%Y-%m-%d')}.
 
 Follow the research workflow:
-1. Analyze available games for this date
+1. **MANDATORY FIRST STEP**: Use supabase_betting.get_upcoming_games to fetch REAL games from database for {target_date_obj.strftime('%Y-%m-%d')}
+   - ONLY write insights about games you see in this response
+   - If you make up a game matchup, you have FAILED
 2. Determine sport distribution (**EXACTLY 15 insights required**)
-3. Conduct dynamic research using all tools
-4. Generate **EXACTLY 15** high-quality, valuable insights
+3. Conduct dynamic research using all tools (Twitter, StatMuse, web_search, browser_use)
+4. Generate **EXACTLY 15** high-quality, valuable insights using ONLY REAL games from step 1
 5. Create ONE dynamic greeting (after research)
 6. Output in the store_insights JSON format
 
-**CRITICAL REQUIREMENTS:**
+**🚨 CRITICAL REQUIREMENTS:**
 - EXACTLY 15 insights (no more, no less)
-- ZERO tolerance for hallucinations (validate every fact)
+- ZERO tolerance for hallucinations - every game MUST exist in sports_events table
+- ONLY write insights for games returned by get_upcoming_games in step 1
+- Use EXACT team names from the database
 - AVOID weather insights unless EXTREME conditions (20+ mph winds, heavy rain, extreme temps)
 - NEVER generate "no weather issues" or "weather looks fine" - these are TRASH
 - Every insight must provide REAL VALUE and specific edges

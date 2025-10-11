@@ -20,22 +20,30 @@ This is a **complete rewrite** of the insights generation system using our new a
 | Two greeting messages (bug) | ONE greeting (insight_order = 1) |
 | Limited tool usage | Full access to all agent tools |
 | Pre-determined research | AI decides what to research based on games |
+| Trash "no weather" insights | Weather insights only if extreme conditions |
+| Variable insight count (12-15) | **EXACTLY 15 insights every time** |
+| Potential hallucinations | **🚨 MANDATORY VALIDATION** - queries sports_events first |
+| Generic category names | Title Case formatting ("Line Movement" not "line_movement") |
 
 ## How It Works
 
-### 1. **Agent Analyzes Games**
+### 1. **🚨 Agent Analyzes REAL Games (MANDATORY FIRST STEP)**
 ```python
-# Agent first checks what games are available
+# Agent MUST query database first to see what games actually exist
 supabase_betting.get_upcoming_games(date="2025-10-11")
-# Sees: 8 CFB games, 3 NHL games, 2 WNBA games
+# Result: 8 CFB games, 3 NHL games, 2 WNBA games
+
+# Agent writes down all matchups (e.g., "Arizona @ BYU", "Pitt @ Syracuse")
+# ONLY THESE GAMES EXIST - insights about other games = FAILED
 ```
 
 ### 2. **Determines Sport Distribution**
 ```
-Agent thinks: "8 CFB games = 6 CFB insights
+Agent thinks: "8 CFB games = 7 CFB insights
                3 NHL games = 4 NHL insights  
-               2 WNBA games = 3 WNBA insights
-               Total: 13 insights"
+               2 WNBA games = 2 WNBA insights
+               2 MLB games = 2 MLB insights
+               Total: EXACTLY 15 insights (mandatory)"
 ```
 
 ### 3. **Conducts Dynamic Research**
@@ -46,11 +54,13 @@ Agent uses tools intelligently:
 - **Browser Use**: Deep dives when needed (ESPN, Weather.gov, etc.)
 
 ### 4. **Generates Insights**
-Creates 12-15 high-quality insights:
+Creates **EXACTLY 15** high-quality insights:
 - 2-4 sentences each
 - Perfect for UI cards (150-250 characters)
 - Specific data points included
 - Appropriate categories
+- **Zero tolerance for hallucinations** - every fact validated
+- **Weather insights avoided** unless extreme conditions
 
 ### 5. **Creates Dynamic Greeting**
 **AFTER research**, agent generates ONE greeting that:
@@ -115,11 +125,28 @@ The agent chooses from:
 - `offense`: Offensive strengths/weaknesses
 - `defense`: Defensive strengths/weaknesses
 - `coaching`: Coaching tendencies, travel, rest, scheduling
-- `weather`: Weather conditions (only if materially impactful)
+- `weather`: **RARELY USED** - ONLY for extreme conditions (20+ mph winds, heavy rain/snow, extreme temps)
 - `pitcher`: Starting pitcher analysis (MLB)
 - `bullpen`: Relief pitcher situations (MLB)
-- `line_movement`: Market/line movement, sharp money
+- `Line Movement`: Market/line movement, sharp money (Title Case format)
 - `research`: General research insights
+
+### 🚨 Anti-Hallucination Rules (CRITICAL)
+- **NEVER MAKE UP GAMES**: Every matchup MUST exist in sports_events table
+- **MANDATORY FIRST STEP**: Query get_upcoming_games before writing any insight
+- **USE EXACT TEAM NAMES**: From database only (e.g., "Arizona" not "Arizona Wildcats" if DB says "Arizona")
+- **VERIFY EVERY MATCHUP**: If you didn't see it in sports_events response, DON'T write about it
+- **NO FAKE STATS**: Every stat must come from actual tool queries (StatMuse, web_search, browser_use)
+- **IF YOU MAKE UP A GAME, YOU HAVE FAILED**: Hallucinated games are completely unacceptable
+
+### 🚨 Weather Insight Rules (CRITICAL)
+- **AVOID** weather insights - they've historically been low-value
+- **NEVER** generate "no weather issues" or "weather looks fine" - these are TRASH
+- **ONLY** include weather if EXTREME:
+  * Sustained winds > 20 mph (affects passing, kicking)
+  * Heavy precipitation during game (wet ball, field conditions)
+  * Extreme temps affecting player performance
+- **PREFER** injury, trends, matchup, coaching insights - better edges
 
 ## Quality Standards
 
@@ -137,11 +164,17 @@ play on no rest. Late-game fatigue could tighten spread."
 ### ❌ BAD Insights
 ```
 "Kansas City is a good team with strong offense."
+"No weather issues expected for this game."
+"Weather conditions look normal for game time."
+"Team X should win this matchup easily."
+"Oregon @ Washington State (CFB): Oregon averages 42 points per game..."  ← 🚨 HALLUCINATED GAME (not in sports_events)
 ```
-- Too generic
-- No edge
+- Too generic (no edge)
+- Weather "no issues" insights (TRASH)
 - No specific data
 - Not actionable
+- Generic predictions without analysis
+- **🚨 HALLUCINATED GAMES** - writing insights about non-existent matchups
 
 ## Database Schema
 
@@ -234,6 +267,9 @@ SUPABASE_SERVICE_ROLE_KEY=your_key
 4. **Relevance**: Greeting generated after research, so it's contextual
 5. **Scalability**: Easy to add new tools or sports
 6. **Quality**: Agent validates and cross-references data
+7. **Exact Count**: Always 15 insights (not variable 12-15)
+8. **No Trash Weather**: Avoids useless "no weather issues" insights
+9. **Zero Hallucinations**: Strict validation of all facts
 
 ## Next Steps
 
