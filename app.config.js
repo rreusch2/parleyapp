@@ -11,7 +11,7 @@ module.exports = {
  expo: {
    name: "Predictive Play",
    slug: "parleyapp",
-   version: "1.4.2",
+   version: "1.4.3",
    orientation: "portrait",
    scheme: "predictiveplay",
    userInterfaceStyle: "automatic",
