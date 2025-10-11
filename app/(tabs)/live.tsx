@@ -607,16 +607,29 @@ export default function GamesScreen() {
     const fetchAllLive = async () => {
       try {
         const entries = Object.entries(byLeague);
-        const results = await Promise.all(entries.map(([league, ids]) => sportsApi.getLiveScores(league, ids, 2)));
+        // Fetch each league separately and don't let one failure stop others
+        const results = await Promise.allSettled(
+          entries.map(async ([league, ids]) => {
+            try {
+              return await sportsApi.getLiveScores(league, ids, 2);
+            } catch (error) {
+              console.warn(`⚠️ Failed to fetch live scores for ${league}:`, error);
+              return null;
+            }
+          })
+        );
+        
         const merged: Record<string, any> = { ...liveScores };
-        results.forEach(r => {
-          if (r?.success && r.data) {
-            Object.assign(merged, r.data);
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value?.success && result.value.data) {
+            Object.assign(merged, result.value.data);
           }
         });
         setLiveScores(merged);
+        console.log(`🔴 Updated live scores for ${Object.keys(merged).length} games`);
       } catch (err) {
         console.error('Live scores poll failed:', err);
+        // Don't clear existing scores on error - keep showing what we have
       }
     };
 
@@ -652,15 +665,19 @@ export default function GamesScreen() {
 
   // Determine if a game should be shown in LIVE mode
   const isGameLiveNow = (game: EnhancedSportsEvent) => {
-    // Persist across restarts using DB status first
-    if (game.status === 'live') return true;
+    // Priority 1: Check database status first (most authoritative)
     if (game.status === 'completed') return false;
+    if (game.status === 'live') return true;
+    
+    // Priority 2: Check live scores from API
     const live = liveScores[getEventKey(game)];
-    if (live?.status === 'completed') return false;
+    if (live?.completed || live?.status === 'completed') return false;
     if (live?.status === 'live') return true;
+    
+    // Priority 3: Time-based fallback (game started but not marked live yet)
     const now = Date.now();
     const start = new Date(game.start_time).getTime();
-    // Only switch to live at/after scheduled start; keep up to 6 hours after
+    // Only consider live if started within last 6 hours and not marked completed
     return now >= start && now <= (start + 6 * 60 * 60 * 1000);
   };
 
@@ -694,15 +711,22 @@ export default function GamesScreen() {
       const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
       
       filtered = filtered.filter(game => {
-        // Include all live games
-        if (game.status === 'live' || liveScores[getEventKey(game)]) {
-          return true;
-        }
+        // EXCLUDE completed games first
+        if (game.status === 'completed') return false;
+        const liveData = liveScores[getEventKey(game)];
+        if (liveData?.completed || liveData?.status === 'completed') return false;
         
-        // Include games starting within the next hour
+        // INCLUDE all live games (from DB or API)
+        if (game.status === 'live') return true;
+        if (liveData?.status === 'live') return true;
+        if (isGameLiveNow(game)) return true;
+        
+        // INCLUDE games starting within the next hour (not yet live)
         const gameTime = new Date(game.start_time);
         return gameTime <= oneHourFromNow && gameTime >= now;
       });
+      
+      console.log(`⭐ Featured filter: ${filtered.length} games (live + upcoming hour)`);
     } else if (selectedSport !== 'all') {
       // Map frontend sport filters to backend league values (same as fetchGames)
       let leagueToMatch = selectedSport.toLowerCase();

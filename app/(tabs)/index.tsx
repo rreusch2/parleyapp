@@ -58,7 +58,6 @@ import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { useUITheme } from '../services/uiThemeContext';
 import AIParlayBuilder from '../components/AIParlayBuilder';
-import OnboardingTutorial from '../components/OnboardingTutorial';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -106,10 +105,6 @@ export default function HomeScreen() {
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
-  
-  // Onboarding tutorial state
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
   
   // Polling ref for live games count
   const liveGamesPollRef = useRef<NodeJS.Timeout | null>(null);
@@ -237,7 +232,7 @@ export default function HomeScreen() {
       setUserId(user.id);
       const { data: profile } = await supabase
         .from('profiles')
-        .select('sport_preferences, betting_style, risk_tolerance, onboarding_completed')
+        .select('sport_preferences, betting_style, risk_tolerance')
         .eq('id', user.id)
         .single();
       
@@ -247,20 +242,9 @@ export default function HomeScreen() {
           bettingStyle: profile.betting_style || 'balanced',
           riskTolerance: profile.risk_tolerance || 'medium'
         });
-        
-        // Check if user needs to see onboarding
-        if (!profile.onboarding_completed && !onboardingChecked) {
-          // Small delay to let the home screen load first
-          setTimeout(() => {
-            setShowOnboarding(true);
-            setOnboardingChecked(true);
-          }, 1000);
-        } else {
-          setOnboardingChecked(true);
-        }
       }
     }
-  }, [onboardingChecked]);
+  }, []);
 
   const loadMediaItems = useCallback(async (signal?: AbortSignal) => {
     if (signal?.aborted) return;
@@ -1157,14 +1141,6 @@ export default function HomeScreen() {
           setSelectedNewsItem(null);
         }}
         newsItem={selectedNewsItem}
-      />
-      
-      {/* Onboarding Tutorial */}
-      <OnboardingTutorial
-        visible={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        tier={isElite ? 'elite' : isPro ? 'pro' : 'free'}
-        userId={userId}
       />
     </View>
   );

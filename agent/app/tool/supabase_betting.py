@@ -41,6 +41,7 @@ class SupabaseBettingTool(BaseTool):
                     "get_team_odds", 
                     "get_player_props",
                     "get_player_props_by_date",
+                    "get_props_fast",
                     "store_predictions",
                     "get_recent_predictions",
                     "get_games_by_sport"
@@ -56,7 +57,7 @@ class SupabaseBettingTool(BaseTool):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "enum": ["Major League Baseball", "National Football League", "Women's National Basketball Association", "College Football", "Ultimate Fighting Championship"]
+                    "enum": ["Major League Baseball", "National Hockey League", "National Basketball Association", "National Football League", "Women's National Basketball Association", "College Football", "Ultimate Fighting Championship"]
                 },
                 "description": "Filter by specific sports using full database names"
             },
@@ -147,6 +148,8 @@ class SupabaseBettingTool(BaseTool):
                 return await self._get_player_props(kwargs)
             elif action == "get_player_props_by_date":
                 return await self._get_player_props_by_date(kwargs)
+            elif action == "get_props_fast":
+                return await self._get_props_fast(kwargs)
             elif action == "get_all_props_for_date":
                 return await self._get_all_props_for_date(kwargs)
             elif action == "store_predictions":
@@ -429,6 +432,152 @@ class SupabaseBettingTool(BaseTool):
             
         except Exception as e:
             return self.fail_response(f"Error fetching player props: {str(e)}")
+
+    async def _get_props_fast(self, params: Dict) -> ToolResult:
+        """
+        Get player props using the FAST player_props_v2_flat_quick view.
+        This is the proven method from the old props_intelligent_v3.py script.
+        
+        Steps:
+        1. Get games for the date + sport filter
+        2. Query player_props_v2_flat_quick view with game IDs
+        3. Return props with reasonable odds filtering
+        """
+        # Determine target date
+        date_str = params.get("date")
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                return self.fail_response(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
+        elif self._forced_date:
+            target_date = self._forced_date
+        else:
+            target_date = datetime.now().date()
+        
+        sport_filter = params.get("sport_filter", [])
+        
+        # Step 1: Get games for the date
+        games_result = await self._get_upcoming_games({
+            "date": target_date.isoformat(),
+            "sport_filter": sport_filter,
+            "exclude_past": True,
+            "limit": 100
+        })
+        
+        if games_result.error:
+            return games_result
+        
+        # Parse games
+        import json
+        games_data = json.loads(games_result.output) if isinstance(games_result.output, str) else games_result.output
+        games = games_data.get("games", [])
+        
+        if not games:
+            return self.success_response({
+                "query_date": target_date.isoformat(),
+                "sport_filter": sport_filter,
+                "games_found": 0,
+                "total_props_found": 0,
+                "props": []
+            })
+        
+        game_ids = [g["id"] for g in games]
+        logger.info(f"Querying player_props_v2_flat_quick for {len(game_ids)} games")
+        
+        # Step 2: Query the FAST view (same as old script)
+        try:
+            select_cols = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
+            
+            response = self._supabase.table('player_props_v2_flat_quick') \
+                .select(select_cols) \
+                .in_('event_id', game_ids) \
+                .or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)') \
+                .execute()
+            
+            props = []
+            for row in response.data or []:
+                # Map stat_type to friendly prop_type
+                stat_key = row.get('stat_type', '')
+                prop_type = self._display_name_for_stat(stat_key)
+                
+                prop_data = {
+                    "event_id": row.get('event_id'),
+                    "sport": (row.get('sport') or '').upper(),
+                    "player_name": row.get('player_name', 'Unknown'),
+                    "prop_type": prop_type,
+                    "stat_key": stat_key,
+                    "line": float(row.get('line', 0)),
+                    "bookmaker": (row.get('bookmaker') or 'fanduel').lower(),
+                    "over_odds": row.get('over_odds'),
+                    "under_odds": row.get('under_odds'),
+                    "is_alt": row.get('is_alt', False),
+                    "player_headshot_url": row.get('player_headshot_url')
+                }
+                props.append(prop_data)
+            
+            # Group by sport and prop type
+            props_by_sport = {}
+            props_by_type = {}
+            main_count = 0
+            alt_count = 0
+            
+            for prop in props:
+                sport = prop.get("sport", "Unknown")
+                if sport not in props_by_sport:
+                    props_by_sport[sport] = []
+                props_by_sport[sport].append(prop)
+                
+                prop_type = prop.get("prop_type", "Unknown")
+                props_by_type[prop_type] = props_by_type.get(prop_type, 0) + 1
+                
+                if prop.get("is_alt"):
+                    alt_count += 1
+                else:
+                    main_count += 1
+            
+            result = {
+                "query_date": target_date.isoformat(),
+                "sport_filter": sport_filter,
+                "games_found": len(games),
+                "total_props_found": len(props),
+                "main_lines": main_count,
+                "alt_lines": alt_count,
+                "props_by_sport": {sport: len(sport_props) for sport, sport_props in props_by_sport.items()},
+                "props_by_type": props_by_type,
+                "props": props
+            }
+            
+            logger.info(f"✅ Retrieved {len(props)} props ({main_count} main, {alt_count} alt) from fast view")
+            return self.success_response(result)
+            
+        except Exception as e:
+            logger.error(f"Error querying player_props_v2_flat_quick: {str(e)}")
+            return self.fail_response(f"Error querying fast props view: {str(e)}")
+    
+    def _display_name_for_stat(self, stat_key: str) -> str:
+        """Convert stat_type to human-readable label (same as old script)"""
+        mapping = {
+            'batter_hits': 'Batter Hits O/U',
+            'batter_home_runs': 'Batter Home Runs O/U',
+            'batter_total_bases': 'Batter Total Bases O/U',
+            'batter_rbis': 'Batter RBIs O/U',
+            'batter_runs_scored': 'Batter Runs Scored O/U',
+            'batter_stolen_bases': 'Batter Stolen Bases O/U',
+            'pitcher_strikeouts': 'Pitcher Strikeouts O/U',
+            'pitcher_hits_allowed': 'Pitcher Hits Allowed O/U',
+            'pitcher_walks': 'Pitcher Walks O/U',
+            'pitcher_earned_runs': 'Pitcher Earned Runs O/U',
+            'player_points': 'Points O/U',
+            'player_rebounds': 'Rebounds O/U',
+            'player_assists': 'Assists O/U',
+            'player_pass_yds': 'Pass Yards O/U',
+            'player_rush_yds': 'Rush Yards O/U',
+            'player_reception_yds': 'Reception Yards O/U',
+            'player_goals': 'Goals O/U',
+            'player_shots_on_goal': 'Shots on Goal O/U',
+        }
+        return mapping.get(stat_key, stat_key.replace('_', ' ').title())
 
     async def _get_player_props_by_date(self, params: Dict) -> ToolResult:
         """Get player props directly by date (queries player_props_odds table)"""

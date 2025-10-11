@@ -187,7 +187,7 @@ class DB:
             return []
         
         sel = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
-        resp = self.client.table('player_props_v2_flat_quick_mat').select(sel).in_('event_id', game_ids).or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)').execute()
+        resp = self.client.table('player_props_v2_flat_quick').select(sel).in_('event_id', game_ids).or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)').execute()
         
         rows = resp.data or []
         props: List[FlatProp] = []
@@ -529,6 +529,10 @@ Return JSON:
         
         props_payload = []
         for pr in props[:500]:  # Cap for prompt size
+            # Skip props with null odds - AI can't pick them anyway
+            if pr.over_odds is None and pr.under_odds is None:
+                continue
+            
             props_payload.append({
                 'event_id': pr.event_id,
                 'sport': pr.sport,
@@ -544,6 +548,7 @@ Return JSON:
                 'player_headshot_url': pr.player_headshot_url,
             })
         
+        logger.info(f"📊 Prepared {len(props_payload)} props for AI (filtered from {len(props)} total)")
         prompt = self._build_detailed_prompt(props_payload, games, insights_summary, picks_target)
         ai_picks = await self._call_llm(prompt)
         
@@ -562,13 +567,21 @@ Return JSON:
                 prop_type = pk.get('prop_type')
                 rec = (pk.get('recommendation') or '').lower()
                 line = float(pk.get('line'))
-                odds = int(pk.get('odds'))
+                
+                # Handle None odds gracefully
+                odds_value = pk.get('odds')
+                if odds_value is None:
+                    logger.warning(f"❌ Skipping pick {player} {prop_type} {line} - odds is None (AI error)")
+                    continue
+                odds = int(odds_value)
+                
                 event_id = str(pk.get('event_id'))
                 bookmaker = (pk.get('bookmaker') or '').lower()
                 is_alt = pk.get('is_alt', False)
                 
                 key = (event_id, player, prop_type, rec, line, bookmaker)
                 if key in seen:
+                    logger.debug(f"Skipping duplicate pick: {player} {prop_type}")
                     continue
                 
                 # Find matching prop from payload
@@ -581,6 +594,7 @@ Return JSON:
                             and (c['bookmaker'] or '').lower() == bookmaker), None)
                 
                 if not cand:
+                    logger.warning(f"Could not find matching prop for: {player} {prop_type} {line} @ {bookmaker}")
                     continue
                 
                 # Build enriched pick
@@ -614,14 +628,19 @@ Return JSON:
                 })
                 seen.add(key)
             except Exception as e:
-                logger.error(f"Failed to process pick: {e}")
+                player_info = pk.get('player_name', 'Unknown')
+                prop_info = pk.get('prop_type', 'Unknown')
+                logger.error(f"❌ Failed to process pick {player_info} {prop_info}: {e}")
                 continue
         
         if not final:
             logger.warning('No valid picks after validation')
             return []
         
-        logger.info(f"Validated {len(final)} picks")
+        # Log pick distribution
+        alt_picks = sum(1 for p in final if p.get('metadata', {}).get('is_alt', False))
+        main_picks = len(final) - alt_picks
+        logger.info(f"✅ Validated {len(final)} picks ({main_picks} main lines, {alt_picks} alt lines)")
         return final
     
     def _build_detailed_prompt(self, props: List[Dict[str, Any]], games: List[Dict], research: List[Dict], picks_target: int) -> str:
@@ -629,9 +648,13 @@ Return JSON:
         props_str = json.dumps(props[:300])
         research_str = json.dumps(research, indent=2)
         
+        # Calculate how many alt lines to include (30-40% of total)
+        alt_count = max(2, int(picks_target * 0.35))
+        main_count = picks_target - alt_count
+        
         return f"""You are an elite sports betting analyst with 15+ years experience.
 
-Your job is to analyze player props using RESEARCH DATA and generate {picks_target} HIGH-VALUE picks.
+Your job is to analyze player props using RESEARCH DATA and generate EXACTLY {picks_target} HIGH-VALUE picks.
 
 # RESEARCH INSIGHTS ({len(research)} total):
 {research_str}
@@ -643,14 +666,16 @@ Your job is to analyze player props using RESEARCH DATA and generate {picks_targ
 {props_str}
 
 # YOUR TASK:
-Generate {picks_target} best picks using the research data above.
+Generate EXACTLY {picks_target} picks using the research data above.
 
-CRITICAL REQUIREMENTS:
-1. **USE THE RESEARCH**: Reference specific stats, trends, and news from the research insights in your reasoning
-2. **LONGER REASONING**: Each pick must have 6-10 sentences of detailed, data-backed analysis
-3. **MIX MAIN + ALT LINES**: Include both regular lines and alt lines (marked with is_alt: true)
-4. **DIVERSIFY**: Spread across different players, prop types, and sports
-5. **QUALITY OVER QUANTITY**: Only pick when you see real value
+⚠️ CRITICAL REQUIREMENTS (NON-NEGOTIABLE):
+1. **EXACT COUNT**: You MUST return EXACTLY {picks_target} picks - not {picks_target-1}, not {picks_target+1} - EXACTLY {picks_target}
+2. **ALT LINE MIX**: Include at least {alt_count} ALT LINES (is_alt: true) and {main_count} MAIN LINES (is_alt: false)
+3. **VALID ODDS ONLY**: Every pick MUST have a valid "odds" value (integer like -110, +150, etc). Never use null/none
+4. **USE THE RESEARCH**: Reference specific stats, trends, and news from the research insights in your reasoning
+5. **LONGER REASONING**: Each pick must have 6-10 sentences of detailed, data-backed analysis
+6. **DIVERSIFY**: Spread across different players and prop types
+7. **EXACT MATCHING**: Use exact values from the props list above for event_id, player_name, prop_type, line, odds, bookmaker
 
 REASONING REQUIREMENTS (6-10 sentences each):
 - Sentence 1-2: State the pick and key edge
@@ -662,13 +687,13 @@ REASONING REQUIREMENTS (6-10 sentences each):
 RESPOND WITH ONLY JSON ARRAY (no other text):
 [
   {{
-    "event_id": "uuid",
-    "player_name": "Full Name",
-    "prop_type": "Exact prop label from above",
+    "event_id": "uuid-from-props-above",
+    "player_name": "Exact Name From Props Above",
+    "prop_type": "Exact prop_type from above",
     "recommendation": "over" | "under",
     "line": 1.5,
     "odds": -125,
-    "bookmaker": "fanduel|draftkings|betmgm|caesars|fanatics",
+    "bookmaker": "exact bookmaker from above",
     "is_alt": true or false,
     "confidence": 72,
     "risk_level": "Low|Medium|High",
@@ -681,7 +706,7 @@ RESPOND WITH ONLY JSON ARRAY (no other text):
   }}
 ]
 
-Generate {picks_target} picks maximum. Include a healthy mix of main lines and alt lines.
+🎯 REMINDER: Return EXACTLY {picks_target} picks with at least {alt_count} alt lines. Count your picks before responding!
 """
     
     async def _call_llm(self, prompt: str) -> List[Dict[str, Any]]:
@@ -767,9 +792,9 @@ async def main():
             logger.error('Invalid --date, use YYYY-MM-DD')
             return
     elif args.tomorrow:
-        target = (datetime.now(timezone.utc) + timedelta(days=1)).date()
+        target = (datetime.now() + timedelta(days=1)).date()
     else:
-        target = datetime.now(timezone.utc).date()
+        target = datetime.now().date()
     
     ag = Agent()
     await ag.run(target, args.picks, args.sport)

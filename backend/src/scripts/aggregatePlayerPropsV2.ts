@@ -232,9 +232,26 @@ async function matchOrCreatePlayer(playerName: string, sportKey: string, gameDat
   return null;
 }
 
-export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDaysArg?: number): Promise<void> {
+export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDaysArg?: number, sportFilters?: string[]): Promise<void> {
   console.log('\n🎯 Aggregating multi-bookmaker player props into player_props_v2...');
-  const activeSports = getActiveSportConfigs();
+  let activeSports = getActiveSportConfigs();
+  
+  // Apply sport filters if provided
+  if (sportFilters && sportFilters.length > 0) {
+    activeSports = activeSports.filter(sport => 
+      sportFilters.includes(sport.sportKey.toUpperCase()) ||
+      sportFilters.includes(sport.sportName.toUpperCase())
+    );
+    
+    if (activeSports.length === 0) {
+      console.warn(`⚠️  No active sports matched filters: ${sportFilters.join(', ')}`);
+      console.warn('Available sports:', getActiveSportConfigs().map(s => s.sportKey).join(', '));
+      return;
+    }
+    
+    console.log(`🎯 Filtering props to ${activeSports.length} sport(s): ${activeSports.map(s => s.sportKey).join(', ')}`);
+  }
+  
   if (activeSports.length === 0) {
     console.log('⚠️ No active sports configured');
     return;
@@ -274,7 +291,7 @@ export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDa
     // Query upcoming games from sports_events
     const { data: games, error: gamesError } = await supabaseAdmin
       .from('sports_events')
-      .select('id, external_event_id, sport, home_team, away_team, start_time')
+      .select('id, external_event_id, sport, home_team, away_team, start_time, local_game_date')
       .eq('sport', sportConfig.sportName)
       .gte('start_time', now.toISOString())
       .lt('start_time', windowEnd.toISOString())
@@ -310,7 +327,8 @@ export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDa
       if (!propsData) continue;
 
       const aggregated = aggregateProps(propsData, baseMarkets, allowedBooks);
-      const gameDateStr = game.start_time ? new Date(game.start_time).toISOString().slice(0, 10) : (propsData.commence_time ? new Date(propsData.commence_time).toISOString().slice(0, 10) : null);
+      // Use local_game_date for consistent date handling (Eastern Time)
+      const gameDateStr = game.local_game_date || (game.start_time ? new Date(game.start_time).toISOString().slice(0, 10) : (propsData.commence_time ? new Date(propsData.commence_time).toISOString().slice(0, 10) : null));
 
       for (const agg of aggregated.values()) {
         // Keep a convenience consensus main_line (not used for per-book odds)
@@ -367,6 +385,7 @@ export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDa
           player_id: matched.id,
           sport: sportConfig.sportKey.toUpperCase(),
           game_date: gameDateStr,
+          local_game_date: game.local_game_date || gameDateStr, // Store ET date for consistent queries
           opponent_team: opponentTeam,
           is_home: isHome,
           stat_type: agg.statType,

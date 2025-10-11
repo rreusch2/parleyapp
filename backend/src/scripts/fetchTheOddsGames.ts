@@ -132,6 +132,12 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
         .eq('external_event_id', game.id)
         .single();
       
+      // Calculate local game date (Eastern Time for US sports)
+      const startTime = new Date(game.commence_time);
+      // Convert to ET (UTC-5 for EST or UTC-4 for EDT - JS handles DST automatically)
+      const etDate = new Date(startTime.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      const localGameDate = etDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
       // Format the game data for insertion
       const gameData = {
         id: existingGame?.id || uuidv4(),
@@ -142,6 +148,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
         home_team: game.home_team,
         away_team: game.away_team,
         start_time: game.commence_time,
+        local_game_date: localGameDate, // Date in Eastern Time for consistent queries
         status: 'scheduled',
         odds: {}, // Set default empty odds object (required field)
         metadata: {
@@ -295,7 +302,7 @@ async function processOddsData(game: GameData, eventId: string): Promise<void> {
 }
 
 // Main function to run the script
-export async function fetchAllGameData(extendedNflWeek = false): Promise<number> {
+export async function fetchAllGameData(extendedNflWeek = false, sportFilters?: string[]): Promise<number> {
   console.log('🚀 Starting TheOdds API data fetch...');
   if (extendedNflWeek) {
     const days = Number(process.env.NFL_AHEAD_DAYS || 7);
@@ -306,7 +313,23 @@ export async function fetchAllGameData(extendedNflWeek = false): Promise<number>
   
   // Import centralized multi-sport configuration
   const { getActiveSportConfigs } = await import('./multiSportConfig');
-  const activeSports = getActiveSportConfigs();
+  let activeSports = getActiveSportConfigs();
+  
+  // Apply sport filters if provided
+  if (sportFilters && sportFilters.length > 0) {
+    activeSports = activeSports.filter(sport => 
+      sportFilters.includes(sport.sportKey.toUpperCase()) ||
+      sportFilters.includes(sport.sportName.toUpperCase())
+    );
+    
+    if (activeSports.length === 0) {
+      console.warn(`⚠️  No active sports matched filters: ${sportFilters.join(', ')}`);
+      console.warn('Available sports:', getActiveSportConfigs().map(s => s.sportKey).join(', '));
+      return 0;
+    }
+    
+    console.log(`🎯 Filtering to ${activeSports.length} sport(s): ${activeSports.map(s => s.sportKey).join(', ')}`);
+  }
   
   // Fetch games for each active sport from centralized config
   for (const sportConfig of activeSports) {

@@ -53,7 +53,6 @@ import { router } from 'expo-router';
 import HelpCenterModal from '../components/HelpCenterModal';
 import FeedbackModal from '../components/FeedbackModal';
 import AboutModal from '../components/AboutModal';
-import OnboardingTutorial from '../components/OnboardingTutorial';
 import TermsOfServiceModal from '../components/TermsOfServiceModal';
 import PrivacyPolicyModal from '../components/PrivacyPolicyModal';
 import AdminAnalyticsDashboard from '../components/AdminAnalyticsDashboard';
@@ -118,7 +117,6 @@ export default function SettingsScreen() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showUserPreferencesModal, setShowUserPreferencesModal] = useState(false);
   const [showChatBubbleSettings, setShowChatBubbleSettings] = useState(false);
@@ -834,10 +832,6 @@ export default function SettingsScreen() {
         setShowHelpCenterModal(true);
         break;
       
-      case 'tutorial':
-        setShowOnboarding(true);
-        break;
-      
       case 'feedback':
         setShowFeedbackModal(true);
         break;
@@ -1225,7 +1219,6 @@ export default function SettingsScreen() {
           }
         },
         { id: 'help', title: 'Help Center', type: 'link' },
-        { id: 'tutorial', title: 'View Tutorial', type: 'link' },
         { id: 'feedback', title: 'Send Feedback', type: 'link' },
         { id: 'about', title: 'About Predictive Play', type: 'link' },
         { id: 'terms', title: 'Terms of Service', type: 'link' },
@@ -1866,15 +1859,6 @@ export default function SettingsScreen() {
         onClose={() => setShowPointsModal(false)}
         userId={userProfile?.id || ''}
       />
-      
-      {/* Onboarding Tutorial */}
-      <OnboardingTutorial
-        visible={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        tier={isElite ? 'elite' : isPro ? 'pro' : 'free'}
-        userId={userProfile?.id}
-      />
-
       
     </ScrollView>
   );

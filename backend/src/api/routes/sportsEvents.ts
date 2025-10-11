@@ -80,6 +80,8 @@ router.get('/live-scores', async (req, res) => {
   try {
     const { league, eventIds, daysFrom } = req.query as { league?: string; eventIds?: string; daysFrom?: string };
 
+    console.log('🔴 Live scores request:', { league, eventIds: eventIds?.substring(0, 100), daysFrom });
+
     if (!league) {
       return res.status(400).json({ success: false, error: 'Missing required parameter: league' });
     }
@@ -93,19 +95,27 @@ router.get('/live-scores', async (req, res) => {
       'MAJOR LEAGUE BASEBALL': 'baseball_mlb',
       WNBA: 'basketball_wnba',
       NBA: 'basketball_nba',
+      'NATIONAL BASKETBALL ASSOCIATION': 'basketball_nba',
+      'NATIONAL HOCKEY LEAGUE': 'icehockey_nhl',
+      NHL: 'icehockey_nhl',
       UFC: 'mma_mixed_martial_arts',
       MMA: 'mma_mixed_martial_arts',
       NFL: 'americanfootball_nfl',
+      'NATIONAL FOOTBALL LEAGUE': 'americanfootball_nfl',
       NCAAF: 'americanfootball_ncaaf',
-      CFB: 'americanfootball_ncaaf'
+      CFB: 'americanfootball_ncaaf',
+      'COLLEGE FOOTBALL': 'americanfootball_ncaaf'
     };
 
     const sportKey = keyMap[(league as string).toUpperCase()] || league;
+    console.log(`🎯 Mapped ${league} → ${sportKey}`);
 
     const ids = (eventIds as string).split(',').map(s => s.trim()).filter(Boolean);
     if (ids.length === 0) {
       return res.status(400).json({ success: false, error: 'No valid eventIds provided' });
     }
+
+    console.log(`📊 Fetching scores for ${ids.length} events`);
 
     // Call Odds API via service (batch by 50 to keep URL reasonable)
     const batchSize = 50;
@@ -114,15 +124,24 @@ router.get('/live-scores', async (req, res) => {
       batches.push(ids.slice(i, i + batchSize));
     }
 
-    const results = await Promise.all(batches.map(b =>
+    // Use Promise.allSettled to not let one batch failure break everything
+    const results = await Promise.allSettled(batches.map(b =>
       oddsApiService.getScores(sportKey as string, {
         eventIds: b,
         daysFrom: daysFrom ? parseInt(daysFrom as string, 10) : 2,
         dateFormat: 'iso'
+      }).catch(err => {
+        console.warn(`⚠️ Batch failed for ${b.length} events:`, err.message);
+        return []; // Return empty array on error
       })
     ));
 
-    const combined = ([] as any[]).concat(...results);
+    // Combine successful results
+    const combined = ([] as any[]).concat(...results
+      .filter(r => r.status === 'fulfilled')
+      .map((r: any) => r.value));
+
+    console.log(`✅ Got ${combined.length} score results`);
 
     // Normalize into a map keyed by event id
     const scoresMap: Record<string, any> = {};
@@ -154,10 +173,12 @@ router.get('/live-scores', async (req, res) => {
       };
     }
 
+    console.log(`🔴 Returning ${Object.keys(scoresMap).length} live scores`);
     res.json({ success: true, data: scoresMap, count: Object.keys(scoresMap).length });
   } catch (error: any) {
-    console.error('Error fetching live scores:', error.response?.data || error.message);
-    res.status(500).json({ success: false, error: 'Failed to fetch live scores' });
+    console.error('❌ Error fetching live scores:', error.response?.data || error.message || error);
+    // Return success with empty data instead of 500 - don't break the frontend
+    res.json({ success: true, data: {}, count: 0, warning: 'Failed to fetch scores' });
   }
 });
 

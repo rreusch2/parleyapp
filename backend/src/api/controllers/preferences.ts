@@ -4,6 +4,9 @@ import { supabaseAdmin } from '../../services/supabase/client';
 interface UserPreferencesUpdate {
   sport_preferences?: {
     mlb?: boolean;
+    nhl?: boolean;
+    nfl?: boolean;
+    cfb?: boolean;
     wnba?: boolean;
     ufc?: boolean;
   };
@@ -57,10 +60,10 @@ export const getUserPreferences = async (req: Request, res: Response) => {
 
     // Return preferences with defaults if not set
     const preferences = {
-      sport_preferences: data?.sport_preferences || { mlb: true, wnba: false, ufc: false },
+      sport_preferences: data?.sport_preferences || { mlb: true, nhl: true, nfl: true, cfb: false, wnba: false, ufc: false },
       betting_style: data?.betting_style || 'balanced',
       pick_distribution: data?.pick_distribution || { auto: true },
-      preferred_sports: data?.preferred_sports || ['MLB'],
+      preferred_sports: data?.preferred_sports || ['MLB', 'NHL', 'NFL'],
       preferred_bet_types: data?.preferred_bet_types || ['moneyline', 'spread', 'total'],
       risk_tolerance: data?.risk_tolerance || 'medium',
       max_daily_picks: data?.max_daily_picks || 20,
