@@ -30,7 +30,7 @@ interface GenerateVideoRequest extends Request {
 }
 
 /**
- * POST /api/ai/generate-bet-video
+ * POST /api/sora/generate-bet-video
  * Generate a Sora 2 video for user's betting picks
  */
 router.post('/generate-bet-video', authenticate, async (req: GenerateVideoRequest, res: Response) => {
@@ -105,35 +105,49 @@ router.post('/generate-bet-video', authenticate, async (req: GenerateVideoReques
         };
 
         // Generate an epic Sora 2 prompt
-        const picksText = picks.map((p, i) => 
+        const picksText = picks.slice(0, 3).map((p, i) => 
           `${i + 1}. ${p.match_teams}: ${p.pick} @ ${p.odds}`
         ).join(', ');
 
         const parlayOdds = picks.length > 1 
           ? picks.reduce((acc, p) => {
-              const odds = parseFloat(p.odds);
+              const oddsStr = String(p.odds).replace(/[^0-9.-]/g, '');
+              const odds = parseFloat(oddsStr);
+              if (isNaN(odds)) return acc;
               const decimal = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
               return acc * decimal;
             }, 1)
           : null;
 
-        const potentialPayout = parlayOdds 
-          ? `+${Math.round((parlayOdds - 1) * 100 * 100) / 100}` 
+        const potentialPayout = parlayOdds && parlayOdds > 1
+          ? `+${Math.round((parlayOdds - 1) * 100)}`
           : picks[0].odds;
 
-        generatedPrompt = `Epic sports betting highlight montage: A cinematic betting slip floating in space showing ${picks.length} picks${picks.length > 1 ? ' parlay' : ''} - ${picksText}. Dramatic stadium atmosphere, cash and gold coins flying through the air, electric blue and gold particle effects, professional broadcast quality, high-energy celebration vibes, potential payout ${potentialPayout} highlighted in bold glowing text. 5 seconds, portrait orientation 720x1280.`;
+        generatedPrompt = `Epic sports betting highlight montage: A cinematic betting slip floating in space showing ${picks.length} ${picks.length > 1 ? 'pick parlay' : 'pick'} - ${picksText}. Dramatic ${picks[0].sport || 'sports'} stadium atmosphere with crowd energy, cash and gold coins flying through the air, electric blue and gold particle effects, professional sports broadcast quality, high-energy celebration vibes, potential payout ${potentialPayout} highlighted in bold glowing text, confetti and fireworks. 5 seconds, portrait orientation 720x1280, cinematic lighting.`;
       }
     } else if (promptType === 'daily_briefing') {
       // Daily briefing video
-      generatedPrompt = `A confident sports analyst in a modern broadcast studio presenting today's top betting picks with holographic displays showing game stats and odds, professional ESPN-style production, dramatic lighting, cinematic camera movements, 5 seconds, portrait 720x1280.`;
+      generatedPrompt = `A confident professional sports analyst in a sleek modern broadcast studio presenting today's top betting picks, holographic displays showing live game stats and odds floating around, dramatic LED wall backgrounds with sports highlights, professional ESPN-style production quality, dynamic camera movements, cinematic lighting, 5 seconds, portrait 720x1280.`;
+      
+    } else if (promptType === 'pick_explainer' && pickIds && pickIds.length > 0) {
+      const { data: picks } = await supabaseAdmin
+        .from('ai_predictions')
+        .select('*')
+        .in('id', pickIds)
+        .limit(1);
+      
+      if (picks && picks[0]) {
+        const pick = picks[0];
+        generatedPrompt = `Sports analytics breakdown: Visual explanation of why ${pick.match_teams} ${pick.pick} is a value bet at ${pick.odds}, showing ${pick.confidence}% confidence with animated statistics and trend graphs, professional analyst presentation style, clean modern graphics, 5 seconds, portrait 720x1280.`;
+      }
       
     } else if (promptType === 'custom' && customPrompt) {
-      generatedPrompt = customPrompt;
+      generatedPrompt = customPrompt + ' 5 seconds, portrait orientation 720x1280, high quality.';
     } else {
       return res.status(400).json({ error: 'Invalid prompt configuration' });
     }
 
-    logger.info(`🎬 Generated prompt: ${generatedPrompt.substring(0, 100)}...`);
+    logger.info(`🎬 Generated prompt (${generatedPrompt.length} chars): ${generatedPrompt.substring(0, 150)}...`);
 
     // Step 3: Create database record
     const { data: videoRecord, error: insertError } = await supabaseAdmin
@@ -155,22 +169,31 @@ router.post('/generate-bet-video', authenticate, async (req: GenerateVideoReques
     }
 
     // Step 4: Call Sora 2 API
-    logger.info(`🚀 Calling Sora 2 API for video generation...`);
+    logger.info(`🚀 Calling Sora 2 API for video generation (model: sora-2)...`);
     
     try {
-      const videoResponse = await openai.chat.completions.create({
-        model: 'sora-2',
-        messages: [{
-          role: 'user',
-          content: generatedPrompt,
-        }],
-        // @ts-ignore - Sora 2 specific parameters
-        duration: duration,
-        size: '720x1280', // Portrait for mobile
-      } as any);
+      // Use the Videos API endpoint for Sora 2
+      const videoJob = await fetch('https://api.openai.com/v1/videos/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'sora-2',
+          prompt: generatedPrompt,
+          duration,
+          size: '720x1280',
+        }),
+      });
 
-      // Sora 2 returns a job ID for polling
-      const jobId = (videoResponse as any).id;
+      if (!videoJob.ok) {
+        const errorData = await videoJob.json();
+        throw new Error(errorData.error?.message || 'Sora 2 API error');
+      }
+
+      const jobData = await videoJob.json();
+      const jobId = jobData.id;
 
       // Update record with job ID
       await supabaseAdmin
@@ -198,7 +221,7 @@ router.post('/generate-bet-video', authenticate, async (req: GenerateVideoReques
         videoId: videoRecord.id,
         jobId,
         status: 'processing',
-        estimatedTime: duration * 2, // Rough estimate
+        estimatedTime: duration * 3, // Rough estimate (3x video length)
         processingTime: Date.now() - startTime,
       });
 
@@ -227,7 +250,7 @@ router.post('/generate-bet-video', authenticate, async (req: GenerateVideoReques
 });
 
 /**
- * GET /api/ai/video-status/:videoId
+ * GET /api/sora/video-status/:videoId
  * Poll for video generation status
  */
 router.get('/video-status/:videoId', authenticate, async (req: Request, res: Response) => {
@@ -249,60 +272,77 @@ router.get('/video-status/:videoId', authenticate, async (req: Request, res: Res
     // If still processing, poll OpenAI for status
     if (videoRecord.generation_status === 'processing' && videoRecord.openai_job_id) {
       try {
-        const jobStatus = await openai.chat.completions.retrieve(videoRecord.openai_job_id);
-        
-        if ((jobStatus as any).status === 'succeeded' && (jobStatus as any).output?.url) {
-          const videoUrl = (jobStatus as any).output.url;
-          
-          // Download video and upload to Supabase Storage
-          const videoBlob = await fetch(videoUrl).then(r => r.blob());
-          const fileName = `videos/${userId}/${videoId}.mp4`;
-          
-          const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-            .from('generated-videos')
-            .upload(fileName, videoBlob, {
-              contentType: 'video/mp4',
-              upsert: true,
-            });
-
-          if (uploadError) {
-            throw uploadError;
+        const statusResponse = await fetch(
+          `https://api.openai.com/v1/videos/generations/${videoRecord.openai_job_id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
           }
+        );
 
-          // Get public URL
-          const { data: publicUrlData } = supabaseAdmin.storage
-            .from('generated-videos')
-            .getPublicUrl(fileName);
+        if (statusResponse.ok) {
+          const jobStatus = await statusResponse.json();
+          
+          if (jobStatus.status === 'succeeded' && jobStatus.output?.url) {
+            const videoUrl = jobStatus.output.url;
+            
+            // Download video and upload to Supabase Storage
+            logger.info(`📥 Downloading video from OpenAI CDN...`);
+            const videoResponse = await fetch(videoUrl);
+            const videoBuffer = await videoResponse.arrayBuffer();
+            const fileName = `videos/${userId}/${videoId}.mp4`;
+            
+            logger.info(`⬆️ Uploading to Supabase Storage: ${fileName}`);
+            const { error: uploadError } = await supabaseAdmin.storage
+              .from('generated-videos')
+              .upload(fileName, videoBuffer, {
+                contentType: 'video/mp4',
+                upsert: true,
+              });
 
-          // Update database record
-          await supabaseAdmin
-            .from('user_generated_videos')
-            .update({
-              generation_status: 'completed',
-              video_url: publicUrlData.publicUrl,
-              video_storage_path: fileName,
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', videoId);
+            if (uploadError) {
+              throw uploadError;
+            }
 
-          videoRecord.generation_status = 'completed';
-          videoRecord.video_url = publicUrlData.publicUrl;
-          videoRecord.completed_at = new Date().toISOString();
+            // Get public URL
+            const { data: publicUrlData } = supabaseAdmin.storage
+              .from('generated-videos')
+              .getPublicUrl(fileName);
 
-        } else if ((jobStatus as any).status === 'failed') {
-          await supabaseAdmin
-            .from('user_generated_videos')
-            .update({
-              generation_status: 'failed',
-              error_message: (jobStatus as any).error || 'Generation failed',
-            })
-            .eq('id', videoId);
+            // Update database record
+            await supabaseAdmin
+              .from('user_generated_videos')
+              .update({
+                generation_status: 'completed',
+                video_url: publicUrlData.publicUrl,
+                video_storage_path: fileName,
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', videoId);
 
-          videoRecord.generation_status = 'failed';
+            logger.info(`✅ Video completed and stored: ${publicUrlData.publicUrl}`);
+
+            videoRecord.generation_status = 'completed';
+            videoRecord.video_url = publicUrlData.publicUrl;
+            videoRecord.completed_at = new Date().toISOString();
+
+          } else if (jobStatus.status === 'failed') {
+            logger.error(`❌ Sora 2 job failed: ${jobStatus.error}`);
+            await supabaseAdmin
+              .from('user_generated_videos')
+              .update({
+                generation_status: 'failed',
+                error_message: jobStatus.error || 'Generation failed',
+              })
+              .eq('id', videoId);
+
+            videoRecord.generation_status = 'failed';
+          }
         }
 
       } catch (pollError: any) {
-        logger.warn(`Polling error for job ${videoRecord.openai_job_id}: ${pollError.message}`);
+        logger.warn(`⚠️ Polling error for job ${videoRecord.openai_job_id}: ${pollError.message}`);
       }
     }
 
@@ -314,16 +354,19 @@ router.get('/video-status/:videoId', authenticate, async (req: Request, res: Res
       createdAt: videoRecord.created_at,
       completedAt: videoRecord.completed_at,
       error: videoRecord.error_message,
+      viewsCount: videoRecord.views_count,
+      downloadsCount: videoRecord.downloads_count,
+      sharesCount: videoRecord.shares_count,
     });
 
   } catch (error: any) {
-    logger.error(`Error checking video status: ${error.message}`);
+    logger.error(`❌ Error checking video status: ${error.message}`);
     res.status(500).json({ error: 'Failed to check video status' });
   }
 });
 
 /**
- * GET /api/ai/my-videos
+ * GET /api/sora/my-videos
  * Get user's generated videos
  */
 router.get('/my-videos', authenticate, async (req: Request, res: Response) => {
@@ -351,13 +394,13 @@ router.get('/my-videos', authenticate, async (req: Request, res: Response) => {
     res.json({ videos: videos || [], count: videos?.length || 0 });
 
   } catch (error: any) {
-    logger.error(`Error fetching user videos: ${error.message}`);
+    logger.error(`❌ Error fetching user videos: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch videos' });
   }
 });
 
 /**
- * DELETE /api/ai/video/:videoId
+ * DELETE /api/sora/video/:videoId
  * Delete a video
  */
 router.delete('/video/:videoId', authenticate, async (req: Request, res: Response) => {
@@ -388,18 +431,21 @@ router.delete('/video/:videoId', authenticate, async (req: Request, res: Respons
     await supabaseAdmin
       .from('user_generated_videos')
       .delete()
-      .eq('id', videoId);
+      .eq('id', videoId)
+      .eq('user_id', userId);
+
+    logger.info(`🗑️ Video deleted: ${videoId}`);
 
     res.json({ success: true, message: 'Video deleted successfully' });
 
   } catch (error: any) {
-    logger.error(`Error deleting video: ${error.message}`);
+    logger.error(`❌ Error deleting video: ${error.message}`);
     res.status(500).json({ error: 'Failed to delete video' });
   }
 });
 
 /**
- * POST /api/ai/video/:videoId/increment-views
+ * POST /api/sora/video/:videoId/increment-views
  * Increment video view count
  */
 router.post('/video/:videoId/increment-views', async (req: Request, res: Response) => {
@@ -415,13 +461,57 @@ router.post('/video/:videoId/increment-views', async (req: Request, res: Respons
     res.json({ success: true });
 
   } catch (error: any) {
-    logger.error(`Error incrementing views: ${error.message}`);
+    logger.error(`❌ Error incrementing views: ${error.message}`);
     res.status(500).json({ error: 'Failed to increment views' });
   }
 });
 
 /**
- * GET /api/ai/video-usage
+ * POST /api/sora/video/:videoId/increment-downloads
+ * Increment video download count
+ */
+router.post('/video/:videoId/increment-downloads', async (req: Request, res: Response) => {
+  try {
+    const { videoId } = req.params;
+
+    const { error } = await supabaseAdmin.rpc('increment_video_downloads', {
+      video_id: videoId,
+    });
+
+    if (error) throw error;
+
+    res.json({ success: true });
+
+  } catch (error: any) {
+    logger.error(`❌ Error incrementing downloads: ${error.message}`);
+    res.status(500).json({ error: 'Failed to increment downloads' });
+  }
+});
+
+/**
+ * POST /api/sora/video/:videoId/increment-shares
+ * Increment video share count
+ */
+router.post('/video/:videoId/increment-shares', async (req: Request, res: Response) => {
+  try {
+    const { videoId } = req.params;
+
+    const { error } = await supabaseAdmin.rpc('increment_video_shares', {
+      video_id: videoId,
+    });
+
+    if (error) throw error;
+
+    res.json({ success: true });
+
+  } catch (error: any) {
+    logger.error(`❌ Error incrementing shares: ${error.message}`);
+    res.status(500).json({ error: 'Failed to increment shares' });
+  }
+});
+
+/**
+ * GET /api/sora/video-usage
  * Get user's current usage and limits
  */
 router.get('/video-usage', authenticate, async (req: Request, res: Response) => {
@@ -459,10 +549,9 @@ router.get('/video-usage', authenticate, async (req: Request, res: Response) => 
     });
 
   } catch (error: any) {
-    logger.error(`Error fetching video usage: ${error.message}`);
+    logger.error(`❌ Error fetching video usage: ${error.message}`);
     res.status(500).json({ error: 'Failed to fetch usage' });
   }
 });
 
 export default router;
-
