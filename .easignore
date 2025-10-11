@@ -79,7 +79,9 @@ coverage/
 # Scripts not needed for build
 scripts/
 *.sh
-!node_modules/
+
+# Explicitly exclude node_modules (gets reinstalled on EAS)
+node_modules/
 
 # Database files
 *.db
