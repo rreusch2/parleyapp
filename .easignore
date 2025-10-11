@@ -1,0 +1,98 @@
+# .easignore - Exclude unnecessary files from EAS builds
+# This will reduce upload size from 168 MB to ~10 MB
+
+# Backend services (not needed for mobile app)
+backend/
+agent/
+python-services/
+professor-lock-service/
+cron-service/
+email-automation/
+
+# Web apps (not needed for mobile app)
+web-app/
+website/
+
+# Python environments
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build artifacts
+simulator_build/
+ios/build/
+android/build/
+android/.gradle/
+*.apk
+*.ipa
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Screenshots and media (large files)
+screenshots/
+demo/
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Scrapers and utilities
+parley_scrapy/
+adagent/
+
+# Git
+.git/
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (use EAS Secrets instead)
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Cache directories
+.cache/
+.expo-shared/
+*.tmp
+
+# Documentation (optional - remove if you want docs uploaded)
+*.md
+!README.md
+
+# Scripts not needed for build
+scripts/
+*.sh
+!node_modules/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Large data files
+*.csv
+*.json
+!package.json
+!package-lock.json
+!app.json
+!eas.json
+!app.config.js
+!babel.config.js
+!metro.config.js
