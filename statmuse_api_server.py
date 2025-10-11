@@ -401,31 +401,30 @@ class StatMuseAPI:
         
         return insights
     
-    def query_statmuse(self, query: str) -> dict:
-        """Query StatMuse with caching"""
-        cache_key = query.lower()
+    def query_statmuse(self, query: str, sport: str = None) -> dict:
+        """Query StatMuse with explicit sport parameter (NO keyword detection)"""
+        cache_key = f"{sport}:{query.lower()}" if sport else query.lower()
         current_time = time.time()
         
         # Check cache
         if cache_key in self.cache:
             cached_data, timestamp = self.cache[cache_key]
             if current_time - timestamp < self.cache_ttl:
-                logger.info(f"💾 Cache hit for: {query}")
+                logger.info(f"💾 Cache hit for: {query} ({sport})")
                 cached_data['cached'] = True
                 return cached_data
         
-        # Execute the query using standard approach
-        result = self._try_standard_query(query, current_time, cache_key)
+        # Execute the query using standard approach with explicit sport
+        result = self._try_standard_query(query, current_time, cache_key, sport=sport)
         return result
     
-    def _try_standard_query(self, query: str, current_time: float, cache_key: str) -> dict:
-        """Try the standard StatMuse query approach"""
+    def _try_standard_query(self, query: str, current_time: float, cache_key: str, sport: str = None) -> dict:
+        """Try the standard StatMuse query approach with explicit sport (NO DETECTION)"""
         try:
-            logger.info(f"🔍 StatMuse Query: {query}")
+            logger.info(f"🔍 StatMuse Query: {query} [Sport: {sport}]")
             
             # Format query for URL to match working StatMuse format
-            # Examples: "A'ja Wilson points this season" -> "aja-wilson-points-this-season"
-            #          "Caitlin Clark stats last 5 games" -> "caitlin-clark-stats-last-5-games"
+            # Examples: "LJ Martin rushing yards last 5 games" -> "lj-martin-rushing-yards-last-5-games"
             formatted_query = query.lower()
             # Remove apostrophes and special characters
             formatted_query = formatted_query.replace("'", "").replace("'", "")
@@ -436,44 +435,25 @@ class StatMuseAPI:
             # Remove leading/trailing hyphens
             formatted_query = formatted_query.strip('-')
             
-            # Determine the correct StatMuse endpoint based on sport
-            primary_base_url = "https://www.statmuse.com/mlb/ask"
-            if self.is_nhl_query(query):
-                primary_base_url = "https://www.statmuse.com/nhl/ask"
-            elif self.is_nba_query(query):
-                primary_base_url = "https://www.statmuse.com/nba/ask"
-            elif self.is_wnba_query(query):
-                primary_base_url = "https://www.statmuse.com/wnba/ask"
-            elif self.is_nfl_query(query):
-                primary_base_url = "https://www.statmuse.com/nfl/ask"
-            elif self.is_cfb_query(query):
-                primary_base_url = "https://www.statmuse.com/cfb/ask"
+            # Map sport to StatMuse URL - NO DETECTION, USE EXPLICIT PARAMETER
+            sport_url_map = {
+                'CFB': 'https://www.statmuse.com/cfb/ask',
+                'NCAAF': 'https://www.statmuse.com/cfb/ask',
+                'NFL': 'https://www.statmuse.com/nfl/ask',
+                'MLB': 'https://www.statmuse.com/mlb/ask',
+                'NBA': 'https://www.statmuse.com/nba/ask',
+                'NHL': 'https://www.statmuse.com/nhl/ask',
+                'WNBA': 'https://www.statmuse.com/wnba/ask'
+            }
             
-            # Build candidate endpoints for fallback if primary fails (e.g., HTTP 422)
-            candidate_bases = [primary_base_url]
-            # Heuristic fallbacks based on query tokens
-            ql = query.lower()
-            if any(tok in ql for tok in ["passing yards", "rushing yards", "receiving yards", "touchdowns", "tds"]):
-                # Football-related; prefer NFL/CFB
-                for base in ["https://www.statmuse.com/cfb/ask", "https://www.statmuse.com/nfl/ask"]:
-                    if base not in candidate_bases:
-                        candidate_bases.append(base)
-            elif any(tok in ql for tok in ["goals", "assists", "saves", "shots on goal", "hockey"]):
-                # Hockey-related; prefer NHL
-                for base in ["https://www.statmuse.com/nhl/ask"]:
-                    if base not in candidate_bases:
-                        candidate_bases.append(base)
-            elif any(tok in ql for tok in ["rebounds", "three pointers", "basketball"]):
-                # Basketball-related; prefer NBA/WNBA
-                for base in ["https://www.statmuse.com/nba/ask", "https://www.statmuse.com/wnba/ask"]:
-                    if base not in candidate_bases:
-                        candidate_bases.append(base)
-            # Always include all sports as generic fallbacks
-            for base in ["https://www.statmuse.com/nfl/ask", "https://www.statmuse.com/cfb/ask", 
-                        "https://www.statmuse.com/nba/ask", "https://www.statmuse.com/nhl/ask",
-                        "https://www.statmuse.com/mlb/ask", "https://www.statmuse.com/wnba/ask"]:
-                if base not in candidate_bases:
-                    candidate_bases.append(base)
+            # Get the correct URL for this sport
+            if sport and sport.upper() in sport_url_map:
+                base_url = sport_url_map[sport.upper()]
+                candidate_bases = [base_url]  # ONLY try the correct sport URL
+            else:
+                # Fallback to all sports if no sport specified (backward compatibility)
+                logger.warning(f"⚠️ No sport specified, falling back to all URLs")
+                candidate_bases = list(sport_url_map.values())
             
             # Try candidates in order until one returns 200
             response = None
@@ -565,7 +545,7 @@ def health_check():
 
 @app.route('/query', methods=['POST'])
 def query_statmuse():
-    """Main StatMuse query endpoint"""
+    """Main StatMuse query endpoint - REQUIRES sport parameter"""
     try:
         data = request.get_json()
         
@@ -575,8 +555,24 @@ def query_statmuse():
                 'error': 'Missing query parameter'
             }), 400
         
+        if 'sport' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing sport parameter. Must specify: MLB, NHL, NBA, NFL, CFB, or WNBA'
+            }), 400
+        
         query = data['query']
-        result = statmuse_api.query_statmuse(query)
+        sport = data['sport'].upper()
+        
+        # Validate sport
+        valid_sports = ['MLB', 'NHL', 'NBA', 'NFL', 'CFB', 'NCAAF', 'WNBA']
+        if sport not in valid_sports:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid sport: {sport}. Must be one of: {", ".join(valid_sports)}'
+            }), 400
+        
+        result = statmuse_api.query_statmuse(query, sport=sport)
         
         return jsonify(result)
         

@@ -50,6 +50,7 @@ import InstantIntel from '../components/InstantIntel';
 import MediaGallery from '../components/MediaGallery';
 import type { MediaItem as MediaItemType } from '../components/MediaGallery';
 import { listMedia } from '../services/api/mediaService';
+import SoraVideoGenerator from '../components/SoraVideoGenerator';
 import ATTPermissionTrigger from '../components/ATTPermissionTrigger';
 import { useAIChat } from '../services/aiChatContext';
 import { useReview } from '../hooks/useReview';
@@ -1018,6 +1019,11 @@ export default function HomeScreen() {
             )}
           </View>
         )}
+
+        {/* AI Video Generator Section - Sora 2 Integration */}
+        <View style={styles.section}>
+          <SoraVideoGenerator todaysPicks={todaysPicks} />
+        </View>
 
         {/* AI Parlay Builder Section */}
         <View style={styles.section}>

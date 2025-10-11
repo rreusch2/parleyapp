@@ -59,6 +59,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                     "web_search",
                     "wait",
                     "extract_content",
+                "extract_by_selector",
                     "switch_tab",
                     "open_tab",
                     "close_tab",
@@ -84,6 +85,10 @@ class BrowserUseTool(BaseTool, Generic[Context]):
             "selector": {
                 "type": "string",
                 "description": "CSS selector for element-specific actions like 'scroll_element'",
+            },
+            "attribute": {
+                "type": "string",
+                "description": "Optional attribute to extract for 'extract_by_selector' (e.g., href, src)",
             },
             "tab_id": {
                 "type": "integer",
@@ -232,8 +237,9 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                 context = await self._ensure_browser_initialized()
 
                 # Get max content length from config
+                # Increased default from 2000 to 50000 for better extraction of complex pages
                 max_content_length = getattr(
-                    config.browser_config, "max_content_length", 2000
+                    config.browser_config, "max_content_length", 50000
                 )
 
                 # Navigation actions
@@ -244,7 +250,11 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                         )
                     page = await context.get_current_page()
                     await page.goto(url)
-                    await page.wait_for_load_state()
+                    # Wait for network to be idle to ensure dynamic content loads
+                    try:
+                        await page.wait_for_load_state("networkidle")
+                    except Exception:
+                        await page.wait_for_load_state()
                     return ToolResult(output=f"Navigated to {url}")
 
                 elif action == "go_back":
@@ -432,64 +442,75 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                     content = markdownify.markdownify(await page.content())
 
                     prompt = f"""\
-Your task is to extract the content of the page. You will be given a page and a goal, and you should extract all relevant information around this goal from the page. If the goal is vague, summarize the page. Respond in json format.
-Extraction goal: {goal}
+Extract specific information from this webpage and return it as valid JSON.
 
-Page content:
+EXTRACTION GOAL: {goal}
+
+CRITICAL INSTRUCTIONS:
+- Extract ONLY data relevant to the goal above
+- Return ONLY valid JSON, no other text or explanation
+- If extracting lists (players, trends, etc), use arrays with detailed objects
+- If extracting player stats, include: player_name, stat_type, value, context, team
+- Be thorough - extract ALL matching data, not just the first few items
+- If the goal mentions specific names/keywords, prioritize those but also include related data
+
+EXAMPLE OUTPUT FORMAT (adapt to the actual goal):
+{{
+  "players": [
+    {{"player_name": "John Doe", "stat_type": "rushing_yards", "value": "85.5", "hit_rate": "70%", "trend": "hot"}},
+    {{"player_name": "Jane Smith", "stat_type": "passing_yards", "value": "250.5", "hit_rate": "65%", "trend": "cold"}}
+  ]
+}}
+
+PAGE CONTENT (HTML converted to markdown):
 {content[:max_content_length]}
-"""
-                    messages = [{"role": "system", "content": prompt}]
 
-                    # Define extraction function schema
-                    extraction_function = {
-                        "type": "function",
-                        "function": {
-                            "name": "extract_content",
-                            "description": "Extract specific information from a webpage based on a goal",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "extracted_content": {
-                                        "type": "object",
-                                        "description": "The content extracted from the page according to the goal",
-                                        "properties": {
-                                            "text": {
-                                                "type": "string",
-                                                "description": "Text content extracted from the page",
-                                            },
-                                            "metadata": {
-                                                "type": "object",
-                                                "description": "Additional metadata about the extracted content",
-                                                "properties": {
-                                                    "source": {
-                                                        "type": "string",
-                                                        "description": "Source of the extracted content",
-                                                    }
-                                                },
-                                            },
-                                        },
-                                    }
-                                },
-                                "required": ["extracted_content"],
-                            },
-                        },
-                    }
+Return ONLY valid JSON with the extracted data:"""
 
-                    # Use LLM to extract content with required function calling
-                    response = await self.llm.ask_tool(
-                        messages,
-                        tools=[extraction_function],
-                        tool_choice="required",
-                    )
+                    messages = [{"role": "user", "content": prompt}]
 
-                    if response and response.tool_calls:
-                        args = json.loads(response.tool_calls[0].function.arguments)
-                        extracted_content = args.get("extracted_content", {})
+                    # Use LLM to extract content without function calling (GPT-5 compatible)
+                    try:
+                        response = await self.llm.ask(messages, temperature=0.0)
+                        
+                        # Try to parse the response as JSON
+                        # Remove markdown code blocks if present
+                        response_text = response.strip()
+                        if response_text.startswith("```"):
+                            # Extract JSON from code block
+                            lines = response_text.split("\n")
+                            response_text = "\n".join(lines[1:-1])  # Remove first and last lines
+                        
+                        extracted_data = json.loads(response_text)
                         return ToolResult(
-                            output=f"Extracted from page:\n{extracted_content}\n"
+                            output=f"Extracted from page:\n{json.dumps(extracted_data, indent=2)}\n"
+                        )
+                    except json.JSONDecodeError as e:
+                        # If JSON parsing fails, return the raw response
+                        return ToolResult(
+                            output=f"Extracted (non-JSON format):\n{response}\n"
                         )
 
-                    return ToolResult(output="No content was extracted from the page.")
+                elif action == "extract_by_selector":
+                    if not selector:
+                        return ToolResult(error="Selector is required for 'extract_by_selector' action")
+                    page = await context.get_current_page()
+                    try:
+                        # Evaluate JS in the page to extract text and optional attribute for all matches
+                        js = """
+                            (sel, attr) => {
+                              const nodes = Array.from(document.querySelectorAll(sel));
+                              return nodes.map(n => {
+                                const text = (n.innerText || n.textContent || "").trim();
+                                const value = attr ? (n.getAttribute(attr) || "") : "";
+                                return { text, [attr || 'attribute']: value };
+                              });
+                            }
+                        """
+                        results = await page.evaluate(js, selector, kwargs.get("attribute"))
+                        return ToolResult(output=json.dumps({"selector": selector, "items": results}, ensure_ascii=False))
+                    except Exception as e:
+                        return ToolResult(error=f"Failed 'extract_by_selector': {str(e)}")
 
                 # Tab management actions
                 elif action == "switch_tab":

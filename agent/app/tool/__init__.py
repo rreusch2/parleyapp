@@ -11,7 +11,6 @@ from app.tool.web_search import WebSearch
 from app.tool.supabase_betting import SupabaseBettingTool
 from app.tool.statmuse_betting import StatMuseBettingTool
 
-
 __all__ = [
     "BaseTool",
     "Bash",
@@ -25,4 +24,5 @@ __all__ = [
     "Crawl4aiTool",
     "SupabaseBettingTool",
     "StatMuseBettingTool",
+    "LinemateTrendsTool",
 ]

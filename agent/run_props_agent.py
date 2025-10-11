@@ -23,11 +23,11 @@ from dotenv import load_dotenv
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
+# Load environment variables FIRST before any imports that need them
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
 from enhanced_betting_agent import EnhancedBettingAgent
 from app.logger import logger
-
-# Load environment variables
-load_dotenv("../backend/.env")
 
 
 def parse_args():
@@ -54,6 +54,17 @@ def parse_args():
         type=int,
         default=25,
         help='Target number of picks to generate (default: 25)'
+    )
+    parser.add_argument(
+        '--alt-lines',
+        type=int,
+        default=0,
+        help='Number of alt line picks (0=mixed). Example: --alt-lines 10 for 10 alt + 15 main if --picks 25'
+    )
+    parser.add_argument(
+        '--alt-only',
+        action='store_true',
+        help='Generate ONLY alt line picks (100%% alt lines, no main O/U)'
     )
     
     parser.add_argument(
@@ -136,10 +147,19 @@ async def main():
                 logger.info(f"🏆 SPORT: {args.sport}")
             logger.info("=" * 80)
             
+            # Build alt line specification
+            alt_line_spec = None
+            if args.alt_only:
+                alt_line_spec = f"Generate ONLY Alt Line picks (100% alt lines). Target {args.picks} alt line picks with strong trend justification."
+            elif args.alt_lines > 0:
+                main_lines = args.picks - args.alt_lines
+                alt_line_spec = f"Generate EXACTLY {args.alt_lines} Alt Line picks and {main_lines} main O/U picks."
+            
             result = await agent.generate_player_props_picks(
                 target_date=target_date,
                 target_picks=args.picks,
-                sport_filter=args.sport
+                sport_filter=args.sport,
+                alt_line_spec=alt_line_spec
             )
         
         # Display results

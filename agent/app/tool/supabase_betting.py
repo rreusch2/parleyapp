@@ -4,7 +4,7 @@ Provides access to ParleyApp's sports betting database for dynamic analysis
 """
 import os
 import json
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union, ClassVar
 from datetime import datetime, timedelta, date, timezone
 from supabase import create_client, Client
 from pydantic import PrivateAttr
@@ -19,6 +19,24 @@ load_dotenv("backend/.env")
 
 class SupabaseBettingTool(BaseTool):
     """Tool for accessing ParleyApp's Supabase database for sports betting data"""
+    
+    # Logo URL mappings (Supabase Storage) - ClassVar so Pydantic doesn't treat as fields
+    LEAGUE_LOGOS: ClassVar[Dict[str, str]] = {
+        "CFB": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/cfb.png",
+        "MLB": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/mlb.png",
+        "NBA": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nba.png",
+        "NHL": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nhl.png",
+        "WNBA": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/wnba.png",
+        "NFL": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nfl.png"
+    }
+    
+    BOOKMAKER_LOGOS: ClassVar[Dict[str, str]] = {
+        "betmgm": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/betmgm.png",
+        "caesars": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/caesars.png",
+        "draftkings": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/draftkings.png",
+        "fanatics": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/fanatics.png",
+        "fanduel": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/fanduel.png"
+    }
     
     name: str = "supabase_betting"
     description: str = """Access ParleyApp's sports betting database to get games, odds, player props, and store predictions.
@@ -44,6 +62,7 @@ class SupabaseBettingTool(BaseTool):
                     "get_props_fast",
                     "store_predictions",
                     "get_recent_predictions",
+                    "get_existing_predictions",
                     "get_games_by_sport"
                 ],
                 "description": "Database action to perform"
@@ -156,6 +175,9 @@ class SupabaseBettingTool(BaseTool):
                 return await self._store_predictions(kwargs)
             elif action == "get_recent_predictions":
                 return await self._get_recent_predictions(kwargs)
+            
+            elif action == "get_existing_predictions":
+                return await self._get_existing_predictions(kwargs)
             elif action == "get_games_by_sport":
                 return await self._get_games_by_sport(kwargs)
             else:
@@ -716,13 +738,52 @@ class SupabaseBettingTool(BaseTool):
             return self.fail_response(f"Error fetching all props for date: {str(e)}")
 
     async def _store_predictions(self, params: Dict) -> ToolResult:
-        """Store AI predictions in the database"""
+        """Store AI predictions in the database with anti-hallucination validation"""
         
         predictions = params.get("predictions", [])
         if not predictions:
             return self.fail_response("predictions parameter is required and must be a non-empty array")
         
-        # Validation: Check for sport/team mismatches
+        # 🚨 CRITICAL VALIDATION: Verify each matchup exists in sports_events
+        for i, pred in enumerate(predictions):
+            match_teams = pred.get("match_teams", "")
+            event_time = pred.get("event_time")
+            sport = pred.get("sport", "")
+            
+            if not match_teams or " @ " not in match_teams:
+                return self.fail_response(f"Prediction {i+1}: Invalid match_teams format. Must be 'Away Team @ Home Team'")
+            
+            # Extract away/home teams
+            teams_parts = match_teams.split(" @ ")
+            if len(teams_parts) != 2:
+                return self.fail_response(f"Prediction {i+1}: match_teams must contain exactly one ' @ ' separator")
+            
+            away_team, home_team = teams_parts[0].strip(), teams_parts[1].strip()
+            
+            # Query database to verify this matchup exists
+            try:
+                query = self._supabase.table("sports_events").select("id, home_team, away_team, start_time, sport").eq("home_team", home_team).eq("away_team", away_team)
+                if sport:
+                    query = query.eq("sport", sport)
+                result = query.execute()
+                
+                if not result.data or len(result.data) == 0:
+                    return self.fail_response(
+                        f"🚨 HALLUCINATION DETECTED - Prediction {i+1}: Matchup '{match_teams}' does NOT exist in database. "
+                        f"NEVER make up games. Always fetch real games from sports_events first."
+                    )
+                
+                # Verify event_time matches
+                actual_start_time = result.data[0]["start_time"]
+                if event_time and actual_start_time and str(event_time) != str(actual_start_time):
+                    logger.warning(f"Prediction {i+1}: event_time mismatch. Expected {actual_start_time}, got {event_time}. Using actual.")
+                    pred["event_time"] = actual_start_time
+                    
+            except Exception as e:
+                logger.error(f"Error validating matchup for prediction {i+1}: {str(e)}")
+                return self.fail_response(f"Error validating matchup: {str(e)}")
+        
+        # Additional validation: Check for sport/team mismatches
         for pred in predictions:
             sport = pred.get("sport", "")
             teams = pred.get("match_teams", "")
@@ -789,7 +850,26 @@ class SupabaseBettingTool(BaseTool):
                             ("trend data" if isinstance(s, str) and "linemate" in s.lower() else s)
                             for s in metadata["research_sources"]
                         ]
+                    
+                    # CRITICAL: Remove garbage URLs from metadata that AI might generate
+                    # The REAL URLs are stored at the top level, not in metadata
+                    if isinstance(metadata, dict):
+                        # Remove any example.com or placeholder URLs
+                        for bad_key in ["league_logo_url", "bookmaker_logo_url", "player_headshot_url"]:
+                            if bad_key in metadata:
+                                url = metadata.get(bad_key)
+                                # Remove if it's a garbage/placeholder URL
+                                if not url or isinstance(url, str) and ("example.com" in url.lower() or "placeholder" in url.lower() or url.startswith("http://") or "espncdn" in url):
+                                    metadata[bad_key] = None
 
+                    # Get sport and determine logo URLs automatically
+                    sport = pred.get("sport", "")
+                    league_logo = self._get_league_logo(sport) if sport else None
+                    
+                    # Determine bookmaker from odds data or metadata
+                    bookmaker = pred.get("bookmaker") or pred.get("sportsbook") or "fanduel"
+                    sportsbook_logo = self._get_bookmaker_logo(bookmaker)
+                    
                     # Prepare prediction data for database
                     prediction_data = {
                         "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",  # AI user ID
@@ -797,12 +877,15 @@ class SupabaseBettingTool(BaseTool):
                         "pick": pick_text,
                         "odds": str(pred.get("odds", 0)),
                         "confidence": confidence,
-                        "sport": pred.get("sport", ""),
+                        "sport": sport,
                         "event_time": event_time,
                         "reasoning": reasoning,
                         "bet_type": pred.get("bet_type", "moneyline"),
                         "game_id": str(pred.get("game_id", "")),
                         "status": "pending",
+                        # Logo URLs - AUTOMATIC based on sport and bookmaker
+                        "league_logo_url": league_logo,
+                        "sportsbook_logo_url": sportsbook_logo,
                         # Optional columns that exist in ai_predictions
                         "metadata": metadata,
                         "value_percentage": pred.get("value_percentage"),
@@ -904,6 +987,67 @@ class SupabaseBettingTool(BaseTool):
         except Exception as e:
             return self.fail_response(f"Error fetching recent predictions: {str(e)}")
 
+    async def _get_existing_predictions(self, params: Dict) -> ToolResult:
+        """Get existing pending predictions to avoid contradictions and ensure variety"""
+        
+        sport = params.get("sport")
+        
+        try:
+            # Get pending predictions for upcoming games
+            query = (
+                self._supabase.table("ai_predictions")
+                .select("id, match_teams, pick, odds, confidence, sport, event_time, bet_type, created_at")
+                .eq("status", "pending")
+                .gte("event_time", "now()")
+                .order("confidence", desc=True)
+                .limit(100)
+            )
+            
+            if sport:
+                query = query.eq("sport", sport)
+            
+            result = query.execute()
+            predictions = result.data if result.data else []
+            
+            # Organize by player for easy analysis
+            by_player = {}
+            by_game = {}
+            
+            for pred in predictions:
+                # Extract player name from pick (e.g., "Noah Fifita OVER 232.5 Passing Yards")
+                pick_parts = pred["pick"].split(" ")
+                if len(pick_parts) >= 2:
+                    player_name = f"{pick_parts[0]} {pick_parts[1]}"
+                    if player_name not in by_player:
+                        by_player[player_name] = []
+                    by_player[player_name].append({
+                        "pick": pred["pick"],
+                        "game": pred["match_teams"],
+                        "confidence": pred["confidence"]
+                    })
+                
+                # Group by game
+                game = pred.get("match_teams", "Unknown")
+                if game not in by_game:
+                    by_game[game] = []
+                by_game[game].append(pred["pick"])
+            
+            logger.info(f"Retrieved {len(predictions)} existing predictions ({len(by_player)} unique players, {len(by_game)} games)")
+            
+            return self.success_response({
+                "total_predictions": len(predictions),
+                "unique_players": len(by_player),
+                "unique_games": len(by_game),
+                "all_predictions": predictions,
+                "by_player_summary": by_player,
+                "by_game_summary": by_game,
+                "message": f"Found {len(predictions)} existing picks. Use this to avoid contradictions and ensure variety."
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching existing predictions: {str(e)}")
+            return self.fail_response(f"Error fetching existing predictions: {str(e)}")
+
     async def _get_games_by_sport(self, params: Dict) -> ToolResult:
         """Get games filtered by specific sport"""
         
@@ -989,3 +1133,27 @@ class SupabaseBettingTool(BaseTool):
             return "NFL"
         
         return "Unknown"
+    
+    def _get_league_logo(self, sport: str) -> Optional[str]:
+        """Get league logo URL for a sport"""
+        return self.LEAGUE_LOGOS.get(sport.upper())
+    
+    def _get_bookmaker_logo(self, bookmaker: str) -> str:
+        """Get bookmaker logo URL - defaults to FanDuel if unknown"""
+        if not bookmaker:
+            return self.BOOKMAKER_LOGOS["fanduel"]
+        
+        # Normalize bookmaker name
+        bookmaker_lower = bookmaker.lower().replace(" ", "").replace("_", "")
+        
+        # Try exact match first
+        if bookmaker_lower in self.BOOKMAKER_LOGOS:
+            return self.BOOKMAKER_LOGOS[bookmaker_lower]
+        
+        # Try partial matches
+        for key in self.BOOKMAKER_LOGOS:
+            if key in bookmaker_lower or bookmaker_lower in key:
+                return self.BOOKMAKER_LOGOS[key]
+        
+        # Default to FanDuel
+        return self.BOOKMAKER_LOGOS["fanduel"]

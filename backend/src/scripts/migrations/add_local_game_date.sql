@@ -28,3 +28,4 @@ SET local_game_date = se.local_game_date
 FROM sports_events se
 WHERE pp.event_id = se.id AND pp.local_game_date IS NULL;
 
+

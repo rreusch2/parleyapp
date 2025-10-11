@@ -4,7 +4,7 @@ Provides access to StatMuse API for sports statistics and analysis
 """
 import os
 import requests
-from typing import Optional, Dict, Any
+from typing import Dict, Any, Optional
 import json
 
 from pydantic import PrivateAttr
@@ -38,23 +38,23 @@ class StatMuseBettingTool(BaseTool):
         "properties": {
             "query": {
                 "type": "string",
-                "description": "Natural language question about sports statistics. Be specific and direct."
+                "description": "FULL StatMuse query INCLUDING SUBJECT (player/team). DO NOT include sport name. Example: 'LJ Martin rushing yards last 5 games' (GOOD), NOT 'rushing yards last 5 games' (BAD)."
             },
             "sport": {
                 "type": "string",
                 "enum": ["MLB", "NFL", "WNBA", "CFB", "NHL", "NBA"],
-                "description": "Sport context for the query (optional but helps accuracy)"
+                "description": "REQUIRED: Sport for this query. Sent as parameter, not in query text."
             },
             "player_name": {
                 "type": "string", 
-                "description": "Specific player name if query is about individual player stats"
+                "description": "DEPRECATED: Do not use. Compose the FULL query with the player name included. If provided, the tool will prefix it to the query for backward compatibility."
             },
             "team_name": {
                 "type": "string",
-                "description": "Specific team name if query is about team stats"
+                "description": "DEPRECATED: Do not use. Compose the FULL query with the team name included. If provided, the tool will prefix it to the query for backward compatibility."
             }
         },
-        "required": ["query"]
+        "required": ["query", "sport"]
     }
 
     # runtime-only attrs
@@ -77,17 +77,29 @@ class StatMuseBettingTool(BaseTool):
         if not query:
             return self.fail_response("Query parameter is required and cannot be empty")
         
-        sport = kwargs.get("sport", "")
+        sport = kwargs.get("sport", "").strip().upper()
+        if not sport:
+            return self.fail_response("Sport parameter is REQUIRED. Must specify one of: MLB, NHL, NBA, NFL, CFB, WNBA")
+        
         player_name = kwargs.get("player_name", "")
         team_name = kwargs.get("team_name", "")
         
-        logger.info(f"Executing StatMuse query: {query}")
-        if sport:
-            logger.info(f"Sport context: {sport}")
+        # Compose a full query if legacy params are provided or subject appears missing
+        composed_query, note = self._compose_full_query(query, player_name, team_name)
+        if note:
+            logger.warning(note)
+        
+        # Validate the composed query contains a likely subject (player/team) to avoid 422s
+        if not self._looks_subjectful(composed_query):
+            return self.fail_response(
+                "Query missing subject (player/team). Example: 'LJ Martin rushing yards last 5 games'"
+            )
+        
+        logger.info(f"Executing StatMuse query: {composed_query} [Sport: {sport}]")
         
         try:
             # Enhance query with context if provided
-            enhanced_query = self._enhance_query(query, sport, player_name, team_name)
+            enhanced_query = self._enhance_query(composed_query, sport, "", "")
             
             # Make request to StatMuse API
             payload = {
@@ -111,7 +123,7 @@ class StatMuseBettingTool(BaseTool):
                 return self.fail_response(f"StatMuse error: {result.get('error')}")
             
             # Process and format the result
-            processed_result = self._process_statmuse_result(result, query, sport)
+            processed_result = self._process_statmuse_result(result, enhanced_query, sport)
             
             logger.info(f"StatMuse query successful: {query[:50]}...")
             return self.success_response(processed_result)
@@ -133,23 +145,96 @@ class StatMuseBettingTool(BaseTool):
             return self.fail_response(f"StatMuse query failed: {str(e)}")
 
     def _enhance_query(self, query: str, sport: str, player_name: str, team_name: str) -> str:
-        """Enhance the query with additional context for better results"""
+        """Enhance query with sport-specific intelligence and context"""
         
         enhanced_query = query
         
-        # Add sport context if not already in query
-        if sport and sport.lower() not in query.lower():
-            enhanced_query = f"{query} ({sport})"
+        # Sport-specific query optimization based on StatMuse best practices
+        if sport:
+            sport_upper = sport.upper()
+            
+            # CFB/College Football specific
+            if sport_upper in ['CFB', 'COLLEGE FOOTBALL', 'NCAAF']:
+                # CRITICAL: NEVER ask about opponent stats for CFB - teams rarely play each other
+                # Remove "vs", "against", "opponent" references and reframe to recent performance
+                if any(word in query.lower() for word in ['vs', 'against', 'opponent', 'versus']):
+                    if player_name:
+                        enhanced_query = f"{player_name} last 5 games stats"
+                    elif team_name:
+                        enhanced_query = f"{team_name} last 5 games performance"
+                    else:
+                        enhanced_query = query.split('vs')[0].split('against')[0].strip() + " last 5 games"
+                
+                # Focus on season stats, conference stats, and recent games
+                if 'last' not in query.lower() and 'this season' not in query.lower():
+                    enhanced_query = f"{enhanced_query} this season"
+            
+            # NFL specific
+            elif sport_upper == 'NFL':
+                # NFL: Focus on this season, last 5-10 games, divisional matchups
+                if 'last' not in query.lower() and 'this season' not in query.lower():
+                    enhanced_query = f"{enhanced_query} this season"
+            
+            # MLB specific
+            elif sport_upper == 'MLB':
+                # MLB: Last 10 games trends, pitcher vs batter matchups, situational stats
+                if 'last' not in query.lower() and not any(x in query.lower() for x in ['this season', 'career', 'vs pitcher']):
+                    enhanced_query = f"{enhanced_query} last 10 games"
+            
+            # NHL specific  
+            elif sport_upper == 'NHL':
+                # NHL: Last 10 team games, power play stats, home/away splits
+                if 'last' not in query.lower() and 'this season' not in query.lower():
+                    enhanced_query = f"{enhanced_query} last 10 team games"
+            
+            # NBA/WNBA specific
+            elif sport_upper in ['NBA', 'WNBA']:
+                # Basketball: Last 10 games, this season, vs opponent
+                if 'last' not in query.lower() and 'this season' not in query.lower():
+                    enhanced_query = f"{enhanced_query} last 10 games"
         
-        # Ensure player/team names are properly formatted if provided
-        if player_name and player_name.lower() not in query.lower():
-            # Only add if not already mentioned
-            enhanced_query = enhanced_query.replace("this player", player_name)
+        # DO NOT add sport to query text - it's sent as a parameter
+        # The old code added "(CFB)" to queries which broke StatMuse URLs
         
-        if team_name and team_name.lower() not in query.lower():
-            enhanced_query = enhanced_query.replace("this team", team_name)
+        # Do not rely on placeholders; query should already include subject at this point
         
         return enhanced_query
+
+    def _compose_full_query(self, query: str, player_name: str, team_name: str) -> tuple[str, Optional[str]]:
+        """Ensure the StatMuse query includes a subject (player/team).
+        - If legacy player_name/team_name provided and not in query, prefix it.
+        - Returns (composed_query, note) where note is a deprecation warning if used.
+        """
+        q = query.strip()
+        note = None
+        if player_name:
+            if player_name.lower() not in q.lower():
+                q = f"{player_name} {q}".strip()
+                note = "DEPRECATION: 'player_name' provided; prefixed into query. Compose full query directly next time."
+        elif team_name:
+            if team_name.lower() not in q.lower():
+                q = f"{team_name} {q}".strip()
+                note = "DEPRECATION: 'team_name' provided; prefixed into query. Compose full query directly next time."
+        return q, note
+
+    def _looks_subjectful(self, query: str) -> bool:
+        """Heuristic: query should begin with a likely subject token before the stat phrase.
+        e.g., 'LJ Martin rushing yards last 5 games' → True
+              'rushing yards last 5 games' → False
+        """
+        import re
+        q = query.strip()
+        # Check for two+ words start (proper name/team) before a stat keyword
+        stat_keywords = [
+            "passing", "rushing", "receiving", "points", "assists", "rebounds",
+            "shots", "blocked", "steals", "yards", "touchdowns", "home runs", "hits", "rbis",
+        ]
+        starts_with_stat = any(q.lower().startswith(k + " ") for k in stat_keywords)
+        if starts_with_stat:
+            return False
+        # Also consider a simple pattern for a name/team at start (letters and spaces before stat words)
+        has_leading_name = re.match(r"^[A-Za-z][A-Za-z\.'-]+(\s+[A-Za-z0-9&\.'-]+){0,4}\s+", q) is not None
+        return has_leading_name
 
     def _process_statmuse_result(self, result: Any, original_query: str, sport: str) -> Dict[str, Any]:
         """Process and standardize StatMuse result for betting analysis"""
