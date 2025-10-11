@@ -13,9 +13,17 @@ email-automation/
 web-app/
 website/
 
-# Python environments
+# Python environments (including dotfiles)
 venv/
+**/venv/
+.venv/
+**/.venv/
+.venv-*/
+**/.venv-*/
+env/
+.env-*/
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -29,9 +37,12 @@ android/.gradle/
 *.apk
 *.ipa
 
-# Logs and temporary files
+# Logs and temporary files (including nested logs)
 logs/
+**/logs/
+backend/logs/
 *.log
+**/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
