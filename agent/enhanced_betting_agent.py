@@ -542,7 +542,8 @@ class EnhancedBettingAgent(Manus):
         self, 
         target_date: Optional[str] = None, 
         target_picks: int = 25,
-        sport_filter: Optional[str] = None
+        sport_filter: Optional[str] = None,
+        alt_line_spec: Optional[str] = None
     ) -> Dict:
         """
         Generate player prop betting picks using autonomous agentic analysis
@@ -570,6 +571,7 @@ class EnhancedBettingAgent(Manus):
 
 **Date**: {formatted_date}
 **Target**: {target_picks} high-value player prop picks{sport_context}
+{f"**Alt Line Instruction**: {alt_line_spec}" if alt_line_spec else ""}
 **Approach**: Fully autonomous - use your tools intelligently to find value
 
 ## Your Mission
@@ -602,6 +604,10 @@ Conduct comprehensive player props analysis for today's games. You have complete
 - "I couldn't find enough" is NOT acceptable when there are 900+ props available
 
 ## Efficient Research Strategy (Find Best Picks, Not Just Any Picks)
+0. **Check Existing Predictions**:
+   - Use supabase_betting(action="get_existing_predictions", sport=sport_filter) to review current pending picks
+   - Avoid contradictions (no OVER and UNDER on the same player/stat)
+   - Ensure variety across players and games
 1. **Cast Wide Net First**: 
    - Survey ALL available props (get_props_fast)
    - Identify 50+ candidates based on favorable lines/matchups

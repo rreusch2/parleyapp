@@ -261,6 +261,88 @@ CREATE TABLE news_articles (
 );
 
 -- =====================================================
+-- AI VIDEO GENERATION AND USER CONTENT
+-- =====================================================
+
+-- User Generated Videos Table
+CREATE TABLE user_generated_videos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    video_type VARCHAR(50) NOT NULL, -- 'highlight_reel', 'player_analysis', 'strategy_explanation', 'trend_analysis', 'custom_content'
+    content_prompt TEXT NOT NULL,
+    generation_status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'generating', 'completed', 'failed'
+    video_url TEXT,
+    thumbnail_url TEXT,
+    video_duration INTEGER, -- in seconds
+    video_size INTEGER, -- in bytes
+    video_metadata JSONB DEFAULT '{}',
+    views_count INTEGER DEFAULT 0,
+    downloads_count INTEGER DEFAULT 0,
+    shares_count INTEGER DEFAULT 0,
+    is_public BOOLEAN DEFAULT false,
+    tags TEXT[] DEFAULT '{}',
+    sport VARCHAR(50),
+    game_id UUID REFERENCES sports_events(id),
+    player_id UUID REFERENCES players(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    INDEX idx_videos_user (user_id),
+    INDEX idx_videos_status (generation_status),
+    INDEX idx_videos_sport (sport),
+    INDEX idx_videos_public (is_public, created_at DESC),
+    CHECK (generation_status IN ('pending', 'generating', 'completed', 'failed')),
+    CHECK (video_type IN ('highlight_reel', 'player_analysis', 'strategy_explanation', 'trend_analysis', 'custom_content'))
+);
+
+-- Video Generation Queue (for managing concurrent requests)
+CREATE TABLE video_generation_queue (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    video_type VARCHAR(50) NOT NULL,
+    content_prompt TEXT NOT NULL,
+    priority INTEGER DEFAULT 1, -- 1-10, higher = more important
+    queue_position INTEGER,
+    estimated_completion TIMESTAMP WITH TIME ZONE,
+    started_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    INDEX idx_queue_user (user_id),
+    INDEX idx_queue_status (queue_position, priority DESC),
+    CHECK (priority BETWEEN 1 AND 10),
+    CHECK (retry_count <= max_retries)
+);
+
+-- User Video Preferences
+CREATE TABLE user_video_preferences (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    default_video_type VARCHAR(50) DEFAULT 'highlight_reel',
+    preferred_sports TEXT[] DEFAULT '{MLB}',
+    max_video_length INTEGER DEFAULT 60, -- seconds
+    auto_generate BOOLEAN DEFAULT false,
+    notification_preferences JSONB DEFAULT '{"generation_complete": true, "daily_digest": false}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
+-- Video Templates (for consistent branding)
+CREATE TABLE video_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    template_name VARCHAR(100) NOT NULL,
+    template_type VARCHAR(50) NOT NULL, -- 'highlight_reel', 'player_analysis', etc.
+    base_prompt TEXT NOT NULL,
+    style_settings JSONB DEFAULT '{}', -- colors, fonts, effects
+    is_premium BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    INDEX idx_templates_type (template_type),
+    INDEX idx_templates_premium (is_premium)
+);
+
+-- =====================================================
 -- PREDICTIONS AND ANALYSIS
 -- =====================================================
 

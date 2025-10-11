@@ -58,6 +58,9 @@ import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { useUITheme } from '../services/uiThemeContext';
 import AIParlayBuilder from '../components/AIParlayBuilder';
+import SoraVideoGenerator from '../components/SoraVideoGenerator';
+import VideoGallery from '../components/VideoGallery';
+import VideoPlayer from '../components/VideoPlayer';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -105,6 +108,11 @@ export default function HomeScreen() {
   const [mediaItems, setMediaItems] = useState<MediaItemType[]>([]);
   const [eliteThemeModalVisible, setEliteThemeModalVisible] = useState(false);
   const [eliteThemeQuickVisible, setEliteThemeQuickVisible] = useState(false);
+
+  // Video generation state
+  const [videoGeneratorVisible, setVideoGeneratorVisible] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<any>(null);
+  const [videoPlayerVisible, setVideoPlayerVisible] = useState(false);
   
   // Polling ref for live games count
   const liveGamesPollRef = useRef<NodeJS.Timeout | null>(null);
@@ -1024,6 +1032,80 @@ export default function HomeScreen() {
           <AIParlayBuilder />
         </View>
 
+        {/* 🎥 AI Video Studio Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary, textShadowColor: `${theme.accentPrimary}4D`, textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }]}>
+                🎥 AI Video Studio
+              </Text>
+              <View style={styles.aiPoweredBadge}>
+                <Text style={styles.aiPoweredText}>Sora 2</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.createVideoButton}
+              onPress={() => setVideoGeneratorVisible(true)}
+            >
+              <LinearGradient
+                colors={['#8B5CF6', '#EC4899', '#F59E0B']}
+                style={styles.createVideoGradient}
+              >
+                <Text style={styles.createVideoText}>Create Video</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Video Gallery Preview */}
+          <VideoGallery
+            limit={4}
+            showHeader={false}
+            onVideoSelect={(video) => {
+              setSelectedVideo(video);
+              setVideoPlayerVisible(true);
+            }}
+          />
+
+          {/* Upgrade Prompt for Free Users */}
+          {!isPro && !isElite && (
+            <View style={styles.videoUpgradeCard}>
+              <LinearGradient
+                colors={['#1a1a2e', '#16213e']}
+                style={styles.videoUpgradeGradient}
+              >
+                <View style={styles.videoUpgradeContent}>
+                  <View style={styles.videoUpgradeIcon}>
+                    <Text style={styles.videoUpgradeEmoji}>🎬</Text>
+                  </View>
+                  <Text style={styles.videoUpgradeTitle}>
+                    Unlock AI Video Creation
+                  </Text>
+                  <Text style={styles.videoUpgradeSubtitle}>
+                    Pro: 60s • Elite: 90s + Premium Effects
+                  </Text>
+                  <Text style={styles.videoUpgradeDescription}>
+                    Create cinematic highlight reels, player analysis videos, and custom sports content with OpenAI's revolutionary Sora 2 technology.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.videoUpgradeButton}
+                    onPress={openSubscriptionModal}
+                  >
+                    <LinearGradient
+                      colors={['#8B5CF6', '#EC4899']}
+                      style={styles.videoUpgradeButtonGradient}
+                    >
+                      <Crown size={16} color="#FFFFFF" />
+                      <Text style={styles.videoUpgradeButtonText}>
+                        Upgrade to Pro
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </View>
+          )}
+        </View>
+
         {/* Instant Intel Section - StatMuse Integration */}
         <View style={styles.section}>
           <InstantIntel />
@@ -1133,15 +1215,46 @@ export default function HomeScreen() {
 
       </ScrollView>
       
-      {/* News Modal */}
-      <NewsModal
-        visible={newsModalVisible}
-        onClose={() => {
-          setNewsModalVisible(false);
-          setSelectedNewsItem(null);
-        }}
-        newsItem={selectedNewsItem}
-      />
+        {/* News Modal */}
+        <NewsModal
+          visible={newsModalVisible}
+          onClose={() => {
+            setNewsModalVisible(false);
+            setSelectedNewsItem(null);
+          }}
+          newsItem={selectedNewsItem}
+        />
+
+        {/* Sora Video Generator Modal */}
+        <SoraVideoGenerator
+          visible={videoGeneratorVisible}
+          onClose={() => setVideoGeneratorVisible(false)}
+          initialVideoType="highlight_reel"
+          gameContext={selectedVideo ? {
+            gameId: selectedVideo.game_id,
+            sport: selectedVideo.sport
+          } : undefined}
+        />
+
+        {/* Video Player Modal */}
+        {selectedVideo && (
+          <VideoPlayer
+            video={selectedVideo}
+            visible={videoPlayerVisible}
+            onClose={() => {
+              setVideoPlayerVisible(false);
+              setSelectedVideo(null);
+            }}
+            onDownload={() => {
+              // Handle download
+              console.log('Download video:', selectedVideo.id);
+            }}
+            onShare={() => {
+              // Handle share
+              console.log('Share video:', selectedVideo.id);
+            }}
+          />
+        )}
     </View>
   );
 }
@@ -1746,6 +1859,99 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginHorizontal: 8,
+  },
+  // Video Studio Section Styles
+  createVideoButton: {
+    borderRadius: normalize(12),
+    overflow: 'hidden',
+  },
+  createVideoGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: normalize(12),
+    paddingHorizontal: normalize(16),
+  },
+  createVideoText: {
+    fontSize: normalize(14),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: normalize(8),
+  },
+  aiPoweredBadge: {
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    paddingHorizontal: normalize(8),
+    paddingVertical: normalize(4),
+    borderRadius: normalize(12),
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    marginLeft: normalize(8),
+  },
+  aiPoweredText: {
+    fontSize: normalize(10),
+    fontWeight: '700',
+    color: '#8B5CF6',
+  },
+  videoUpgradeCard: {
+    marginTop: normalize(16),
+    borderRadius: normalize(16),
+    overflow: 'hidden',
+  },
+  videoUpgradeGradient: {
+    padding: normalize(24),
+  },
+  videoUpgradeContent: {
+    alignItems: 'center',
+  },
+  videoUpgradeIcon: {
+    width: normalize(64),
+    height: normalize(64),
+    borderRadius: normalize(32),
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: normalize(20),
+  },
+  videoUpgradeEmoji: {
+    fontSize: normalize(32),
+  },
+  videoUpgradeTitle: {
+    fontSize: normalize(20),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: normalize(4),
+    textAlign: 'center',
+  },
+  videoUpgradeSubtitle: {
+    fontSize: normalize(12),
+    color: '#8B5CF6',
+    marginBottom: normalize(16),
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  videoUpgradeDescription: {
+    fontSize: normalize(14),
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: normalize(20),
+    marginBottom: normalize(24),
+  },
+  videoUpgradeButton: {
+    borderRadius: normalize(25),
+    overflow: 'hidden',
+  },
+  videoUpgradeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: normalize(24),
+    paddingVertical: normalize(12),
+  },
+  videoUpgradeButtonText: {
+    fontSize: normalize(16),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: normalize(8),
   },
   // Elite-specific styles for better text readability against yellow background
   eliteStatLabel: {

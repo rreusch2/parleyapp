@@ -2,8 +2,8 @@
 Linemate.io Trends Scraping Tool for Sports Betting Analysis
 Scrapes player trends from Linemate.io for various sports
 """
-from typing import Dict, List, Optional, Any
-from pydantic import Field, PrivateAttr
+from typing import Dict, List, Any
+from pydantic import PrivateAttr
 
 from app.tool.base import BaseTool, ToolResult
 from app.logger import logger
@@ -102,23 +102,28 @@ class LinemateTrendsTool(BaseTool):
             if nav_result.error:
                 return self.fail_response(f"Failed to navigate to {url}: {nav_result.error}")
             
-            # Wait for page to load
-            await self._browser_tool.execute(action="wait", seconds=3)
+            # Wait longer for Linemate to fully load (it's a dynamic site)
+            await self._browser_tool.execute(action="wait", seconds=5)
             
-            # Extract trends from the page
-            extract_goal = f"""Extract player trend data from the left sidebar/panel. 
-            For each player, extract:
-            - Player name
-            - Prop type (assists, points, goals, blocked shots, etc)
-            - Trend indicator (hot, cold, or neutral)
-            - Hit rate percentage over recent games
-            - Line value (if shown)
-            - Any specific matchup notes
-            
-            {f'Focus on these players: {", ".join(player_names)}' if player_names else ''}
-            {f'Focus on {prop_type} props' if prop_type else ''}
-            
-            Return as structured JSON with player trends."""
+            # Extract trends from the page - be very specific about Linemate's structure
+            extract_goal = f"""Extract ALL player props and trends visible on this page.
+
+LINEMATE STRUCTURE:
+- The LEFT SIDEBAR contains player cards with trend data
+- Each card shows: player name, prop type, hit rate, and trend status
+- Extract EVERY player card you can see
+
+For each player, extract:
+- player_name: Full name
+- prop_type: The stat type (assists, points, goals, receiving_yards, rushing_yards, passing_yards, etc)
+- hit_rate: Hit percentage (e.g., 70 for 70%)
+- trend: "hot", "cold", or "neutral" based on visual indicators
+- line_value: The betting line if visible (e.g., "Over 0.5")
+
+{f'FILTER: Focus especially on these players: {", ".join(player_names)}' if player_names else 'Extract ALL players visible'}
+{f'FILTER: Focus on {prop_type} prop type' if prop_type else ''}
+
+Return comprehensive JSON array with all players found."""
             
             extract_result = await self._browser_tool.execute(
                 action="extract_content",
@@ -127,24 +132,30 @@ class LinemateTrendsTool(BaseTool):
             
             if extract_result.error:
                 logger.warning(f"Initial extraction failed: {extract_result.error}")
+            else:
+                logger.info(f"Initial extraction output preview: {extract_result.output[:500]}...")
             
             trends_data = []
             initial_data = self._parse_extraction(extract_result.output if not extract_result.error else "")
             if initial_data:
+                logger.info(f"Initial extraction found {len(initial_data)} trends")
                 trends_data.extend(initial_data)
+            else:
+                logger.warning("Initial extraction returned no trend data")
             
-            # Scroll to get more trends
+            # Scroll to get more trends - target the left sidebar specifically
             for scroll_num in range(max_scroll):
                 logger.info(f"Scrolling down ({scroll_num + 1}/{max_scroll}) to load more trends")
                 
-                # Scroll down in the left panel or main content
-                scroll_result = await self._browser_tool.execute(
+                # Scroll down the page (Linemate's left sidebar scrolls with the page)
+                # Increased scroll amount to load more content
+                await self._browser_tool.execute(
                     action="scroll_down",
-                    scroll_amount=800
+                    scroll_amount=1200
                 )
                 
-                # Wait for new content
-                await self._browser_tool.execute(action="wait", seconds=2)
+                # Wait longer for dynamic content to load
+                await self._browser_tool.execute(action="wait", seconds=3)
                 
                 # Extract again
                 extract_result = await self._browser_tool.execute(
@@ -153,8 +164,10 @@ class LinemateTrendsTool(BaseTool):
                 )
                 
                 if not extract_result.error:
+                    logger.info(f"Scroll {scroll_num+1} extraction preview: {extract_result.output[:300]}...")
                     new_data = self._parse_extraction(extract_result.output)
                     if new_data:
+                        logger.info(f"Scroll {scroll_num+1} found {len(new_data)} new trends")
                         # Only add unique trends
                         existing_keys = {(t.get("player_name"), t.get("prop_type")) for t in trends_data}
                         for trend in new_data:
@@ -162,6 +175,10 @@ class LinemateTrendsTool(BaseTool):
                             if key not in existing_keys:
                                 trends_data.append(trend)
                                 existing_keys.add(key)
+                    else:
+                        logger.warning(f"Scroll {scroll_num+1} returned no new trend data")
+                else:
+                    logger.warning(f"Scroll {scroll_num+1} extraction failed: {extract_result.error}")
             
             if not trends_data:
                 return self.fail_response(f"No trend data extracted from {url}. Page may have loaded incorrectly.")
@@ -188,16 +205,44 @@ class LinemateTrendsTool(BaseTool):
             
             trends = []
             
-            # Try to parse as JSON first
+            if not extracted_text or not extracted_text.strip():
+                logger.warning("Empty extraction text received")
+                return []
+            
+            # Try to parse as JSON first - handle code blocks
             try:
-                if extracted_text.strip().startswith('[') or extracted_text.strip().startswith('{'):
-                    parsed = json.loads(extracted_text)
+                text = extracted_text.strip()
+                
+                # Remove markdown code blocks if present
+                if text.startswith('```'):
+                    lines = text.split('\n')
+                    # Remove first line (```json or ```) and last line (```)
+                    text = '\n'.join(lines[1:-1]) if len(lines) > 2 else text
+                    text = text.strip()
+                
+                # Try parsing as JSON
+                if text.startswith('[') or text.startswith('{'):
+                    parsed = json.loads(text)
+                    
+                    # Handle different JSON structures
                     if isinstance(parsed, list):
+                        logger.info(f"Parsed {len(parsed)} trends from JSON array")
                         return parsed
                     elif isinstance(parsed, dict):
-                        return [parsed]
-            except:
-                pass
+                        # Check for common wrapper keys
+                        if 'players' in parsed and isinstance(parsed['players'], list):
+                            logger.info(f"Parsed {len(parsed['players'])} trends from JSON object with 'players' key")
+                            return parsed['players']
+                        elif 'trends' in parsed and isinstance(parsed['trends'], list):
+                            logger.info(f"Parsed {len(parsed['trends'])} trends from JSON object with 'trends' key")
+                            return parsed['trends']
+                        else:
+                            # Single trend object
+                            return [parsed]
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON parsing failed: {e}")
+            except Exception as e:
+                logger.warning(f"Unexpected error parsing JSON: {e}")
             
             # Fall back to regex parsing if JSON fails
             # Look for player names and trend patterns

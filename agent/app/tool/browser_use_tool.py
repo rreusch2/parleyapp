@@ -437,11 +437,62 @@ class BrowserUseTool(BaseTool, Generic[Context]):
                         )
 
                     page = await context.get_current_page()
-                    import markdownify
+                    
+                    # Get the page text content (better than HTML/markdown for extraction)
+                    text_content = await page.evaluate("() => document.body.innerText")
+                    
+                    # Use innerText for cleaner extraction (better than markdown conversion)
+                    # Markdown can lose structure and make extraction harder
+                    
+                    # Special handling for Linemate.io and similar trend sites
+                    current_url = page.url
+                    is_linemate = "linemate.io" in current_url
+                    
+                    if is_linemate:
+                        # Linemate-specific extraction: Focus on left sidebar with player cards
+                        prompt = f"""\
+You are extracting player trend data from Linemate.io, a sports betting trends website.
 
-                    content = markdownify.markdownify(await page.content())
+LINEMATE LAYOUT:
+- Players are listed in the LEFT SIDEBAR/PANEL as individual cards
+- Each player card contains: player name, prop type, hit rate %, trend indicator
+- The left sidebar is scrollable and contains many players
+- Look for patterns like "70%" or "8/10" (hit rates), "Hot" or "Cold" (trends)
 
-                    prompt = f"""\
+EXTRACTION GOAL: {goal}
+
+CRITICAL INSTRUCTIONS:
+- Focus on the LEFT SIDEBAR content where player cards are listed
+- Extract EVERY player visible on the page
+- For each player, extract:
+  * player_name: Full name (e.g., "Connor McDavid")
+  * prop_type: The stat being tracked (e.g., "points", "assists", "goals", "rushing_yards", "receiving_yards")
+  * hit_rate: Percentage or fraction (e.g., 70 or "8/10")
+  * trend: "hot", "cold", or "neutral" based on indicators
+  * line_value: The betting line if shown (e.g., "Over 0.5")
+- Return ALL players, not just a few examples
+- Be thorough - scroll data may contain 20-50+ players
+
+REQUIRED OUTPUT FORMAT:
+{{
+  "players": [
+    {{
+      "player_name": "Connor McDavid",
+      "prop_type": "points",
+      "hit_rate": 75,
+      "trend": "hot",
+      "line_value": "Over 0.5"
+    }}
+  ]
+}}
+
+PAGE TEXT CONTENT:
+{text_content[:max_content_length]}
+
+Return ONLY valid JSON with all extracted players:"""
+                    else:
+                        # Generic extraction for other sites
+                        prompt = f"""\
 Extract specific information from this webpage and return it as valid JSON.
 
 EXTRACTION GOAL: {goal}
@@ -462,8 +513,8 @@ EXAMPLE OUTPUT FORMAT (adapt to the actual goal):
   ]
 }}
 
-PAGE CONTENT (HTML converted to markdown):
-{content[:max_content_length]}
+PAGE TEXT CONTENT:
+{text_content[:max_content_length]}
 
 Return ONLY valid JSON with the extracted data:"""
 
