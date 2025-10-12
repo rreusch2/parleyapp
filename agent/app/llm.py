@@ -31,7 +31,7 @@ from app.schema import (
 )
 
 
-REASONING_MODELS = ["o1", "o3-mini", "gpt-5"]  # Models that use max_completion_tokens
+REASONING_MODELS = ["o1", "o3-mini"]
 MULTIMODAL_MODELS = [
     "gpt-4-vision-preview",
     "gpt-4o",
@@ -408,8 +408,7 @@ class LLM:
                 "messages": messages,
             }
 
-            # Check if model uses reasoning-style parameters (o1, o3, gpt-5, etc.)
-            if any(self.model.startswith(prefix) for prefix in REASONING_MODELS):
+            if self.model in REASONING_MODELS:
                 params["max_completion_tokens"] = self.max_tokens
             else:
                 params["max_tokens"] = self.max_tokens
@@ -580,8 +579,8 @@ class LLM:
                 "stream": stream,
             }
 
-            # Add model-specific parameters (check for reasoning models like o1, o3, gpt-5)
-            if any(self.model.startswith(prefix) for prefix in REASONING_MODELS):
+            # Add model-specific parameters
+            if self.model in REASONING_MODELS:
                 params["max_completion_tokens"] = self.max_tokens
             else:
                 params["max_tokens"] = self.max_tokens
@@ -721,8 +720,7 @@ class LLM:
                 **kwargs,
             }
 
-            # Check for reasoning models (o1, o3, gpt-5) that use max_completion_tokens
-            if any(self.model.startswith(prefix) for prefix in REASONING_MODELS):
+            if self.model in REASONING_MODELS:
                 params["max_completion_tokens"] = self.max_tokens
             else:
                 params["max_tokens"] = self.max_tokens

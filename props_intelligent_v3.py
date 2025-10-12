@@ -45,11 +45,11 @@ class StatMuseClient:
         self.base_url = base_url
         self.session = requests.Session()
     
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str, sport: str = "NFL") -> Dict[str, Any]:
         try:
             response = self.session.post(
                 f"{self.base_url}/query",
-                json={"query": question},
+                json={"query": question, "sport": sport},
                 timeout=30
             )
             response.raise_for_status()
@@ -469,9 +469,15 @@ Return JSON:
         # StatMuse queries
         for query_obj in plan.get('statmuse_queries', [])[:12]:
             try:
-                query = query_obj.get('query', query_obj) if isinstance(query_obj, dict) else query_obj
-                logger.info(f"🔍 StatMuse: {query}")
-                result = self.statmuse.query(query)
+                if isinstance(query_obj, dict):
+                    query = query_obj.get('query', '')
+                    sport = query_obj.get('sport', 'NFL')
+                else:
+                    query = query_obj
+                    sport = 'NFL'  # Default to NFL if not specified
+                
+                logger.info(f"🔍 StatMuse: {query} [Sport: {sport}]")
+                result = self.statmuse.query(query, sport=sport)
                 
                 if result and 'error' not in result:
                     insights.append(ResearchInsight(

@@ -4,7 +4,7 @@ Provides access to ParleyApp's sports betting database for dynamic analysis
 """
 import os
 import json
-from typing import Optional, List, Dict, Any, Union, ClassVar
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime, timedelta, date, timezone
 from supabase import create_client, Client
 from pydantic import PrivateAttr
@@ -19,24 +19,6 @@ load_dotenv("backend/.env")
 
 class SupabaseBettingTool(BaseTool):
     """Tool for accessing ParleyApp's Supabase database for sports betting data"""
-    
-    # Logo URL mappings (Supabase Storage) - ClassVar so Pydantic doesn't treat as fields
-    LEAGUE_LOGOS: ClassVar[Dict[str, str]] = {
-        "CFB": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/cfb.png",
-        "MLB": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/mlb.png",
-        "NBA": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nba.png",
-        "NHL": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nhl.png",
-        "WNBA": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/wnba.png",
-        "NFL": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/leagues/nfl.png"
-    }
-    
-    BOOKMAKER_LOGOS: ClassVar[Dict[str, str]] = {
-        "betmgm": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/betmgm.png",
-        "caesars": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/caesars.png",
-        "draftkings": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/draftkings.png",
-        "fanatics": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/fanatics.png",
-        "fanduel": "https://iriaegoipkjtktitpary.supabase.co/storage/v1/object/public/logos/bookmakers/fanduel.png"
-    }
     
     name: str = "supabase_betting"
     description: str = """Access ParleyApp's sports betting database to get games, odds, player props, and store predictions.
@@ -59,10 +41,8 @@ class SupabaseBettingTool(BaseTool):
                     "get_team_odds", 
                     "get_player_props",
                     "get_player_props_by_date",
-                    "get_props_fast",
                     "store_predictions",
                     "get_recent_predictions",
-                    "get_existing_predictions",
                     "get_games_by_sport"
                 ],
                 "description": "Database action to perform"
@@ -76,7 +56,7 @@ class SupabaseBettingTool(BaseTool):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "enum": ["Major League Baseball", "National Hockey League", "National Basketball Association", "National Football League", "Women's National Basketball Association", "College Football", "Ultimate Fighting Championship"]
+                    "enum": ["Major League Baseball", "National Football League", "Women's National Basketball Association", "College Football", "Ultimate Fighting Championship"]
                 },
                 "description": "Filter by specific sports using full database names"
             },
@@ -167,17 +147,12 @@ class SupabaseBettingTool(BaseTool):
                 return await self._get_player_props(kwargs)
             elif action == "get_player_props_by_date":
                 return await self._get_player_props_by_date(kwargs)
-            elif action == "get_props_fast":
-                return await self._get_props_fast(kwargs)
             elif action == "get_all_props_for_date":
                 return await self._get_all_props_for_date(kwargs)
             elif action == "store_predictions":
                 return await self._store_predictions(kwargs)
             elif action == "get_recent_predictions":
                 return await self._get_recent_predictions(kwargs)
-            
-            elif action == "get_existing_predictions":
-                return await self._get_existing_predictions(kwargs)
             elif action == "get_games_by_sport":
                 return await self._get_games_by_sport(kwargs)
             else:
@@ -399,40 +374,37 @@ class SupabaseBettingTool(BaseTool):
         limit = params.get("limit", 50)
         
         try:
-            # Query player props with joins including event details
-            response = self._supabase.table("player_props_odds").select(
-                "id, line, over_odds, under_odds, event_id, "
-                "players(name, player_name, team), "
-                "player_prop_types(prop_name), "
-                "sports_events!inner(home_team, away_team, sport, start_time)"
-            ).in_("event_id", game_ids).limit(limit).execute()
+            # Build event map for enriching props with team/sport/time
+            events_resp = self._supabase.table("sports_events").select("id, home_team, away_team, sport, start_time").in_("id", game_ids).execute()
+            event_map = {e["id"]: e for e in (events_resp.data or [])}
+            
+            # Prefer the fast flattened view to avoid join issues
+            fast_query = self._supabase.table("player_props_v2_flat_quick") \
+                .select("event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name") \
+                .in_("event_id", game_ids) \
+                .limit(limit)
+            fast_resp = fast_query.execute()
             
             props = []
-            for row in response.data:
-                if row.get("players") and row.get("player_prop_types") and row.get("sports_events"):
-                    # Use full name if available, fallback to player_name
-                    player_name = row["players"].get("name") or row["players"].get("player_name")
-                    if not player_name:
-                        continue
-                    
-                    event = row["sports_events"]
-                    prop_data = {
-                        "prop_id": row.get("id"),
-                        "event_id": row["event_id"],
-                        "player_name": player_name,
-                        "team": row["players"].get("team", "Unknown"),
-                        "prop_type": row["player_prop_types"]["prop_name"],
-                        "line": float(row["line"]) if row["line"] else None,
-                        "over_odds": int(float(row["over_odds"])) if row["over_odds"] else None,
-                        "under_odds": int(float(row["under_odds"])) if row["under_odds"] else None,
-                        "bookmaker": "Unknown",
-                        # Add event details for proper formatting
-                        "home_team": event.get("home_team"),
-                        "away_team": event.get("away_team"),
-                        "sport": event.get("sport"),
-                        "event_time": event.get("start_time")
-                    }
-                    props.append(prop_data)
+            for row in fast_resp.data or []:
+                ev = event_map.get(row.get("event_id"), {})
+                prop_data = {
+                    "prop_id": None,
+                    "event_id": row.get("event_id"),
+                    "player_name": row.get("player_name", "Unknown"),
+                    "team": "Unknown",
+                    "prop_type": row.get("stat_type"),
+                    "line": float(row["line"]) if row.get("line") is not None else None,
+                    "over_odds": int(float(row["over_odds"])) if row.get("over_odds") is not None else None,
+                    "under_odds": int(float(row["under_odds"])) if row.get("under_odds") is not None else None,
+                    "bookmaker": (row.get("bookmaker") or "Unknown"),
+                    "home_team": ev.get("home_team"),
+                    "away_team": ev.get("away_team"),
+                    "sport": ev.get("sport") or row.get("sport"),
+                    "event_time": ev.get("start_time"),
+                    "is_alt": bool(row.get("is_alt", False)),
+                }
+                props.append(prop_data)
             
             # Group props by sport for analysis
             props_by_sport = {}
@@ -455,152 +427,6 @@ class SupabaseBettingTool(BaseTool):
         except Exception as e:
             return self.fail_response(f"Error fetching player props: {str(e)}")
 
-    async def _get_props_fast(self, params: Dict) -> ToolResult:
-        """
-        Get player props using the FAST player_props_v2_flat_quick view.
-        This is the proven method from the old props_intelligent_v3.py script.
-        
-        Steps:
-        1. Get games for the date + sport filter
-        2. Query player_props_v2_flat_quick view with game IDs
-        3. Return props with reasonable odds filtering
-        """
-        # Determine target date
-        date_str = params.get("date")
-        if date_str:
-            try:
-                target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            except ValueError:
-                return self.fail_response(f"Invalid date format: {date_str}. Expected YYYY-MM-DD")
-        elif self._forced_date:
-            target_date = self._forced_date
-        else:
-            target_date = datetime.now().date()
-        
-        sport_filter = params.get("sport_filter", [])
-        
-        # Step 1: Get games for the date
-        games_result = await self._get_upcoming_games({
-            "date": target_date.isoformat(),
-            "sport_filter": sport_filter,
-            "exclude_past": True,
-            "limit": 100
-        })
-        
-        if games_result.error:
-            return games_result
-        
-        # Parse games
-        import json
-        games_data = json.loads(games_result.output) if isinstance(games_result.output, str) else games_result.output
-        games = games_data.get("games", [])
-        
-        if not games:
-            return self.success_response({
-                "query_date": target_date.isoformat(),
-                "sport_filter": sport_filter,
-                "games_found": 0,
-                "total_props_found": 0,
-                "props": []
-            })
-        
-        game_ids = [g["id"] for g in games]
-        logger.info(f"Querying player_props_v2_flat_quick for {len(game_ids)} games")
-        
-        # Step 2: Query the FAST view (same as old script)
-        try:
-            select_cols = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
-            
-            response = self._supabase.table('player_props_v2_flat_quick') \
-                .select(select_cols) \
-                .in_('event_id', game_ids) \
-                .or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)') \
-                .execute()
-            
-            props = []
-            for row in response.data or []:
-                # Map stat_type to friendly prop_type
-                stat_key = row.get('stat_type', '')
-                prop_type = self._display_name_for_stat(stat_key)
-                
-                prop_data = {
-                    "event_id": row.get('event_id'),
-                    "sport": (row.get('sport') or '').upper(),
-                    "player_name": row.get('player_name', 'Unknown'),
-                    "prop_type": prop_type,
-                    "stat_key": stat_key,
-                    "line": float(row.get('line', 0)),
-                    "bookmaker": (row.get('bookmaker') or 'fanduel').lower(),
-                    "over_odds": row.get('over_odds'),
-                    "under_odds": row.get('under_odds'),
-                    "is_alt": row.get('is_alt', False),
-                    "player_headshot_url": row.get('player_headshot_url')
-                }
-                props.append(prop_data)
-            
-            # Group by sport and prop type
-            props_by_sport = {}
-            props_by_type = {}
-            main_count = 0
-            alt_count = 0
-            
-            for prop in props:
-                sport = prop.get("sport", "Unknown")
-                if sport not in props_by_sport:
-                    props_by_sport[sport] = []
-                props_by_sport[sport].append(prop)
-                
-                prop_type = prop.get("prop_type", "Unknown")
-                props_by_type[prop_type] = props_by_type.get(prop_type, 0) + 1
-                
-                if prop.get("is_alt"):
-                    alt_count += 1
-                else:
-                    main_count += 1
-            
-            result = {
-                "query_date": target_date.isoformat(),
-                "sport_filter": sport_filter,
-                "games_found": len(games),
-                "total_props_found": len(props),
-                "main_lines": main_count,
-                "alt_lines": alt_count,
-                "props_by_sport": {sport: len(sport_props) for sport, sport_props in props_by_sport.items()},
-                "props_by_type": props_by_type,
-                "props": props
-            }
-            
-            logger.info(f"✅ Retrieved {len(props)} props ({main_count} main, {alt_count} alt) from fast view")
-            return self.success_response(result)
-            
-        except Exception as e:
-            logger.error(f"Error querying player_props_v2_flat_quick: {str(e)}")
-            return self.fail_response(f"Error querying fast props view: {str(e)}")
-    
-    def _display_name_for_stat(self, stat_key: str) -> str:
-        """Convert stat_type to human-readable label (same as old script)"""
-        mapping = {
-            'batter_hits': 'Batter Hits O/U',
-            'batter_home_runs': 'Batter Home Runs O/U',
-            'batter_total_bases': 'Batter Total Bases O/U',
-            'batter_rbis': 'Batter RBIs O/U',
-            'batter_runs_scored': 'Batter Runs Scored O/U',
-            'batter_stolen_bases': 'Batter Stolen Bases O/U',
-            'pitcher_strikeouts': 'Pitcher Strikeouts O/U',
-            'pitcher_hits_allowed': 'Pitcher Hits Allowed O/U',
-            'pitcher_walks': 'Pitcher Walks O/U',
-            'pitcher_earned_runs': 'Pitcher Earned Runs O/U',
-            'player_points': 'Points O/U',
-            'player_rebounds': 'Rebounds O/U',
-            'player_assists': 'Assists O/U',
-            'player_pass_yds': 'Pass Yards O/U',
-            'player_rush_yds': 'Rush Yards O/U',
-            'player_reception_yds': 'Reception Yards O/U',
-            'player_goals': 'Goals O/U',
-            'player_shots_on_goal': 'Shots on Goal O/U',
-        }
-        return mapping.get(stat_key, stat_key.replace('_', ' ').title())
-
     async def _get_player_props_by_date(self, params: Dict) -> ToolResult:
         """Get player props directly by date (queries player_props_odds table)"""
         
@@ -617,77 +443,93 @@ class SupabaseBettingTool(BaseTool):
         else:
             target_date = date.today()
         
-        limit = params.get("limit", 100)
+        limit = params.get("limit", 500)
+        sport_filter = params.get("sport_filter", [])
         
         try:
-            # Query player props updated recently (within last 24 hours of target date)
-            # Since player_props_odds.last_update is when the prop was last updated,
-            # we look for props updated on or after the target date
-            target_datetime_start = datetime.combine(target_date, datetime.min.time())
-            start_iso = target_datetime_start.isoformat() + "Z"
+            # Compute local midnight window and convert to UTC ISO range
+            local_tz = datetime.now().astimezone().tzinfo
+            start_local = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=local_tz)
+            end_local = start_local + timedelta(days=1)
+            start_iso = start_local.astimezone(timezone.utc).isoformat()
+            end_iso = end_local.astimezone(timezone.utc).isoformat()
             
-            logger.info(f"Querying player props with last_update >= {start_iso}")
+            # Fetch events for the date (apply flexible sport/league filter if provided)
+            base_sel = "id, home_team, away_team, sport, league, start_time"
+            base_q = self._supabase.table("sports_events").select(base_sel).gte("start_time", start_iso).lt("start_time", end_iso)
+            events = []
+            if sport_filter:
+                # Try sport column
+                resp1 = base_q.in_("sport", sport_filter).execute()
+                events = resp1.data or []
+                # If none, try league column
+                if not events:
+                    resp2 = self._supabase.table("sports_events").select(base_sel).gte("start_time", start_iso).lt("start_time", end_iso).in_("league", sport_filter).execute()
+                    events = resp2.data or []
+            else:
+                events = base_q.execute().data or []
             
-            # Query player props with joins
-            response = self._supabase.table("player_props_odds").select(
-                """
-                id, line, over_odds, under_odds, event_id, last_update,
-                players!inner(name, player_name, team),
-                player_prop_types!inner(prop_name),
-                bookmakers(bookmaker_name)
-                """
-            ).gte("last_update", start_iso).order("last_update", desc=True).limit(limit).execute()
+            if not events:
+                return self.success_response({
+                    "query_date": target_date.isoformat(),
+                    "total_props_found": 0,
+                    "props_by_sport": {},
+                    "props_by_type": {},
+                    "player_props": []
+                })
+            
+            event_map = {e["id"]: e for e in events}
+            event_ids = list(event_map.keys())
+            
+            # Query fast flattened view for these events
+            fast_resp = self._supabase.table("player_props_v2_flat_quick") \
+                .select("event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name") \
+                .in_("event_id", event_ids) \
+                .limit(limit) \
+                .execute()
             
             props = []
-            for row in response.data:
-                if row.get("players") and row.get("player_prop_types"):
-                    # Use full name if available, fallback to player_name
-                    player_name = row["players"].get("name") or row["players"].get("player_name")
-                    if not player_name:
-                        continue
-                    
-                    prop_data = {
-                        "prop_id": row["id"],
-                        "event_id": row["event_id"],
-                        "player_name": player_name,
-                        "team": row["players"].get("team", "Unknown"),
-                        "prop_type": row["player_prop_types"]["prop_name"],
-                        "line": float(row["line"]) if row["line"] else None,
-                        "over_odds": int(float(row["over_odds"])) if row["over_odds"] else None,
-                        "under_odds": int(float(row["under_odds"])) if row["under_odds"] else None,
-                        "bookmaker": row["bookmakers"]["bookmaker_name"] if row.get("bookmakers") else "FanDuel",
-                        "last_update": row.get("last_update")
-                    }
-                    props.append(prop_data)
+            for row in fast_resp.data or []:
+                ev = event_map.get(row.get("event_id"), {})
+                prop = {
+                    "prop_id": None,
+                    "event_id": row.get("event_id"),
+                    "player_name": row.get("player_name", "Unknown"),
+                    "team": "Unknown",
+                    "prop_type": row.get("stat_type"),
+                    "line": float(row["line"]) if row.get("line") is not None else None,
+                    "over_odds": int(float(row["over_odds"])) if row.get("over_odds") is not None else None,
+                    "under_odds": int(float(row["under_odds"])) if row.get("under_odds") is not None else None,
+                    "bookmaker": (row.get("bookmaker") or "Unknown"),
+                    "last_update": None,
+                    "home_team": ev.get("home_team"),
+                    "away_team": ev.get("away_team"),
+                    "sport": ev.get("sport") or row.get("sport"),
+                    "event_time": ev.get("start_time"),
+                    "is_alt": bool(row.get("is_alt", False)),
+                }
+                props.append(prop)
             
-            # Group props by sport and prop type for analysis
+            # Grouping for summary
             props_by_sport = {}
             props_by_type = {}
-            for prop in props:
-                # Infer sport from team
-                sport = self._infer_sport_from_team(prop["team"])
-                if sport not in props_by_sport:
-                    props_by_sport[sport] = []
-                props_by_sport[sport].append(prop)
-                
-                prop_type = prop["prop_type"]
-                if prop_type not in props_by_type:
-                    props_by_type[prop_type] = 0
-                props_by_type[prop_type] += 1
+            for p in props:
+                s = p.get("sport", "Unknown")
+                props_by_sport.setdefault(s, []).append(p)
+                t = p.get("prop_type", "Unknown")
+                props_by_type[t] = props_by_type.get(t, 0) + 1
             
             result = {
                 "query_date": target_date.isoformat(),
                 "total_props_found": len(props),
-                "props_by_sport": {sport: len(sport_props) for sport, sport_props in props_by_sport.items()},
+                "props_by_sport": {sport: len(v) for sport, v in props_by_sport.items()},
                 "props_by_type": props_by_type,
-                "player_props": props
+                "player_props": props,
             }
-            
-            logger.info(f"Retrieved {len(props)} player props for {target_date} across {len(props_by_sport)} sports")
+            logger.info(f"Retrieved {len(props)} player props for {target_date} across {len(props_by_sport)} sports (fast view)")
             return self.success_response(result)
-            
         except Exception as e:
-            logger.error(f"Error fetching player props by date: {str(e)}")
+            logger.error(f"Error fetching player props by date (fast view): {str(e)}")
             return self.fail_response(f"Error fetching player props by date: {str(e)}")
 
     async def _get_all_props_for_date(self, params: Dict) -> ToolResult:
@@ -738,52 +580,13 @@ class SupabaseBettingTool(BaseTool):
             return self.fail_response(f"Error fetching all props for date: {str(e)}")
 
     async def _store_predictions(self, params: Dict) -> ToolResult:
-        """Store AI predictions in the database with anti-hallucination validation"""
+        """Store AI predictions in the database"""
         
         predictions = params.get("predictions", [])
         if not predictions:
             return self.fail_response("predictions parameter is required and must be a non-empty array")
         
-        # 🚨 CRITICAL VALIDATION: Verify each matchup exists in sports_events
-        for i, pred in enumerate(predictions):
-            match_teams = pred.get("match_teams", "")
-            event_time = pred.get("event_time")
-            sport = pred.get("sport", "")
-            
-            if not match_teams or " @ " not in match_teams:
-                return self.fail_response(f"Prediction {i+1}: Invalid match_teams format. Must be 'Away Team @ Home Team'")
-            
-            # Extract away/home teams
-            teams_parts = match_teams.split(" @ ")
-            if len(teams_parts) != 2:
-                return self.fail_response(f"Prediction {i+1}: match_teams must contain exactly one ' @ ' separator")
-            
-            away_team, home_team = teams_parts[0].strip(), teams_parts[1].strip()
-            
-            # Query database to verify this matchup exists
-            try:
-                query = self._supabase.table("sports_events").select("id, home_team, away_team, start_time, sport").eq("home_team", home_team).eq("away_team", away_team)
-                if sport:
-                    query = query.eq("sport", sport)
-                result = query.execute()
-                
-                if not result.data or len(result.data) == 0:
-                    return self.fail_response(
-                        f"🚨 HALLUCINATION DETECTED - Prediction {i+1}: Matchup '{match_teams}' does NOT exist in database. "
-                        f"NEVER make up games. Always fetch real games from sports_events first."
-                    )
-                
-                # Verify event_time matches
-                actual_start_time = result.data[0]["start_time"]
-                if event_time and actual_start_time and str(event_time) != str(actual_start_time):
-                    logger.warning(f"Prediction {i+1}: event_time mismatch. Expected {actual_start_time}, got {event_time}. Using actual.")
-                    pred["event_time"] = actual_start_time
-                    
-            except Exception as e:
-                logger.error(f"Error validating matchup for prediction {i+1}: {str(e)}")
-                return self.fail_response(f"Error validating matchup: {str(e)}")
-        
-        # Additional validation: Check for sport/team mismatches
+        # Validation: Check for sport/team mismatches
         for pred in predictions:
             sport = pred.get("sport", "")
             teams = pred.get("match_teams", "")
@@ -850,26 +653,7 @@ class SupabaseBettingTool(BaseTool):
                             ("trend data" if isinstance(s, str) and "linemate" in s.lower() else s)
                             for s in metadata["research_sources"]
                         ]
-                    
-                    # CRITICAL: Remove garbage URLs from metadata that AI might generate
-                    # The REAL URLs are stored at the top level, not in metadata
-                    if isinstance(metadata, dict):
-                        # Remove any example.com or placeholder URLs
-                        for bad_key in ["league_logo_url", "bookmaker_logo_url", "player_headshot_url"]:
-                            if bad_key in metadata:
-                                url = metadata.get(bad_key)
-                                # Remove if it's a garbage/placeholder URL
-                                if not url or isinstance(url, str) and ("example.com" in url.lower() or "placeholder" in url.lower() or url.startswith("http://") or "espncdn" in url):
-                                    metadata[bad_key] = None
 
-                    # Get sport and determine logo URLs automatically
-                    sport = pred.get("sport", "")
-                    league_logo = self._get_league_logo(sport) if sport else None
-                    
-                    # Determine bookmaker from odds data or metadata
-                    bookmaker = pred.get("bookmaker") or pred.get("sportsbook") or "fanduel"
-                    sportsbook_logo = self._get_bookmaker_logo(bookmaker)
-                    
                     # Prepare prediction data for database
                     prediction_data = {
                         "user_id": "c19a5e12-4297-4b0f-8d21-39d2bb1a2c08",  # AI user ID
@@ -877,15 +661,12 @@ class SupabaseBettingTool(BaseTool):
                         "pick": pick_text,
                         "odds": str(pred.get("odds", 0)),
                         "confidence": confidence,
-                        "sport": sport,
+                        "sport": pred.get("sport", ""),
                         "event_time": event_time,
                         "reasoning": reasoning,
                         "bet_type": pred.get("bet_type", "moneyline"),
                         "game_id": str(pred.get("game_id", "")),
                         "status": "pending",
-                        # Logo URLs - AUTOMATIC based on sport and bookmaker
-                        "league_logo_url": league_logo,
-                        "sportsbook_logo_url": sportsbook_logo,
                         # Optional columns that exist in ai_predictions
                         "metadata": metadata,
                         "value_percentage": pred.get("value_percentage"),
@@ -987,67 +768,6 @@ class SupabaseBettingTool(BaseTool):
         except Exception as e:
             return self.fail_response(f"Error fetching recent predictions: {str(e)}")
 
-    async def _get_existing_predictions(self, params: Dict) -> ToolResult:
-        """Get existing pending predictions to avoid contradictions and ensure variety"""
-        
-        sport = params.get("sport")
-        
-        try:
-            # Get pending predictions for upcoming games
-            query = (
-                self._supabase.table("ai_predictions")
-                .select("id, match_teams, pick, odds, confidence, sport, event_time, bet_type, created_at")
-                .eq("status", "pending")
-                .gte("event_time", "now()")
-                .order("confidence", desc=True)
-                .limit(100)
-            )
-            
-            if sport:
-                query = query.eq("sport", sport)
-            
-            result = query.execute()
-            predictions = result.data if result.data else []
-            
-            # Organize by player for easy analysis
-            by_player = {}
-            by_game = {}
-            
-            for pred in predictions:
-                # Extract player name from pick (e.g., "Noah Fifita OVER 232.5 Passing Yards")
-                pick_parts = pred["pick"].split(" ")
-                if len(pick_parts) >= 2:
-                    player_name = f"{pick_parts[0]} {pick_parts[1]}"
-                    if player_name not in by_player:
-                        by_player[player_name] = []
-                    by_player[player_name].append({
-                        "pick": pred["pick"],
-                        "game": pred["match_teams"],
-                        "confidence": pred["confidence"]
-                    })
-                
-                # Group by game
-                game = pred.get("match_teams", "Unknown")
-                if game not in by_game:
-                    by_game[game] = []
-                by_game[game].append(pred["pick"])
-            
-            logger.info(f"Retrieved {len(predictions)} existing predictions ({len(by_player)} unique players, {len(by_game)} games)")
-            
-            return self.success_response({
-                "total_predictions": len(predictions),
-                "unique_players": len(by_player),
-                "unique_games": len(by_game),
-                "all_predictions": predictions,
-                "by_player_summary": by_player,
-                "by_game_summary": by_game,
-                "message": f"Found {len(predictions)} existing picks. Use this to avoid contradictions and ensure variety."
-            })
-            
-        except Exception as e:
-            logger.error(f"Error fetching existing predictions: {str(e)}")
-            return self.fail_response(f"Error fetching existing predictions: {str(e)}")
-
     async def _get_games_by_sport(self, params: Dict) -> ToolResult:
         """Get games filtered by specific sport"""
         
@@ -1133,27 +853,3 @@ class SupabaseBettingTool(BaseTool):
             return "NFL"
         
         return "Unknown"
-    
-    def _get_league_logo(self, sport: str) -> Optional[str]:
-        """Get league logo URL for a sport"""
-        return self.LEAGUE_LOGOS.get(sport.upper())
-    
-    def _get_bookmaker_logo(self, bookmaker: str) -> str:
-        """Get bookmaker logo URL - defaults to FanDuel if unknown"""
-        if not bookmaker:
-            return self.BOOKMAKER_LOGOS["fanduel"]
-        
-        # Normalize bookmaker name
-        bookmaker_lower = bookmaker.lower().replace(" ", "").replace("_", "")
-        
-        # Try exact match first
-        if bookmaker_lower in self.BOOKMAKER_LOGOS:
-            return self.BOOKMAKER_LOGOS[bookmaker_lower]
-        
-        # Try partial matches
-        for key in self.BOOKMAKER_LOGOS:
-            if key in bookmaker_lower or bookmaker_lower in key:
-                return self.BOOKMAKER_LOGOS[key]
-        
-        # Default to FanDuel
-        return self.BOOKMAKER_LOGOS["fanduel"]
