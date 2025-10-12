@@ -188,11 +188,11 @@ router.post('/generate-bet-video', authenticate, async (req: GenerateVideoReques
       });
 
       if (!videoJob.ok) {
-        const errorData = await videoJob.json();
+        const errorData = await videoJob.json() as any;
         throw new Error(errorData.error?.message || 'Sora 2 API error');
       }
 
-      const jobData = await videoJob.json();
+      const jobData = await videoJob.json() as any;
       const jobId = jobData.id;
 
       // Update record with job ID
@@ -282,7 +282,7 @@ router.get('/video-status/:videoId', authenticate, async (req: Request, res: Res
         );
 
         if (statusResponse.ok) {
-          const jobStatus = await statusResponse.json();
+          const jobStatus = await statusResponse.json() as any;
           
           if (jobStatus.status === 'succeeded' && jobStatus.output?.url) {
             const videoUrl = jobStatus.output.url;
