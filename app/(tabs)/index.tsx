@@ -58,7 +58,6 @@ import { useOptimizedLoading } from '../hooks/useOptimizedLoading';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { useUITheme } from '../services/uiThemeContext';
 import AIParlayBuilder from '../components/AIParlayBuilder';
-import BetVideoGenerator from '../components/BetVideoGenerator';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -1023,34 +1022,6 @@ export default function HomeScreen() {
         {/* AI Parlay Builder Section */}
         <View style={styles.section}>
           <AIParlayBuilder />
-        </View>
-
-        {/* Sora 2 AI Video Generator Section - NEW! */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isElite && { color: theme.accentPrimary }]}>
-              🎬 AI Video Studio
-            </Text>
-            {!isPro && !isElite && (
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>NEW</Text>
-              </View>
-            )}
-          </View>
-          <BetVideoGenerator 
-            pickIds={todaysPicks.slice(0, 3).map(p => p.id)}
-            onVideoGenerated={(url) => {
-              console.log('Video generated:', url);
-              // Could show a toast notification
-            }}
-          />
-          {!isPro && !isElite && (
-            <View style={styles.featurePromo}>
-              <Text style={styles.featurePromoText}>
-                ⚡ <Text style={styles.featurePromoHighlight}>Pro:</Text> 5 videos/day • <Text style={styles.featurePromoHighlight}>Elite:</Text> Unlimited
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Instant Intel Section - StatMuse Integration */}

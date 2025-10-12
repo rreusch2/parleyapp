@@ -39,8 +39,7 @@ import {
   Copy,
   Star,
   Settings,
-  MessageCircle,
-  Film
+  MessageCircle
 } from 'lucide-react-native';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { supabase } from '../services/api/supabaseClient';
@@ -65,7 +64,6 @@ import { UserAvatar } from '../components/UserAvatar';
 import { avatarService } from '../services/avatarService';
 import EliteThemeModal from '../components/EliteThemeModal';
 import revenueCatService from '../services/revenueCatService';
-import MyVideosGallery from '../components/MyVideosGallery';
 
 // Platform-specific import to prevent web bundling issues
 let RevenueCatUI;
@@ -1136,20 +1134,6 @@ export default function SettingsScreen() {
           action: () => setShowChatBubbleSettings(true)
         },
         // Moved App Themes to Account section per design
-      ]
-    },
-    {
-      title: 'AI Video Studio',
-      icon: Film,
-      iconColor: '#A78BFA',
-      items: [
-        {
-          id: 'my_videos',
-          title: 'My Videos 🎬',
-          type: 'component',
-          subtitle: 'View and manage your AI-generated videos',
-          renderComponent: () => <MyVideosGallery />
-        }
       ]
     },
     {

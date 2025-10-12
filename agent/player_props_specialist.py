@@ -359,10 +359,13 @@ When storing predictions with `supabase_betting` action `store_predictions`, use
 
 ### CRITICAL FORMAT RULES:
 
-1. **match_teams**: MUST use the EXACT teams from the prop's game
+1. **match_teams**: MUST use the EXACT teams from the prop's game IN THE CORRECT ORDER
    - Each prop has "away_team" and "home_team" fields - USE THESE EXACT VALUES
-   - Format: "[away_team] @ [home_team]" using the exact values from the prop
-   - ✅ CORRECT: "Boston College Eagles @ Pittsburgh Panthers" (for a CFB player prop in that game)
+   - **FORMULA**: match_teams = "{away_team} @ {home_team}" - ALWAYS AWAY FIRST!
+   - **EXAMPLE**: If database shows `home_team: "New York Jets"` and `away_team: "Denver Broncos"`:
+     - ✅ CORRECT: "Denver Broncos @ New York Jets" (AWAY @ HOME)
+     - ❌ WRONG: "New York Jets @ Denver Broncos" (this is backwards!)
+   - ✅ CORRECT: "Boston College Eagles @ Pittsburgh Panthers" (if BCU is away, Pitt is home)
    - ❌ WRONG: "Milwaukee Brewers @ Chicago Cubs" (for a CFB player - NEVER MIX SPORTS/GAMES)
    - **CRITICAL**: A CFB player MUST have CFB teams, MLB player MUST have MLB teams
    - **MATCH THE PROP TO ITS ACTUAL GAME**

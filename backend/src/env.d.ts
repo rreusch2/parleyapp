@@ -8,10 +8,7 @@ declare namespace NodeJS {
     SUPABASE_ANON_KEY: string;
     SUPABASE_SERVICE_ROLE_KEY: string;
     
-    // OpenAI (for Sora 2)
-    OPENAI_API_KEY: string;
-    
-    // Other AI keys
+    // AI keys
     DEEPSEEK_API_KEY?: string;
     XAI_API_KEY?: string;
     GEMINI_API_KEY?: string;
