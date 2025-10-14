@@ -33,6 +33,7 @@ import playerPropsRouter from './api/routes/playerProps';
 import subscriptionPricingRouter from './api/routes/subscriptionPricing';
 import stripeRouter from './api/routes/stripe';
 import parlayRouter from './api/routes/parlayRouter';
+import chatkitRouter from './api/chatkit';
 // import { initScheduler } from './services/sportsData/scheduler'; // Removed - using TheOdds API manually
 // Removed subscriptionCleanupJob and initRewardExpiryCron to prevent non-webhook subscription_tier mutations
 // import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
@@ -151,6 +152,7 @@ app.post('/api/webhooks/revenuecat', express.raw({ type: 'application/json' }), 
 app.use('/api/automation', automationLimiter, automationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/chatkit', chatkitRouter);
 
 // Health check endpoints
 app.get('/health', (req, res) => {
