@@ -1,0 +1,22 @@
+{
+  "name": "@parley/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Parley App Monorepo - Mobile, Web, and Backend",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "mobile": "cd apps/mobile && npm run start",
+    "web": "cd apps/web && npm run dev",
+    "backend": "cd apps/backend && npm run dev"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

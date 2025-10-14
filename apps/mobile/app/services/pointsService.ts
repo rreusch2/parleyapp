@@ -1,0 +1,378 @@
+import { supabase } from './api/supabaseClient';
+import { Alert } from 'react-native';
+
+interface PointsBalance {
+  totalPoints: number;
+  availablePoints: number;
+  pendingPoints: number;
+  lifetimeEarned: number;
+}
+
+interface PointsRedemption {
+  id: string;
+  reward_name: string;
+  reward_description: string;
+  points_cost: number;
+  reward_type: string;
+  upgrade_tier?: string;
+  duration_hours?: number;
+  is_active: boolean;
+}
+
+interface PointsTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'earned' | 'redeemed';
+  source: string;
+  description: string;
+  createdAt: string;
+}
+
+class PointsService {
+  private static instance: PointsService;
+
+  public static getInstance(): PointsService {
+    if (!PointsService.instance) {
+      PointsService.instance = new PointsService();
+    }
+    return PointsService.instance;
+  }
+
+  /**
+   * Get available redemption options from Railway backend
+   */
+  async getRedemptionOptions(): Promise<PointsRedemption[]> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No auth token available');
+        return [];
+      }
+
+      const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${BACKEND_URL}/api/rewards/catalog`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      if (data.success && data.rewards) {
+        return data.rewards;
+      }
+      
+      console.error('Failed to fetch rewards:', data.error);
+      return [];
+    } catch (error) {
+      console.error('Error fetching redemption options:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's points balance
+   */
+  async getPointsBalance(userId: string): Promise<PointsBalance> {
+    try {
+      const { data: user, error } = await supabase
+        .from('profiles')
+        .select('referral_points, referral_points_pending, referral_points_lifetime')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        return { totalPoints: 0, availablePoints: 0, pendingPoints: 0, lifetimeEarned: 0 };
+      }
+
+      return {
+        totalPoints: user.referral_points || 0,
+        availablePoints: user.referral_points || 0,
+        pendingPoints: user.referral_points_pending || 0,
+        lifetimeEarned: user.referral_points_lifetime || 0
+      };
+    } catch (error) {
+      console.error('Error getting points balance:', error);
+      return { totalPoints: 0, availablePoints: 0, pendingPoints: 0, lifetimeEarned: 0 };
+    }
+  }
+
+  /**
+   * Award points to user
+   */
+  async awardPoints(userId: string, points: number, reason: string): Promise<boolean> {
+    try {
+      const currentBalance = await this.getPointsBalance(userId);
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          referral_points: currentBalance.availablePoints + points,
+          referral_points_lifetime: currentBalance.lifetimeEarned + points,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      // Log the points transaction
+      await this.logPointsTransaction(userId, points, 'earned', reason);
+
+      console.log(`✅ Awarded ${points} points to user ${userId}: ${reason}`);
+      return true;
+    } catch (error) {
+      console.error('Error awarding points:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Redeem points for a reward using Railway backend
+   */
+  async redeemPoints(userId: string, redemptionId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        return { success: false, message: 'Authentication required' };
+      }
+
+      const BACKEND_URL = 'https://zooming-rebirth-production-a305.up.railway.app';
+      const response = await fetch(`${BACKEND_URL}/api/rewards/claim`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rewardId: redemptionId })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        return { success: true, message: data.message || 'Reward claimed successfully!' };
+      } else {
+        return { success: false, message: data.error || 'Failed to claim reward' };
+      }
+    } catch (error) {
+      console.error('Error redeeming points:', error);
+      return { success: false, message: 'Failed to redeem points. Please try again.' };
+    }
+  }
+
+  /**
+   * Apply the actual reward to user account
+   */
+  private async applyReward(userId: string, redemption: PointsRedemption): Promise<void> {
+    try {
+      switch (redemption.type) {
+        case 'percent_discount':
+          // Create a pending one-time percent discount for the next subscription billing/purchase
+          await supabase
+            .from('referral_rewards')
+            .insert({
+              user_id: userId,
+              reward_type: 'one_time_percent_discount',
+              reward_value: redemption.percentValue ?? 0,
+              description: `${redemption.percentValue}% off next subscription (one-time)`,
+              status: 'active',
+              expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days
+              created_at: new Date().toISOString()
+            });
+          break;
+
+        case 'free_month':
+          // Grant free subscription month
+          const freeMonthExpiry = new Date();
+          freeMonthExpiry.setMonth(freeMonthExpiry.getMonth() + 1);
+          
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: redemption.description.includes('Elite') ? 'elite' : 'pro',
+              referral_free_month_expires_at: freeMonthExpiry.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+          break;
+
+        case 'tier_upgrade':
+          // Upgrade tier for 1 month
+          const upgradeExpiry = new Date();
+          upgradeExpiry.setMonth(upgradeExpiry.getMonth() + 1);
+          
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: 'elite',
+              referral_upgrade_expires_at: upgradeExpiry.toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+          break;
+      }
+    } catch (error) {
+      console.error('Error applying reward:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Log points transaction
+   */
+  private async logPointsTransaction(userId: string, points: number, type: 'earned' | 'redeemed' | 'expired', reason: string): Promise<void> {
+    try {
+      await supabase
+        .from('referral_rewards')
+        .insert({
+          user_id: userId,
+          reward_type: 'points',
+          reward_value: Math.abs(points),
+          description: `${type}: ${reason}`,
+          status: type === 'earned' ? 'granted' : 'redeemed',
+          created_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error logging points transaction:', error);
+    }
+  }
+
+  /**
+   * Process referral signup - award points to new user
+   */
+  async processReferralSignup(newUserId: string, referralCode: string): Promise<boolean> {
+    try {
+      console.log(`🎯 Processing referral signup for user ${newUserId} with code ${referralCode}`);
+      
+      // Find referrer
+      const { data: referrer, error: referrerError } = await supabase
+        .from('profiles')
+        .select('id, referral_code, username')
+        .eq('referral_code', referralCode)
+        .single();
+
+      if (referrerError || !referrer) {
+        console.log('❌ Invalid referral code:', referralCode, referrerError);
+        return false;
+      }
+
+      console.log(`✅ Found referrer: ${referrer.username} (${referrer.id})`);
+
+      // Award 50 points to new user (referred signup bonus)
+      const pointsAwarded = await this.awardPoints(newUserId, 50, 'Referral signup bonus');
+      if (!pointsAwarded) {
+        console.error('❌ Failed to award signup bonus points');
+      }
+
+      console.log('🎯 Creating referral tracking record...');
+      
+      // Create referral tracking record
+      const { data: referralRecord, error: referralError } = await supabase
+        .from('referrals')
+        .insert({
+          referrer_id: referrer.id,
+          referred_user_id: newUserId,
+          referral_code: referralCode,
+          status: 'pending',
+          reward_type: 'points',
+          reward_value: 0, // Will be determined on conversion based on plan
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (referralError) {
+        console.error('❌ Failed to create referral record:', referralError);
+        return false;
+      }
+
+      console.log('✅ Referral record created:', referralRecord.id);
+      console.log('✅ Referral signup processed - 1,500 points awarded to new user');
+      return true;
+    } catch (error) {
+      console.error('❌ Error processing referral signup:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Process referral conversion - award points to referrer when referred user subscribes
+   */
+  async processReferralConversion(referredUserId: string): Promise<void> {
+    try {
+      // Find pending referral
+      const { data: referral, error: referralError } = await supabase
+        .from('referrals')
+        .select('*')
+        .eq('referred_user_id', referredUserId)
+        .eq('status', 'pending')
+        .single();
+
+      if (referralError || !referral) {
+        console.log('No pending referral found for user:', referredUserId);
+        return;
+      }
+
+      // Enforce 24-hour conversion window based on referral.created_at
+      const createdAt = referral.created_at ? new Date(referral.created_at) : null;
+      const within24h = createdAt ? (Date.now() - createdAt.getTime()) <= (24 * 60 * 60 * 1000) : true;
+
+      // Determine referred user's current subscription tier
+      let refPoints = 0;
+      if (within24h) {
+        const { data: userTier } = await supabase
+          .from('profiles')
+          .select('subscription_tier')
+          .eq('id', referredUserId)
+          .single();
+
+        if (userTier?.subscription_tier === 'elite') refPoints = 200;
+        else if (userTier?.subscription_tier === 'pro') refPoints = 100;
+      }
+
+      if (refPoints > 0) {
+        await this.awardPoints(referral.referrer_id, refPoints, 'Successful referral conversion');
+      }
+
+      // Mark referral as completed
+      await supabase
+        .from('referrals')
+        .update({
+          status: 'completed',
+          reward_granted: refPoints > 0,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', referral.id);
+
+      console.log(`✅ Referral conversion processed - ${refPoints} points awarded to referrer`);
+    } catch (error) {
+      console.error('Error processing referral conversion:', error);
+    }
+  }
+
+  /**
+   * Get user's available discount credits
+   */
+  async getDiscountCredits(userId: string): Promise<number> {
+    try {
+      const { data: credits, error } = await supabase
+        .from('referral_rewards')
+        .select('reward_value')
+        .eq('user_id', userId)
+        .eq('reward_type', 'discount_credit')
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString());
+
+      if (error || !credits) return 0;
+
+      return credits.reduce((total, credit) => total + credit.reward_value, 0);
+    } catch (error) {
+      console.error('Error getting discount credits:', error);
+      return 0;
+    }
+  }
+}
+
+export default PointsService;
+export { PointsBalance, PointsRedemption, PointsTransaction };

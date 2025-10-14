@@ -13,7 +13,7 @@ name = "backend"
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 [services.deploy]
-startCommand = "node /app/backend/dist/index.js"
+startCommand = "node /app/apps/backend/dist/index.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 

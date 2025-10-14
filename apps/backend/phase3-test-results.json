@@ -1,0 +1,48 @@
+{
+  "start_time": "2025-06-20T20:49:40.329Z",
+  "tests": {
+    "python_api_health": {
+      "status": "fail",
+      "error": ""
+    },
+    "enhanced_models": {
+      "status": "fail",
+      "error": ""
+    },
+    "enhanced_player_props": {
+      "status": "fail",
+      "error": ""
+    },
+    "enhanced_spread": {
+      "status": "fail",
+      "error": ""
+    },
+    "enhanced_total": {
+      "status": "fail",
+      "error": ""
+    },
+    "enhanced_parlay": {
+      "status": "fail",
+      "error": ""
+    },
+    "backend_api_health": {
+      "status": "fail",
+      "error": ""
+    },
+    "automation_script": {
+      "status": "pass",
+      "location": "../python-services/sports-betting-api/enhanced_daily_automation.py"
+    },
+    "frontend_components": {
+      "status": "pass",
+      "location": "../app/components/EnhancedPredictionCard.tsx"
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "passed": 2,
+    "failed": 7,
+    "success_rate": "22.2%",
+    "end_time": "2025-06-20T20:49:40.347Z"
+  }
+}
