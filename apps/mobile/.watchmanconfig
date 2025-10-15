@@ -1,33 +1,10 @@
 {
   "ignore_dirs": [
-    "agent",
-    "web-app",
-    "website",
-    "adagent",
-    "data",
-    "database",
-    "email-automation",
-    "enhancementreport",
-    "enhancements",
-    "logs",
-    "n8n-evaluation-system",
-    "parley_scrapy",
-    "pplayweb",
-    "professor-lock-service",
-    "python-scripts-service",
-    "pwa-version",
-    "simulator_build",
-    "statmuse-api-service",
-    "python-services",
-    "web-mocks",
-
-    "backend/node_modules",
-    "web-app/node_modules",
-    "web-app/.next",
-    "web-app/out",
-
+    "node_modules",
     ".git",
-    ".venv",
-    "venv"
+    ".expo",
+    "dist",
+    "build",
+    ".next"
   ]
 }

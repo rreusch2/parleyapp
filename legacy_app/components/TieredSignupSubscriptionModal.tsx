@@ -42,6 +42,7 @@ import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIE
 import { useSubscription } from '../services/subscriptionContext';
 import { supabase } from '../services/api/supabaseClient';
 import Colors from '../constants/Colors';
+import DiscountedPaywallModal from './DiscountedPaywallModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -65,6 +66,7 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false); // State for discount modal
   const { subscribe, restorePurchases } = useSubscription();
   // Optional remote video URL for Elite preview (configure in app.json/app.config.ts under expo.extra.elitePreviewVideoUrl)
   const eliteVideoUri: string | undefined = (Constants as any)?.expoConfig?.extra?.elitePreviewVideoUrl;
@@ -428,14 +430,15 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle={Platform.OS === 'ios' && Platform.isPad ? "overFullScreen" : "pageSheet"}
-      transparent={Platform.OS === 'ios' && Platform.isPad ? true : false}
-      onRequestClose={onClose}
-      supportedOrientations={['portrait', 'landscape']}
-    >
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' && Platform.isPad ? "overFullScreen" : "pageSheet"}
+        transparent={Platform.OS === 'ios' && Platform.isPad ? true : false}
+        onRequestClose={onClose}
+        supportedOrientations={['portrait', 'landscape']}
+      >
       <View style={styles.container}>
         <LinearGradient
           colors={['#0F172A', '#1E293B', selectedTier === 'pro' ? '#3B82F6' : '#8B5CF6']}
@@ -486,7 +489,13 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
             {renderPlanOptions()}
 
             {/* Continue Free Button */}
-            <TouchableOpacity style={styles.continueButton} onPress={onContinueFree}>
+            <TouchableOpacity 
+              style={styles.continueButton} 
+              onPress={() => {
+                onClose(); // Close this modal first
+                setShowDiscountModal(true); // Show discount modal
+              }}
+            >
               <Text style={styles.continueButtonText}>Skip Upgrade (Limited to 2 picks daily)</Text>
             </TouchableOpacity>
 
@@ -627,7 +636,24 @@ const TieredSignupSubscriptionModal: React.FC<TieredSignupSubscriptionModalProps
         </View>
       </View>
     </Modal>
-  );
+
+    {/* Discounted Paywall Modal */}
+    <DiscountedPaywallModal
+      visible={showDiscountModal}
+      onClose={() => setShowDiscountModal(false)}
+      onContinueFree={() => {
+        setShowDiscountModal(false);
+        onContinueFree(); // Call the original continue free handler (welcome wheel)
+      }}
+      onPurchaseSuccess={() => {
+        setShowDiscountModal(false);
+        if (onPurchaseSuccess) {
+          onPurchaseSuccess();
+        }
+      }}
+    />
+  </>
+);
 };
 
 const styles = StyleSheet.create({

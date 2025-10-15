@@ -1,0 +1,1648 @@
+/
+Dashboard
+Docs
+API reference
+Using tools
+Use tools like remote MCP servers or web search to extend the model's capabilities.
+When generating model responses, you can extend capabilities using built‑in tools and remote MCP servers. These enable the model to search the web, retrieve from your files, call your own functions, or access third‑party services.
+
+Web search
+File search
+Function calling
+Remote MCP
+Include web search results for the model response
+import OpenAI from "openai";
+const client = new OpenAI();
+
+const response = await client.responses.create({
+    model: "gpt-5",
+    tools: [
+        { type: "web_search" },
+    ],
+    input: "What was a positive news story from today?",
+});
+
+console.log(response.output_text);
+Available tools
+Here's an overview of the tools available in the OpenAI platform—select one of them for further guidance on usage.
+
+Function calling
+Call custom code to give the model access to additional data and capabilities.
+
+Web search
+Include data from the Internet in model response generation.
+
+Remote MCP servers
+Give the model access to new capabilities via Model Context Protocol (MCP) servers.
+
+File search
+Search the contents of uploaded files for context when generating a response.
+
+Image generation
+Generate or edit images using GPT Image.
+
+Code interpreter
+Allow the model to execute code in a secure container.
+
+Computer use
+Create agentic workflows that enable a model to control a computer interface.
+
+Usage in the API
+When making a request to generate a model response, you can enable tool access by specifying configurations in the tools parameter. Each tool has its own unique configuration requirements—see the Available tools section for detailed instructions.
+
+Based on the provided prompt, the model automatically decides whether to use a configured tool. For instance, if your prompt requests information beyond the model's training cutoff date and web search is enabled, the model will typically invoke the web search tool to retrieve relevant, up-to-date information.
+
+You can explicitly control or guide this behavior by setting the tool_choice parameter in the API request.
+
+Function calling
+In addition to built-in tools, you can define custom functions using the tools array. These custom functions allow the model to call your application's code, enabling access to specific data or capabilities not directly available within the model.
+
+Learn more in the function calling guide.
+
+Was this page useful?
+Overview
+Available tools
+API usage
+Starter app
+Experiment with built-in tools in the Responses API.
+
+
+
+/
+Dashboard
+Docs
+API reference
+Using tools
+Use tools like remote MCP servers or web search to extend the model's capabilities.
+When generating model responses, you can extend capabilities using built‑in tools and remote MCP servers. These enable the model to search the web, retrieve from your files, call your own functions, or access third‑party services.
+
+Web search
+File search
+Function calling
+Remote MCP
+Search your files in a response
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const response = await openai.responses.create({
+    model: "gpt-4.1",
+    input: "What is deep research by OpenAI?",
+    tools: [
+        {
+            type: "file_search",
+            vector_store_ids: ["<vector_store_id>"],
+        },
+    ],
+});
+console.log(response);
+Available tools
+Here's an overview of the tools available in the OpenAI platform—select one of them for further guidance on usage.
+
+Function calling
+Call custom code to give the model access to additional data and capabilities.
+
+Web search
+Include data from the Internet in model response generation.
+
+Remote MCP servers
+Give the model access to new capabilities via Model Context Protocol (MCP) servers.
+
+File search
+Search the contents of uploaded files for context when generating a response.
+
+Image generation
+Generate or edit images using GPT Image.
+
+Code interpreter
+Allow the model to execute code in a secure container.
+
+Computer use
+Create agentic workflows that enable a model to control a computer interface.
+
+Usage in the API
+When making a request to generate a model response, you can enable tool access by specifying configurations in the tools parameter. Each tool has its own unique configuration requirements—see the Available tools section for detailed instructions.
+
+Based on the provided prompt, the model automatically decides whether to use a configured tool. For instance, if your prompt requests information beyond the model's training cutoff date and web search is enabled, the model will typically invoke the web search tool to retrieve relevant, up-to-date information.
+
+You can explicitly control or guide this behavior by setting the tool_choice parameter in the API request.
+
+Function calling
+In addition to built-in tools, you can define custom functions using the tools array. These custom functions allow the model to call your application's code, enabling access to specific data or capabilities not directly available within the model.
+
+Learn more in the function calling guide.
+
+Was this page useful?
+Overview
+Available tools
+API usage
+Starter app
+Experiment with built-in tools in the Responses API.
+
+
+
+/
+Dashboard
+Docs
+API reference
+Using tools
+Use tools like remote MCP servers or web search to extend the model's capabilities.
+When generating model responses, you can extend capabilities using built‑in tools and remote MCP servers. These enable the model to search the web, retrieve from your files, call your own functions, or access third‑party services.
+
+Web search
+File search
+Function calling
+Remote MCP
+Call your own function
+import OpenAI from "openai";
+const client = new OpenAI();
+
+const tools = [
+    {
+        type: "function",
+        name: "get_weather",
+        description: "Get current temperature for a given location.",
+        parameters: {
+            type: "object",
+            properties: {
+                location: {
+                    type: "string",
+                    description: "City and country e.g. Bogotá, Colombia",
+                },
+            },
+            required: ["location"],
+            additionalProperties: false,
+        },
+        strict: true,
+    },
+];
+
+const response = await client.responses.create({
+    model: "gpt-5",
+    input: [
+        { role: "user", content: "What is the weather like in Paris today?" },
+    ],
+    tools,
+});
+
+console.log(response.output[0].to_json());
+Available tools
+Here's an overview of the tools available in the OpenAI platform—select one of them for further guidance on usage.
+
+Function calling
+Call custom code to give the model access to additional data and capabilities.
+
+Web search
+Include data from the Internet in model response generation.
+
+Remote MCP servers
+Give the model access to new capabilities via Model Context Protocol (MCP) servers.
+
+File search
+Search the contents of uploaded files for context when generating a response.
+
+Image generation
+Generate or edit images using GPT Image.
+
+Code interpreter
+Allow the model to execute code in a secure container.
+
+Computer use
+Create agentic workflows that enable a model to control a computer interface.
+
+Usage in the API
+When making a request to generate a model response, you can enable tool access by specifying configurations in the tools parameter. Each tool has its own unique configuration requirements—see the Available tools section for detailed instructions.
+
+Based on the provided prompt, the model automatically decides whether to use a configured tool. For instance, if your prompt requests information beyond the model's training cutoff date and web search is enabled, the model will typically invoke the web search tool to retrieve relevant, up-to-date information.
+
+You can explicitly control or guide this behavior by setting the tool_choice parameter in the API request.
+
+Function calling
+In addition to built-in tools, you can define custom functions using the tools array. These custom functions allow the model to call your application's code, enabling access to specific data or capabilities not directly available within the model.
+
+Learn more in the function calling guide.
+
+Was this page useful?
+Overview
+Available tools
+API usage
+Starter app
+Experiment with built-in tools in the Responses API.
+
+
+
+/
+Dashboard
+Docs
+API reference
+Using tools
+Use tools like remote MCP servers or web search to extend the model's capabilities.
+When generating model responses, you can extend capabilities using built‑in tools and remote MCP servers. These enable the model to search the web, retrieve from your files, call your own functions, or access third‑party services.
+
+Web search
+File search
+Function calling
+Remote MCP
+Call a remote MCP server
+import OpenAI from "openai";
+const client = new OpenAI();
+
+const resp = await client.responses.create({
+  model: "gpt-5",
+  tools: [
+    {
+      type: "mcp",
+      server_label: "dmcp",
+      server_description: "A Dungeons and Dragons MCP server to assist with dice rolling.",
+      server_url: "https://dmcp-server.deno.dev/sse",
+      require_approval: "never",
+    },
+  ],
+  input: "Roll 2d4+1",
+});
+
+console.log(resp.output_text);
+Available tools
+Here's an overview of the tools available in the OpenAI platform—select one of them for further guidance on usage.
+
+Function calling
+Call custom code to give the model access to additional data and capabilities.
+
+Web search
+Include data from the Internet in model response generation.
+
+Remote MCP servers
+Give the model access to new capabilities via Model Context Protocol (MCP) servers.
+
+File search
+Search the contents of uploaded files for context when generating a response.
+
+Image generation
+Generate or edit images using GPT Image.
+
+Code interpreter
+Allow the model to execute code in a secure container.
+
+Computer use
+Create agentic workflows that enable a model to control a computer interface.
+
+Usage in the API
+When making a request to generate a model response, you can enable tool access by specifying configurations in the tools parameter. Each tool has its own unique configuration requirements—see the Available tools section for detailed instructions.
+
+Based on the provided prompt, the model automatically decides whether to use a configured tool. For instance, if your prompt requests information beyond the model's training cutoff date and web search is enabled, the model will typically invoke the web search tool to retrieve relevant, up-to-date information.
+
+You can explicitly control or guide this behavior by setting the tool_choice parameter in the API request.
+
+Function calling
+In addition to built-in tools, you can define custom functions using the tools array. These custom functions allow the model to call your application's code, enabling access to specific data or capabilities not directly available within the model.
+
+Learn more in the function calling guide.
+
+Was this page useful?
+Overview
+Available tools
+API usage
+Starter app
+Experiment with built-in tools in the Responses API.
+
+
+
+/
+Dashboard
+Docs
+API reference
+Connectors and MCP servers
+Beta
+Use connectors and remote MCP servers to give models new capabilities.
+In addition to tools you make available to the model with function calling, you can give models new capabilities using connectors and remote MCP servers. These tools give the model the ability to connect to and control external services when needed to respond to a user's prompt. These tool calls can either be allowed automatically, or restricted with explicit approval required by you as the developer.
+
+Connectors are OpenAI-maintained MCP wrappers for popular services like Google Workspace or Dropbox, like the connectors available in ChatGPT.
+Remote MCP servers can be any server on the public Internet that implements a remote Model Context Protocol (MCP) server.
+This guide will show how to use both remote MCP servers and connectors to give the model access to new capabilities.
+
+Quickstart
+Check out the examples below to see how remote MCP servers and connectors work through the Responses API. Both connectors and remote MCP servers can be used with the mcp built-in tool type.
+
+Using remote MCP servers
+Using connectors
+Remote MCP servers require a server_url. Depending on the server, you may also need an OAuth authorization parameter containing an access token.
+
+Using a remote MCP server in the Responses API
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "dmcp",
+            "server_description": "A Dungeons and Dragons MCP server to assist with dice rolling.",
+            "server_url": "https://dmcp-server.deno.dev/sse",
+            "require_approval": "never",
+        },
+    ],
+    input="Roll 2d4+1",
+)
+
+print(resp.output_text)
+It is very important that developers trust any remote MCP server they use with the Responses API. A malicious server can exfiltrate sensitive data from anything that enters the model's context. Carefully review the Risks and Safety section below before using this tool.
+The API will return new items in the output array of the model response. If the model decides to use a Connector or MCP server, it will first make a request to list available tools from the server, which will create a mcp_list_tools output item. From the simple remote MCP server example above, it contains only one tool definition:
+
+{
+    "id": "mcpl_68a6102a4968819c8177b05584dd627b0679e572a900e618",
+    "type": "mcp_list_tools",
+    "server_label": "dmcp",
+    "tools": [
+        {
+            "annotations": null,
+            "description": "Given a string of text describing a dice roll...",
+            "input_schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "diceRollExpression": {
+                        "type": "string"
+                    }
+                },
+                "required": ["diceRollExpression"],
+                "additionalProperties": false
+            },
+            "name": "roll"
+        }
+    ]
+}
+If the model decides to call one of the available tools from the MCP server, you will also find a mcp_call output which will show what the model sent to the MCP tool, and what the MCP tool sent back as output.
+
+{
+    "id": "mcp_68a6102d8948819c9b1490d36d5ffa4a0679e572a900e618",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "error": null,
+    "name": "roll",
+    "output": "4",
+    "server_label": "dmcp"
+}
+Read on in the guide below to learn more about how the MCP tool works, how to filter available tools, and how to handle tool call approval requests.
+
+How it works
+The MCP tool (for both remote MCP servers and connectors) is available in the Responses API in most recent models. Check MCP tool compatibility for your model here. When you're using the MCP tool, you only pay for tokens used when importing tool definitions or making tool calls. There are no additional fees involved per tool call.
+
+Below, we'll step through the process the API takes when calling an MCP tool.
+
+Step 1: Listing available tools
+When you specify a remote MCP server in the tools parameter, the API will attempt to get a list of tools from the server. The Responses API works with remote MCP servers that support either the Streamable HTTP or the HTTP/SSE transport protocols.
+
+If successful in retrieving the list of tools, a new mcp_list_tools output item will appear in the model response output. The tools property of this object will show the tools that were successfully imported.
+
+{
+    "id": "mcpl_68a6102a4968819c8177b05584dd627b0679e572a900e618",
+    "type": "mcp_list_tools",
+    "server_label": "dmcp",
+    "tools": [
+        {
+            "annotations": null,
+            "description": "Given a string of text describing a dice roll...",
+            "input_schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "diceRollExpression": {
+                        "type": "string"
+                    }
+                },
+                "required": ["diceRollExpression"],
+                "additionalProperties": false
+            },
+            "name": "roll"
+        }
+    ]
+}
+As long as the mcp_list_tools item is present in the context of an API request, the API will not fetch a list of tools from the MCP server again at each turn in a conversation. We recommend you keep this item in the model's context as part of every conversation or workflow execution to optimize for latency.
+
+Filtering tools
+Some MCP servers can have dozens of tools, and exposing many tools to the model can result in high cost and latency. If you're only interested in a subset of tools an MCP server exposes, you can use the allowed_tools parameter to only import those tools.
+
+Constrain allowed tools
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[{
+        "type": "mcp",
+        "server_label": "dmcp",
+        "server_description": "A Dungeons and Dragons MCP server to assist with dice rolling.",
+        "server_url": "https://dmcp-server.deno.dev/sse",
+        "require_approval": "never",
+        "allowed_tools": ["roll"],
+    }],
+    input="Roll 2d4+1",
+)
+
+print(resp.output_text)
+Step 2: Calling tools
+Once the model has access to these tool definitions, it may choose to call them depending on what's in the model's context. When the model decides to call an MCP tool, the API will make an request to the remote MCP server to call the tool and put its output into the model's context. This creates an mcp_call item which looks like this:
+
+{
+    "id": "mcp_68a6102d8948819c9b1490d36d5ffa4a0679e572a900e618",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "error": null,
+    "name": "roll",
+    "output": "4",
+    "server_label": "dmcp"
+}
+This item includes both the arguments the model decided to use for this tool call, and the output that the remote MCP server returned. All models can choose to make multiple MCP tool calls, so you may see several of these items generated in a single API request.
+
+Failed tool calls will populate the error field of this item with MCP protocol errors, MCP tool execution errors, or general connectivity errors. The MCP errors are documented in the MCP spec here.
+
+Approvals
+By default, OpenAI will request your approval before any data is shared with a connector or remote MCP server. Approvals help you maintain control and visibility over what data is being sent to an MCP server. We highly recommend that you carefully review (and optionally log) all data being shared with a remote MCP server. A request for an approval to make an MCP tool call creates a mcp_approval_request item in the Response's output that looks like this:
+
+{
+    "id": "mcpr_68a619e1d82c8190b50c1ccba7ad18ef0d2d23a86136d339",
+    "type": "mcp_approval_request",
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "name": "roll",
+    "server_label": "dmcp"
+}
+You can then respond to this by creating a new Response object and appending an mcp_approval_response item to it.
+
+Approving the use of tools in an API request
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[{
+        "type": "mcp",
+        "server_label": "dmcp",
+        "server_description": "A Dungeons and Dragons MCP server to assist with dice rolling.",
+        "server_url": "https://dmcp-server.deno.dev/sse",
+        "require_approval": "always",
+    }],
+    previous_response_id="resp_682d498bdefc81918b4a6aa477bfafd904ad1e533afccbfa",
+    input=[{
+        "type": "mcp_approval_response",
+        "approve": True,
+        "approval_request_id": "mcpr_682d498e3bd4819196a0ce1664f8e77b04ad1e533afccbfa"
+    }],
+)
+
+print(resp.output_text)
+Here we're using the previous_response_id parameter to chain this new Response, with the previous Response that generated the approval request. But you can also pass back the outputs from one response, as inputs into another for maximum control over what enter's the model's context.
+
+If and when you feel comfortable trusting a remote MCP server, you can choose to skip the approvals for reduced latency. To do this, you can set the require_approval parameter of the MCP tool to an object listing just the tools you'd like to skip approvals for like shown below, or set it to the value 'never' to skip approvals for all tools in that remote MCP server.
+
+Never require approval for some tools
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "deepwiki",
+            "server_url": "https://mcp.deepwiki.com/mcp",
+            "require_approval": {
+                "never": {
+                    "tool_names": ["ask_question", "read_wiki_structure"]
+                }
+            }
+        },
+    ],
+    input="What transport protocols does the 2025-03-26 version of the MCP spec (modelcontextprotocol/modelcontextprotocol) support?",
+)
+
+print(resp.output_text)
+Authentication
+Unlike the example MCP server we used above, most other MCP servers require authentication. The most common scheme is an OAuth access token. Provide this token using the authorization field of the MCP tool:
+
+Use Stripe MCP tool
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    input="Create a payment link for $20",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "stripe",
+            "server_url": "https://mcp.stripe.com",
+            "authorization": "$STRIPE_OAUTH_ACCESS_TOKEN"
+        }
+    ]
+)
+
+print(resp.output_text)
+To prevent the leakage of sensitive tokens, the Responses API does not store the value you provide in the authorization field. This value will also not be visible in the Response object created. Additionally, because some remote MCP servers generate authenticated URLs, we also discard the path portion of the server_url in our responses (i.e. example.com/mcp becomes example.com). Because of this, you must send the full path of the MCP server_url and the authorization value in every Responses API creation request you make.
+
+Connectors
+The Responses API has built-in support for a limited set of connectors to third-party services. These connectors let you pull in context from popular applications, like Dropbox and Gmail, to allow the model to interact with popular services.
+
+Connectors can be used in the same way as remote MCP servers. Both let an OpenAI model access additional third-party tools in an API request. However, instead of passing a server_url as you would to call a remote MCP server, you pass a connector_id which uniquely identifies a connector available in the API.
+
+Available connectors
+Dropbox: connector_dropbox
+Gmail: connector_gmail
+Google Calendar: connector_googlecalendar
+Google Drive: connector_googledrive
+Microsoft Teams: connector_microsoftteams
+Outlook Calendar: connector_outlookcalendar
+Outlook Email: connector_outlookemail
+SharePoint: connector_sharepoint
+We prioritized services that don't have official remote MCP servers. GitHub, for instance, has an official MCP server you can connect to by passing https://api.githubcopilot.com/mcp/ to the server_url field in the MCP tool.
+
+Authorizing a connector
+In the authorization field, pass in an OAuth access token. OAuth client registration and authorization must be handled separately by your application.
+
+For testing purposes, you can use Google's OAuth 2.0 Playground to generate temporary access tokens that you can use in an API request.
+
+To use the playground to test the connectors API functionality, start by entering:
+
+https://www.googleapis.com/auth/calendar.events
+This authorization scope will enable the API to read Google Calendar events. In the UI under "Step 1: Select and authorize APIs".
+
+After authorizing the application with your Google account, you will come to "Step 2: Exchange authorization code for tokens". This will generate an access token you can use in an API request using the Google Calendar connector:
+
+Use the Google Calendar connector
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "google_calendar",
+            "connector_id": "connector_googlecalendar",
+            "authorization": "ya29.A0AS3H6...",
+            "require_approval": "never",
+        },
+    ],
+    input="What's on my Google Calendar for today?",
+)
+
+print(resp.output_text)
+An MCP tool call from a Connector will look the same as an MCP tool call from a remote MCP server, using the mcp_call output item type. In this case, both the arguments to and the response from the Connector are JSON strings:
+
+{
+    "id": "mcp_68a62ae1c93c81a2b98c29340aa3ed8800e9b63986850588",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"time_min\":\"2025-08-20T00:00:00\",\"time_max\":\"2025-08-21T00:00:00\",\"timezone_str\":null,\"max_results\":50,\"query\":null,\"calendar_id\":null,\"next_page_token\":null}",
+    "error": null,
+    "name": "search_events",
+    "output": "{\"events\": [{\"id\": \"2n8ni54ani58pc3ii6soelupcs_20250820\", \"summary\": \"Home\", \"location\": null, \"start\": \"2025-08-20T00:00:00\", \"end\": \"2025-08-21T00:00:00\", \"url\": \"https://www.google.com/calendar/event?eid=Mm44bmk1NGFuaTU4cGMzaWk2c29lbHVwY3NfMjAyNTA4MjAga3doaW5uZXJ5QG9wZW5haS5jb20&ctz=America/Los_Angeles\", \"description\": \"\\n\\n\", \"transparency\": \"transparent\", \"display_url\": \"https://www.google.com/calendar/event?eid=Mm44bmk1NGFuaTU4cGMzaWk2c29lbHVwY3NfMjAyNTA4MjAga3doaW5uZXJ5QG9wZW5haS5jb20&ctz=America/Los_Angeles\", \"display_title\": \"Home\"}], \"next_page_token\": null}",
+    "server_label": "Google_Calendar"
+}
+Available tools in each connector
+The available tools depend on which scopes your OAuth token has available to it. Expand the tables below to see what tools you can use when connecting to each application.
+
+Dropbox
+Gmail
+Google Calendar
+Google Drive
+Microsoft Teams
+Outlook Calendar
+Outlook Email
+Sharepoint
+Risks and safety
+The MCP tool permits you to connect OpenAI models to external services. This is a powerful feature that comes with some risks.
+
+For connectors, there is a risk of potentially sending sensitive data to OpenAI, or allowing models read access to potentially sensitive data in those services.
+
+Remote MCP servers carry those same risks, but also have not been verified by OpenAI. These servers can allow models to access, send, and receive data, and take action in these services. All MCP servers are third-party services that are subject to their own terms and conditions.
+
+If you come across a malicious MCP server, please report it to security@openai.com.
+
+Below are some best practices to consider when integrating connectors and remote MCP servers.
+
+Prompt injection
+Prompt injection is an important security consideration in any LLM application, and is especially true when you give the model access to MCP servers and connectors which can access sensitive data or take action. Use these tools with appropriate caution and mitigations if the prompt for the model contains user-provided content.
+
+Always require approval for sensitive actions
+Use the available configurations of the require_approval and allowed_tools parameters to ensure that any sensitive actions require an approval flow.
+
+URLs within MCP tool calls and outputs
+It can be dangerous to request URLs or embed image URLs provided by tool call outputs either from connectors or remote MCP servers. Ensure that you trust the domains and services providing those URLs before embedding or otherwise using them in your application code.
+
+Connecting to trusted servers
+Pick official servers hosted by the service providers themselves (e.g. we recommend connecting to the Stripe server hosted by Stripe themselves on mcp.stripe.com, instead of a Stripe MCP server hosted by a third party). Because there aren't too many official remote MCP servers today, you may be tempted to use a MCP server hosted by an organization that doesn't operate that server and simply proxies request to that service via your API. If you must do this, be extra careful in doing your due diligence on these "aggregators", and carefully review how they use your data.
+
+Log and review data being shared with third party MCP servers.
+Because MCP servers define their own tool definitions, they may request for data that you may not always be comfortable sharing with the host of that MCP server. Because of this, the MCP tool in the Responses API defaults to requiring approvals of each MCP tool call being made. When developing your application, review the type of data being shared with these MCP servers carefully and robustly. Once you gain confidence in your trust of this MCP server, you can skip these approvals for more performant execution.
+
+We also recommend logging any data sent to MCP servers. If you're using the Responses API with store=true, these data are already logged via the API for 30 days unless Zero Data Retention is enabled for your organization. You may also want to log these data in your own systems and perform periodic reviews on this to ensure data is being shared per your expectations.
+
+Malicious MCP servers may include hidden instructions (prompt injections) designed to make OpenAI models behave unexpectedly. While OpenAI has implemented built-in safeguards to help detect and block these threats, it's essential to carefully review inputs and outputs, and ensure connections are established only with trusted servers.
+
+MCP servers may update tool behavior unexpectedly, potentially leading to unintended or malicious behavior.
+
+Implications on Zero Data Retention and Data Residency
+The MCP tool is compatible with Zero Data Retention and Data Residency, but it's important to note that MCP servers are third-party services, and data sent to an MCP server is subject to their data retention and data residency policies.
+
+In other words, if you're an organization with Data Residency in Europe, OpenAI will limit inference and storage of Customer Content to take place in Europe up until the point communication or data is sent to the MCP server. It is your responsibility to ensure that the MCP server also adheres to any Zero Data Retention or Data Residency requirements you may have. Learn more about Zero Data Retention and Data Residency here.
+
+Usage notes
+API Availability	Rate limits	Notes
+Responses
+Chat Completions
+Assistants
+Tier 1
+200 RPM
+
+Tier 2 and 3
+1000 RPM
+
+Tier 4 and 5
+2000 RPM
+
+Pricing
+ZDR and data residency
+
+Was this page useful?
+Overview
+How it works
+Authentication
+Connectors
+Risks and safety
+Usage notes
+
+
+
+
+/
+Dashboard
+Docs
+API reference
+Connectors and MCP servers
+Beta
+Use connectors and remote MCP servers to give models new capabilities.
+In addition to tools you make available to the model with function calling, you can give models new capabilities using connectors and remote MCP servers. These tools give the model the ability to connect to and control external services when needed to respond to a user's prompt. These tool calls can either be allowed automatically, or restricted with explicit approval required by you as the developer.
+
+Connectors are OpenAI-maintained MCP wrappers for popular services like Google Workspace or Dropbox, like the connectors available in ChatGPT.
+Remote MCP servers can be any server on the public Internet that implements a remote Model Context Protocol (MCP) server.
+This guide will show how to use both remote MCP servers and connectors to give the model access to new capabilities.
+
+Quickstart
+Check out the examples below to see how remote MCP servers and connectors work through the Responses API. Both connectors and remote MCP servers can be used with the mcp built-in tool type.
+
+Using remote MCP servers
+Using connectors
+Connectors require a connector_id parameter, and an OAuth access token provided by your application in the authorization parameter.
+
+Using connectors in the Responses API
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "Dropbox",
+            "connector_id": "connector_dropbox",
+            "authorization": "<oauth access token>",
+            "require_approval": "never",
+        },
+    ],
+    input="Summarize the Q2 earnings report.",
+)
+
+print(resp.output_text)
+The API will return new items in the output array of the model response. If the model decides to use a Connector or MCP server, it will first make a request to list available tools from the server, which will create a mcp_list_tools output item. From the simple remote MCP server example above, it contains only one tool definition:
+
+{
+    "id": "mcpl_68a6102a4968819c8177b05584dd627b0679e572a900e618",
+    "type": "mcp_list_tools",
+    "server_label": "dmcp",
+    "tools": [
+        {
+            "annotations": null,
+            "description": "Given a string of text describing a dice roll...",
+            "input_schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "diceRollExpression": {
+                        "type": "string"
+                    }
+                },
+                "required": ["diceRollExpression"],
+                "additionalProperties": false
+            },
+            "name": "roll"
+        }
+    ]
+}
+If the model decides to call one of the available tools from the MCP server, you will also find a mcp_call output which will show what the model sent to the MCP tool, and what the MCP tool sent back as output.
+
+{
+    "id": "mcp_68a6102d8948819c9b1490d36d5ffa4a0679e572a900e618",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "error": null,
+    "name": "roll",
+    "output": "4",
+    "server_label": "dmcp"
+}
+Read on in the guide below to learn more about how the MCP tool works, how to filter available tools, and how to handle tool call approval requests.
+
+How it works
+The MCP tool (for both remote MCP servers and connectors) is available in the Responses API in most recent models. Check MCP tool compatibility for your model here. When you're using the MCP tool, you only pay for tokens used when importing tool definitions or making tool calls. There are no additional fees involved per tool call.
+
+Below, we'll step through the process the API takes when calling an MCP tool.
+
+Step 1: Listing available tools
+When you specify a remote MCP server in the tools parameter, the API will attempt to get a list of tools from the server. The Responses API works with remote MCP servers that support either the Streamable HTTP or the HTTP/SSE transport protocols.
+
+If successful in retrieving the list of tools, a new mcp_list_tools output item will appear in the model response output. The tools property of this object will show the tools that were successfully imported.
+
+{
+    "id": "mcpl_68a6102a4968819c8177b05584dd627b0679e572a900e618",
+    "type": "mcp_list_tools",
+    "server_label": "dmcp",
+    "tools": [
+        {
+            "annotations": null,
+            "description": "Given a string of text describing a dice roll...",
+            "input_schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "diceRollExpression": {
+                        "type": "string"
+                    }
+                },
+                "required": ["diceRollExpression"],
+                "additionalProperties": false
+            },
+            "name": "roll"
+        }
+    ]
+}
+As long as the mcp_list_tools item is present in the context of an API request, the API will not fetch a list of tools from the MCP server again at each turn in a conversation. We recommend you keep this item in the model's context as part of every conversation or workflow execution to optimize for latency.
+
+Filtering tools
+Some MCP servers can have dozens of tools, and exposing many tools to the model can result in high cost and latency. If you're only interested in a subset of tools an MCP server exposes, you can use the allowed_tools parameter to only import those tools.
+
+Constrain allowed tools
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[{
+        "type": "mcp",
+        "server_label": "dmcp",
+        "server_description": "A Dungeons and Dragons MCP server to assist with dice rolling.",
+        "server_url": "https://dmcp-server.deno.dev/sse",
+        "require_approval": "never",
+        "allowed_tools": ["roll"],
+    }],
+    input="Roll 2d4+1",
+)
+
+print(resp.output_text)
+Step 2: Calling tools
+Once the model has access to these tool definitions, it may choose to call them depending on what's in the model's context. When the model decides to call an MCP tool, the API will make an request to the remote MCP server to call the tool and put its output into the model's context. This creates an mcp_call item which looks like this:
+
+{
+    "id": "mcp_68a6102d8948819c9b1490d36d5ffa4a0679e572a900e618",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "error": null,
+    "name": "roll",
+    "output": "4",
+    "server_label": "dmcp"
+}
+This item includes both the arguments the model decided to use for this tool call, and the output that the remote MCP server returned. All models can choose to make multiple MCP tool calls, so you may see several of these items generated in a single API request.
+
+Failed tool calls will populate the error field of this item with MCP protocol errors, MCP tool execution errors, or general connectivity errors. The MCP errors are documented in the MCP spec here.
+
+Approvals
+By default, OpenAI will request your approval before any data is shared with a connector or remote MCP server. Approvals help you maintain control and visibility over what data is being sent to an MCP server. We highly recommend that you carefully review (and optionally log) all data being shared with a remote MCP server. A request for an approval to make an MCP tool call creates a mcp_approval_request item in the Response's output that looks like this:
+
+{
+    "id": "mcpr_68a619e1d82c8190b50c1ccba7ad18ef0d2d23a86136d339",
+    "type": "mcp_approval_request",
+    "arguments": "{\"diceRollExpression\":\"2d4 + 1\"}",
+    "name": "roll",
+    "server_label": "dmcp"
+}
+You can then respond to this by creating a new Response object and appending an mcp_approval_response item to it.
+
+Approving the use of tools in an API request
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[{
+        "type": "mcp",
+        "server_label": "dmcp",
+        "server_description": "A Dungeons and Dragons MCP server to assist with dice rolling.",
+        "server_url": "https://dmcp-server.deno.dev/sse",
+        "require_approval": "always",
+    }],
+    previous_response_id="resp_682d498bdefc81918b4a6aa477bfafd904ad1e533afccbfa",
+    input=[{
+        "type": "mcp_approval_response",
+        "approve": True,
+        "approval_request_id": "mcpr_682d498e3bd4819196a0ce1664f8e77b04ad1e533afccbfa"
+    }],
+)
+
+print(resp.output_text)
+Here we're using the previous_response_id parameter to chain this new Response, with the previous Response that generated the approval request. But you can also pass back the outputs from one response, as inputs into another for maximum control over what enter's the model's context.
+
+If and when you feel comfortable trusting a remote MCP server, you can choose to skip the approvals for reduced latency. To do this, you can set the require_approval parameter of the MCP tool to an object listing just the tools you'd like to skip approvals for like shown below, or set it to the value 'never' to skip approvals for all tools in that remote MCP server.
+
+Never require approval for some tools
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "deepwiki",
+            "server_url": "https://mcp.deepwiki.com/mcp",
+            "require_approval": {
+                "never": {
+                    "tool_names": ["ask_question", "read_wiki_structure"]
+                }
+            }
+        },
+    ],
+    input="What transport protocols does the 2025-03-26 version of the MCP spec (modelcontextprotocol/modelcontextprotocol) support?",
+)
+
+print(resp.output_text)
+Authentication
+Unlike the example MCP server we used above, most other MCP servers require authentication. The most common scheme is an OAuth access token. Provide this token using the authorization field of the MCP tool:
+
+Use Stripe MCP tool
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    input="Create a payment link for $20",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "stripe",
+            "server_url": "https://mcp.stripe.com",
+            "authorization": "$STRIPE_OAUTH_ACCESS_TOKEN"
+        }
+    ]
+)
+
+print(resp.output_text)
+To prevent the leakage of sensitive tokens, the Responses API does not store the value you provide in the authorization field. This value will also not be visible in the Response object created. Additionally, because some remote MCP servers generate authenticated URLs, we also discard the path portion of the server_url in our responses (i.e. example.com/mcp becomes example.com). Because of this, you must send the full path of the MCP server_url and the authorization value in every Responses API creation request you make.
+
+Connectors
+The Responses API has built-in support for a limited set of connectors to third-party services. These connectors let you pull in context from popular applications, like Dropbox and Gmail, to allow the model to interact with popular services.
+
+Connectors can be used in the same way as remote MCP servers. Both let an OpenAI model access additional third-party tools in an API request. However, instead of passing a server_url as you would to call a remote MCP server, you pass a connector_id which uniquely identifies a connector available in the API.
+
+Available connectors
+Dropbox: connector_dropbox
+Gmail: connector_gmail
+Google Calendar: connector_googlecalendar
+Google Drive: connector_googledrive
+Microsoft Teams: connector_microsoftteams
+Outlook Calendar: connector_outlookcalendar
+Outlook Email: connector_outlookemail
+SharePoint: connector_sharepoint
+We prioritized services that don't have official remote MCP servers. GitHub, for instance, has an official MCP server you can connect to by passing https://api.githubcopilot.com/mcp/ to the server_url field in the MCP tool.
+
+Authorizing a connector
+In the authorization field, pass in an OAuth access token. OAuth client registration and authorization must be handled separately by your application.
+
+For testing purposes, you can use Google's OAuth 2.0 Playground to generate temporary access tokens that you can use in an API request.
+
+To use the playground to test the connectors API functionality, start by entering:
+
+https://www.googleapis.com/auth/calendar.events
+This authorization scope will enable the API to read Google Calendar events. In the UI under "Step 1: Select and authorize APIs".
+
+After authorizing the application with your Google account, you will come to "Step 2: Exchange authorization code for tokens". This will generate an access token you can use in an API request using the Google Calendar connector:
+
+Use the Google Calendar connector
+from openai import OpenAI
+
+client = OpenAI()
+
+resp = client.responses.create(
+    model="gpt-5",
+    tools=[
+        {
+            "type": "mcp",
+            "server_label": "google_calendar",
+            "connector_id": "connector_googlecalendar",
+            "authorization": "ya29.A0AS3H6...",
+            "require_approval": "never",
+        },
+    ],
+    input="What's on my Google Calendar for today?",
+)
+
+print(resp.output_text)
+An MCP tool call from a Connector will look the same as an MCP tool call from a remote MCP server, using the mcp_call output item type. In this case, both the arguments to and the response from the Connector are JSON strings:
+
+{
+    "id": "mcp_68a62ae1c93c81a2b98c29340aa3ed8800e9b63986850588",
+    "type": "mcp_call",
+    "approval_request_id": null,
+    "arguments": "{\"time_min\":\"2025-08-20T00:00:00\",\"time_max\":\"2025-08-21T00:00:00\",\"timezone_str\":null,\"max_results\":50,\"query\":null,\"calendar_id\":null,\"next_page_token\":null}",
+    "error": null,
+    "name": "search_events",
+    "output": "{\"events\": [{\"id\": \"2n8ni54ani58pc3ii6soelupcs_20250820\", \"summary\": \"Home\", \"location\": null, \"start\": \"2025-08-20T00:00:00\", \"end\": \"2025-08-21T00:00:00\", \"url\": \"https://www.google.com/calendar/event?eid=Mm44bmk1NGFuaTU4cGMzaWk2c29lbHVwY3NfMjAyNTA4MjAga3doaW5uZXJ5QG9wZW5haS5jb20&ctz=America/Los_Angeles\", \"description\": \"\\n\\n\", \"transparency\": \"transparent\", \"display_url\": \"https://www.google.com/calendar/event?eid=Mm44bmk1NGFuaTU4cGMzaWk2c29lbHVwY3NfMjAyNTA4MjAga3doaW5uZXJ5QG9wZW5haS5jb20&ctz=America/Los_Angeles\", \"display_title\": \"Home\"}], \"next_page_token\": null}",
+    "server_label": "Google_Calendar"
+}
+Available tools in each connector
+The available tools depend on which scopes your OAuth token has available to it. Expand the tables below to see what tools you can use when connecting to each application.
+
+Dropbox
+Gmail
+Google Calendar
+Google Drive
+Microsoft Teams
+Outlook Calendar
+Outlook Email
+Sharepoint
+Risks and safety
+The MCP tool permits you to connect OpenAI models to external services. This is a powerful feature that comes with some risks.
+
+For connectors, there is a risk of potentially sending sensitive data to OpenAI, or allowing models read access to potentially sensitive data in those services.
+
+Remote MCP servers carry those same risks, but also have not been verified by OpenAI. These servers can allow models to access, send, and receive data, and take action in these services. All MCP servers are third-party services that are subject to their own terms and conditions.
+
+If you come across a malicious MCP server, please report it to security@openai.com.
+
+Below are some best practices to consider when integrating connectors and remote MCP servers.
+
+Prompt injection
+Prompt injection is an important security consideration in any LLM application, and is especially true when you give the model access to MCP servers and connectors which can access sensitive data or take action. Use these tools with appropriate caution and mitigations if the prompt for the model contains user-provided content.
+
+Always require approval for sensitive actions
+Use the available configurations of the require_approval and allowed_tools parameters to ensure that any sensitive actions require an approval flow.
+
+URLs within MCP tool calls and outputs
+It can be dangerous to request URLs or embed image URLs provided by tool call outputs either from connectors or remote MCP servers. Ensure that you trust the domains and services providing those URLs before embedding or otherwise using them in your application code.
+
+Connecting to trusted servers
+Pick official servers hosted by the service providers themselves (e.g. we recommend connecting to the Stripe server hosted by Stripe themselves on mcp.stripe.com, instead of a Stripe MCP server hosted by a third party). Because there aren't too many official remote MCP servers today, you may be tempted to use a MCP server hosted by an organization that doesn't operate that server and simply proxies request to that service via your API. If you must do this, be extra careful in doing your due diligence on these "aggregators", and carefully review how they use your data.
+
+Log and review data being shared with third party MCP servers.
+Because MCP servers define their own tool definitions, they may request for data that you may not always be comfortable sharing with the host of that MCP server. Because of this, the MCP tool in the Responses API defaults to requiring approvals of each MCP tool call being made. When developing your application, review the type of data being shared with these MCP servers carefully and robustly. Once you gain confidence in your trust of this MCP server, you can skip these approvals for more performant execution.
+
+We also recommend logging any data sent to MCP servers. If you're using the Responses API with store=true, these data are already logged via the API for 30 days unless Zero Data Retention is enabled for your organization. You may also want to log these data in your own systems and perform periodic reviews on this to ensure data is being shared per your expectations.
+
+Malicious MCP servers may include hidden instructions (prompt injections) designed to make OpenAI models behave unexpectedly. While OpenAI has implemented built-in safeguards to help detect and block these threats, it's essential to carefully review inputs and outputs, and ensure connections are established only with trusted servers.
+
+MCP servers may update tool behavior unexpectedly, potentially leading to unintended or malicious behavior.
+
+Implications on Zero Data Retention and Data Residency
+The MCP tool is compatible with Zero Data Retention and Data Residency, but it's important to note that MCP servers are third-party services, and data sent to an MCP server is subject to their data retention and data residency policies.
+
+In other words, if you're an organization with Data Residency in Europe, OpenAI will limit inference and storage of Customer Content to take place in Europe up until the point communication or data is sent to the MCP server. It is your responsibility to ensure that the MCP server also adheres to any Zero Data Retention or Data Residency requirements you may have. Learn more about Zero Data Retention and Data Residency here.
+
+Usage notes
+API Availability	Rate limits	Notes
+Responses
+Chat Completions
+Assistants
+Tier 1
+200 RPM
+
+Tier 2 and 3
+1000 RPM
+
+Tier 4 and 5
+2000 RPM
+
+Pricing
+ZDR and data residency
+
+Was this page useful?
+Overview
+How it works
+Authentication
+Connectors
+Risks and safety
+Usage notes
+
+
+
+/
+Dashboard
+Docs
+API reference
+Web search
+Allow models to search the web for the latest information before generating a response.
+Web search allows models to access up-to-date information from the internet and provide answers with sourced citations. To enable this, use the web search tool in the Responses API or, in some cases, Chat Completions.
+
+There are three main types of web search available with OpenAI models:
+
+Non‑reasoning web search: The non-reasoning model sends the user’s query to the web search tool, which returns the response based on top results. There’s no internal planning and the model simply passes along the search tool’s responses. This method is fast and ideal for quick lookups.
+Agentic search with reasoning models is an approach where the model actively manages the search process. It can perform web searches as part of its chain of thought, analyze results, and decide whether to keep searching. This flexibility makes agentic search well suited to complex workflows, but it also means searches take longer than quick lookups. For example, you can adjust GPT-5’s reasoning level to change both the depth and latency of the search.
+Deep research is a specialized, agent-driven method for in-depth, extended investigations by reasoning models. The model conducts web searches as part of its chain of thought, often tapping into hundreds of sources. Deep research can run for several minutes and is best used with background mode. These tasks typically use models like o3-deep-research, o4-mini-deep-research, or gpt-5 with reasoning level set to high.
+Using the Responses API, you can enable web search by configuring it in the tools array in an API request to generate content. Like any other tool, the model can choose to search the web or not based on the content of the input prompt.
+
+Web search tool example
+import OpenAI from "openai";
+const client = new OpenAI();
+
+const response = await client.responses.create({
+    model: "gpt-5",
+    tools: [
+        { type: "web_search" },
+    ],
+    input: "What was a positive news story from today?",
+});
+
+console.log(response.output_text);
+Output and citations
+Model responses that use the web search tool will include two parts:
+
+A web_search_call output item with the ID of the search call, along with the action taken in web_search_call.action. The action is one of:
+search, which represents a web search. It will usually (but not always) includes the search query and domains which were searched. Search actions incur a tool call cost (see pricing).
+open_page, which represents a page being opened. Supported in reasoning models.
+find_in_page, which represents searching within a page. Supported in reasoning models.
+A message output item containing:
+The text result in message.content[0].text
+Annotations message.content[0].annotations for the cited URLs
+By default, the model's response will include inline citations for URLs found in the web search results. In addition to this, the url_citation annotation object will contain the URL, title and location of the cited source.
+
+When displaying web results or information contained in web results to end users, inline citations must be made clearly visible and clickable in your user interface.
+
+[
+    {
+        "type": "web_search_call",
+        "id": "ws_67c9fa0502748190b7dd390736892e100be649c1a5ff9609",
+        "status": "completed"
+    },
+    {
+        "id": "msg_67c9fa077e288190af08fdffda2e34f20be649c1a5ff9609",
+        "type": "message",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "output_text",
+                "text": "On March 6, 2025, several news...",
+                "annotations": [
+                    {
+                        "type": "url_citation",
+                        "start_index": 2606,
+                        "end_index": 2758,
+                        "url": "https://...",
+                        "title": "Title..."
+                    }
+                ]
+            }
+        ]
+    }
+]
+Domain filtering
+Domain filtering in web search lets you limit results to a specific set of domains. With the filters parameter you can set an allow-list of up to 20 URLs. When formatting URLs, omit the HTTP or HTTPS prefix. For example, use 
+openai.com
+ instead of 
+https://openai.com/
+. This approach also includes subdomains in the search. Note that domain filtering is only available in the Responses API with the web_search tool.
+
+Sources
+To view all URLs retrieved during a web search, use the sources field. Unlike inline citations, which show only the most relevant references, sources returns the complete list of URLs the model consulted when forming its response. The number of sources is often greater than the number of citations. Real-time third-party feeds are also surfaced here and are labeled as oai-sports, oai-weather, or oai-finance. The sources field is available with both the web_search and web_search_preview tools.
+
+List sources
+curl "https://api.openai.com/v1/responses" \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer $OPENAI_API_KEY" \
+-d '{
+  "model": "gpt-5",
+  "reasoning": { "effort": "low" },
+  "tools": [
+    {
+      "type": "web_search",
+      "filters": {
+        "allowed_domains": [
+          "pubmed.ncbi.nlm.nih.gov",
+          "clinicaltrials.gov",
+          "www.who.int",
+          "www.cdc.gov",
+          "www.fda.gov"
+        ]
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "include": ["web_search_call.action.sources"],
+  "input": "Please perform a web search on how semaglutide is used in the treatment of diabetes."
+}'
+User location
+To refine search results based on geography, you can specify an approximate user location using country, city, region, and/or timezone.
+
+The city and region fields are free text strings, like Minneapolis and Minnesota respectively.
+The country field is a two-letter ISO country code, like US.
+The timezone field is an IANA timezone like America/Chicago.
+Note that user location is not supported for deep research models using web search.
+
+Customizing user location
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const response = await openai.responses.create({
+    model: "o4-mini",
+    tools: [{
+        type: "web_search",
+        user_location: {
+            type: "approximate",
+            country: "GB",
+            city: "London",
+            region: "London"
+        }
+    }],
+    input: "What are the best restaurants near me?",
+});
+console.log(response.output_text);
+API compatibility
+Web search is available in the Responses API as the generally available version of the tool, web_search, as well as the earlier tool version, web_search_preview. To use web search in the Chat Completions API, use the specialized web search models gpt-4o-search-preview and gpt-4o-mini-search-preview.
+
+Limitations
+Web search is currently not supported in 
+gpt-5
+ with minimal reasoning, and 
+gpt-4.1-nano
+.
+When used as a tool in the Responses API, web search has the same tiered rate limits as the models above.
+Web search is limited to a context window size of 128000 (even with 
+gpt-4.1
+ and 
+gpt-4.1-mini
+ models).
+Usage notes
+API Availability	Rate limits	Notes
+Responses
+Chat Completions
+Assistants
+Same as tiered rate limits for underlying model used with the tool.
+
+Pricing
+ZDR and data residency
+
+Was this page useful?
+Overview
+Output and citations
+Domain filtering
+Sources
+User location
+API compatibility
+Usage notes
+
+
+
+/
+Dashboard
+Docs
+API reference
+Computer use
+Build a computer-using agent that can perform tasks on your behalf.
+Computer use is a practical application of our Computer-Using Agent (CUA) model, computer-use-preview, which combines the vision capabilities of GPT-4o with advanced reasoning to simulate controlling computer interfaces and performing tasks.
+
+Computer use is available through the Responses API. It is not available on Chat Completions.
+
+Computer use is in beta. Because the model is still in preview and may be susceptible to exploits and inadvertent mistakes, we discourage trusting it in fully authenticated environments or for high-stakes tasks. See limitations and risk and safety best practices below. You must use the Computer Use tool in line with OpenAI's Usage Policy and Business Terms.
+
+How it works
+The computer use tool operates in a continuous loop. It sends computer actions, like click(x,y) or type(text), which your code executes on a computer or browser environment and then returns screenshots of the outcomes back to the model.
+
+In this way, your code simulates the actions of a human using a computer interface, while our model uses the screenshots to understand the state of the environment and suggest next actions.
+
+This loop lets you automate many tasks requiring clicking, typing, scrolling, and more. For example, booking a flight, searching for a product, or filling out a form.
+
+Refer to the integration section below for more details on how to integrate the computer use tool, or check out our sample app repository to set up an environment and try example integrations.
+
+CUA sample app
+Examples of how to integrate the computer use tool in different environments
+
+Setting up your environment
+Before integrating the tool, prepare an environment that can capture screenshots and execute the recommended actions. We recommend using a sandboxed environment for safety reasons.
+
+In this guide, we'll show you examples using either a local browsing environment or a local virtual machine, but there are more example computer environments in our sample app.
+
+Set up a local browsing environment
+Set up a local virtual machine
+Integrating the CUA loop
+These are the high-level steps you need to follow to integrate the computer use tool in your application:
+
+Send a request to the model: Include the computer tool as part of the available tools, specifying the display size and environment. You can also include in the first request a screenshot of the initial state of the environment.
+
+Receive a response from the model: Check if the response has any computer_call items. This tool call contains a suggested action to take to progress towards the specified goal. These actions could be clicking at a given position, typing in text, scrolling, or even waiting.
+
+Execute the requested action: Execute through code the corresponding action on your computer or browser environment.
+
+Capture the updated state: After executing the action, capture the updated state of the environment as a screenshot.
+
+Repeat: Send a new request with the updated state as a computer_call_output, and repeat this loop until the model stops requesting actions or you decide to stop.
+
+Computer use diagram
+
+1. Send a request to the model
+Send a request to create a Response with the computer-use-preview model equipped with the computer_use_preview tool. This request should include details about your environment, along with an initial input prompt.
+
+If you want to show a summary of the reasoning performed by the model, you can include the summary parameter in the request. This can be helpful if you want to debug or show what's happening behind the scenes in your interface. The summary can either be concise or detailed.
+
+Optionally, you can include a screenshot of the initial state of the environment.
+
+To be able to use the computer_use_preview tool, you need to set the truncation parameter to "auto" (by default, truncation is disabled).
+
+Send a CUA request
+from openai import OpenAI
+client = OpenAI()
+
+response = client.responses.create(
+    model="computer-use-preview",
+    tools=[{
+        "type": "computer_use_preview",
+        "display_width": 1024,
+        "display_height": 768,
+        "environment": "browser" # other possible values: "mac", "windows", "ubuntu"
+    }],    
+    input=[
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Check the latest OpenAI news on bing.com."
+            }
+            # Optional: include a screenshot of the initial state of the environment
+            # {
+            #     type: "input_image",
+            #     image_url: f"data:image/png;base64,{screenshot_base64}"
+            # }
+          ]
+        }
+    ],
+    reasoning={
+        "summary": "concise",
+    },
+    truncation="auto"
+)
+
+print(response.output)
+2. Receive a suggested action
+The model returns an output that contains either a computer_call item, just text, or other tool calls, depending on the state of the conversation.
+
+Examples of computer_call items are a click, a scroll, a key press, or any other event defined in the API reference. In our example, the item is a click action:
+
+CUA suggested action
+"output": [
+    {
+        "type": "reasoning",
+        "id": "rs_67cc...",
+        "summary": [
+            {
+                "type": "summary_text",
+                "text": "Clicking on the browser address bar."
+            }
+        ]
+    },
+    {
+        "type": "computer_call",
+        "id": "cu_67cc...",
+        "call_id": "call_zw3...",
+        "action": {
+            "type": "click",
+            "button": "left",
+            "x": 156,
+            "y": 50
+        },
+        "pending_safety_checks": [],
+        "status": "completed"
+    }
+]
+Reasoning items
+The model may return a reasoning item in the response output for some actions. If you don't use the previous_response_id parameter as shown in Step 5 and manage the inputs array on your end, make sure to include those reasoning items along with the computer calls when sending the next request to the CUA model–or the request will fail.
+
+The reasoning items are only compatible with the same model that produced them (in this case, computer-use-preview). If you implement a flow where you use several models with the same conversation history, you should filter these reasoning items out of the inputs array you send to other models.
+
+Safety checks
+The model may return safety checks with the pending_safety_check parameter. Refer to the section on how to acknowledge safety checks below for more details.
+
+3. Execute the action in your environment
+Execute the corresponding actions on your computer or browser. How you map a computer call to actions through code depends on your environment. This code shows example implementations for the most common computer actions.
+
+Playwright
+Docker
+Execute the action
+def handle_model_action(page, action):
+    """
+    Given a computer action (e.g., click, double_click, scroll, etc.),
+    execute the corresponding operation on the Playwright page.
+    """
+    action_type = action.type
+    
+    try:
+        match action_type:
+
+            case "click":
+                x, y = action.x, action.y
+                button = action.button
+                print(f"Action: click at ({x}, {y}) with button '{button}'")
+                # Not handling things like middle click, etc.
+                if button != "left" and button != "right":
+                    button = "left"
+                page.mouse.click(x, y, button=button)
+
+            case "scroll":
+                x, y = action.x, action.y
+                scroll_x, scroll_y = action.scroll_x, action.scroll_y
+                print(f"Action: scroll at ({x}, {y}) with offsets (scroll_x={scroll_x}, scroll_y={scroll_y})")
+                page.mouse.move(x, y)
+                page.evaluate(f"window.scrollBy({scroll_x}, {scroll_y})")
+
+            case "keypress":
+                keys = action.keys
+                for k in keys:
+                    print(f"Action: keypress '{k}'")
+                    # A simple mapping for common keys; expand as needed.
+                    if k.lower() == "enter":
+                        page.keyboard.press("Enter")
+                    elif k.lower() == "space":
+                        page.keyboard.press(" ")
+                    else:
+                        page.keyboard.press(k)
+            
+            case "type":
+                text = action.text
+                print(f"Action: type text: {text}")
+                page.keyboard.type(text)
+            
+            case "wait":
+                print(f"Action: wait")
+                time.sleep(2)
+
+            case "screenshot":
+                # Nothing to do as screenshot is taken at each turn
+                print(f"Action: screenshot")
+
+            # Handle other actions here
+
+            case _:
+                print(f"Unrecognized action: {action}")
+
+    except Exception as e:
+        print(f"Error handling action {action}: {e}")
+4. Capture the updated screenshot
+After executing the action, capture the updated state of the environment as a screenshot, which also differs depending on your environment.
+
+Playwright
+Docker
+Capture and send the updated screenshot
+def get_screenshot(page):
+    """
+    Take a full-page screenshot using Playwright and return the image bytes.
+    """
+    return page.screenshot()
+5. Repeat
+Once you have the screenshot, you can send it back to the model as a computer_call_output to get the next action. Repeat these steps as long as you get a computer_call item in the response.
+
+Repeat steps in a loop
+import time
+import base64
+from openai import OpenAI
+client = OpenAI()
+
+def computer_use_loop(instance, response):
+    """
+    Run the loop that executes computer actions until no 'computer_call' is found.
+    """
+    while True:
+        computer_calls = [item for item in response.output if item.type == "computer_call"]
+        if not computer_calls:
+            print("No computer call found. Output from model:")
+            for item in response.output:
+                print(item)
+            break  # Exit when no computer calls are issued.
+
+        # We expect at most one computer call per response.
+        computer_call = computer_calls[0]
+        last_call_id = computer_call.call_id
+        action = computer_call.action
+
+        # Execute the action (function defined in step 3)
+        handle_model_action(instance, action)
+        time.sleep(1)  # Allow time for changes to take effect.
+
+        # Take a screenshot after the action (function defined in step 4)
+        screenshot_bytes = get_screenshot(instance)
+        screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+
+        # Send the screenshot back as a computer_call_output
+        response = client.responses.create(
+            model="computer-use-preview",
+            previous_response_id=response.id,
+            tools=[
+                {
+                    "type": "computer_use_preview",
+                    "display_width": 1024,
+                    "display_height": 768,
+                    "environment": "browser"
+                }
+            ],
+            input=[
+                {
+                    "call_id": last_call_id,
+                    "type": "computer_call_output",
+                    "output": {
+                        "type": "input_image",
+                        "image_url": f"data:image/png;base64,{screenshot_base64}"
+                    }
+                }
+            ],
+            truncation="auto"
+        )
+
+    return response
+Handling conversation history
+You can use the previous_response_id parameter to link the current request to the previous response. We recommend using this method if you don't want to manage the conversation history on your side.
+
+If you do not want to use this parameter, you should make sure to include in your inputs array all the items returned in the response output of the previous request, including reasoning items if present.
+
+Acknowledge safety checks
+We have implemented safety checks in the API to help protect against prompt injection and model mistakes. These checks include:
+
+Malicious instruction detection: we evaluate the screenshot image and check if it contains adversarial content that may change the model's behavior.
+Irrelevant domain detection: we evaluate the current_url (if provided) and check if the current domain is considered relevant given the conversation history.
+Sensitive domain detection: we check the current_url (if provided) and raise a warning when we detect the user is on a sensitive domain.
+If one or multiple of the above checks is triggered, a safety check is raised when the model returns the next computer_call, with the pending_safety_checks parameter.
+
+Pending safety checks
+"output": [
+    {
+        "type": "reasoning",
+        "id": "rs_67cb...",
+        "summary": [
+            {
+                "type": "summary_text",
+                "text": "Exploring 'File' menu option."
+            }
+        ]
+    },
+    {
+        "type": "computer_call",
+        "id": "cu_67cb...",
+        "call_id": "call_nEJ...",
+        "action": {
+            "type": "click",
+            "button": "left",
+            "x": 135,
+            "y": 193
+        },
+        "pending_safety_checks": [
+            {
+                "id": "cu_sc_67cb...",
+                "code": "malicious_instructions",
+                "message": "We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed."
+            }
+        ],
+        "status": "completed"
+    }
+]
+You need to pass the safety checks back as acknowledged_safety_checks in the next request in order to proceed. In all cases where pending_safety_checks are returned, actions should be handed over to the end user to confirm model behavior and accuracy.
+
+malicious_instructions and irrelevant_domain: end users should review model actions and confirm that the model is behaving as intended.
+sensitive_domain: ensure an end user is actively monitoring the model actions on these sites. Exact implementation of this "watch mode" may vary by application, but a potential example could be collecting user impression data on the site to make sure there is active end user engagement with the application.
+Acknowledge safety checks
+from openai import OpenAI
+client = OpenAI()
+
+response = client.responses.create(
+    model="computer-use-preview",
+    previous_response_id="<previous_response_id>",
+    tools=[{
+        "type": "computer_use_preview",
+        "display_width": 1024,
+        "display_height": 768,
+        "environment": "browser"
+    }],
+    input=[
+        {
+            "type": "computer_call_output",
+            "call_id": "<call_id>",
+            "acknowledged_safety_checks": [
+                {
+                    "id": "<safety_check_id>",
+                    "code": "malicious_instructions",
+                    "message": "We've detected instructions that may cause your application to perform malicious or unauthorized actions. Please acknowledge this warning if you'd like to proceed."
+                }
+            ],
+            "output": {
+                "type": "computer_screenshot",
+                "image_url": "<image_url>"
+            }
+        }
+    ],
+    truncation="auto"
+)
+Final code
+Putting it all together, the final code should include:
+
+The initialization of the environment
+A first request to the model with the computer tool
+A loop that executes the suggested action in your environment
+A way to acknowledge safety checks and give end users a chance to confirm actions
+To see end-to-end example integrations, refer to our CUA sample app repository.
+
+CUA sample app
+Examples of how to integrate the computer use tool in different environments
+
+Limitations
+We recommend using the computer-use-preview model for browser-based tasks. The model may be susceptible to inadvertent model mistakes, especially in non-browser environments that it is less used to.
+
+For example, computer-use-preview's performance on OSWorld is currently 38.1%, indicating that the model is not yet highly reliable for automating tasks on an OS. More details about the model and related safety work can be found in our updated system card.
+
+Some other behavior limitations to be aware of:
+
+The 
+computer-use-preview
+model has constrained rate limits and feature support, described on its model detail page.
+Refer to this guide for data retention, residency, and handling policies.
+Risks and safety
+Computer use presents unique risks that differ from those in standard API features or chat interfaces, especially when interacting with the internet.
+
+There are a number of best practices listed below that you should follow to mitigate these risks.
+
+Human in the loop for high-stakes tasks
+Avoid tasks that are high-stakes or require high levels of accuracy. The model may make mistakes that are challenging to reverse. As mentioned above, the model is still prone to mistakes, especially on non-browser surfaces. While we expect the model to request user confirmation before proceeding with certain higher-impact decisions, this is not fully reliable. Ensure a human is in the loop to confirm model actions with real-world consequences.
+
+Beware of prompt injections
+A prompt injection occurs when an AI model mistakenly follows untrusted instructions appearing in its input. For the computer-use-preview model, this may manifest as it seeing something in the provided screenshot, like a malicious website or email, that instructs it to do something that the user does not want, and it complies. To avoid prompt injection risk, limit computer use access to trusted, isolated environments like a sandboxed browser or container.
+
+Use blocklists and allowlists
+Implement a blocklist or an allowlist of websites, actions, and users. For example, if you're using the computer use tool to book tickets on a website, create an allowlist of only the websites you expect to use in that workflow.
+
+Send safety identifiers
+Send safety identifiers (safety_identifier param) to help OpenAI monitor and detect abuse.
+
+Use our safety checks
+The following safety checks are available to protect against prompt injection and model mistakes:
+
+Malicious instruction detection
+Irrelevant domain detection
+Sensitive domain detection
+When you receive a pending_safety_check, you should increase oversight into model actions, for example by handing over to an end user to explicitly acknowledge the desire to proceed with the task and ensure that the user is actively monitoring the agent's actions (e.g., by implementing something like a watch mode similar to Operator). Essentially, when safety checks fire, a human should come into the loop.
+
+Read the acknowledge safety checks section above for more details on how to proceed when you receive a pending_safety_check.
+
+Where possible, it is highly recommended to pass in the optional parameter current_url as part of the computer_call_output, as it can help increase the accuracy of our safety checks.
+
+Using current URL
+{
+    "type": "computer_call_output",
+    "call_id": "call_7OU...",
+    "acknowledged_safety_checks": [],
+    "output": {
+        "type": "computer_screenshot",
+        "image_url": "..."
+    },
+    "current_url": "https://openai.com"
+}
+Additional safety precautions
+Implement additional safety precautions as best suited for your application, such as implementing guardrails that run in parallel of the computer use loop.
+
+Comply with our Usage Policy
+Remember, you are responsible for using our services in compliance with the OpenAI Usage Policy and Business Terms, and we encourage you to employ our safety features and tools to help ensure this compliance.
+
+Was this page useful?
+Overview
+How it works
+Setting up your environment
+Integrating the CUA loop
+Limitations
+Risks and safety
+CUA sample app
+Set up CUA with multiple environments.

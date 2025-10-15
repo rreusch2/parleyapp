@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, AppState } from 'react-native';
 import { View, Dimensions, StyleSheet } from 'react-native';
-import { useFrameworkReady } from '../hooks/useFrameworkReady';
+import { useFrameworkReady } from './hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
 import { SubscriptionProvider, useSubscription } from './services/subscriptionContext';
 import { UIThemeProvider } from './services/uiThemeContext';

@@ -2,7 +2,24 @@ const { getDefaultConfig } = require('expo/metro-config');
 const exclusionList = require('metro-config/src/defaults/exclusionList');
 const path = require('path');
 
+// Define project root for monorepo
+const projectRoot = __dirname;
+const workspaceRoot = path.resolve(projectRoot, '../..');
+
 const config = getDefaultConfig(__dirname);
+
+// Configure for monorepo - tell Metro to look at workspace root for shared packages
+config.watchFolders = [workspaceRoot];
+config.resolver.nodeModulesPaths = [
+  path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
+];
+
+// Add workspace root to resolver paths for shared modules
+config.resolver.alias = {
+  '../../hooks': path.resolve(workspaceRoot, 'hooks'),
+  '../../types': path.resolve(workspaceRoot, 'types'),
+};
 
 // Add resolver to handle platform-specific modules
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
@@ -36,8 +53,6 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|\[\]\\]/g, '\\$&');
 }
-
-const projectRoot = __dirname;
 const ignoredDirs = [
   // User-requested folders
   'agent',

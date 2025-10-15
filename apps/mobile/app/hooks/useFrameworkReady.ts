@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 declare global {
   interface Window {
@@ -8,8 +9,11 @@ declare global {
 
 export function useFrameworkReady() {
   useEffect(() => {
-    window.frameworkReady?.();
-  });
+    // Only call frameworkReady on web platform where window exists
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.frameworkReady?.();
+    }
+  }, []);
 }
 
 export default useFrameworkReady;

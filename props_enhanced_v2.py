@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from openai import AsyncOpenAI
 import asyncio
+import requests
 
 # Load env from backend/.env to reuse existing settings
 load_dotenv("backend/.env")
@@ -29,6 +30,48 @@ class FlatProp:
     under_odds: Optional[int]
     is_alt: bool
     player_headshot_url: Optional[str]
+
+class StatMuseClient:
+    def __init__(self, base_url: Optional[str] = None) -> None:
+        self.base_url = base_url or os.getenv('STATMUSE_API_URL', 'http://127.0.0.1:5001')
+        self.session = requests.Session()
+        self.timeout = 20
+
+    def query(self, query: str, sport: Optional[str] = None) -> Dict[str, Any]:
+        try:
+            payload = {"query": query}
+            if sport:
+                payload["sport"] = str(sport).upper()
+            resp = self.session.post(f"{self.base_url}/query", json=payload, timeout=self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logging.warning(f"StatMuse query failed: {e}")
+            return {"success": False, "error": str(e)}
+
+class WebSearchClient:
+    def __init__(self) -> None:
+        self.google_api_key = os.getenv("GOOGLE_SEARCH_API_KEY")
+        self.search_engine_id = os.getenv("GOOGLE_SEARCH_ENGINE_ID")
+        self.google_search_url = "https://www.googleapis.com/customsearch/v1"
+
+    def search(self, query: str) -> Dict[str, Any]:
+        try:
+            if not self.google_api_key or not self.search_engine_id:
+                return {"items": []}
+            params = {
+                "q": query,
+                "key": self.google_api_key,
+                "cx": self.search_engine_id,
+                "num": 5,
+                "safe": "off",
+            }
+            r = requests.get(self.google_search_url, params=params, timeout=15)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            logging.warning(f"Web search failed: {e}")
+            return {"items": []}
 
 
 def display_name_for_stat(stat_key: str) -> str:
@@ -102,6 +145,35 @@ class DB:
             raise RuntimeError('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required')
         self.client: Client = create_client(url, key)
 
+    @staticmethod
+    def _normalize_sport_input(s: str) -> str:
+        mapping_upper = {
+            'MLB': 'Major League Baseball',
+            'NBA': 'National Basketball Association',
+            'NHL': 'National Hockey League',
+            'NFL': 'National Football League',
+            'CFB': 'College Football',
+            'NCAAF': 'College Football',
+            'WNBA': "Women's National Basketball Association",
+        }
+        mapping_lower = {
+            'major league baseball': 'Major League Baseball',
+            "women's national basketball association": "Women's National Basketball Association",
+            'national football league': 'National Football League',
+            'college football': 'College Football',
+            'national hockey league': 'National Hockey League',
+            'national basketball association': 'National Basketball Association',
+        }
+        if not s:
+            return s
+        key_upper = s.strip().upper()
+        if key_upper in mapping_upper:
+            return mapping_upper[key_upper]
+        key_lower = s.strip().lower()
+        if key_lower in mapping_lower:
+            return mapping_lower[key_lower]
+        return s
+
     def get_games_for_date(self, target_date: datetime.date, sport_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         # Simple UTC window for the date
         start_dt = datetime.combine(target_date, datetime.min.time())
@@ -110,7 +182,8 @@ class DB:
         end_iso = end_dt.isoformat()
         sports = []
         if sport_filter:
-            sports = [sport_filter]
+            norm = self._normalize_sport_input(sport_filter)
+            sports = [norm]
         else:
             sports = [
                 'Major League Baseball',
@@ -133,9 +206,9 @@ class DB:
     def get_flat_props_for_games(self, game_ids: List[str]) -> List[FlatProp]:
         if not game_ids:
             return []
-        # Use fast materialized view with inline odds filter [-300, +300]
-        sel = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
-        resp = self.client.table('player_props_v2_flat_quick_mat').select(sel).in_('event_id', game_ids).or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)').execute()
+        # Use the comprehensive player_props_with_details view
+        sel = 'event_id, sport, stat_type, main_line, best_over_odds, best_under_odds, best_over_book, best_under_book, player_name, headshot_url, player_team, position, home_team, away_team, prop_display_name, alt_lines, line_movement, num_bookmakers'
+        resp = self.client.table('player_props_with_details').select(sel).in_('event_id', game_ids).execute()
         rows = resp.data or []
         props: List[FlatProp] = []
         for r in rows:
@@ -146,17 +219,18 @@ class DB:
                         sport=(r.get('sport') or '').upper(),
                         player_name=r.get('player_name') or 'Unknown',
                         stat_key=r.get('stat_type') or '',
-                        prop_label=display_name_for_stat(r.get('stat_type') or ''),
-                        line=float(r.get('line') or 0.0),
-                        bookmaker=r.get('bookmaker') or '',
-                        over_odds=int(r['over_odds']) if r.get('over_odds') is not None else None,
-                        under_odds=int(r['under_odds']) if r.get('under_odds') is not None else None,
-                        is_alt=bool(r.get('is_alt')),
-                        player_headshot_url=r.get('player_headshot_url')
+                        prop_label=r.get('prop_display_name') or display_name_for_stat(r.get('stat_type') or ''),
+                        line=float(r.get('main_line') or 0.0),
+                        bookmaker=r.get('best_over_book') or r.get('best_under_book') or '',
+                        over_odds=int(r['best_over_odds']) if r.get('best_over_odds') is not None else None,
+                        under_odds=int(r['best_under_odds']) if r.get('best_under_odds') is not None else None,
+                        is_alt=False,  # Main lines only from this view
+                        player_headshot_url=r.get('headshot_url')
                     )
                 )
             except Exception:
                 continue
+        
         return props
 
     def get_bookmaker_logos(self) -> Dict[str, Dict[str, str]]:
@@ -270,17 +344,22 @@ class Agent:
     def __init__(self) -> None:
         self.db = DB()
         self.llm = AsyncOpenAI(api_key=os.getenv('XAI_API_KEY'), base_url='https://api.x.ai/v1')
+        self.statmuse = StatMuseClient()
+        self.web = WebSearchClient()
 
     async def run(self, target_date: datetime.date, picks_target: int, sport_filter: Optional[str]) -> None:
         games = self.db.get_games_for_date(target_date, sport_filter)
         if not games:
-            logger.warning(f"No games found for {target_date}")
+            if sport_filter:
+                logger.warning(f"No games found for {target_date} with sport filter '{sport_filter}'")
+            else:
+                logger.warning(f"No games found for {target_date}")
             return
         logger.info(f"Found {len(games)} games for {target_date}")
         event_ids = [g['id'] for g in games]
         props = self.db.get_flat_props_for_games(event_ids)
         if not props:
-            logger.warning("No props found in player_props_v2_flat_quick_mat")
+            logger.warning(f"No props found for today's games in player_props_with_details. Checked {len(event_ids)} events.")
             return
         logger.info(f"Found {len(props)} total props across all games")
         # Limit prompt size: take top N per game/player/market random or ordered
@@ -307,8 +386,50 @@ class Agent:
                 'player_headshot_url': pr.player_headshot_url,
             })
 
-        prompt = self._build_prompt(props_payload, games, picks_target)
-        ai_picks = await self._call_llm(prompt)
+        research_plan_prompt = self._build_research_plan_prompt(props_payload, picks_target)
+        plan_items = await self._call_llm(research_plan_prompt)
+        research_map: Dict[str, Dict[str, Any]] = {}
+        props_index: Dict[str, Dict[str, Any]] = {}
+        for c in props_payload:
+            key = f"{c['event_id']}|{c['player']}|{c['prop_type']}"
+            props_index[key] = c
+        selected_props: List[Dict[str, Any]] = []
+        for it in (plan_items or [])[:max(5, picks_target*2)]:
+            try:
+                eid = str(it.get('event_id') or '')
+                player = it.get('player') or it.get('player_name') or ''
+                ptype = it.get('prop_type') or ''
+                sport = (it.get('sport') or '').upper()
+                key = f"{eid}|{player}|{ptype}"
+                base = props_index.get(key)
+                if not base:
+                    continue
+                selected_props.append(base)
+                statmuse_qs = it.get('statmuse_queries') or []
+                google_qs = it.get('google_queries') or []
+                sm_answers: List[Dict[str, Any]] = []
+                for q in statmuse_qs[:4]:
+                    try:
+                        r = self.statmuse.query(q, sport or base.get('sport'))
+                        if r and r.get('success'):
+                            sm_answers.append({'query': q, 'answer': r.get('answer'), 'url': r.get('url')})
+                    except Exception:
+                        continue
+                web_hits: List[Dict[str, Any]] = []
+                for q in google_qs[:3]:
+                    try:
+                        res = self.web.search(q)
+                        items = (res or {}).get('items', [])[:3]
+                        for it2 in items:
+                            web_hits.append({'title': it2.get('title'), 'snippet': it2.get('snippet'), 'link': it2.get('link')})
+                    except Exception:
+                        continue
+                research_map[key] = {'statmuse': sm_answers, 'web': web_hits}
+            except Exception:
+                continue
+
+        final_prompt = self._build_final_prompt(selected_props or props_payload, games, research_map, picks_target)
+        ai_picks = await self._call_llm(final_prompt)
         logger.info(f"AI returned {len(ai_picks) if ai_picks else 0} picks")
         if not ai_picks:
             logger.warning("AI returned no picks")
@@ -329,9 +450,13 @@ class Agent:
                 key = (event_id, player, prop_type, rec, line, bookmaker)
                 if key in seen:
                     continue
-                # Find matching candidate from payload (for metadata)
-                cand = next((c for c in props_payload if str(c['event_id']) == event_id and c['player'] == player and c['prop_type'] == prop_type and float(c['line']) == float(line) and (c['over_odds'] == odds if rec == 'over' else c['under_odds'] == odds) and (c['bookmaker'] or '').lower() == bookmaker), None)
+                # Find matching candidate from payload (for metadata) - simplified matching
+                cand = next((c for c in props_payload if str(c['event_id']) == event_id and c['player'] == player and c['prop_type'] == prop_type and float(c['line']) == float(line)), None)
                 if not cand:
+                    # More flexible matching - just match by player and prop type
+                    cand = next((c for c in props_payload if c['player'] == player and c['prop_type'] == prop_type), None)
+                if not cand:
+                    logger.warning(f"Could not find matching prop for {player} {prop_type} {line}")
                     continue
                 # Build enriched pick
                 final.append({
@@ -397,49 +522,114 @@ class Agent:
         except Exception:
             return 'Medium'
 
-    def _build_prompt(self, props: List[Dict[str, Any]], games: List[Dict[str, Any]], picks_target: int) -> str:
+    def _build_research_plan_prompt(self, props: List[Dict[str, Any]], picks_target: int) -> str:
+        games_str = "[]"
+        props_str = json.dumps(props[:400])
+        return f"""
+You are a betting research planner. From the provided props, select the most research-worthy candidates and propose concrete research queries.
+
+Rules:
+- Only consider props with odds between -300 and +300.
+- Prefer props with clear value angles (line movement, strong trends, matchup edges).
+- Output JSON array only. No extra text.
+
+Each item:
+{{
+  "event_id": "uuid",
+  "player": "Full Name",
+  "prop_type": "exact display name",
+  "sport": "MLB|NBA|NHL|NFL|CFB|WNBA",
+  "statmuse_queries": ["..."],
+  "google_queries": ["..."]
+}}
+
+Available Props:
+{props_str}
+
+Return up to {max(5, picks_target*2)} items.
+"""
+
+    def _build_final_prompt(self, props: List[Dict[str, Any]], games: List[Dict[str, Any]], research: Dict[str, Dict[str, Any]], picks_target: int) -> str:
         # Keep it concise but strict
         games_str = json.dumps(games[:50], default=str)
         props_str = json.dumps(props[:500])
+        research_items: List[Dict[str, Any]] = []
+        for p in props[:200]:
+            key = f"{p['event_id']}|{p['player']}|{p['prop_type']}"
+            if key in research:
+                research_items.append({
+                    'event_id': p['event_id'],
+                    'player': p['player'],
+                    'prop_type': p['prop_type'],
+                    'research': research[key]
+                })
+        research_str = json.dumps(research_items[:200])
         return f"""
-You are a professional sports betting analyst. Choose profitable player prop picks from today's filtered pool.
+You are an elite professional sports bettor with deep knowledge of winning strategies. Your goal: identify ONLY props with TRUE EDGE.
 
-Rules:
-- Only pick from the provided props list. Do not invent players or markets.
-- Respond ONLY with a JSON array [] of picks. No extra text.
-- Odds must be between -300 and +300. Use the odds from the selected bookmaker.
-- Include both main-line and alt-line opportunities. If an alt line is selected, keep is_alt true and the exact line.
-- Balance risk categories: ~36% Low (-200 to -110, 70-85% conf), ~52% Medium (-150 to +150, 60-75%), ~12% High (+120 to +300, 55-70%).
-- Quality over quantity: If you cannot find {picks_target} quality picks, return fewer.
+🚨 CRITICAL FILTERING RULES - NEVER VIOLATE:
+1. IMMEDIATELY DISCARD any prop with odds outside -300 to +300. Do not even consider these.
+2. NEVER research, analyze, or mention props with extreme odds (+400, -500, etc.). Pretend they don't exist.
+3. Focus on the "sweet spot": -200 to +200 odds where the most consistent profit exists.
 
-Available Games (truncated):
+📊 PROFESSIONAL BETTING STRATEGIES TO APPLY:
+• **Line Shopping Advantage**: Look for props where you have the best available odds vs market consensus
+• **Recency Bias Exploitation**: Fade public overreaction to recent performances  
+• **Situational Edges**: Home/road splits, matchup advantages, weather impacts
+• **Market Inefficiencies**: Props where books haven't adjusted for key information
+• **Volume vs Efficiency**: Target players with consistent opportunity (touches, minutes, AB)
+• **Contrarian Value**: Sometimes the less popular side offers better value
+• **Injury/Rest Impact**: Fresh players vs fatigued, returning from injury bounces
+• **Motivational Factors**: Contract years, revenge games, playoff implications
+
+🎯 OPTIMAL RISK DISTRIBUTION:
+• 40% Conservative (-200 to -110): High probability, steady profit
+• 50% Balanced (-150 to +150): Good value with reasonable risk  
+• 10% Aggressive (+120 to +200): Higher upside with calculated risk
+
+📈 PICK QUALITY STANDARDS:
+- Each pick needs MULTIPLE supporting factors
+- Look for 3-5% edge minimum (your estimated probability vs implied odds)
+- Prioritize props with 3+ bookmaker consensus
+- Consider line movement as market intelligence
+
+Available Games:
 {games_str}
 
-Available Props (truncated):
+Available Props (PRE-FILTERED for odds -300 to +300 ONLY):
 {props_str}
 
-Return JSON array with objects of the exact shape:
+Research Findings (StatMuse, Web search):
+{research_str}
+
+🔑 CRITICAL: Use EXACT prop_type names from the data above. Examples:
+- NHL: "Goals", "Assists", "Points (G+A)", "Shots on Goal", "Power play points"  
+- NFL: "Passing Yards", "Rushing Yards", "Receiving Yards", "Touchdowns"
+- MLB: "Hits", "Home Runs", "RBIs", "Strikeouts"
+DO NOT invent or modify these names - copy them exactly from the available props.
+
+OUTPUT FORMAT - JSON ONLY:
 [
   {{
     "event_id": "uuid",
     "player_name": "Full Name",
-    "prop_type": "Human label (e.g. Batter Hits O/U)",
-    "recommendation": "over" | "under",
+    "prop_type": "Display name (Goals O/U, Points O/U, etc.)",
+    "recommendation": "over" | "under", 
     "line": 1.5,
     "odds": -125,
-    "bookmaker": "fanduel|draftkings|betmgm|caesars|fanatics",
+    "bookmaker": "best available book",
     "confidence": 72,
-    "risk_level": "Low|Medium|High",
-    "reasoning": "3-5 sentences, data-backed, concise",
+    "risk_level": "Conservative|Balanced|Aggressive",
+    "reasoning": "Multi-factor analysis with specific edge identification",
     "roi_estimate": "8.5%",
     "value_percentage": "12.0%",
     "implied_probability": "57.5%",
     "fair_odds": -140,
-    "key_factors": ["factor1", "factor2"]
+    "key_factors": ["situational_edge", "line_value", "player_form"]
   }}
 ]
 
-Generate up to {picks_target} best picks.
+Generate exactly {picks_target} ELITE picks with true mathematical edge.
 """
 
     async def _call_llm(self, prompt: str) -> List[Dict[str, Any]]:

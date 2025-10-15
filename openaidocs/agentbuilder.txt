@@ -1,0 +1,364 @@
+Skip to main content
+
+Log in
+
+Home
+API Platform
+API Pricing
+Agents
+Codex
+Open Models
+Community(opens in a new window)
+
+Introducing AgentKit | OpenAI
+Build every step of agents on one platform
+Ship production-ready agents faster and more reliably across your products and organization.
+
+Contact sales
+Start building(opens in a new window)
+Diagram segment showing a simple agent workflow against a blue and orange gradient background. The flow connects three nodes: a green ‘Start’ button, a blue ‘Categorize Agent’ step, and a tan branching icon representing the next action.
+Leading organizations build agents with OpenAI
+“Agent Builder transformed what took months of orchestration, custom code, and manual optimization into hours—getting an agent live in two sprints instead of two quarters.”
+70%
+reduction in iteration cycles
+
+40%
+faster agent
+evaluation timelines
+
+2 weeks
+of custom front-end UI work saved when building an agent
+
+30%
+increased agent accuracy
+with evals
+
+75%
+less time to develop
+agentic workflows
+
+The complete platform for agent development
+AgentKit gives you the tools to build agentic workflows, deploy UI, and optimize performance, fast and reliably.
+
+Three-tier diagram illustrating the workflow of AI system development. The top section, labeled ‘Build,’ includes four boxes: Models, Tools, Prompts, and Guardrails. The middle section, labeled ‘Deploy,’ contains one box titled User Interface. The bottom section, labeled ‘Optimize,’ shows three connected boxes—Optimization, Orchestration, and Observability—with a dotted arrow looping back from Observability to Optimization.
+Build with Agent Builder and the Agents SDK
+Design agents on a visual-first canvas or in a code-first environment—both powered by the Responses API.
+
+Flow diagram showing a simple automation built in the Agent Builder. The sequence starts with a green ‘Start’ node, followed by an orange ‘Customer lookup’ connector, which branches into two outcomes: a blue ‘Analyze bills’ node and a grayed-out ‘No past bills’ node.
+Visual-first
+Agent Builder
+Build workflows visually with drag-and-drop nodes, versioning, and guardrails. Use templates or start from a blank canvas.
+
+Code snippet displayed on a gradient background showing a simple Python example using the Agents SDK. The script imports Agent and Runner, defines an asynchronous function that creates an agent named ‘Assistant’ with instructions to respond only in haikus, runs the agent with a recursion prompt, and prints the final output.
+Code-first
+Agents SDK
+Build agents in Node, Python, or Go with a type-safe library that’s 4× faster than manual prompt-and-tool setups.
+
+Built-in tools for smarter tasks
+Our models use tools to bring in relevant context—making responses more accurate and helpful.
+
+Web search
+Access up-to-date and clearly cited answers from the Internet.
+
+Learn more(opens in a new window)
+File search
+Retrieve relevant knowledge from internal files.
+
+Learn more(opens in a new window)
+Image generation
+Create images from natural language and iterate with high-fidelity.
+
+Learn more(opens in a new window)
+Code interpreter
+Run Python code iteratively with high accuracy.
+
+Learn more(opens in a new window)
+Computer use
+Build computer-using agents that complete browser-related tasks on your behalf.
+
+Learn more(opens in a new window)
+Connectors and MCP servers
+Connect to popular business apps and MCP servers to pull internal and external context into our models.
+
+Learn more(opens in a new window)
+Deploy with ChatKit
+Launch fully integrated chat experiences with drag-and-drop customization.
+
+See demo(opens in a new window)
+Ramp
+Albertsons
+HubSpot
+
+
+
+00:0000:00
+
+
+
+Ramp’s buyer agent, powered by AgentKit.
+
+Optimize with Evals
+New tools help you test and refine agents with more precision and efficiency.
+
+Icon representing trending upwards
+Evals
+Run evals and set custom graders to determine whether the agent is performing to your expectations on your specific use case.
+
+Icon representing a tuning fork
+Prompt optimization
+Improve prompts through automatic prompt optimization based on the results of your eval runs.
+
+Icon representing grading
+Trace grading
+Set the pass criteria once and let LLM graders evaluate the last 100—or 1,000—executions of your workflow.
+
+Ready to get started?
+Contact sales
+Start building(opens in a new window)
+Ask ChatGPT
+
+Our Research
+Research Index
+Research Overview
+Research Residency
+Latest Advancements
+GPT-5
+OpenAI o3
+OpenAI o4-mini
+GPT-4o
+GPT-4o mini
+Sora
+Safety
+Safety Approach
+Security & Privacy
+Trust & Transparency
+ChatGPT
+Explore ChatGPT(opens in a new window)
+Business
+Enterprise
+Education
+Pricing(opens in a new window)
+Download(opens in a new window)
+Sora
+Sora Overview
+Features
+Pricing
+Sora log in(opens in a new window)
+API Platform
+Platform Overview
+Pricing
+API log in(opens in a new window)
+Documentation(opens in a new window)
+Developer Forum(opens in a new window)
+For Business
+Business Overview
+Solutions
+Contact Sales
+Company
+About Us
+Our Charter
+Careers
+Brand
+Support
+Help Center(opens in a new window)
+More
+News
+Stories
+Livestreams
+Podcast
+Terms & Policies
+Terms of Use
+Privacy Policy
+Other Policies
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+OpenAI © 2015–2025
+Manage Cookies
+
+English
+United States
+API Agents | OpenAI
+
+/
+Dashboard
+Docs
+API reference
+Node reference
+Explore all available nodes for composing workflows in Agent Builder.
+Agent Builder is a visual canvas for composing agentic worfklows. Workflows are made up of nodes and connections that control the sequence and flow. Insert nodes, then configure and connect them to define the process you want your agents to follow.
+
+Explore all available nodes below. To learn more, read the Agent Builder guide.
+
+Core nodes
+Get started with basic building blocks. All workflows have start and agent nodes.
+
+core nodes
+
+Start
+Define inputs to your workflow. For user input in a chat workflow, start nodes do two things:
+
+Append the user input to the conversation history
+Expose input_as_text to represent the text contents of this input
+All chat start nodes have input_as_text as an input variable. You can add state variables too.
+
+Agent
+Define instructions, tools, and model configuration, or attach evaluations.
+
+Keep each agent well defined in scope. In our homework helper example, we use one agent to rewrite the user's query for more specificity and relevance with the knowledge base. We use another agent to classify the query as either Q&A or fact-finding, and another agent to field each type of question.
+
+Add model behavior instructions and user messages as you would with any other model prompt. To pipe output from a previous step, you can add it as context.
+
+You can have as many agent nodes as you'd like.
+
+Note
+Leave comments and explanations about your workflow. Unlike other nodes, notes don't do anything in the flow. They're just helpful commentary for you and your team.
+
+Tool nodes
+Tool nodes let you equip your agents with tools and external services. You can retrieve data, monitor for misuse, and connect to external services.
+
+tool nodes
+
+File search
+Retrieve data from vector stores you've created in the OpenAI platform. Search by vector store ID, and add a query for what the model should search for. You can use variables to include output from previous nodes in the workflow.
+
+See the file search documentation to set up vector stores and see supported file types.
+
+To search outside of your hosted storage with OpenAI, use MCP instead.
+
+Guardrails
+Set up input monitors for unwanted inputs such as personally identifiable information (PII), jailbreaks, hallucinations, and other misuse.
+
+Guardrails are pass/fail by default, meaning they test the output from a previous node, and you define what happens next. When there's a guardrails failure, we recommend either ending the workflow or returning to the previous step with a reminder of safe use.
+
+MCP
+Call third-party tools and services. Connect with OpenAI connectors or third-party servers, or add your own server. MCP connections are helpful in a workflow that needs to read or search data in another application, like Gmail or Zapier.
+
+Browse options in the Agent Builder. To learn more about MCP, see the connectors and MCP documentation.
+
+Logic nodes
+logic nodes
+
+Logic nodes let you write custom logic and define the control flow—for example, looping on custom conditions, or asking the user for approval before continuing an operation.
+
+If/else
+Add conditional logic. Use Common Expression Language (CEL) to create a custom expression. Useful for defining what to do with input that's been sorted into classifications.
+
+For example, if an agent classifies input as Q&A, route that query to the Q&A agent for a straightforward answer. If it's an open-ended query, route to an agent that finds relevant facts. Else, end the workflow.
+
+While
+Loop on custom conditions. Use Common Expression Language (CEL) to create a custom expression. Useful for checking whether a condition is still true.
+
+Human approval
+Defer to end-users for approval. Useful for workflows where agents draft work that could use a human review before it goes out.
+
+For example, picture an agent workflow that sends emails on your behalf. You'd include an agent node that outputs an email widget, then a human approval node immediately following. You can configure the human approval node to ask, "Would you like me to send this email?" and, if approved, proceeds to an MCP node that connects to Gmail.
+
+Data nodes
+Data nodes let you define and manipulate data in your workflow. Reshape outputs or define global variables for use across your workflow.
+
+data nodes
+
+Transform
+Reshape outputs (e.g., object → array). Useful for enforcing types to adhere to your schema or reshaping outputs for agents to read and understand as inputs.
+
+Set state
+Define global variables for use across the workflow. Useful for when an agent takes input and outputs something new that you'll want to use throughout the workflow. You can define that output as a new global variable.
+
+Was this page useful?
+Start
+Agent
+Note
+File search
+Guardrails
+MCP
+If/else
+While
+Human approval
+Transform
+Set state
+
+/
+Dashboard
+Docs
+API reference
+Safety in building agents
+Minimize prompt injections and other risks when building agents.
+As you build and deploy agents with Agent Builder, it's important to understand the risks. Learn about risk types and how to mitigate them when building multi-agent workflows.
+
+Types of risk
+Certain agent workflow patterns are more vulnerable to risk. In chat workflows, two important considerations are protecting user input and being careful about MCP tool calling.
+
+Prompt injections
+Prompt injections are a common and dangerous type of attack. A prompt injection happens when untrusted text or data enters an AI system, and malicious contents in that text or data attempt to override instructions to the AI. The end goals of prompt injections vary but can include exfiltrating private data via downstream tool calls, taking misaligned actions, or otherwise changing model behavior in an unintended way. For example, a prompt might trick a data lookup agent into sending raw customer records instead of the intended summary. See an example in context in the Codex internet access docs.
+
+Private data leakage
+Private data leakage, when an agent accidentally shares private data, is also a risk to guard against. It's possible for a model to leak private data in a way that's not intended, without an attacker behind it. For example, a model may send more data to an MCP than the user expected or intended. While guardrails provide better control to limit the information included in context, you don't have full control over what the model chooses to share with connected MCPs.
+
+Use the following guidance to reduce the attack surface and mitigate these risks. However, even with these mitigations, agents won’t be perfect and can still make mistakes or be tricked; as a result, it's important to understand these risks and use caution in what access you give agents and how you apply agents.
+
+Don't use untrusted variables in developer messages
+Because developer messages take precedence over user and assistant messages, injecting untrusted input directly into developer messages gives attackers the highest degree of control. Pass untrusted inputs through user messages to limit their influence. This is especially important for workflows where user inputs are passed to sensitive tools or privileged contexts.
+
+Use structured outputs to constrain data flow
+Prompt injections often rely on the model freely generating unexpected text or commands that propagate downstream. By defining structured outputs between nodes (e.g., enums, fixed schemas, required field names), you eliminate freeform channels that attackers can exploit to smuggle instructions or data.
+
+Steer the agent with clear guidance and examples
+Agent workflows may do something you don't want due to hallucination, misunderstanding, ambiguous user input, etc. For example, an agent may offer a refund it's not supposed to or delete information it shouldn't. The best way to mitigate this risk is to strengthen your prompts with good documentation of your desired policies and clear examples. Anticipate unintended scenarios and provide examples so the agent knows what to do in these cases.
+
+Use GPT-5 or GPT-5-mini
+These models are more disciplined about following developer instructions and exhibit stronger robustness against jailbreaks and indirect prompt injections. Configure these models at the agent node level for a more resilient default posture, especially for higher-risk workflows.
+
+Keep tool approvals on
+When using MCP tools, always enable tool approvals so end users can review and confirm every operation, including reads and writes. In Agent Builder, use the human approval node.
+
+Use guardrails for user inputs
+Sanitize incoming inputs using built-in guardrails to redact personally identifiable information (PII) and detect jailbreak attempts. While the guardrails nodes in Agent Builder alone are not foolproof, they're an effective first wave of protection.
+
+Run trace graders and evals
+If you understand what models are doing, you can better catch and prevent mistakes. Use evals to evaluate and improve performance. Trace grading provides scores and annotations to specific parts of an agent's trace—such as decisions, tool calls, or reasoning steps—to assess where the agent performed well or made mistakes.
+
+Combine techniques
+By combining these techniques and hardening critical steps, you can significantly reduce risks of prompt injection, malicious tool use, or unexpected agent behavior.
+
+Design workflows so untrusted data never directly drives agent behavior. Extract only specific structured fields (e.g., enums or validated JSON) from external inputs to limit injection risk from flowing between nodes. Use guardrails, tool confirmations, and variables passed via user messages to validate inputs.
+
+Risk rises when agents process arbitrary text that influences tool calls. Structured outputs and isolation greatly reduce, but don’t fully remove, this risk.
+
+Was this page useful?
+Overview
+Types of risk
+Structured outputs
+Developer messages
+Steer the agent
+GPT-5 models
+Tool approvals
+Guardrails
+Trace grading and evals
+Combine techniques
+
+/
+Dashboard
+Docs
+API reference
+Agents SDK
+Learn how to build agents with the OpenAI Agents SDK.
+Welcome to the OpenAI Agents SDK. This library makes it straightforward to build agentic applications—where a model can use additional context and tools, hand off to other specialized agents, stream partial results, and keep a full trace of what happened.
+
+Download and installation
+Access the latest version in the following GitHub repositories:
+
+Agents SDK Python
+Agents SDK TypeScript
+Documentation
+Documentation for the Agents SDK lives OpenAI Developers. Use quickstarts, guides, apps, and demos all in one place, under the agents topic.
+
+Was this page useful?
+Overview
+Download and installation
+Documentation
+

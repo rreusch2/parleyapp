@@ -57,11 +57,15 @@ class StatMuseClient:
         self.base_url = base_url
         self.session = requests.Session()
         
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str, sport: Optional[str] = None) -> Dict[str, Any]:
         try:
+            payload = {"query": question}
+            if sport:
+                payload["sport"] = str(sport).upper()
+            
             response = self.session.post(
                 f"{self.base_url}/query",
-                json={"query": question},
+                json=payload,
                 timeout=30
             )
             response.raise_for_status()
@@ -1145,9 +1149,10 @@ Return ONLY a valid JSON object with this structure:
             try:
                 query_text = query_obj.get("query", query_obj) if isinstance(query_obj, dict) else query_obj
                 priority = query_obj.get("priority", "medium") if isinstance(query_obj, dict) else "medium"
+                sport = query_obj.get("sport", None) if isinstance(query_obj, dict) else None
                 
-                logger.info(f"🔍 StatMuse query ({priority}): {query_text}")
-                result = self.statmuse.query(query_text)
+                logger.info(f"🔍 StatMuse query ({priority}): {query_text} [sport: {sport}]")
+                result = self.statmuse.query(query_text, sport=sport)
                 
                 if result and "error" not in result:
                     result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
@@ -1268,11 +1273,12 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     query_text = query_obj.get("query", "")
                     reasoning = query_obj.get("reasoning", "")
                     priority = query_obj.get("priority", "medium")
+                    sport = query_obj.get("sport", None)  # Get sport if available
                     
-                    logger.info(f"🔍 Adaptive StatMuse ({priority}): {query_text}")
+                    logger.info(f"🔍 Adaptive StatMuse ({priority}): {query_text} [sport: {sport}]")
                     logger.info(f"   Reasoning: {reasoning}")
                     
-                    result = self.statmuse.query(query_text)
+                    result = self.statmuse.query(query_text, sport=sport)
                     
                     if result and "error" not in result:
                         result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
@@ -1339,7 +1345,8 @@ Generate 3-6 high-value follow-up queries that will maximize our edge.
                     query = f"{team} recent performance"
                     logger.info(f"🔍 Final query: {query}")
                     
-                    result = self.statmuse.query(query)
+                    # For final queries, we don't have sport info - let StatMuse infer from team name
+                    result = self.statmuse.query(query, sport=None)
                     if result and "error" not in result:
                         final_insights.append(ResearchInsight(
                             source="statmuse_final",

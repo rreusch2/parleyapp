@@ -1,0 +1,649 @@
+Skip to main content
+
+Log in
+
+Research
+Safety
+For Business
+For Developers
+ChatGPT
+Sora
+Stories
+Company
+News
+
+Introducing AgentKit | OpenAI
+October 6, 2025
+
+Product
+Introducing AgentKit
+New tools for building, deploying, and optimizing agents.
+
+
+Listen to article
+5:13
+Share
+Today we’re launching AgentKit, a complete set of tools for developers and enterprises to build, deploy, and optimize agents. Until now, building agents meant juggling fragmented tools—complex orchestration with no versioning, custom connectors, manual eval pipelines, prompt tuning, and weeks of frontend work before launch. With AgentKit, developers can now design workflows visually and embed agentic UIs faster using new building blocks like:
+
+Agent Builder: a visual canvas for creating and versioning multi-agent workflows
+Connector Registry: a central place for admins to manage how data and tools connect across OpenAI products
+ChatKit: a toolkit for embedding customizable chat-based agent experiences in your product
+We’re also expanding evaluation capabilities with new features like datasets, trace grading, automated prompt optimization, and third-party model support to measure and improve agent performance.
+
+Since releasing the Responses API and Agents SDK⁠ in March, we’ve seen developers and enterprises build end-to-end agentic workflows for deep research, customer support, and more. Klarna built a support agent⁠ that handles two-thirds of all tickets and Clay 10x’ed growth⁠ with a sales agent. AgentKit builds on the Responses API to help developers build agents more efficiently and reliably.
+
+Design workflows with Agent Builder
+As agent workflows grow more complex, developers need clearer visibility into how they work. Agent Builder⁠(opens in a new window) provides a visual canvas for composing logic with drag-and-drop nodes, connecting tools, and configuring custom guardrails. It supports preview runs, inline eval configuration, and full versioning—ideal for fast iteration.
+
+Interface view of a customer service automation flow in a visual builder tool. The canvas shows connected nodes labeled Start, Jailbreak guardrail, Classification agent, If/else, Return agent, Retention agent, Information agent, Hallucination guardrail, and End. A sidebar on the left lists available node types such as Agent, Note, File search, Guardrails, MCP, and User approval. Top controls include options for Evaluate, Code, Preview, and Publish.
+Builders can get started with a blank canvas or with prebuilt templates.
+
+At Ramp, the team went from a blank canvas to a buyer agent in just a few hours:
+
+Agent Builder transformed what once took months of complex orchestration, custom code, and manual optimizations into just a couple of hours. The visual canvas keeps product, legal, and engineering on the same page, slashing iteration cycles by 70% and getting an agent live in two sprints rather than two quarters.”
+— Ramp
+Similarly, LY Corporation—a leading Japanese technology and internet services company—built a work assistant agent with Agent Builder in less than two hours.
+
+"Agent Builder allowed us to orchestrate agents in a whole new way, with engineers and subject matter experts collaborating all in one interface. We built our first multi-agentic workflow and ran it in less than two hours, dramatically accelerating the time to create and deploy agents."
+— LY Corporation
+We’re also launching a Connector Registry for enterprises to govern and maintain data across multiple workspaces and organizations. The Connector Registry⁠(opens in a new window) consolidates data sources into a single admin panel across ChatGPT and the API. The registry includes all pre-built connectors like Dropbox, Google Drive, Sharepoint, and Microsoft Teams, as well as third-party MCPs.
+
+Developers can also enable Guardrails⁠(opens in a new window) in Agent Builder—an open-source, modular safety layer that helps protect agents against unintended or malicious behavior. Guardrails can mask or flag PII, detect jailbreaks, and apply other safeguards, making it easier to build and deploy reliable, safe agents. Guardrails can be deployed standalone or via the guardrails library for Python⁠(opens in a new window) and JavaScript⁠(opens in a new window).
+
+Embed agentic chat experiences with ChatKit
+Deploying chat UIs for agents can be surprisingly complex— handling streaming responses, managing threads, showing the model thinking, and designing engaging in-chat experiences. ChatKit⁠(opens in a new window) makes it simple to embed chat-based agents that feel native to your product. It can be embedded into apps or websites and customized to match your theme or brand.
+
+Canva
+LegalOn
+HubSpot
+"We saved over two weeks of time building a support agent for our Canva Developers community with ChatKit, and integrated it in less than an hour. This support agent will transform the way developers engage with our docs by turning it into a conversational experience, making it easy to build apps and integrations on Canva."
+— Canva
+ChatKit already powers a range of use cases, from internal knowledge assistants and onboarding guides to customer support and research agents. HubSpot⁠(opens in a new window)’s customer support agent is one example:
+
+Ramp
+Albertsons
+HubSpot
+Canva
+Actively
+LegalOn
+Evernote
+Taboola
+Dashboard view of the Ramp platform showing an expense management interface. The main panel greets the user, Daniel, and lists requests such as ‘Request for ChatGPT Business’ (pending review) and ‘Request for HubSpot’ (draft), along with recent expenses for airlines, rideshares, and software. On the right, a software request form is open for ChatGPT Business, detailing 5 seats at $125 per month from October 1, 2025, to October 1, 2026, with a yellow ‘Submit request’ button.
+Measure agent performance with new Evals capabilities
+Building reliable, production-ready agents requires rigorous performance evaluations. Last year, we launched Evals⁠(opens in a new window) to help developers test prompts and measure model behavior. We’re now adding four new capabilities that make it even easier to build evals:
+
+Datasets–rapidly build agent evals from scratch and expand them over time with automated graders and human annotations..
+Trace grading–run end-to-end assessments of agentic workflows and automate grading to pinpoint shortcomings.
+Automated prompt optimization–generate improved prompts based on human annotations and grader outputs.
+Third-party model support–evaluate models from other providers within the OpenAI Evals platform.
+We’ve already seen major performance gains from customers using Evals.
+
+Carlyle
+Rippling
+Box
+Bain & Company
+"The evaluation platform cut development time on our multi-agent due diligence framework by over 50%, and increased agent accuracy 30%."
+— Carlyle
+Datasets
+Prompt optimizer
+Trace grading
+Interface showing a dataset table with columns for Rating, Tone, Feedback, and Accuracy. Rows display entries with thumbs-up or thumbs-down icons, tone tags such as Professional, Friendly, Rude, and Bad, and accuracy results labeled Pass or Fail with a score of 3.5. The top toolbar includes options for Upload, Columns, Grade, Generate output, and Save.
+Push agent performance with reinforcement fine-tuning
+Reinforcement fine-tuning⁠(opens in a new window) (RFT) lets developers customize our reasoning models. It is generally available on OpenAI o4-mini and in private beta for GPT‑5. We are working closely with dozens of customers to refine the RFT for GPT‑5 before wider release.
+
+Today, we’re introducing two new features in that RFT beta designed to push agent performance even further:
+
+Custom tool calls–train models to call the right tools at the right time for better reasoning 
+Custom graders–set custom evaluation criteria for what matters most in your use case
+Pricing & availability
+Starting today, ChatKit and the new Evals capabilities are generally available to all developers. Agent Builder is available in beta, and Connector Registry is beginning its beta rollout to some API, ChatGPT Enterprise and Edu customers with a Global Admin Console⁠(opens in a new window) (where Global Owners can manage domains, SSO, multiple API orgs). The Global Admin console is a pre-requisite to enabling Connector Registry. All of these tools are included with standard API model pricing.
+
+We plan to add a standalone Workflows API and agent deployment options to ChatGPT soon.
+
+We can’t wait to see what you build.
+
+2025
+DevDay
+Author
+OpenAI
+Keep reading
+View all
+Codex GA Blog > Cover Image
+Codex is now generally available
+Product
+Oct 6, 2025
+
+Apps in ChatGPT
+Introducing apps in ChatGPT and the new Apps SDK
+Product
+Oct 6, 2025
+
+Sora feed philosophy art card 1 x 1
+The Sora feed philosophy
+Product
+Sep 30, 2025
+
+Ask ChatGPT
+
+Our Research
+Research Index
+Research Overview
+Research Residency
+Latest Advancements
+GPT-5
+OpenAI o3
+OpenAI o4-mini
+GPT-4o
+GPT-4o mini
+Sora
+Safety
+Safety Approach
+Security & Privacy
+Trust & Transparency
+ChatGPT
+Explore ChatGPT(opens in a new window)
+Business
+Enterprise
+Education
+Pricing(opens in a new window)
+Download(opens in a new window)
+Sora
+Sora Overview
+Features
+Pricing
+Sora log in(opens in a new window)
+API Platform
+Platform Overview
+Pricing
+API log in(opens in a new window)
+Documentation(opens in a new window)
+Developer Forum(opens in a new window)
+For Business
+Business Overview
+Solutions
+Contact Sales
+Company
+About Us
+Our Charter
+Careers
+Brand
+Support
+Help Center(opens in a new window)
+More
+News
+Stories
+Livestreams
+Podcast
+Terms & Policies
+Terms of Use
+Privacy Policy
+Other Policies
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+OpenAI © 2015–2025
+Manage Cookies
+
+English
+United States
+
+
+
+
+
+Skip to main content
+
+Log in
+
+Home
+API Platform
+API Pricing
+Agents
+Codex
+Open Models
+Community(opens in a new window)
+
+Introducing AgentKit | OpenAI
+Build leading AI products on OpenAI’s platform
+Contact sales
+Start building(opens in a new window)
+Powered by our frontier models
+Our industry-leading models are designed for real-world utility, delivering advanced intelligence and multimodal capabilities.
+
+
+GPT-5 pro
+Reasoning:  | Speed: 
+Input: $15.00 per 1M tokens
+Output: $120.00 per 1M tokens
+400K context length
+128K max output tokens
+Knowledge cut-off: Sep 30, 2024
+Learn more(opens in a new window)
+(opens in a new window)
+
+GPT-5
+Reasoning:  | Speed: 
+Input: $1.25 per 1M tokens
+Output: $10.00 per 1M tokens
+400K context length
+128K max output tokens
+Knowledge cut-off: Sep 30, 2024
+Learn more(opens in a new window)
+(opens in a new window)
+
+GPT-5 mini
+Reasoning:  | Speed: 
+Input: $0.25 per 1M tokens
+Output: $2.00 per 1M tokens
+400K context length
+128K max output tokens
+Knowledge cut-off: May 31, 2024
+Learn more(opens in a new window)
+(opens in a new window)
+
+GPT-5 nano
+Reasoning:  | Speed: 
+Input: $0.05 per 1M tokens
+Output: $0.40 per 1M tokens
+400K context length
+128K max output tokens
+Knowledge cut-off: May 31, 2024
+Learn more(opens in a new window)
+(opens in a new window)
+Start working with GPT-5
+Prompting guidance
+Learn how to prompt GPT‑5 for highest performance.
+
+View prompting guidance(opens in a new window)
+Front-end coding examples
+Explore front-end applications built with GPT‑5.
+
+View front-end examples(opens in a new window)
+Migration support
+Learn how to migrate from other OpenAI models to GPT‑5.
+
+View migration guide(opens in a new window)
+The all-in-one platform for agents
+Build, deploy, and optimize production-ready agents faster with pre-built components or from scratch.
+
+Learn more
+Screenshot of a visual workflow titled “Utility Comparison,” showing connected modules labeled “Start” and “Customer lookup Connector” in a flowchart interface on a light background.
+Build
+Build agents on a visual-first canvas with Agent Builder or in a code-first environment with the Agents SDK.
+
+Utility analysis card showing a 6-month average energy usage of 1,082 kWh. Text notes the home used ~22% more energy than comparable homes, with largest differences in July and August. Green and blue bar chart displayed below.
+Deploy
+Create customizable, front-end agentic experiences with ChatKit.
+
+Interface titled “Create a grader” showing evaluation criteria for responses, including fields like “Was the response accurate” and grader results marked “Pass” for reasoning-based checks, on a light background.
+Optimize
+Run evals to measure agentic performance, and improve results with prompt optimization and fine-tuning.
+
+Bring AI experiences to life
+Voice
+Video
+Image
+Build natural-sounding voice agents with Realtime API⁠(opens in a new window) for rich customer experiences and support.
+
+
+
+
+00:0000:00
+
+
+
+Zillow makes home and financing searches easier with voice using the Realtime API.
+
+Use cases driven by our platform
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > coding > media > asset
+Coding
+Accelerate development cycles with models that write, review, debug, refactor, and migrate code.
+
+View customer stories
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > customer support > media > asset
+Customer support
+Deliver faster customer support with models that resolve issues autonomously and handle customer queries.
+
+View customer stories
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > Personalized recommendations > media > asset
+Personalized recommendations
+Surface recommendations tailored to your customers to drive engagement, retention, and revenue.
+
+View customer stories
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > Research & data analysis > media > asset
+Research & data analysis
+Turn complex data into clear insights and synthesized findings.
+
+View customer stories
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > Content generation > media >asset
+Content generation
+Produce high-quality content across text, image, and video to match your brand's look and feel.
+
+View customer stories
+api refresh 2025 > Layout > group > use cases powered by our platform > 3-up > Education > media > asset
+Education
+Enhance learning with AI tools for lesson planning, tutoring, and support.
+
+View customer stories
+Enterprise-grade features for operating at scale
+Learn more
+Security and data privacy
+No training on your data⁠
+
+Zero data retention policy by request⁠
+
+Business Associate Agreements (BAA) for HIPAA compliance⁠
+
+SOC 2 Type 2 compliance
+
+Data residency controls
+
+IP Allowlist and mTLS network controls
+
+Single sign-on (SSO) and multi-factor authentication (MFA)
+
+Data encryption at rest (AES-256) and in transit (TLS 1.2+)
+
+
+Administrative controls
+Manage access to tools, models, and projects through role based access controls
+
+Set billing and usage alerts to avoid overages
+
+View granular usage and cost activity by project
+
+
+
+Access to OpenAI expertise
+Dedicated account team and prioritized support
+
+Guidance on AI deployment and best practices from solutions architects
+
+Opportunity to collaborate with researchers on building custom AI models
+
+
+Get started
+Partner with us on your AI strategy
+Work with AI advisors to solve complex challenges
+
+Get hands-on deployment guidance
+
+Unlock priority processing pricing
+
+
+Contact sales
+Build on your own
+Access our frontier models and APIs
+
+Simple pay-as-you-go pricing
+
+Test in the Playground
+
+Build with our API documentation and developer resources
+
+
+Start building(opens in a new window)
+Ask ChatGPT
+
+Our Research
+Research Index
+Research Overview
+Research Residency
+Latest Advancements
+GPT-5
+OpenAI o3
+OpenAI o4-mini
+GPT-4o
+GPT-4o mini
+Sora
+Safety
+Safety Approach
+Security & Privacy
+Trust & Transparency
+ChatGPT
+Explore ChatGPT(opens in a new window)
+Business
+Enterprise
+Education
+Pricing(opens in a new window)
+Download(opens in a new window)
+Sora
+Sora Overview
+Features
+Pricing
+Sora log in(opens in a new window)
+API Platform
+Platform Overview
+Pricing
+API log in(opens in a new window)
+Documentation(opens in a new window)
+Developer Forum(opens in a new window)
+For Business
+Business Overview
+Solutions
+Contact Sales
+Company
+About Us
+Our Charter
+Careers
+Brand
+Support
+Help Center(opens in a new window)
+More
+News
+Stories
+Livestreams
+Podcast
+Terms & Policies
+Terms of Use
+Privacy Policy
+Other Policies
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+OpenAI © 2015–2025
+Manage Cookies
+
+English
+United States
+API Platform | OpenAI
+
+
+
+
+
+Skip to main content
+
+Log in
+
+Home
+API Platform
+API Pricing
+Agents
+Codex
+Open Models
+Community(opens in a new window)
+
+Introducing AgentKit | OpenAI
+Build every step of agents on one platform
+Ship production-ready agents faster and more reliably across your products and organization.
+
+Contact sales
+Start building(opens in a new window)
+Diagram segment showing a simple agent workflow against a blue and orange gradient background. The flow connects three nodes: a green ‘Start’ button, a blue ‘Categorize Agent’ step, and a tan branching icon representing the next action.
+Leading organizations build agents with OpenAI
+“Agent Builder transformed what took months of orchestration, custom code, and manual optimization into hours—getting an agent live in two sprints instead of two quarters.”
+70%
+reduction in iteration cycles
+
+40%
+faster agent
+evaluation timelines
+
+2 weeks
+of custom front-end UI work saved when building an agent
+
+30%
+increased agent accuracy
+with evals
+
+75%
+less time to develop
+agentic workflows
+
+The complete platform for agent development
+AgentKit gives you the tools to build agentic workflows, deploy UI, and optimize performance, fast and reliably.
+
+Three-tier diagram illustrating the workflow of AI system development. The top section, labeled ‘Build,’ includes four boxes: Models, Tools, Prompts, and Guardrails. The middle section, labeled ‘Deploy,’ contains one box titled User Interface. The bottom section, labeled ‘Optimize,’ shows three connected boxes—Optimization, Orchestration, and Observability—with a dotted arrow looping back from Observability to Optimization.
+Build with Agent Builder and the Agents SDK
+Design agents on a visual-first canvas or in a code-first environment—both powered by the Responses API.
+
+Flow diagram showing a simple automation built in the Agent Builder. The sequence starts with a green ‘Start’ node, followed by an orange ‘Customer lookup’ connector, which branches into two outcomes: a blue ‘Analyze bills’ node and a grayed-out ‘No past bills’ node.
+Visual-first
+Agent Builder
+Build workflows visually with drag-and-drop nodes, versioning, and guardrails. Use templates or start from a blank canvas.
+
+Code snippet displayed on a gradient background showing a simple Python example using the Agents SDK. The script imports Agent and Runner, defines an asynchronous function that creates an agent named ‘Assistant’ with instructions to respond only in haikus, runs the agent with a recursion prompt, and prints the final output.
+Code-first
+Agents SDK
+Build agents in Node, Python, or Go with a type-safe library that’s 4× faster than manual prompt-and-tool setups.
+
+Built-in tools for smarter tasks
+Our models use tools to bring in relevant context—making responses more accurate and helpful.
+
+Web search
+Access up-to-date and clearly cited answers from the Internet.
+
+Learn more(opens in a new window)
+File search
+Retrieve relevant knowledge from internal files.
+
+Learn more(opens in a new window)
+Image generation
+Create images from natural language and iterate with high-fidelity.
+
+Learn more(opens in a new window)
+Code interpreter
+Run Python code iteratively with high accuracy.
+
+Learn more(opens in a new window)
+Computer use
+Build computer-using agents that complete browser-related tasks on your behalf.
+
+Learn more(opens in a new window)
+Connectors and MCP servers
+Connect to popular business apps and MCP servers to pull internal and external context into our models.
+
+Learn more(opens in a new window)
+Deploy with ChatKit
+Launch fully integrated chat experiences with drag-and-drop customization.
+
+See demo(opens in a new window)
+Ramp
+Albertsons
+HubSpot
+
+
+
+00:0000:00
+
+
+
+Ramp’s buyer agent, powered by AgentKit.
+
+Optimize with Evals
+New tools help you test and refine agents with more precision and efficiency.
+
+Icon representing trending upwards
+Evals
+Run evals and set custom graders to determine whether the agent is performing to your expectations on your specific use case.
+
+Icon representing a tuning fork
+Prompt optimization
+Improve prompts through automatic prompt optimization based on the results of your eval runs.
+
+Icon representing grading
+Trace grading
+Set the pass criteria once and let LLM graders evaluate the last 100—or 1,000—executions of your workflow.
+
+Ready to get started?
+Contact sales
+Start building(opens in a new window)
+Ask ChatGPT
+
+Our Research
+Research Index
+Research Overview
+Research Residency
+Latest Advancements
+GPT-5
+OpenAI o3
+OpenAI o4-mini
+GPT-4o
+GPT-4o mini
+Sora
+Safety
+Safety Approach
+Security & Privacy
+Trust & Transparency
+ChatGPT
+Explore ChatGPT(opens in a new window)
+Business
+Enterprise
+Education
+Pricing(opens in a new window)
+Download(opens in a new window)
+Sora
+Sora Overview
+Features
+Pricing
+Sora log in(opens in a new window)
+API Platform
+Platform Overview
+Pricing
+API log in(opens in a new window)
+Documentation(opens in a new window)
+Developer Forum(opens in a new window)
+For Business
+Business Overview
+Solutions
+Contact Sales
+Company
+About Us
+Our Charter
+Careers
+Brand
+Support
+Help Center(opens in a new window)
+More
+News
+Stories
+Livestreams
+Podcast
+Terms & Policies
+Terms of Use
+Privacy Policy
+Other Policies
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+(opens in a new window)
+OpenAI © 2015–2025
+Manage Cookies
+
+English
+United States
+API Agents | OpenAI
+
+
