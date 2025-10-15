@@ -6,6 +6,7 @@ import requests
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from openai import AsyncOpenAI
@@ -16,6 +17,7 @@ load_dotenv("backend/.env")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("props_intelligent_v3")
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "America/New_York")
 
 @dataclass
 class FlatProp:
@@ -164,14 +166,18 @@ class DB:
         else:
             sports = list(sport_map.values())
         
-        start_time = datetime.combine(target_date, datetime.min.time())
-        end_time = start_time + timedelta(days=1)
+        # Use local timezone midnight window, then convert to UTC for querying
+        tz = ZoneInfo(APP_TIMEZONE)
+        start_local = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=tz)
+        end_local = start_local + timedelta(days=1)
+        start_time = start_local.astimezone(timezone.utc)
+        end_time = end_local.astimezone(timezone.utc)
         
         all_games = []
         for sport in sports:
             resp = self.client.table('sports_events').select(
                 'id, home_team, away_team, start_time, sport'
-            ).gte('start_time', start_time.isoformat()).lte('start_time', end_time.isoformat()).eq('sport', sport).order('start_time').execute()
+            ).gte('start_time', start_time.isoformat()).lt('start_time', end_time.isoformat()).eq('sport', sport).order('start_time').execute()
             if resp.data:
                 all_games.extend(resp.data)
         
@@ -180,34 +186,67 @@ class DB:
     
     def get_flat_props_for_games(self, game_ids: List[str]) -> List[FlatProp]:
         """
-        Fetch props from the fast materialized view with odds filtering.
-        This includes both main lines and alt lines.
+        Fetch props from the comprehensive player_props_with_details view.
+        This includes main lines with alt lines from the alt_lines column.
         """
         if not game_ids:
             return []
         
-        sel = 'event_id, sport, stat_type, line, bookmaker, over_odds, under_odds, is_alt, player_name, player_headshot_url'
-        resp = self.client.table('player_props_v2_flat_quick').select(sel).in_('event_id', game_ids).or_('and(over_odds.gte.-300,over_odds.lte.300),and(under_odds.gte.-300,under_odds.lte.300)').execute()
+        # Use the same view as props_enhanced_v2.py for consistency
+        sel = 'event_id, sport, stat_type, main_line, best_over_odds, best_under_odds, best_over_book, best_under_book, player_name, headshot_url, player_team, position, home_team, away_team, prop_display_name, alt_lines, line_movement, num_bookmakers'
+        resp = self.client.table('player_props_with_details').select(sel).in_('event_id', game_ids).execute()
         
         rows = resp.data or []
         props: List[FlatProp] = []
         for r in rows:
             try:
-                props.append(
-                    FlatProp(
-                        event_id=r['event_id'],
-                        sport=(r.get('sport') or '').upper(),
-                        player_name=r.get('player_name') or 'Unknown',
-                        stat_key=r.get('stat_type') or '',
-                        prop_label=display_name_for_stat(r.get('stat_type') or ''),
-                        line=float(r.get('line', 0)),
-                        bookmaker=(r.get('bookmaker') or 'fanduel').lower(),
-                        over_odds=r.get('over_odds'),
-                        under_odds=r.get('under_odds'),
-                        is_alt=r.get('is_alt', False),
-                        player_headshot_url=r.get('player_headshot_url')
-                    )
-                )
+                # Add main line
+                if r.get('best_over_odds') or r.get('best_under_odds'):
+                    # Filter odds between -300 and +300
+                    over_odds = r.get('best_over_odds')
+                    under_odds = r.get('best_under_odds')
+                    if (over_odds and -300 <= over_odds <= 300) or (under_odds and -300 <= under_odds <= 300):
+                        props.append(
+                            FlatProp(
+                                event_id=r['event_id'],
+                                sport=(r.get('sport') or '').upper(),
+                                player_name=r.get('player_name') or 'Unknown',
+                                stat_key=r.get('stat_type') or '',
+                                prop_label=r.get('prop_display_name') or display_name_for_stat(r.get('stat_type') or ''),
+                                line=float(r.get('main_line', 0)),
+                                bookmaker=(r.get('best_over_book') or r.get('best_under_book') or 'fanduel').lower(),
+                                over_odds=int(over_odds) if over_odds is not None else None,
+                                under_odds=int(under_odds) if under_odds is not None else None,
+                                is_alt=False,
+                                player_headshot_url=r.get('headshot_url')
+                            )
+                        )
+                
+                # Add alt lines if available
+                if r.get('alt_lines'):
+                    alt_lines = r['alt_lines']
+                    if isinstance(alt_lines, list):
+                        for alt in alt_lines[:3]:  # Limit alt lines per player/prop
+                            if isinstance(alt, dict):
+                                alt_over_odds = alt.get('over_odds')
+                                alt_under_odds = alt.get('under_odds')
+                                # Filter alt line odds
+                                if (alt_over_odds and -250 <= alt_over_odds <= 250) or (alt_under_odds and -250 <= alt_under_odds <= 250):
+                                    props.append(
+                                        FlatProp(
+                                            event_id=r['event_id'],
+                                            sport=(r.get('sport') or '').upper(),
+                                            player_name=r.get('player_name') or 'Unknown',
+                                            stat_key=r.get('stat_type') or '',
+                                            prop_label=r.get('prop_display_name') or display_name_for_stat(r.get('stat_type') or ''),
+                                            line=float(alt.get('line', 0)),
+                                            bookmaker=(alt.get('bookmaker') or 'fanduel').lower(),
+                                            over_odds=int(alt_over_odds) if alt_over_odds is not None else None,
+                                            under_odds=int(alt_under_odds) if alt_under_odds is not None else None,
+                                            is_alt=True,
+                                            player_headshot_url=r.get('headshot_url')
+                                        )
+                                    )
             except Exception as e:
                 logger.warning(f"Failed to parse prop: {e}")
                 continue
@@ -365,49 +404,75 @@ class Agent:
     async def create_intelligent_research_plan(self, props: List[FlatProp], games: List[Dict], picks_target: int) -> Dict[str, Any]:
         """
         Use AI to intelligently select which props/players to research.
-        NO HARDCODING - adapts based on available props.
+        CRITICAL: Focuses on props with REAL VALUE and research opportunities.
         """
-        logger.info("🧠 Creating intelligent research plan...")
+        logger.info("🧠 Creating intelligent research plan with DEEP analysis...")
         
-        # Sample diverse props for AI analysis
+        # Analyze props for value opportunities
         prop_sample = []
         seen_players = set()
-        for prop in props[:200]:  # Analyze first 200 props
-            if prop.player_name not in seen_players:
-                prop_sample.append({
-                    "player": prop.player_name,
-                    "sport": prop.sport,
-                    "prop_type": prop.prop_label,
-                    "line": prop.line,
-                    "is_alt": prop.is_alt,
-                    "over_odds": prop.over_odds,
-                    "under_odds": prop.under_odds,
-                    "bookmaker": prop.bookmaker
-                })
-                seen_players.add(prop.player_name)
-                if len(prop_sample) >= 50:
-                    break
+        sport_distribution = {}
         
-        prompt = f"""You are an elite sports betting analyst. You need to create a research plan for player props.
+        for prop in props[:300]:  # Analyze more props for better diversity
+            sport = prop.sport
+            sport_distribution[sport] = sport_distribution.get(sport, 0) + 1
+            
+            if prop.player_name not in seen_players and len(prop_sample) < 80:
+                # Only include props with reasonable odds
+                if prop.over_odds and -250 <= prop.over_odds <= 250:
+                    prop_sample.append({
+                        "player": prop.player_name,
+                        "sport": prop.sport,
+                        "prop_type": prop.prop_label,
+                        "line": prop.line,
+                        "is_alt": prop.is_alt,
+                        "over_odds": prop.over_odds,
+                        "under_odds": prop.under_odds,
+                        "bookmaker": prop.bookmaker
+                    })
+                    seen_players.add(prop.player_name)
+        
+        logger.info(f"📊 Sport distribution in props: {sport_distribution}")
+        
+        prompt = f"""You are the world's best sports betting analyst with a proven track record of finding edges.
 
-AVAILABLE PROPS SAMPLE ({len(prop_sample)} unique players):
+🎯 CRITICAL MISSION: Create a research plan that will uncover REAL VALUE in player props.
+
+AVAILABLE PROPS ({len(prop_sample)} unique players across {len(sport_distribution)} sports):
 {json.dumps(prop_sample, indent=2)}
 
-YOUR TASK:
-1. Analyze the available props and identify the most interesting betting opportunities
-2. Select {min(15, picks_target)} players/props that deserve deep research
-3. Create StatMuse queries for recent stats and trends
-4. Create Google Search queries for injury/lineup news
+📊 GAMES TODAY:
+{json.dumps([{"home": g["home_team"], "away": g["away_team"], "sport": g["sport"]} for g in games[:20]], indent=2)}
 
-RESEARCH ALLOCATION:
-- StatMuse queries: 10-15 (recent player stats, trends, matchups)
-- Web searches: 3-5 (injury news, lineup changes, weather)
+🔬 YOUR RESEARCH STRATEGY:
 
-SELECTION CRITERIA:
-- Diversify across sports, prop types, and players
-- Focus on props with reasonable odds (-300 to +300)
-- Look for both main lines AND alt lines with value potential
-- Avoid hardcoding the same players every time - be adaptive!
+1. **IDENTIFY VALUE OPPORTUNITIES** (Select {min(20, picks_target)} props):
+   - Props where lines might be off due to recent changes
+   - Players with strong trends (hot/cold streaks)
+   - Matchup advantages (weak opposing defense, etc.)
+   - Alt lines that offer hidden value
+   - Weather/environmental factors for outdoor sports
+
+2. **STATMUSE RESEARCH** (15-20 queries - BE SPECIFIC):
+   - "[Player] stats last 10 games" - Get recent performance
+   - "[Player] career stats vs [Opponent]" - Historical matchup data
+   - "[Player] home/away splits this season" - Situational performance
+   - "[Team] defensive stats vs [position] last 15 games" - Matchup analysis
+   - "[Player] stats in [weather condition]" - Environmental factors
+   - DO NOT use generic queries - be ultra-specific!
+
+3. **WEB SEARCH INTELLIGENCE** (5-8 searches - CRITICAL INFO):
+   - "[Player] injury report today [date]" - Health status
+   - "[Team] starting lineup confirmed [date]" - Lineup news
+   - "[Team] weather forecast game time" - Environmental conditions
+   - "[Player] recent practice reports" - Preparation status
+   - "[Coach] comments on [Player] usage" - Role/minutes info
+
+4. **DIVERSITY REQUIREMENTS**:
+   - Cover at least 3 different sports if available
+   - Mix of main lines (60%) and alt lines (40%)
+   - Various prop types (scoring, defensive, misc)
+   - Range of odds (-200 to +200 sweet spot)
 
 Return JSON:
 {{
@@ -463,11 +528,15 @@ Return JSON:
         }
     
     async def execute_research(self, plan: Dict[str, Any]) -> List[ResearchInsight]:
-        """Execute StatMuse queries and Google Searches"""
+        """Execute StatMuse queries and Google Searches with MAXIMUM INTELLIGENCE"""
         insights = []
+        logger.info("🔬 Executing comprehensive research plan...")
         
-        # StatMuse queries
-        for query_obj in plan.get('statmuse_queries', [])[:12]:
+        # StatMuse queries - MORE AGGRESSIVE
+        statmuse_queries = plan.get('statmuse_queries', [])
+        logger.info(f"📊 Executing {len(statmuse_queries)} StatMuse queries...")
+        
+        for i, query_obj in enumerate(statmuse_queries[:20], 1):  # Increased limit
             try:
                 if isinstance(query_obj, dict):
                     query = query_obj.get('query', '')
@@ -476,7 +545,7 @@ Return JSON:
                     query = query_obj
                     sport = 'NFL'  # Default to NFL if not specified
                 
-                logger.info(f"🔍 StatMuse: {query} [Sport: {sport}]")
+                logger.info(f"🔍 StatMuse Query {i}/{len(statmuse_queries)}: {query} [Sport: {sport}]")
                 result = self.statmuse.query(query, sport=sport)
                 
                 if result and 'error' not in result:
@@ -491,11 +560,14 @@ Return JSON:
             except Exception as e:
                 logger.error(f"StatMuse query failed: {e}")
         
-        # Web searches
-        for search_obj in plan.get('web_searches', [])[:5]:
+        # Web searches - MORE COMPREHENSIVE
+        web_searches = plan.get('web_searches', [])
+        logger.info(f"🌐 Executing {len(web_searches)} web searches...")
+        
+        for i, search_obj in enumerate(web_searches[:8], 1):  # Increased limit
             try:
                 query = search_obj.get('query', search_obj) if isinstance(search_obj, dict) else search_obj
-                logger.info(f"🌐 Web search: {query}")
+                logger.info(f"🌐 Web Search {i}/{len(web_searches)}: {query}")
                 result = self.web_search.search(query)
                 
                 insights.append(ResearchInsight(
@@ -658,37 +730,65 @@ Return JSON:
         alt_count = max(2, int(picks_target * 0.35))
         main_count = picks_target - alt_count
         
-        return f"""You are an elite sports betting analyst with 15+ years experience.
+        return f"""You are the world's most successful sports betting analyst with 20+ years of experience and millions in profits.
 
-Your job is to analyze player props using RESEARCH DATA and generate EXACTLY {picks_target} HIGH-VALUE picks.
+🚨 CRITICAL MISSION: Generate {picks_target} ELITE player prop picks backed by DEEP RESEARCH and REAL DATA.
 
-# RESEARCH INSIGHTS ({len(research)} total):
+# 📚 RESEARCH FINDINGS ({len(research)} insights gathered):
 {research_str}
 
-# AVAILABLE GAMES:
+# 🏟️ TODAY'S GAMES:
 {games_str}
 
-# AVAILABLE PROPS ({len(props)} total, including MAIN and ALT lines):
+# 💰 AVAILABLE PROPS ({len(props)} total with main + alt lines):
 {props_str}
 
-# YOUR TASK:
-Generate EXACTLY {picks_target} picks using the research data above.
+# ⚠️ ABSOLUTE REQUIREMENTS - FAILURE TO FOLLOW = REJECTION:
 
-⚠️ CRITICAL REQUIREMENTS (NON-NEGOTIABLE):
-1. **EXACT COUNT**: You MUST return EXACTLY {picks_target} picks - not {picks_target-1}, not {picks_target+1} - EXACTLY {picks_target}
-2. **ALT LINE MIX**: Include at least {alt_count} ALT LINES (is_alt: true) and {main_count} MAIN LINES (is_alt: false)
-3. **VALID ODDS ONLY**: Every pick MUST have a valid "odds" value (integer like -110, +150, etc). Never use null/none
-4. **USE THE RESEARCH**: Reference specific stats, trends, and news from the research insights in your reasoning
-5. **LONGER REASONING**: Each pick must have 6-10 sentences of detailed, data-backed analysis
-6. **DIVERSIFY**: Spread across different players and prop types
-7. **EXACT MATCHING**: Use exact values from the props list above for event_id, player_name, prop_type, line, odds, bookmaker
+1. **EXACT COUNT**: Return EXACTLY {picks_target} picks (not one more, not one less)
+2. **MIX REQUIREMENT**: Include {alt_count} alt lines + {main_count} main lines
+3. **RESEARCH-BACKED**: EVERY pick must cite SPECIFIC data from research above
+4. **NO HALLUCINATIONS**: Only use EXACT props from the list - no making up lines/odds
+5. **DETAILED REASONING**: 8-12 sentences per pick with concrete data points
 
-REASONING REQUIREMENTS (6-10 sentences each):
-- Sentence 1-2: State the pick and key edge
-- Sentence 3-4: Cite SPECIFIC stats from research (e.g., "StatMuse shows he's averaging X over last Y games")
-- Sentence 5-6: Discuss matchup factors, trends, or situational advantages
-- Sentence 7-8: Explain why this line/odds represent value
-- Sentence 9-10: Mention any injury/lineup intel from web searches
+# 📝 REQUIRED REASONING STRUCTURE (8-12 sentences):
+
+**Opening (2 sentences)**: State the pick and identify the PRIMARY EDGE
+Example: "Taking [Player] OVER [line] [stat] offers exceptional value at [odds]. The key edge here is [specific factor from research]."
+
+**Research Data (3-4 sentences)**: Cite EXACT stats from StatMuse/web searches
+Example: "StatMuse data shows [Player] averaging [X] [stat] over last [Y] games, well above this [line]. Against [opponent], he's historically performed [specific stat]. The matchup favors this play because [team] allows [specific defensive stat]. Recent form shows [trend from research]."
+
+**Matchup Analysis (2-3 sentences)**: Explain why THIS GAME is different
+Example: "[Opponent] ranks [X] in defending [position/stat], creating opportunity. Weather/venue factors [specific detail]. Lineup news indicates [specific advantage]."
+
+**Value Assessment (2 sentences)**: Explain the betting value
+Example: "At [odds], implied probability is [X]%, but my model estimates [Y]% chance. This [Z]% edge represents strong value relative to market pricing."
+
+**Risk Factors (1-2 sentences)**: Acknowledge any concerns
+Example: "Primary risk is [specific concern]. However, [mitigating factor] reduces this concern."
+
+# 🎯 PICK SELECTION CRITERIA:
+- Focus on props where research shows clear edge (player trending up/down)
+- Prioritize matchup mismatches identified in research
+- Include variety: different sports, players, and prop types
+- Sweet spot odds: -200 to +200 for best risk/reward
+- Use alt lines strategically when research supports the edge
+
+# 📊 CONFIDENCE DISTRIBUTION:
+- 2-3 picks at 75-80% confidence (strongest edges from research)
+- 8-10 picks at 65-74% confidence (solid value plays)
+- 5-7 picks at 55-64% confidence (calculated risks with upside)
+
+# 🔍 KEY FACTORS TO IDENTIFY FROM RESEARCH:
+- Recent performance trends (hot/cold streaks)
+- Head-to-head historical data
+- Team defensive weaknesses
+- Injury/rest advantages
+- Weather/venue impacts
+- Lineup changes affecting usage
+- Coaching tendencies
+- Pace of play factors
 
 RESPOND WITH ONLY JSON ARRAY (no other text):
 [
@@ -797,10 +897,12 @@ async def main():
         except ValueError:
             logger.error('Invalid --date, use YYYY-MM-DD')
             return
-    elif args.tomorrow:
-        target = (datetime.now() + timedelta(days=1)).date()
     else:
-        target = datetime.now().date()
+        tz = ZoneInfo(APP_TIMEZONE)
+        now_local = datetime.now(tz)
+        target = (now_local + timedelta(days=1)).date() if args.tomorrow else now_local.date()
+    
+    logger.info(f"🗓️ Using target_date={target} (timezone={APP_TIMEZONE}{' +1 day' if args.tomorrow else ''})")
     
     ag = Agent()
     await ag.run(target, args.picks, args.sport)

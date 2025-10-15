@@ -149,13 +149,20 @@ else
     handle_error "Personalized enhanced insights failed" "Insights generation"
 fi
 
-# Step 4: Generate Enhanced Props Predictions
-log "🏈 Step 4/6: Generating enhanced props predictions..."
+# Step 4: Generate Intelligent Props Predictions with Deep Research
+log "🏈 Step 4/6: Generating intelligent props predictions with DEEP RESEARCH..."
 
-if python3 props_enhanced.py --tomorrow --picks 25 >> "$LOG_FILE" 2>&1; then
-    log "✅ Enhanced props predictions completed successfully (25 picks for Elite tier support)"
+# Use the enhanced v3 script with comprehensive research integration
+if python3 props_intelligent_v3.py --tomorrow --picks 25 >> "$LOG_FILE" 2>&1; then
+    log "✅ Intelligent props predictions with research completed successfully (25 picks with detailed analysis)"
 else
-    handle_error "Enhanced props predictions failed" "Props generation"
+    # Fallback to v2 if v3 fails for some reason
+    log "⚠️ Intelligent v3 failed, trying enhanced v2 as fallback..."
+    if python3 props_enhanced_v2.py --tomorrow --picks 25 >> "$LOG_FILE" 2>&1; then
+        log "✅ Enhanced props predictions completed with v2 fallback"
+    else
+        handle_error "Props predictions failed with both v3 and v2" "Props generation"
+    fi
 fi
 
 # Step 5: Generate Enhanced Teams Predictions  
