@@ -5,6 +5,7 @@ import argparse
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from openai import AsyncOpenAI
@@ -16,6 +17,8 @@ load_dotenv("backend/.env")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("props_enhanced_v2")
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "America/New_York")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5")
 
 @dataclass
 class FlatProp:
@@ -175,11 +178,12 @@ class DB:
         return s
 
     def get_games_for_date(self, target_date: datetime.date, sport_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-        # Simple UTC window for the date
-        start_dt = datetime.combine(target_date, datetime.min.time())
-        end_dt = datetime.combine(target_date, datetime.max.time())
-        start_iso = start_dt.isoformat()
-        end_iso = end_dt.isoformat()
+        # Local timezone midnight window converted to UTC
+        tz = ZoneInfo(APP_TIMEZONE)
+        start_local = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=tz)
+        end_local = start_local + timedelta(days=1)
+        start_iso = start_local.astimezone(timezone.utc).isoformat()
+        end_iso = end_local.astimezone(timezone.utc).isoformat()
         sports = []
         if sport_filter:
             norm = self._normalize_sport_input(sport_filter)
@@ -197,7 +201,7 @@ class DB:
         for s in sports:
             resp = self.client.table('sports_events').select(
                 'id, home_team, away_team, start_time, sport'
-            ).gte('start_time', start_iso).lte('start_time', end_iso).eq('sport', s).order('start_time').execute()
+            ).gte('start_time', start_iso).lt('start_time', end_iso).eq('sport', s).order('start_time').execute()
             if resp.data:
                 all_games.extend(resp.data)
         all_games.sort(key=lambda g: g['start_time'])
@@ -343,7 +347,8 @@ class DB:
 class Agent:
     def __init__(self) -> None:
         self.db = DB()
-        self.llm = AsyncOpenAI(api_key=os.getenv('XAI_API_KEY'), base_url='https://api.x.ai/v1')
+        # Use OpenAI by default; model configurable via OPENAI_MODEL
+        self.llm = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.statmuse = StatMuseClient()
         self.web = WebSearchClient()
 
@@ -635,23 +640,34 @@ Generate exactly {picks_target} ELITE picks with true mathematical edge.
     async def _call_llm(self, prompt: str) -> List[Dict[str, Any]]:
         try:
             resp = await self.llm.chat.completions.create(
-                model='grok-4-0709',  
+                model=OPENAI_MODEL,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=8000  # Increased for larger responses
+                temperature=1,
+                max_completion_tokens=15000  # Increased for larger responses
             )
-            text = resp.choices[0].message.content.strip()
+            text = (resp.choices[0].message.content or '').strip()
             logger.info(f"AI response length: {len(text)} chars")
             
-            # Extract JSON array
-            start = text.find('[')
-            end = text.rfind(']')
-            if start == -1 or end == -1:
-                logger.error('LLM response missing JSON array')
-                logger.debug(f"Response preview: {text[:500]}")
-                return []
-            
-            json_str = text[start:end+1]
+            # Prefer code-fenced JSON if present
+            json_str = ''
+            if '```' in text:
+                first = text.find('```')
+                second = text.find('```', first + 3)
+                if second != -1:
+                    fenced = text[first + 3:second].strip()
+                    # Strip possible language hint like 'json' or 'JSON'
+                    if fenced.lower().startswith('json'):
+                        fenced = fenced[4:].strip()
+                    json_str = fenced
+            if not json_str:
+                # Fallback: extract bracketed JSON array
+                start = text.find('[')
+                end = text.rfind(']')
+                if start == -1 or end == -1:
+                    logger.error('LLM response missing JSON array')
+                    logger.debug(f"Response preview: {text[:500]}")
+                    return []
+                json_str = text[start:end+1]
             try:
                 parsed = json.loads(json_str)
                 return parsed
@@ -694,10 +710,12 @@ async def main():
         except ValueError:
             logger.error('Invalid --date, use YYYY-MM-DD')
             return
-    elif args.tomorrow:
-        target = (datetime.now(timezone.utc) + timedelta(days=1)).date()
     else:
-        target = datetime.now(timezone.utc).date()
+        tz = ZoneInfo(APP_TIMEZONE)
+        now_local = datetime.now(tz)
+        target = (now_local + timedelta(days=1)).date() if args.tomorrow else now_local.date()
+
+    logger.info(f"🗓️ Using target_date={target} (timezone={APP_TIMEZONE}{' +1 day' if args.tomorrow else ''})")
 
     ag = Agent()
     await ag.run(target, args.picks, args.sport)
