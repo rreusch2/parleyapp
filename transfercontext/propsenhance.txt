@@ -1,0 +1,62 @@
+I'll open the end of [props_intelligent_v3.py](cci:7://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:0:0-0:0) to inspect how the date is determined and fix timezone handling so default runs use the user's local day. Then I'll update [DB.get_games_for_date()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:144:4-178:24) to query using a local-midnight window converted to UTC, and add a configurable timezone via `APP_TIMEZONE`.
+
+I'll update [props_intelligent_v3.py](cci:7://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:0:0-0:0) to make date selection timezone-aware (defaulting to America/New_York) and ensure database queries use a local-midnight window converted to UTC. This will make default runs use "today" in your local timezone, with `--tomorrow` shifting by one local day. I'll add `APP_TIMEZONE` support and adjust both [parse_args()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:874:0-882:25) and [DB.get_games_for_date()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:144:4-178:24).
+
+I'll update the script to use a local timezone (default America/New_York) for "today" and convert to UTC for Supabase queries. This ensures default runs target the current local day, with --tomorrow shifting by one local day.
+
+
+
+## Fix applied: runs “today” by your local time (with optional --tomorrow)
+
+I updated the props script to be timezone-aware and default to the current local day. This prevents it from slipping into “yesterday” due to UTC windows.
+
+# Changes made
+- **Timezone support** in [props_intelligent_v3.py](cci:7://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:0:0-0:0)
+  - Added `APP_TIMEZONE` (default currently set to `America/New_York`). You can override in [backend/.env](cci:7://file:///home/reid/Desktop/parleyapp/backend/.env:0:0-0:0).
+  - [main()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:822:6-837:48) now computes target date using your local timezone.
+  - [DB.get_games_for_date()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:144:4-178:24) now builds a local-midnight window and converts to UTC for the Supabase query.
+  - Exclusive end bound (`< end`) to avoid bleeding into the next day.
+
+- **Files/sections updated**
+  - [props_intelligent_v3.py](cci:7://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:0:0-0:0) imports `ZoneInfo` and defines `APP_TIMEZONE`.
+  - [DB.get_games_for_date()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:144:4-178:24) now:
+    - Creates `start_local`/`end_local` at midnight in `APP_TIMEZONE`
+    - Converts to UTC and queries `start_time >= start_utc AND start_time < end_utc`
+  - [main()](cci:1://file:///home/reid/Desktop/parleyapp/props_intelligent_v3.py:822:6-837:48) now uses:
+    - `--date YYYY-MM-DD` takes precedence
+    - `--tomorrow` shifts 1 local day
+    - Default = “today” in `APP_TIMEZONE`
+
+# How to control the date (examples)
+- **Today (default)**:
+  - `python props_intelligent_v3.py --picks 10`
+- **Tomorrow**:
+  - `python props_intelligent_v3.py --tomorrow --picks 10`
+- **Specific date**:
+  - `python props_intelligent_v3.py --date 2025-10-15 --picks 10`
+
+# Set your timezone (recommended)
+You appear to be operating in UTC-05:00. If that’s Central time (CDT), set:
+- In [backend/.env](cci:7://file:///home/reid/Desktop/parleyapp/backend/.env:0:0-0:0):
+  - `APP_TIMEZONE=America/Chicago`
+- Or export before running:
+  - `export APP_TIMEZONE=America/Chicago`
+
+If you prefer Eastern, keep `America/New_York`.
+
+# Daily automation note
+- The daily script intentionally runs with `--tomorrow` to prepare early picks. Manual runs with no flags now target “today” in your local timezone, exactly as you wanted.
+
+# Recommended Actions
+- **Set `APP_TIMEZONE`** in [backend/.env](cci:7://file:///home/reid/Desktop/parleyapp/backend/.env:0:0-0:0) to your actual local timezone (e.g., `America/Chicago`).
+- If you want, I can apply the same timezone-safe windowing to:
+  - `teams_enhanced.py`
+  - `enhanced_insights.py`
+  - [props_enhanced_v2.py](cci:7://file:///home/reid/Desktop/parleyapp/props_enhanced_v2.py:0:0-0:0)
+  for consistency across all generators.
+
+# Status
+- **Fixed**: Default run targets the current local day.
+- **Added**: `APP_TIMEZONE` support and UTC-safe queries.
+- **Kept**: `--tomorrow` and `--date` for explicit control.
+

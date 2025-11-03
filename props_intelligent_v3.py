@@ -12,8 +12,8 @@ from supabase import create_client, Client
 from openai import AsyncOpenAI
 import asyncio
 
-# Load env from backend/.env
-load_dotenv("backend/.env")
+# Load env from root .env
+load_dotenv(".env")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("props_intelligent_v3")

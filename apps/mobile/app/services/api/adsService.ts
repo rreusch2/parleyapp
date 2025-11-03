@@ -46,7 +46,7 @@ export const adsService = {
       if (!token) return { success: false, message: 'Not authenticated' };
 
       const body = {
-        ad_unit_id: options?.adUnitId || process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID || 'TEST',
+        ad_unit_id: options?.adUnitId || 'NOT_USED',
         transaction_id: options?.transactionId || null,
         reward_item: options?.rewardItem || 'extra_pick',
         reward_amount: options?.rewardAmount || 1,

@@ -1,4 +1,0 @@
-0 */2 * * * cd /home/reid/Desktop/parleyapp && /home/reid/.pyenv/versions/3.12.11/bin/python -c "import asyncio; from automated_workflows import AutomatedWorkflowManager; asyncio.run(AutomatedWorkflowManager().workflow_scrapy_data_refresh())"
-0 6 * * * cd /home/reid/Desktop/parleyapp && /home/reid/.pyenv/versions/3.12.11/bin/python -c "import asyncio; from automated_workflows import AutomatedWorkflowManager; asyncio.run(AutomatedWorkflowManager().workflow_daily_picks_generation())"
-0 */6 * * * cd /home/reid/Desktop/parleyapp && /home/reid/.pyenv/versions/3.12.11/bin/python -c "import asyncio; from automated_workflows import AutomatedWorkflowManager; asyncio.run(AutomatedWorkflowManager().workflow_system_health_check())"
-0 2 * * * cd /home/reid/Desktop/parleyapp && /home/reid/.pyenv/versions/3.12.11/bin/python -c "import asyncio; from automated_workflows import AutomatedWorkflowManager; asyncio.run(AutomatedWorkflowManager().workflow_data_cleanup())"

@@ -29,7 +29,6 @@ config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   // Skip native modules on web - let Metro handle with empty polyfills
   const nativeModules = [
-    'react-native-google-mobile-ads',
     'react-native-purchases',
     'react-native-purchases-ui',
     'react-native-appsflyer',

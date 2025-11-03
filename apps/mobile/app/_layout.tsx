@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, AppState } from 'react-native';
+import { Platform, AppState, Alert } from 'react-native';
 import { View, Dimensions, StyleSheet } from 'react-native';
 import { useFrameworkReady } from './hooks/useFrameworkReady';
 import { Slot } from 'expo-router';
@@ -21,6 +21,9 @@ import { attService } from './services/attService';
 import Constants from 'expo-constants';
 import { StripeProvider } from './services/stripeService';
 // Remove the top-level import since it's not available on web
+import * as Linking from 'expo-linking';
+import Purchases from 'react-native-purchases';
+import revenueCatService from './services/revenueCatService';
 
 
 // Get device dimensions to adapt UI for iPad and web
@@ -28,7 +31,7 @@ const { width: screenWidth } = Dimensions.get('window');
 const isTablet = screenWidth > 768; // Standard breakpoint for tablet devices
 const isWeb = Platform.OS === 'web';
 function AppContent() {
-  const { showSubscriptionModal, closeSubscriptionModal } = useSubscription();
+  const { showSubscriptionModal, closeSubscriptionModal, checkSubscriptionStatus } = useSubscription();
   const { initializeReview } = useReview();
   const router = useRouter();
   const appState = useRef(AppState.currentState);
@@ -122,6 +125,63 @@ function AppContent() {
       try { subscription?.remove && subscription.remove(); } catch {}
     };
   }, [router]);
+
+
+  useEffect(() => {
+    const handleUrl = async (url: string) => {
+      try {
+        const webPurchaseRedemption = await Purchases.parseAsWebPurchaseRedemption(url);
+        if (webPurchaseRedemption) {
+          try {
+            const configured = await Purchases.isConfigured();
+            if (!configured) {
+              await revenueCatService.initialize();
+            }
+          } catch {}
+          const result: any = await Purchases.redeemWebPurchase(webPurchaseRedemption);
+          switch (result.result) {
+            case 'SUCCESS':
+              await checkSubscriptionStatus();
+              Alert.alert('Purchase Redeemed', 'Your web purchase has been linked to your account.');
+              break;
+            case 'ERROR':
+              Alert.alert('Redemption Error', result?.error?.message || 'Redemption failed.');
+              break;
+            case 'PURCHASE_BELONGS_TO_OTHER_USER':
+              Alert.alert('Redemption Error', 'This purchase belongs to another user.');
+              break;
+            case 'INVALID_TOKEN':
+              Alert.alert('Invalid Link', 'The redemption link is invalid.');
+              break;
+            case 'EXPIRED':
+              Alert.alert('Link Expired', `A new link has been sent to ${result?.obfuscatedEmail || 'your email'}.`);
+              break;
+            default:
+              Alert.alert('Redemption', 'Processed redemption link.');
+          }
+        }
+      } catch (e) {
+        console.warn('RevenueCat redemption handling error', e);
+      }
+    };
+
+    (async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          await handleUrl(initialUrl);
+        }
+      } catch {}
+    })();
+
+    const linkSub = Linking.addEventListener('url', (event: { url: string }) => {
+      handleUrl(event.url);
+    });
+
+    return () => {
+      try { (linkSub as any)?.remove && (linkSub as any).remove(); } catch {}
+    };
+  }, [checkSubscriptionStatus]);
 
 
 

@@ -6,6 +6,7 @@ const googleIosUrlScheme = reversedGoogleClientId
  ? `com.googleusercontent.apps.${reversedGoogleClientId}`
  : null;
 
+const rcRedemptionScheme = process.env.EXPO_PUBLIC_REVENUECAT_REDEMPTION_SCHEME || null;
 
 module.exports = {
  expo: {
@@ -23,19 +24,20 @@ module.exports = {
      "**/*"
    ],
    ios: {
-     supportsTablet: true,
-     bundleIdentifier: "com.app.predictiveplay",
-     buildNumber: "1",
-     jsEngine: "hermes",
-     // REMOVED: useIconsFromAssetCatalog: true,
-     // Permission explanations refined based on app features
-     infoPlist: {
+    supportsTablet: true,
+    bundleIdentifier: "com.app.predictiveplay",
+    buildNumber: "1",
+    jsEngine: "hermes",
+    entitlements: {
+      "com.apple.developer.applesignin": ["Default"]
+    },
+    // REMOVED: useIconsFromAssetCatalog: true,
+    // Permission explanations refined based on app features
+    infoPlist: {
        // Only include permissions that your app actually uses
        "ITSAppUsesNonExemptEncryption": false,
-       // App Tracking Transparency prompt text (required for IDFA on iOS 14.5+)
-       "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
-       // Delay Google App Measurement until after ATT decision
-       "GADDelayAppMeasurementInit": true,
+       // App Tracking Transparency prompt text (used for AppsFlyer attribution)
+      "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
        // Camera permission (required by third-party SDKs even if not used)
        "NSCameraUsageDescription": "This app does not use the camera, but this permission is required by third-party SDKs.",
        // Meta SKAdNetwork IDs (helps install attribution & optimization). The FBSDK plugin also injects these.
@@ -69,14 +71,11 @@ module.exports = {
          }
        },
        // Register URL schemes so Google can redirect back to the app in production
-       ...(googleIosUrlScheme
-         ? {
-             CFBundleURLTypes: [
-               { CFBundleURLSchemes: ['predictiveplay'] },
-               { CFBundleURLSchemes: [googleIosUrlScheme] },
-             ],
-           }
-         : { CFBundleURLTypes: [{ CFBundleURLSchemes: ['predictiveplay'] }] }),
+       CFBundleURLTypes: [
+         { CFBundleURLSchemes: ['predictiveplay'] },
+         ...(googleIosUrlScheme ? [{ CFBundleURLSchemes: [googleIosUrlScheme] }] : []),
+         ...(rcRedemptionScheme ? [{ CFBundleURLSchemes: [rcRedemptionScheme] }] : []),
+       ],
      },
      usesAppleSignIn: true
 
@@ -97,7 +96,14 @@ module.exports = {
        "INTERNET",
        "ACCESS_NETWORK_STATE",
        "BILLING"
-     ]
+     ],
+     intentFilters: rcRedemptionScheme ? [
+       {
+         action: "VIEW",
+         data: [{ scheme: rcRedemptionScheme }],
+         category: ["BROWSABLE", "DEFAULT"]
+       }
+     ] : []
    },
    web: {
      bundler: "metro",
@@ -121,9 +127,8 @@ module.exports = {
      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
      revenueCatIosApiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
      revenueCatAndroidApiKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
-     admobAndroidAppId: process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID,
-     admobIosAppId: process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID,
-     admobRewardedUnitId: process.env.EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID,
+     revenueCatRedemptionScheme: process.env.EXPO_PUBLIC_REVENUECAT_REDEMPTION_SCHEME,
+     
      // Optional Elite preview video URL used in tiered subscription modals
      elitePreviewVideoUrl: process.env.EXPO_PUBLIC_ELITE_PREVIEW_VIDEO_URL,
      // Google OAuth client IDs for Expo AuthSession (used for Google sign-in)

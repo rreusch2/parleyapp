@@ -1,4 +1,0 @@
-{"code":"22P02","details":null,"hint":null,"level":"error","message":"invalid input syntax for type uuid: \"test-user\"","service":"playerPropsRoutes","timestamp":"2025-06-09 11:03:31"}
-{"code":"22P02","details":null,"hint":null,"level":"error","message":"invalid input syntax for type integer: \"74.7\"","service":"playerPropsRoutes","timestamp":"2025-06-09 11:06:47"}
-{"code":"22P02","details":null,"hint":null,"level":"error","message":"invalid input syntax for type integer: \"74.7\"","service":"playerPropsRoutes","timestamp":"2025-06-09 11:06:53"}
-{"code":"22P02","details":null,"hint":null,"level":"error","message":"invalid input syntax for type integer: \"73.6\"","service":"playerPropsRoutes","timestamp":"2025-06-09 11:09:32"}

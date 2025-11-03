@@ -13,7 +13,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.18.0",
+      "node": "20.18.1",
+      "env": {
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      },
       "ios": {
         "buildConfiguration": "Release"
       },

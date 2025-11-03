@@ -1,0 +1,155 @@
+{
+  "version": "1.0",
+  "name": "Player Card",
+  "template": "{\"type\":\"Card\",\"size\":\"md\",\"theme\":\"dark\",\"padding\":8,\"background\":\"url(https://ik.imagekit.io/m998roxrr/footballfroge.png) no-repeat center / cover\",\"children\":[{\"type\":\"Row\",\"align\":\"center\",\"children\":[{\"type\":\"Box\",\"width\":\"40%\",\"minHeight\":160,\"children\":[]},{\"type\":\"Col\",\"flex\":\"auto\",\"children\":[{\"type\":\"Title\",\"value\":{{ ((name ~ \" (#\" ~ number ~ \")\")) | tojson }},\"size\":\"xl\",\"color\":\"white\",\"weight\":\"normal\",\"children\":[]},{\"type\":\"Row\",\"children\":[{%- set _c -%}{%-for item in stats -%},{\"type\":\"Col\",\"flex\":1,\"gap\":0,\"children\":[{\"type\":\"Text\",\"value\":{{ (item.value) | tojson }},\"weight\":\"semibold\",\"children\":[]},{\"type\":\"Caption\",\"value\":{{ (item.label) | tojson }},\"color\":{{ (accent) | tojson }},\"children\":[]}]}{%-endfor-%}{%- endset -%}{{- (_c[1:] if _c and _c[0] == ',' else _c) -}}]}]}]}]}",
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "widget",
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "number": {
+        "type": "string"
+      },
+      "accent": {
+        "type": "string"
+      },
+      "stats": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value",
+            "label"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 4
+      }
+    },
+    "required": [
+      "name",
+      "number",
+      "accent",
+      "stats"
+    ],
+    "additionalProperties": false
+  },
+  "outputJsonPreview": {
+    "type": "Card",
+    "size": "md",
+    "theme": "dark",
+    "padding": 8,
+    "background": "url(https://ik.imagekit.io/m998roxrr/footballfroge.png) no-repeat center / cover",
+    "children": [
+      {
+        "type": "Row",
+        "align": "center",
+        "children": [
+          {
+            "type": "Box",
+            "width": "40%",
+            "minHeight": 160
+          },
+          {
+            "type": "Col",
+            "flex": "auto",
+            "children": [
+              {
+                "type": "Title",
+                "value": "Froge (#22)",
+                "size": "xl",
+                "color": "white",
+                "weight": "normal"
+              },
+              {
+                "type": "Row",
+                "children": [
+                  {
+                    "type": "Col",
+                    "flex": 1,
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "Text",
+                        "value": "18",
+                        "weight": "semibold"
+                      },
+                      {
+                        "type": "Caption",
+                        "value": "PTS",
+                        "color": "blue-100"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Col",
+                    "flex": 1,
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "Text",
+                        "value": "141",
+                        "weight": "semibold"
+                      },
+                      {
+                        "type": "Caption",
+                        "value": "YDS",
+                        "color": "blue-100"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Col",
+                    "flex": 1,
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "Text",
+                        "value": "2",
+                        "weight": "semibold"
+                      },
+                      {
+                        "type": "Caption",
+                        "value": "TKL",
+                        "color": "blue-100"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "Col",
+                    "flex": 1,
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "Text",
+                        "value": "17",
+                        "weight": "semibold"
+                      },
+                      {
+                        "type": "Caption",
+                        "value": "LEAPS",
+                        "color": "blue-100"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "encodedWidget": "eyJpZCI6IndpZ194azlrdXdkciIsIm5hbWUiOiJQbGF5ZXIgQ2FyZCIsInZpZXciOiI8Q2FyZFxuICAgIHNpemU9XCJtZFwiXG4gIHRoZW1lPVwiZGFya1wiXG4gIHBhZGRpbmc9ezh9XG4gIGJhY2tncm91bmQ9XCJ1cmwoaHR0cHM6Ly9pay5pbWFnZWtpdC5pby9tOTk4cm94cnIvZm9vdGJhbGxmcm9nZS5wbmcpIG5vLXJlcGVhdCBjZW50ZXIgLyBjb3ZlclwiXG4-XG4gIDxSb3cgYWxpZ249XCJjZW50ZXJcIj5cbiAgICA8Qm94IHdpZHRoPVwiNDAlXCIgbWluSGVpZ2h0PXsxNjB9IC8-XG4gICAgICA8Q29sIGZsZXg9XCJhdXRvXCI-XG4gICAgICA8VGl0bGVcbiAgICAgICAgdmFsdWU9e2Ake25hbWV9ICgjJHtudW1iZXJ9KWB9XG4gICAgICAgIHNpemU9XCJ4bFwiXG4gICAgICAgIGNvbG9yPVwid2hpdGVcIlxuICAgICAgICB3ZWlnaHQ9XCJub3JtYWxcIlxuICAgICAgLz5cbiAgICAgIDxSb3c-XG4gICAgICAgIHtzdGF0cy5tYXAoKGl0ZW0sIGluZGV4KSA9PiAoXG4gICAgICAgICAgPENvbCBmbGV4PXsxfSBnYXA9ezB9ID5cbiAgICAgICAgICAgIDxUZXh0IHZhbHVlPXtpdGVtLnZhbHVlfSB3ZWlnaHQ9XCJzZW1pYm9sZFwiICAvPlxuICAgICAgICAgICAgPENhcHRpb24gdmFsdWU9e2l0ZW0ubGFiZWx9IGNvbG9yPXthY2NlbnR9IC8-XG4gICAgICAgICAgICA8L0NvbD5cbiAgICAgICAgKSl9XG4gICAgICAgIDwvUm93PlxuICAgICAgPC9Db2w-XG4gICAgPC9Sb3c-XG4gIDwvQ2FyZD4iLCJkZWZhdWx0U3RhdGUiOnsibmFtZSI6IkZyb2dlIiwibnVtYmVyIjoiMjIiLCJhY2NlbnQiOiJibHVlLTEwMCIsInN0YXRzIjpbeyJ2YWx1ZSI6IjE4IiwibGFiZWwiOiJQVFMifSx7InZhbHVlIjoiMTQxIiwibGFiZWwiOiJZRFMifSx7InZhbHVlIjoiMiIsImxhYmVsIjoiVEtMIn0seyJ2YWx1ZSI6IjE3IiwibGFiZWwiOiJMRUFQUyJ9XX0sInN0YXRlcyI6W119"
+}

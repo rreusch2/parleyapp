@@ -1,1 +1,0 @@
-0 2 * * * /home/reid/Desktop/parleyapp/daily-automation.sh

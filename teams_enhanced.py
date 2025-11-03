@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import time
 
 # Load environment variables
-load_dotenv("backend/.env")
+load_dotenv(".env")
 
 # Configure logging
 logging.basicConfig(

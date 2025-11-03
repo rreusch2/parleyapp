@@ -1,34 +1,21 @@
-// Native AdMob exports for iOS/Android
-let RewardedAd: any;
-let RewardedAdEventType: any;
-let TestIds: any;
-let AdEventType: any;
+// AdMob removed — export no-op stubs to keep any conditional imports safe
+export const RewardedAd = {
+  createForAdRequest: (_adUnitId: string, _options?: any) => ({
+    addAdEventListener: (_eventType: string, _listener: () => void) => () => {},
+    load: () => {},
+    show: () => {},
+  }),
+};
 
-try {
-  const AdMob = require('react-native-google-mobile-ads');
-  RewardedAd = AdMob.RewardedAd;
-  RewardedAdEventType = AdMob.RewardedAdEventType;
-  TestIds = AdMob.TestIds;
-  AdEventType = AdMob.AdEventType;
-} catch (error) {
-  // Fallback if package is not available
-  RewardedAd = {
-    createForAdRequest: () => ({
-      addAdEventListener: () => () => {},
-      load: () => {},
-      show: () => {},
-    })
-  };
-  RewardedAdEventType = {
-    LOADED: 'loaded',
-    EARNED_REWARD: 'earned_reward'
-  };
-  AdEventType = {
-    CLOSED: 'closed'
-  };
-  TestIds = {
-    REWARDED: 'test-rewarded-id'
-  };
-}
+export const RewardedAdEventType = {
+  LOADED: 'loaded' as const,
+  EARNED_REWARD: 'earned_reward' as const,
+};
 
-export { RewardedAd, RewardedAdEventType, TestIds, AdEventType };
+export const AdEventType = {
+  CLOSED: 'closed' as const,
+};
+
+export const TestIds = {
+  REWARDED: 'test-rewarded-id' as const,
+};

@@ -1,2 +1,0 @@
-# Add ChatKit to your existing requirements
-openai-chatkit

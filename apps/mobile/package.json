@@ -57,7 +57,6 @@
     "react-native": "0.79.5",
     "react-native-appsflyer": "^6.17.2",
     "react-native-chart-kit": "^6.12.0",
-    "react-native-google-mobile-ads": "^15.7.0",
     "react-native-markdown-display": "^7.0.2",
     "react-native-purchases": "^8.11.9",
     "react-native-purchases-ui": "^8.12.0",
