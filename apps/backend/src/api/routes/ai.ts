@@ -400,9 +400,34 @@ router.post('/generate-picks', async (req, res) => {
 
     // Determine how many picks to generate
     const maxPicks = pickLimit || (isNewUser ? 2 : 5); // New users get 2, existing users get 5
-    const gamesToProcess = allGames.slice(0, maxPicks);
+    // Prefer a balanced distribution across sports (round-robin) so we don't skew to a single league
+    const bySport: Record<string, any[]> = {};
+    for (const g of allGames) {
+      const sp = (g.sport || 'Other').toString();
+      if (!bySport[sp]) bySport[sp] = [];
+      bySport[sp].push(g);
+    }
+    const sportKeys = Object.keys(bySport);
+    const rr: any[] = [];
+    const indices: Record<string, number> = {};
+    sportKeys.forEach(k => indices[k] = 0);
+    while (rr.length < maxPicks) {
+      let progressed = false;
+      for (const sp of sportKeys) {
+        const bucket = bySport[sp] || [];
+        const idx = indices[sp] || 0;
+        if (idx < bucket.length) {
+          rr.push(bucket[idx]);
+          indices[sp] = idx + 1;
+          progressed = true;
+          if (rr.length >= maxPicks) break;
+        }
+      }
+      if (!progressed) break;
+    }
+    const gamesToProcess = rr.length > 0 ? rr : allGames.slice(0, maxPicks);
     
-    logger.info(`🎯 Processing ${gamesToProcess.length} games: ${gamesToProcess.map(g => g.teams.away + ' vs ' + g.teams.home).join(', ')}`);
+    logger.info(`🎯 Processing ${gamesToProcess.length} games: ${gamesToProcess.map(g => `${g.sport}:${g.teams.away} vs ${g.teams.home}`).join(', ')}`);
     
     const orchestratedPicks: any[] = [];
     

@@ -622,26 +622,55 @@ export class ChatbotOrchestrator {
   }
 
   /**
-   * Build system prompt with current app data (enhanced)
+   * Build system prompt for Grok
    */
   private buildSystemPrompt(appData: any, context: ChatContext, userPreferences?: any): string {
-    const picksCount = appData.todaysPicks.length;
-    const teamPicksCount = appData.teamPicks.length;
-    const playerPropsCount = appData.playerProps.length;
-    const insightsCount = appData.todaysInsights.length;
-    const upcomingGamesCount = appData.upcomingGames.length;
-    const injuriesCount = appData.injuries.length;
-    const newsCount = appData.news.length;
-    
+    // Sport-aware filtering based on explicit context (selected sport) or user preferences
+    const sportMap: Record<string, string> = {
+      'CFB': 'College Football',
+      'college football': 'College Football',
+      'CollegeFootball': 'College Football',
+      'NCAAF': 'College Football',
+      'National Football League': 'NFL',
+      'Major League Baseball': 'MLB',
+      "Women's National Basketball Association": 'WNBA',
+      'Ultimate Fighting Championship': 'UFC'
+    };
+    const normalizeSport = (s: any) => sportMap[(s || '').toString()] || (s || '').toString();
+    const selectedSport = (context as any)?.selectedSport || (context as any)?.sport;
+    const preferredSportsFromProfile = userPreferences?.sportPreferences
+      ? Object.entries(userPreferences.sportPreferences)
+          .filter(([_, enabled]: any) => !!enabled)
+          .map(([sport]: any) => sport)
+      : [];
+    const preferredSports = Array.from(new Set([...(preferredSportsFromProfile as string[]), selectedSport].filter(Boolean))) as string[];
+    const preferredSet = new Set(preferredSports.map(s => normalizeSport(s).toLowerCase()));
+    const matchesPreferred = (s: any) => {
+      if (preferredSet.size === 0) return true;
+      const n = normalizeSport(s).toLowerCase();
+      return preferredSet.has(n) || Array.from(preferredSet).some(p => n.includes(p));
+    };
+
+    const todaysPicksFiltered = (appData.todaysPicks || []).filter((p: any) => matchesPreferred(p.sport));
+    const teamPicksFiltered = (appData.teamPicks || []).filter((p: any) => matchesPreferred(p.sport));
+    const playerPropsFiltered = (appData.playerProps || []).filter((p: any) => matchesPreferred(p.sport));
+    const latest20Filtered = (appData.latest20Predictions || []).filter((p: any) => matchesPreferred(p.sport));
+
+    const picksCount = todaysPicksFiltered.length;
+    const teamPicksCount = teamPicksFiltered.length;
+    const playerPropsCount = playerPropsFiltered.length;
+    const insightsCount = (appData.todaysInsights || []).length;
+    const upcomingGamesCount = (appData.upcomingGames || []).length;
+    const injuriesCount = (appData.injuries || []).length;
+    const newsCount = (appData.news || []).length;
+
     // Determine user tier and pick limits
     const userTier = context.userTier || 'free';
     const maxPicks = context.maxPicks || 2;
     const isProUser = userTier === 'pro';
     const isEliteUser = userTier === 'elite';
     const isPremiumUser = isProUser || isEliteUser;
-    
-    // Filter picks based on user tier
-    const allowedPicks = appData.todaysPicks.slice(0, maxPicks);
+    const allowedPicks = todaysPicksFiltered.slice(0, maxPicks);
     const displayPicksCount = isPremiumUser ? picksCount : Math.min(picksCount, maxPicks);
 
     // Build personalized prompt section
@@ -649,7 +678,7 @@ export class ChatbotOrchestrator {
 🎯 PERSONALIZED FOR THIS USER:
 - Preferred Sports: ${Object.entries(userPreferences.sportPreferences)
   .filter(([sport, enabled]) => enabled)
-  .map(([sport]) => sport.toUpperCase())
+  .map(([sport]) => (sport as string).toUpperCase())
   .join(', ') || 'MLB (default)'}
 - Betting Style: ${userPreferences.bettingStyle} (${this.getBettingStyleDescription(userPreferences.bettingStyle)})
 - Risk Tolerance: ${userPreferences.riskTolerance} (${this.getRiskToleranceDescription(userPreferences.riskTolerance)})
@@ -664,7 +693,7 @@ export class ChatbotOrchestrator {
 
     const professorTitle = isEliteUser ? 'Professor Lock Elite' : 'Professor Lock';
     const eliteBranding = isEliteUser ? ' 🏆 ELITE EDITION' : '';
-    
+
     return `You are "${professorTitle}" - the most advanced AI sports betting assistant${eliteBranding}. You're sharp, witty, and slightly cocky, but always back it up with data and intelligence. You adapt your personality naturally - sometimes funny, sometimes serious, always professional.
 ${personalizedSection}
 CORE IDENTITY:
@@ -723,7 +752,7 @@ ${allowedPicks.slice(0, 3).map((pick: any, i: number) =>
 ).join('\n')}
 
 PARLAY INTELLIGENCE:
-You have access to ${appData.latest20Predictions.length} recent predictions:
+You have access to ${latest20Filtered.length} recent predictions:
 - ${teamPicksCount} team-based picks (ML, spread, totals)
 - ${playerPropsCount} player props (points, rebounds, assists, etc.)
 
@@ -739,7 +768,7 @@ You have access to ${appData.latest20Predictions.length} recent predictions:
 🥊 UFC/MMA EXPERTISE: Fight analysis, fighter styles, weight cuts, camp changes, injury reports, betting lines for fights
 
 ACTUAL AVAILABLE PREDICTIONS:
-${appData.latest20Predictions.map((p: any, i: number) => 
+${latest20Filtered.map((p: any, i: number) => 
   `${i+1}. ${p.match_teams || p.match} - ${p.pick} (${p.confidence}% confidence)`
 ).join('\n')}
 
@@ -805,7 +834,7 @@ RESPONSE EXCELLENCE:
 
 You're the sharp, slightly cocky, and witty betting guru who backs up every pick and analysis with logic. Be the advisor they trust AND enjoy talking to.
 
-🚨 FINAL REMINDER: NEVER HALLUCINATE PICKS! Only use the ${appData.latest20Predictions.length} real predictions provided above. If you mention any team, player, or game, it MUST be from the actual database predictions listed. NO EXCEPTIONS.
+🚨 FINAL REMINDER: NEVER HALLUCINATE PICKS! Only use the ${latest20Filtered.length} real predictions provided above. If you mention any team, player, or game, it MUST be from the actual database predictions listed. NO EXCEPTIONS.
 
 ${isEliteUser ? `
 🏆 ELITE USER ADVANCED CAPABILITIES:

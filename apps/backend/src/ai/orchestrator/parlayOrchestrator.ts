@@ -13,6 +13,8 @@ interface ParlayConfig {
   legs: number;
   riskLevel: 'safe' | 'balanced' | 'risky';
   betType: 'player' | 'team' | 'mixed';
+  sports?: string[];
+  sport?: string;
 }
 
 interface ParlayRequest {
@@ -74,20 +76,23 @@ export class ParlayOrchestrator {
       
       // Tool 1: Fetch today's games
       onChunk({ type: 'tool_start', tool: 'database', message: 'Analyzing today\'s games and matchups...' });
-      const todaysGames = await this.fetchTodaysGames(currentDate);
+      const selectedSports = Array.isArray(request.config.sports) && request.config.sports.length > 0
+        ? request.config.sports
+        : (request.config.sport ? [request.config.sport] : []);
+      const todaysGames = await this.fetchTodaysGames(currentDate, selectedSports);
       onChunk({ type: 'tool_end', tool: 'database' });
       
       // Tool 2: Fetch player props if needed
       let playerProps: any[] = [];
       if (request.config.betType === 'player' || request.config.betType === 'mixed') {
         onChunk({ type: 'tool_start', tool: 'player_props', message: 'Evaluating player prop opportunities...' });
-        playerProps = await this.fetchPlayerProps(currentDate);
+        playerProps = await this.fetchPlayerProps(currentDate, todaysGames, selectedSports);
         onChunk({ type: 'tool_end', tool: 'player_props' });
       }
 
       // Tool 3: Get AI predictions
       onChunk({ type: 'tool_start', tool: 'ai_predictions', message: 'Reviewing AI predictions and confidence levels...' });
-      const aiPredictions = await this.fetchAIPredictions();
+      const aiPredictions = await this.fetchAIPredictions(selectedSports);
       onChunk({ type: 'tool_end', tool: 'ai_predictions' });
 
       // Tool 4: StatMuse for key stats
@@ -164,9 +169,9 @@ export class ParlayOrchestrator {
     }
   }
 
-  private async fetchTodaysGames(date: string): Promise<any[]> {
+  private async fetchTodaysGames(date: string, sports?: string[]): Promise<any[]> {
     try {
-      const { data, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('sports_events')
         .select(`
           id,
@@ -180,6 +185,34 @@ export class ParlayOrchestrator {
         .lte('start_time', `${date}T23:59:59`)
         .order('start_time', { ascending: true });
 
+      if (sports && sports.length > 0) {
+        const filters: string[] = [];
+        sports.forEach((s) => {
+          const v = (s || '').toString().toLowerCase();
+          if (v === 'mlb' || v === 'baseball') {
+            filters.push('sport.ilike.%MLB%', 'sport.ilike.%Baseball%');
+          } else if (v === 'nfl' || v === 'football') {
+            filters.push('sport.ilike.%NFL%', 'sport.ilike.%Football%');
+          } else if (v === 'cfb' || v === 'college football' || v === 'ncaaf') {
+            filters.push('sport.ilike.%College Football%', 'sport.ilike.%CFB%', 'sport.ilike.%NCAAF%');
+          } else if (v === 'wnba' || v === "women's basketball") {
+            filters.push('sport.ilike.%WNBA%', 'sport.ilike.%Basketball%');
+          } else if (v === 'nba' || v === 'basketball') {
+            filters.push('sport.ilike.%NBA%', 'sport.ilike.%Basketball%');
+          } else if (v === 'nhl' || v === 'hockey') {
+            filters.push('sport.ilike.%NHL%', 'sport.ilike.%Hockey%');
+          } else if (v === 'ufc' || v === 'mma') {
+            filters.push('sport.ilike.%UFC%', 'sport.ilike.%MMA%');
+          } else if (v) {
+            filters.push(`sport.ilike.%${s}%`);
+          }
+        });
+        if (filters.length > 0) {
+          query = query.or(filters.join(','));
+        }
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       
       logger.info(`Found ${data?.length || 0} games for ${date}`);
@@ -190,17 +223,47 @@ export class ParlayOrchestrator {
     }
   }
 
-  private async fetchPlayerProps(date: string): Promise<any[]> {
+  private async fetchPlayerProps(date: string, games?: any[], sports?: string[]): Promise<any[]> {
     try {
-      const { data: games } = await supabaseAdmin
-        .from('sports_events')
-        .select('id')
-        .gte('start_time', `${date}T00:00:00`)
-        .lte('start_time', `${date}T23:59:59`);
-
-      if (!games || games.length === 0) return [];
-
-      const gameIds = games.map(g => g.id);
+      let targetGameIds: any[] = [];
+      if (games && games.length > 0) {
+        targetGameIds = games.map((g: any) => g.id);
+      } else {
+        let gQuery = supabaseAdmin
+          .from('sports_events')
+          .select('id, sport')
+          .gte('start_time', `${date}T00:00:00`)
+          .lte('start_time', `${date}T23:59:59`);
+        if (sports && sports.length > 0) {
+          const filters: string[] = [];
+          sports.forEach((s) => {
+            const v = (s || '').toString().toLowerCase();
+            if (v === 'mlb' || v === 'baseball') {
+              filters.push('sport.ilike.%MLB%', 'sport.ilike.%Baseball%');
+            } else if (v === 'nfl' || v === 'football') {
+              filters.push('sport.ilike.%NFL%', 'sport.ilike.%Football%');
+            } else if (v === 'cfb' || v === 'college football' || v === 'ncaaf') {
+              filters.push('sport.ilike.%College Football%', 'sport.ilike.%CFB%', 'sport.ilike.%NCAAF%');
+            } else if (v === 'wnba' || v === "women's basketball") {
+              filters.push('sport.ilike.%WNBA%', 'sport.ilike.%Basketball%');
+            } else if (v === 'nba' || v === 'basketball') {
+              filters.push('sport.ilike.%NBA%', 'sport.ilike.%Basketball%');
+            } else if (v === 'nhl' || v === 'hockey') {
+              filters.push('sport.ilike.%NHL%', 'sport.ilike.%Hockey%');
+            } else if (v === 'ufc' || v === 'mma') {
+              filters.push('sport.ilike.%UFC%', 'sport.ilike.%MMA%');
+            } else if (v) {
+              filters.push(`sport.ilike.%${s}%`);
+            }
+          });
+          if (filters.length > 0) {
+            gQuery = gQuery.or(filters.join(','));
+          }
+        }
+        const { data: gData } = await gQuery;
+        if (!gData || gData.length === 0) return [];
+        targetGameIds = gData.map((g: any) => g.id);
+      }
 
       const { data, error } = await supabaseAdmin
         .from('player_props_odds')
@@ -226,7 +289,7 @@ export class ParlayOrchestrator {
             sport_key
           )
         `)
-        .in('event_id', gameIds)
+        .in('event_id', targetGameIds)
         .not('over_odds', 'is', null)
         .limit(100);
 
@@ -259,17 +322,46 @@ export class ParlayOrchestrator {
     }
   }
 
-  private async fetchAIPredictions(): Promise<any[]> {
+  private async fetchAIPredictions(sports?: string[]): Promise<any[]> {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const { data, error } = await supabaseAdmin
+      let pQuery = supabaseAdmin
         .from('ai_predictions')
         .select('*')
         .gte('created_at', `${today}T00:00:00`)
         .eq('status', 'pending')
         .order('confidence', { ascending: false })
         .limit(20);
+
+      if (sports && sports.length > 0) {
+        const filters: string[] = [];
+        sports.forEach((s) => {
+          const v = (s || '').toString().toLowerCase();
+          if (v === 'mlb' || v === 'baseball') {
+            filters.push('sport.ilike.%MLB%', 'sport.ilike.%Baseball%');
+          } else if (v === 'nfl' || v === 'football') {
+            filters.push('sport.ilike.%NFL%', 'sport.ilike.%Football%');
+          } else if (v === 'cfb' || v === 'college football' || v === 'ncaaf') {
+            filters.push('sport.ilike.%College Football%', 'sport.ilike.%CFB%', 'sport.ilike.%NCAAF%');
+          } else if (v === 'wnba' || v === "women's basketball") {
+            filters.push('sport.ilike.%WNBA%', 'sport.ilike.%Basketball%');
+          } else if (v === 'nba' || v === 'basketball') {
+            filters.push('sport.ilike.%NBA%', 'sport.ilike.%Basketball%');
+          } else if (v === 'nhl' || v === 'hockey') {
+            filters.push('sport.ilike.%NHL%', 'sport.ilike.%Hockey%');
+          } else if (v === 'ufc' || v === 'mma') {
+            filters.push('sport.ilike.%UFC%', 'sport.ilike.%MMA%');
+          } else if (v) {
+            filters.push(`sport.ilike.%${s}%`);
+          }
+        });
+        if (filters.length > 0) {
+          pQuery = pQuery.or(filters.join(','));
+        }
+      }
+
+      const { data, error } = await pQuery;
 
       if (error) throw error;
       

@@ -12,6 +12,8 @@ interface ParlayGenerateRequest extends Request {
       riskLevel: 'safe' | 'balanced' | 'risky';
       betType: 'player' | 'team' | 'mixed';
       bankrollPercentage: number;
+      sports?: string[];
+      sport?: string;
     };
     userId: string;
   };
