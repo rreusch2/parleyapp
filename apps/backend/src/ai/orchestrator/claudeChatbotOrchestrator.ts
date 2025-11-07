@@ -233,12 +233,15 @@ export class ChatbotOrchestrator {
   private async getLatest20Predictions() {
     try {
       logger.info('Fetching latest predictions for chatbot');
+      const now = new Date().toISOString();
       
-      // Get all predictions including player props
+      // Get all predictions including player props - ONLY FUTURE GAMES
       const { data: predictions, error } = await supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .order('created_at', { ascending: false })
+        .gte('event_time', now)
+        .eq('status', 'pending')
+        .order('confidence', { ascending: false })
         .limit(20);
 
       logger.info(`Found ${predictions?.length || 0} predictions`);
@@ -256,110 +259,13 @@ export class ChatbotOrchestrator {
   }
 
   /**
-   * Get today's AI insights from daily_professor_insights table
-   */
-  private async getTodaysInsights() {
-    try {
-      logger.info('Fetching today\'s Professor Lock insights');
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { data: insights, error } = await supabaseAdmin
-        .from('daily_professor_insights')
-        .select('*')
-        .gte('created_at', today.toISOString())
-        .order('confidence', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        logger.error(`Error fetching insights: ${error.message}`);
-        return [];
-      }
-
-      logger.info(`Found ${insights?.length || 0} insights for today`);
-      return insights || [];
-    } catch (error) {
-      logger.error(`Error in getTodaysInsights: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Get upcoming games with odds
-   */
-  private async getUpcomingGamesWithOdds() {
-    try {
-      logger.info('Fetching upcoming games with odds');
-      
-      const now = new Date();
-      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
-      // Get upcoming games
-      const { data: games, error: gamesError } = await supabaseAdmin
-        .from('sports_events')
-        // Note: Use the native text columns home_team/away_team to avoid joining teams table,
-        // which uses team_name/team_abbreviation (not name/abbreviation) and may lack FK names.
-        // If we later need richer team metadata, we can reintroduce a join with correct columns.
-        .select(`*`)
-        .eq('status', 'scheduled')
-        .gte('start_time', now.toISOString())
-        .lte('start_time', nextWeek.toISOString())
-        .order('start_time', { ascending: true })
-        .limit(20);
-
-      if (gamesError) {
-        logger.error(`Error fetching games: ${gamesError.message}`);
-        return [];
-      }
-
-      // Get odds for these games
-      if (games && games.length > 0) {
-        const eventIds = games.map(g => g.id);
-        
-        const { data: odds, error: oddsError } = await supabaseAdmin
-          .from('odds_data')
-          .select(`
-            *,
-            market_type:market_types(market_name, description),
-            bookmaker:bookmakers(bookmaker_name)
-          `)
-          .in('event_id', eventIds)
-          .eq('is_best_odds', true);
-
-        if (!oddsError && odds) {
-          // Attach odds to games
-          return games.map(game => ({
-            ...game,
-            odds: odds.filter(o => o.event_id === game.id)
-          }));
-        }
-      }
-
-      return games || [];
-    } catch (error) {
-      logger.error(`Error in getUpcomingGamesWithOdds: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Get current app data (enhanced with more sources)
+   * Get app data for chatbot context
    */
   private async getAppData(userId: string) {
     try {
-      logger.info('Getting enhanced app data for chatbot');
+      logger.info(`Fetching app data for user ${userId}`);
       
-      // Get today's AI predictions
-      const { data: todaysPicks, error: picksError } = await supabaseAdmin
-        .from('ai_predictions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(15);
-      
-      logger.info(`Found ${todaysPicks?.length || 0} picks for today`);
-
-      // Get latest 20 predictions for parlay building
+      // Get latest predictions
       const latest20Predictions = await this.getLatest20Predictions();
 
       // Separate team picks and player props
@@ -372,15 +278,25 @@ export class ChatbotOrchestrator {
 
       logger.info(`Team picks: ${teamPicks.length}, Player props: ${playerProps.length}`);
 
+      // Get today's AI predictions - ONLY FUTURE GAMES
+      const now = new Date().toISOString();
+      const { data: todaysPicks, error: picksError } = await supabaseAdmin
+        .from('ai_predictions')
+        .select('*')
+        .gte('event_time', now)
+        .eq('status', 'pending')
+        .order('confidence', { ascending: false })
+        .limit(15);
+
+      if (picksError) {
+        logger.error(`Error fetching today's picks: ${picksError.message}`);
+      }
+
       // Get today's insights
       const todaysInsights = await this.getTodaysInsights();
 
       // Get upcoming games with odds
       const upcomingGames = await this.getUpcomingGamesWithOdds();
-
-      if (picksError) {
-        logger.error(`Error fetching today's picks: ${picksError.message}`);
-      }
       
       // Get recent injury reports
       let injuries: any[] = [];
@@ -402,7 +318,7 @@ export class ChatbotOrchestrator {
       // Get recent news
       let news: any[] = [];
       try {
-        const { data: newsData, error: newsError } = await supabaseAdmin
+        const { data: newsData, error: newsError} = await supabaseAdmin
           .from('news')
           .select('*')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())

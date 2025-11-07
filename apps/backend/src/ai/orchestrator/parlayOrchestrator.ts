@@ -324,12 +324,12 @@ export class ParlayOrchestrator {
 
   private async fetchAIPredictions(sports?: string[]): Promise<any[]> {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
       
       let pQuery = supabaseAdmin
         .from('ai_predictions')
         .select('*')
-        .gte('created_at', `${today}T00:00:00`)
+        .gte('event_time', now) // Only future games
         .eq('status', 'pending')
         .order('confidence', { ascending: false })
         .limit(20);
