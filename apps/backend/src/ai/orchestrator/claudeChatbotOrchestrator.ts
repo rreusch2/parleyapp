@@ -634,38 +634,21 @@ export class ChatbotOrchestrator {
           .filter(([_, enabled]: any) => !!enabled)
           .map(([sport]: any) => sport)
       : [];
-    const preferredSports = Array.from(new Set([...(preferredSportsFromProfile as string[]), selectedSport].filter(Boolean))) as string[];
-    const preferredSet = new Set(preferredSports.map(s => normalizeSport(s).toLowerCase()));
-    const matchesPreferred = (s: any) => {
-      if (preferredSet.size === 0) return true;
-      const n = normalizeSport(s).toLowerCase();
-      return preferredSet.has(n) || Array.from(preferredSet).some(p => n.includes(p));
-    };
-
-    // Filter by sport preferences, but NEVER return empty - always fallback to all picks
-    let todaysPicksFiltered = (appData.todaysPicks || []).filter((p: any) => matchesPreferred(p.sport));
-    if (todaysPicksFiltered.length === 0 && (appData.todaysPicks || []).length > 0) {
-      todaysPicksFiltered = appData.todaysPicks; // Fallback to all if filtering removes everything
-      logger.info('Sport filtering removed all todaysPicks - using all picks instead');
-    }
+    // NO SPORT FILTERING - Give AI ALL picks and let it decide based on user request
+    const todaysPicksFiltered = appData.todaysPicks || [];
+    const teamPicksFiltered = appData.teamPicks || [];
+    const playerPropsFiltered = appData.playerProps || [];
+    const latest20Filtered = appData.latest20Predictions || [];
     
-    let teamPicksFiltered = (appData.teamPicks || []).filter((p: any) => matchesPreferred(p.sport));
-    if (teamPicksFiltered.length === 0 && (appData.teamPicks || []).length > 0) {
-      teamPicksFiltered = appData.teamPicks;
-      logger.info('Sport filtering removed all teamPicks - using all picks instead');
-    }
+    logger.info(`🎯 Providing AI with ALL ${latest20Filtered.length} predictions across all sports`);
     
-    let playerPropsFiltered = (appData.playerProps || []).filter((p: any) => matchesPreferred(p.sport));
-    if (playerPropsFiltered.length === 0 && (appData.playerProps || []).length > 0) {
-      playerPropsFiltered = appData.playerProps;
-      logger.info('Sport filtering removed all playerProps - using all picks instead');
-    }
-    
-    let latest20Filtered = (appData.latest20Predictions || []).filter((p: any) => matchesPreferred(p.sport));
-    if (latest20Filtered.length === 0 && (appData.latest20Predictions || []).length > 0) {
-      latest20Filtered = appData.latest20Predictions; // CRITICAL: Never filter out ALL predictions
-      logger.info('Sport filtering removed all predictions - using all predictions instead');
-    }
+    // Log sport breakdown for debugging
+    const sportBreakdown: Record<string, number> = {};
+    latest20Filtered.forEach((p: any) => {
+      const sport = p.sport || 'Unknown';
+      sportBreakdown[sport] = (sportBreakdown[sport] || 0) + 1;
+    });
+    logger.info(`📊 Sport breakdown: ${JSON.stringify(sportBreakdown)}`);
 
     const picksCount = todaysPicksFiltered.length;
     const teamPicksCount = teamPicksFiltered.length;
@@ -761,8 +744,12 @@ CURRENT DATA OVERVIEW:
 
 🚨 YOU HAVE ${latest20Filtered.length} READY-TO-USE AI PREDICTIONS FROM DATABASE:
 These are REAL predictions from the ai_predictions table with odds already calculated.
-- ${teamPicksCount} team-based picks (ML, spread, totals)
+ALL SPORTS INCLUDED: CFB, NBA, NHL, UFC - check the full list below!
+- ${teamPicksCount} team-based picks (ML, spread, totals)  
 - ${playerPropsCount} player props (points, rebounds, assists, etc.)
+
+SPORT BREAKDOWN IN YOUR PREDICTIONS:
+${Object.entries(sportBreakdown).map(([sport, count]) => `- ${sport}: ${count} picks`).join('\n')}
 
 TOP PICKS SNAPSHOT:
 ${allowedPicks.slice(0, 3).map((pick: any, i: number) => 
@@ -773,6 +760,8 @@ PARLAY BUILDING INSTRUCTIONS:
 ✅ BUILD PARLAYS DIRECTLY FROM THE ${latest20Filtered.length} PREDICTIONS LISTED BELOW
 ✅ DO NOT say you need to check odds or games - YOU ALREADY HAVE THEM
 ✅ Each prediction below is a complete pick with odds ready to use
+✅ When user asks for CFB/NBA/NHL/UFC parlay, FILTER THE LIST BELOW by that sport
+✅ NEVER say you don't have picks for a sport - CHECK THE FULL LIST FIRST
 
 🚨 CRITICAL RULE - NEVER HALLUCINATE PICKS:
 ❌ NEVER create fake MLB, WNBA, UFC, NBA, NFL, or any sport picks
@@ -785,9 +774,9 @@ PARLAY BUILDING INSTRUCTIONS:
 🏀 WNBA EXPERTISE: Las Vegas Aces, New York Liberty, Connecticut Sun, Indiana Fever, Minnesota Lynx, Seattle Storm, Phoenix Mercury, Chicago Sky, Dallas Wings, Los Angeles Sparks, Washington Mystics, Atlanta Dream
 🥊 UFC/MMA EXPERTISE: Fight analysis, fighter styles, weight cuts, camp changes, injury reports, betting lines for fights
 
-ACTUAL AVAILABLE PREDICTIONS:
+ACTUAL AVAILABLE PREDICTIONS (ALL SPORTS):
 ${latest20Filtered.map((p: any, i: number) => 
-  `${i+1}. ${p.match_teams || p.match} - ${p.pick} (${p.confidence}% confidence)`
+  `${i+1}. [${p.sport}] ${p.match_teams || p.match} - ${p.pick} (${p.confidence}% confidence)`
 ).join('\n')}
 
 When building parlays:
