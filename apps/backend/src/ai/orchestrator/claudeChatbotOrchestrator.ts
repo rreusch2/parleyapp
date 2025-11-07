@@ -290,6 +290,61 @@ export class ChatbotOrchestrator {
   }
 
   /**
+   * Get today's insights from daily_professor_insights table
+   */
+  private async getTodaysInsights() {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { data: insights, error } = await supabaseAdmin
+        .from('daily_professor_insights')
+        .select('*')
+        .gte('created_at', today.toISOString())
+        .order('confidence', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        logger.warn(`Error fetching insights: ${error.message}`);
+        return [];
+      }
+
+      return insights || [];
+    } catch (error) {
+      logger.warn(`Insights table not available: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get upcoming games with odds from sports_events
+   */
+  private async getUpcomingGamesWithOdds() {
+    try {
+      const now = new Date().toISOString();
+      
+      const { data: games, error } = await supabaseAdmin
+        .from('sports_events')
+        .select('*')
+        .gte('start_time', now)
+        .in('status', ['scheduled', 'live'])
+        .order('start_time', { ascending: true })
+        .limit(50);
+
+      if (error) {
+        logger.warn(`Error fetching upcoming games: ${error.message}`);
+        return [];
+      }
+
+      logger.info(`Found ${games?.length || 0} upcoming games with odds`);
+      return games || [];
+    } catch (error) {
+      logger.warn(`Error fetching upcoming games: ${error}`);
+      return [];
+    }
+  }
+
+  /**
    * Get app data for chatbot context
    */
   private async getAppData(userId: string) {
@@ -587,10 +642,30 @@ export class ChatbotOrchestrator {
       return preferredSet.has(n) || Array.from(preferredSet).some(p => n.includes(p));
     };
 
-    const todaysPicksFiltered = (appData.todaysPicks || []).filter((p: any) => matchesPreferred(p.sport));
-    const teamPicksFiltered = (appData.teamPicks || []).filter((p: any) => matchesPreferred(p.sport));
-    const playerPropsFiltered = (appData.playerProps || []).filter((p: any) => matchesPreferred(p.sport));
-    const latest20Filtered = (appData.latest20Predictions || []).filter((p: any) => matchesPreferred(p.sport));
+    // Filter by sport preferences, but NEVER return empty - always fallback to all picks
+    let todaysPicksFiltered = (appData.todaysPicks || []).filter((p: any) => matchesPreferred(p.sport));
+    if (todaysPicksFiltered.length === 0 && (appData.todaysPicks || []).length > 0) {
+      todaysPicksFiltered = appData.todaysPicks; // Fallback to all if filtering removes everything
+      logger.info('Sport filtering removed all todaysPicks - using all picks instead');
+    }
+    
+    let teamPicksFiltered = (appData.teamPicks || []).filter((p: any) => matchesPreferred(p.sport));
+    if (teamPicksFiltered.length === 0 && (appData.teamPicks || []).length > 0) {
+      teamPicksFiltered = appData.teamPicks;
+      logger.info('Sport filtering removed all teamPicks - using all picks instead');
+    }
+    
+    let playerPropsFiltered = (appData.playerProps || []).filter((p: any) => matchesPreferred(p.sport));
+    if (playerPropsFiltered.length === 0 && (appData.playerProps || []).length > 0) {
+      playerPropsFiltered = appData.playerProps;
+      logger.info('Sport filtering removed all playerProps - using all picks instead');
+    }
+    
+    let latest20Filtered = (appData.latest20Predictions || []).filter((p: any) => matchesPreferred(p.sport));
+    if (latest20Filtered.length === 0 && (appData.latest20Predictions || []).length > 0) {
+      latest20Filtered = appData.latest20Predictions; // CRITICAL: Never filter out ALL predictions
+      logger.info('Sport filtering removed all predictions - using all predictions instead');
+    }
 
     const picksCount = todaysPicksFiltered.length;
     const teamPicksCount = teamPicksFiltered.length;
@@ -629,6 +704,9 @@ export class ChatbotOrchestrator {
 
     const professorTitle = isEliteUser ? 'Professor Lock Elite' : 'Professor Lock';
     const eliteBranding = isEliteUser ? ' 🏆 ELITE EDITION' : '';
+
+    logger.info(`🎯 Building prompt with ${latest20Filtered.length} predictions for parlay building`);
+    logger.info(`📊 Picks breakdown: ${picksCount} total, ${teamPicksCount} team, ${playerPropsCount} props`);
 
     return `You are "${professorTitle}" - the most advanced AI sports betting assistant${eliteBranding}. You're sharp, witty, and slightly cocky, but always back it up with data and intelligence. You adapt your personality naturally - sometimes funny, sometimes serious, always professional.
 ${personalizedSection}
@@ -679,18 +757,22 @@ CURRENT DATA OVERVIEW:
 📊 ${displayPicksCount} picks available${isProUser ? '' : ` (Free tier: showing ${maxPicks})`}
 🎯 ${teamPicksCount} team picks | ${playerPropsCount} player props ready
 💡 ${insightsCount} Professor Lock insights analyzed today
-🏟️ ${upcomingGamesCount} upcoming games with live odds
 🏥 ${injuriesCount} injury updates | 📰 ${newsCount} news stories
+
+🚨 YOU HAVE ${latest20Filtered.length} READY-TO-USE AI PREDICTIONS FROM DATABASE:
+These are REAL predictions from the ai_predictions table with odds already calculated.
+- ${teamPicksCount} team-based picks (ML, spread, totals)
+- ${playerPropsCount} player props (points, rebounds, assists, etc.)
 
 TOP PICKS SNAPSHOT:
 ${allowedPicks.slice(0, 3).map((pick: any, i: number) => 
   `${i+1}. ${pick.match_teams}: ${pick.pick} (${pick.confidence}% confidence)`
 ).join('\n')}
 
-PARLAY INTELLIGENCE:
-You have access to ${latest20Filtered.length} recent predictions:
-- ${teamPicksCount} team-based picks (ML, spread, totals)
-- ${playerPropsCount} player props (points, rebounds, assists, etc.)
+PARLAY BUILDING INSTRUCTIONS:
+✅ BUILD PARLAYS DIRECTLY FROM THE ${latest20Filtered.length} PREDICTIONS LISTED BELOW
+✅ DO NOT say you need to check odds or games - YOU ALREADY HAVE THEM
+✅ Each prediction below is a complete pick with odds ready to use
 
 🚨 CRITICAL RULE - NEVER HALLUCINATE PICKS:
 ❌ NEVER create fake MLB, WNBA, UFC, NBA, NFL, or any sport picks
@@ -724,10 +806,6 @@ ${insightsCount > 0 ? `
 📈 TODAY'S INSIGHTS: ${appData.todaysInsights.slice(0, 3).map((i: any) => 
   `${i.title} (${i.impact} impact)`
 ).join(' | ')}
-` : ''}
-
-${upcomingGamesCount > 0 ? `
-🎮 LIVE ODDS AVAILABLE: Can check current lines and movements
 ` : ''}
 
 PROFESSOR LOCK'S INTELLIGENCE PLAYBOOK:
