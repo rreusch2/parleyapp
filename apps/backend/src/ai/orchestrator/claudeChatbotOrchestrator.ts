@@ -242,16 +242,47 @@ export class ChatbotOrchestrator {
         .gte('event_time', now)
         .eq('status', 'pending')
         .order('confidence', { ascending: false })
-        .limit(20);
+        .limit(100); // Increased to get picks from all sports
 
-      logger.info(`Found ${predictions?.length || 0} predictions`);
+      logger.info(`Found ${predictions?.length || 0} total predictions`);
       
       if (error) {
-        logger.error(`Error fetching latest 20 predictions: ${error.message}`);
+        logger.error(`Error fetching latest predictions: ${error.message}`);
         return [];
       }
 
-      return predictions || [];
+      // MULTI-SPORT BALANCING: Balance across all sports
+      const bySport: Record<string, any[]> = {};
+      (predictions || []).forEach(pick => {
+        const sport = pick.sport || 'Other';
+        if (!bySport[sport]) bySport[sport] = [];
+        bySport[sport].push(pick);
+      });
+      
+      // Round-robin selection to ensure diversity
+      const balanced: any[] = [];
+      const sportKeys = Object.keys(bySport);
+      const indices: Record<string, number> = {};
+      sportKeys.forEach(k => indices[k] = 0);
+      
+      const targetPicks = 30; // Return 30 balanced picks for chat
+      while (balanced.length < targetPicks && balanced.length < (predictions?.length || 0)) {
+        let added = false;
+        for (const sport of sportKeys) {
+          const picks = bySport[sport];
+          const idx = indices[sport];
+          if (idx < picks.length) {
+            balanced.push(picks[idx]);
+            indices[sport] = idx + 1;
+            added = true;
+            if (balanced.length >= targetPicks) break;
+          }
+        }
+        if (!added) break;
+      }
+      
+      logger.info(`Balanced ${balanced.length} predictions across ${sportKeys.length} sports: ${sportKeys.join(', ')}`);
+      return balanced;
     } catch (error) {
       logger.error(`Error in getLatest20Predictions: ${error}`);
       return [];
@@ -278,19 +309,8 @@ export class ChatbotOrchestrator {
 
       logger.info(`Team picks: ${teamPicks.length}, Player props: ${playerProps.length}`);
 
-      // Get today's AI predictions - ONLY FUTURE GAMES
-      const now = new Date().toISOString();
-      const { data: todaysPicks, error: picksError } = await supabaseAdmin
-        .from('ai_predictions')
-        .select('*')
-        .gte('event_time', now)
-        .eq('status', 'pending')
-        .order('confidence', { ascending: false })
-        .limit(15);
-
-      if (picksError) {
-        logger.error(`Error fetching today's picks: ${picksError.message}`);
-      }
+      // Get today's AI predictions - ONLY FUTURE GAMES (use the balanced predictions)
+      const todaysPicks = latest20Predictions.slice(0, 15);
 
       // Get today's insights
       const todaysInsights = await this.getTodaysInsights();

@@ -1,7 +1,7 @@
 {
   "name": "parleyapp",
   "version": "1.0.0",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
@@ -11,7 +11,7 @@
   "dependencies": {
     "@expo-google-fonts/fugaz-one": "^0.2.3",
     "@expo/vector-icons": "^14.0.2",
-    "@expo/webpack-config": "18.0.0",
+    "@expo/webpack-config": "^19.0.1",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
     "@react-native-community/slider": "4.5.6",
@@ -33,6 +33,7 @@
     "expo-device": "^7.1.4",
     "expo-file-system": "~18.1.11",
     "expo-font": "~13.3.2",
+    "expo-haptics": "~14.1.4",
     "expo-image": "~2.4.1",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.5",
@@ -51,10 +52,11 @@
     "lucide-react-native": "^0.447.0",
     "papaparse": "^5.5.3",
     "path-browserify": "^1.0.1",
+    "prop-types": "^15.8.1",
     "react": "19.0.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.5",
+    "react-native": "0.79.6",
     "react-native-appsflyer": "^6.17.2",
     "react-native-chart-kit": "^6.12.0",
     "react-native-markdown-display": "^7.0.2",
@@ -64,10 +66,11 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-sse": "^1.2.1",
-    "react-native-svg": "^15.11.2",
+    "react-native-svg": "15.11.2",
+    "react-native-svg-web": "^1.0.9",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-web": "^0.19.12",
-    "react-native-webview": "^13.16.0",
+    "react-native-web": "^0.20.0",
+    "react-native-webview": "13.13.5",
     "swr": "^2.3.4"
   },
   "devDependencies": {
@@ -78,7 +81,7 @@
     "@types/react": "~19.0.10",
     "babel-plugin-module-resolver": "^5.0.2",
     "metro-react-native-babel-transformer": "^0.77.0",
-    "typescript": "^5.8.3"
+    "typescript": "~5.8.3"
   },
   "private": true,
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",

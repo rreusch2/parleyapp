@@ -1,27 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
   SafeAreaView,
-  ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
-  Animated,
-  RefreshControl,
+  Alert,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  FlatList,
+  ActivityIndicator,
   Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import EnhancedTrendsList from '../components/EnhancedTrendsList';
 import PlayerTrendsModal from '../components/PlayerTrendsModal';
-import TeamTrendsModal from '../components/TeamTrendsModal';
 import AIReportModal from '../components/AIReportModal';
 import { useSubscription } from '../services/subscriptionContext';
 import { useUITheme } from '../services/uiThemeContext';
+import { trendsService, TrendData } from '../services/trendsService';
 
 interface Player {
   id: string;
@@ -33,313 +31,121 @@ interface Player {
   has_headshot?: boolean;
 }
 
-interface PlayerSearchResult extends Player {
-  recent_games_count: number;
-  last_game_date: string;
-}
-
-interface Team {
-  id: string;
-  name: string;
-  abbreviation: string;
-  city: string;
-  sport: string;
-  logo_url?: string;
-}
-
-interface TeamSearchResult extends Team {
-  recent_games_count: number;
-  last_game_date: string;
-}
-
-type SearchMode = 'players' | 'teams';
-
 export default function TrendsScreen() {
-  const { isElite } = useSubscription();
+  const { isElite, isPro } = useSubscription();
   const { theme } = useUITheme();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<SearchMode>('players');
-  const [playerResults, setPlayerResults] = useState<PlayerSearchResult[]>([]);
-  const [teamResults, setTeamResults] = useState<TeamSearchResult[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
   const [playerModalVisible, setPlayerModalVisible] = useState(false);
-  const [teamModalVisible, setTeamModalVisible] = useState(false);
-  const [selectedSport, setSelectedSport] = useState<string>('all');
-  const [recentPlayerSearches, setRecentPlayerSearches] = useState<Player[]>([]);
-  const [recentTeamSearches, setRecentTeamSearches] = useState<Team[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [aiReportModalVisible, setAiReportModalVisible] = useState(false);
-  const searchRef = useRef<TextInput>(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const compactMode = keyboardVisible || searchQuery.trim().length > 0;
+  const [picksSlip, setPicksSlip] = useState<TrendData[]>([]);
+  const [searchModalVisible, setSearchModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
-  const sports = [
-    { key: 'all', name: 'All', icon: '🏆' },
-    { key: 'MLB', name: 'MLB', icon: '⚾' },
-    { key: 'WNBA', name: 'WNBA', icon: '🏀' },
-    { key: 'NBA', name: 'NBA', icon: '🏀' },
-    { key: 'NFL', name: 'NFL', icon: '🏈' },
-    { key: 'College Football', name: 'CFB', icon: '🏈' },
-    { key: 'UFC', name: 'UFC', icon: '🥊' }
-  ];
+  const handleAddToPicks = async (trend: TrendData) => {
+    try {
+      // Check if already in picks
+      const existingPick = picksSlip.find(pick => pick.id === trend.id);
+      if (existingPick) {
+        Alert.alert('Already Added', 'This trend is already in your picks slip.');
+        return;
+      }
 
-  useEffect(() => {
-    loadRecentSearches();
-    
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
-      // Fade out sport filters when keyboard appears
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    });
-    
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-      // Fade in sport filters when keyboard hides
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    });
+      // Add to picks slip
+      setPicksSlip(prev => [...prev, trend]);
+      
+      Alert.alert(
+        'Added to Picks!',
+        `${trend.player.name} ${trend.market_display_name} has been added to your picks slip.`,
+        [
+          { text: 'Continue', style: 'default' },
+          { 
+            text: 'View Picks', 
+            style: 'default',
+            onPress: () => {
+              // Navigate to picks screen or show picks modal
+              console.log('Navigate to picks screen');
+            }
+          }
+        ]
+      );
 
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
+    } catch (error) {
+      console.error('Error adding to picks:', error);
+      Alert.alert('Error', 'Failed to add trend to picks. Please try again.');
+    }
+  };
+
+  const handleViewDetails = (trend: TrendData) => {
+    // Convert trend to player format for modal
+    const player: Player = {
+      id: trend.player.id,
+      name: trend.player.name,
+      team: trend.player.team,
+      sport: trend.player.sport,
+      position: trend.player.position,
+      headshot_url: trend.player.headshot_url,
+      has_headshot: !!trend.player.headshot_url
     };
-  }, []);
 
-  useEffect(() => {
-    const delayedSearch = setTimeout(() => {
-      const q = searchQuery.trim();
-      if (q.length >= 2) {
-        console.log('Triggering search for:', q, 'mode:', searchMode); // Debug log
-        if (searchMode === 'players') {
-          searchPlayers(q);
-        } else {
-          searchTeams(q);
-        }
-      } else if (q.length === 0) {
-        setPlayerResults([]);
-        setTeamResults([]);
-      }
-    }, 300); // Debounce search
-
-    return () => clearTimeout(delayedSearch);
-  }, [searchQuery, selectedSport, searchMode]);
-
-  const loadRecentSearches = async () => {
-    // Load from AsyncStorage or recent database queries
-    // For now, we'll implement basic recent searches
-  };
-
-  const searchPlayers = async (query: string) => {
-    if (query.length < 2) {
-      setPlayerResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      console.log('Searching players with backend API:', query, selectedSport); // Debug log
-      
-      // Use backend API instead of direct Supabase queries for better mobile compatibility
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      
-      const sportFilter = selectedSport === 'all' ? '' : `&sport=${encodeURIComponent(selectedSport)}`;
-      const apiUrl = `${backendUrl}/api/players/search?query=${encodeURIComponent(query)}${sportFilter}&limit=20`;
-      console.log('API URL:', apiUrl); // Debug log
-      
-      // Create AbortController for mobile compatibility
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: abortController.signal,
-      });
-      
-      clearTimeout(timeoutId); // Clear timeout if request completes
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Backend API response:', data); // Debug log
-      
-      if (data.players) {
-        // Sort results to prioritize prefix matches (players whose names start with the query)
-        const sortedData = data.players.sort((a: any, b: any) => {
-          const queryLower = query.toLowerCase();
-          const aStartsWith = a.name.toLowerCase().startsWith(queryLower);
-          const bStartsWith = b.name.toLowerCase().startsWith(queryLower);
-          
-          // Prioritize exact prefix matches first
-          if (aStartsWith && !bStartsWith) return -1;
-          if (!aStartsWith && bStartsWith) return 1;
-          
-          // Then sort alphabetically within each group
-          return a.name.localeCompare(b.name);
-        });
-
-        setPlayerResults(sortedData);
-      } else {
-        console.warn('No players array in response:', data);
-        setPlayerResults([]);
-      }
-    } catch (error) {
-      console.error('Player search error:', error);
-      Alert.alert('Search Error', `Failed to search players: ${error instanceof Error ? error.message : 'Network error'}`);
-      setPlayerResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const searchTeams = async (query: string) => {
-    if (query.length < 2) {
-      setTeamResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      console.log('Searching teams with backend API:', query, selectedSport); // Debug log
-      
-      // Use backend API for team search
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'https://zooming-rebirth-production-a305.up.railway.app';
-      
-      const sportFilter = selectedSport === 'all' ? '' : `&sport=${encodeURIComponent(selectedSport)}`;
-      const apiUrl = `${backendUrl}/api/teams/search?query=${encodeURIComponent(query)}${sportFilter}&limit=20`;
-      console.log('Team API URL:', apiUrl); // Debug log
-      
-      // Create AbortController for mobile compatibility
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: abortController.signal,
-      });
-      
-      clearTimeout(timeoutId); // Clear timeout if request completes
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Backend team API response:', data); // Debug log
-      
-      if (data.teams) {
-        // Sort results to prioritize prefix matches (with null safety)
-        const sortedData = data.teams.sort((a: any, b: any) => {
-          const queryLower = query.toLowerCase();
-          
-          // Safe lowercase with null checks
-          const aName = (a.name || '').toLowerCase();
-          const aCity = (a.city || '').toLowerCase();
-          const bName = (b.name || '').toLowerCase();
-          const bCity = (b.city || '').toLowerCase();
-          
-          const aStartsWith = aName.startsWith(queryLower) || aCity.startsWith(queryLower);
-          const bStartsWith = bName.startsWith(queryLower) || bCity.startsWith(queryLower);
-          
-          // Prioritize exact prefix matches first
-          if (aStartsWith && !bStartsWith) return -1;
-          if (!aStartsWith && bStartsWith) return 1;
-          
-          // Then sort alphabetically within each group (with null safety)
-          return (a.name || '').localeCompare(b.name || '');
-        });
-
-        setTeamResults(sortedData);
-      } else {
-        console.warn('No teams array in response:', data);
-        setTeamResults([]);
-      }
-    } catch (error) {
-      console.error('Team search error:', error);
-      Alert.alert('Search Error', `Failed to search teams: ${error instanceof Error ? error.message : 'Network error'}`);
-      setTeamResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const selectPlayer = (player: PlayerSearchResult) => {
-    Keyboard.dismiss();
     setSelectedPlayer(player);
     setPlayerModalVisible(true);
-    
-    // Add to recent searches
-    setRecentPlayerSearches(prev => {
-      const filtered = prev.filter(p => p.id !== player.id);
-      return [player, ...filtered].slice(0, 5);
-    });
   };
 
-  const selectTeam = (team: TeamSearchResult) => {
-    Keyboard.dismiss();
-    setSelectedTeam(team);
-    setTeamModalVisible(true);
-    
-    // Add to recent searches
-    setRecentTeamSearches(prev => {
-      const filtered = prev.filter(t => t.id !== team.id);
-      return [team, ...filtered].slice(0, 5);
-    });
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    if (searchQuery.trim().length >= 2) {
-      if (searchMode === 'players') {
-        await searchPlayers(searchQuery.trim());
-      } else {
-        await searchTeams(searchQuery.trim());
-      }
+  const showAIReport = () => {
+    if (!isPro && !isElite) {
+      Alert.alert(
+        'Premium Feature',
+        'AI Sports Report is available for Pro and Elite subscribers only.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => console.log('Navigate to subscription') }
+        ]
+      );
+      return;
     }
-    setRefreshing(false);
+
+    setAiReportModalVisible(true);
   };
 
-  const clearSearch = () => {
+  const handlePlayerSearch = async (query: string) => {
+    setSearchQuery(query);
+    
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+      const results = await trendsService.searchPlayersWithTrends(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching players:', error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSelectPlayer = (player: any) => {
+    setSearchModalVisible(false);
     setSearchQuery('');
-    setPlayerResults([]);
-    setTeamResults([]);
-    searchRef.current?.blur();
-  };
-
-  const getCurrentResults = () => {
-    return searchMode === 'players' ? playerResults : teamResults;
-  };
-
-  const getCurrentRecentSearches = () => {
-    return searchMode === 'players' ? recentPlayerSearches : recentTeamSearches;
-  };
-
-  const getSportColor = (sport: string) => {
-    const colors = {
-      'MLB': '#1E40AF',
-      'WNBA': '#DC2626', 
-      'NBA': '#DC2626',
-      'NFL': '#16A34A',
-      'UFC': '#EA580C'
+    setSearchResults([]);
+    
+    const playerData: Player = {
+      id: player.id,
+      name: player.name,
+      team: player.team,
+      sport: player.sport,
+      position: player.position,
+      headshot_url: player.headshot_url,
+      has_headshot: !!player.headshot_url
     };
-    return colors[sport as keyof typeof colors] || '#6B7280';
+    
+    setSelectedPlayer(playerData);
+    setPlayerModalVisible(true);
   };
 
   return (
@@ -349,917 +155,347 @@ export default function TrendsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-      <View style={{ flex: 1, padding: 20, paddingTop: 10 }}>
-
-        {!compactMode && (
-        <TouchableOpacity
-          onPress={() => setAiReportModalVisible(true)}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: isElite ? `${theme.accentPrimary}1A` : 'rgba(59, 130, 246, 0.2)',
-            borderWidth: 1,
-            borderColor: isElite ? `${theme.accentPrimary}33` : '#3B82F6',
-            paddingHorizontal: 20,
-            paddingVertical: 14,
-            borderRadius: 16,
-            marginBottom: 20,
-            shadowColor: isElite ? theme.accentPrimary : '#3B82F6',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: 3
-          }}
-        >
-          <Ionicons name="sparkles" size={20} color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginRight: 8 }} />
-          <Text style={{
-            color: isElite ? theme.accentPrimary : '#3B82F6',
-            fontSize: 16,
-            fontWeight: '600'
-          }}>
-            Daily AI Sports Report
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginLeft: 8 }} />
-        </TouchableOpacity>
-        )}
-
-        {/* Search Mode Toggle */}
+        {/* Header */}
         <View style={{
           flexDirection: 'row',
-          backgroundColor: '#1F2937',
-          borderRadius: 12,
-          padding: 4,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: '#374151'
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#374151'
         }}>
-          <TouchableOpacity
-            onPress={() => {
-              setSearchMode('players');
-              setSearchQuery('');
-              searchRef.current?.focus();
-            }}
-            style={{
-              flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: searchMode === 'players' ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
-              alignItems: 'center'
-            }}
-          >
+          <View>
             <Text style={{
-              color: searchMode === 'players' ? '#FFFFFF' : '#9CA3AF',
-              fontWeight: searchMode === 'players' ? '600' : '500',
-              fontSize: 15
+              color: '#FFFFFF',
+              fontSize: 28,
+              fontWeight: '800'
             }}>
-              👤 Players
+              Trends
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              setSearchMode('teams');
-              setSearchQuery('');
-              searchRef.current?.focus();
-            }}
-            style={{
-              flex: 1,
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 8,
-              backgroundColor: searchMode === 'teams' ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
-              alignItems: 'center'
-            }}
-          >
-            <Text style={{
-              color: searchMode === 'teams' ? '#FFFFFF' : '#9CA3AF',
-              fontWeight: searchMode === 'teams' ? '600' : '500',
-              fontSize: 15
-            }}>
-              🏟️ Teams
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Sport Filter Chips - Animated and Compact */}
-        {!compactMode && (
-        <Animated.View style={{ opacity: fadeAnim }}>
-          <View style={{ 
-            flexDirection: 'row', 
-            flexWrap: 'wrap',
-            marginBottom: 20,
-            gap: 8
-          }}>
-            {sports.map((sport) => (
-              <TouchableOpacity
-                key={sport.key}
-                onPress={() => setSelectedSport(sport.key)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: 16,
-                  backgroundColor: selectedSport === sport.key ? (isElite ? theme.accentPrimary : '#3B82F6') : '#1F2937',
-                  borderWidth: 1,
-                  borderColor: selectedSport === sport.key ? (isElite ? `${theme.accentPrimary}66` : '#60A5FA') : '#374151',
-                  shadowColor: selectedSport === sport.key ? (isElite ? theme.accentPrimary : '#3B82F6') : 'transparent',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: selectedSport === sport.key ? 0.3 : 0,
-                  shadowRadius: 4,
-                  elevation: selectedSport === sport.key ? 4 : 0
-                }}
-              >
-                <Text style={{
-                  color: selectedSport === sport.key ? '#FFFFFF' : '#9CA3AF',
-                  fontWeight: selectedSport === sport.key ? '600' : '500',
-                  fontSize: 13
-                }}>
-                  {sport.icon} {sport.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-        )}
-
-        {/* Enhanced Search Bar */}
-        <View style={{
-          backgroundColor: '#1F2937',
-          borderRadius: 16,
-          marginBottom: keyboardVisible ? 12 : 20,
-          borderWidth: 1.5,
-          borderColor: searchQuery.length > 0 ? (isElite ? theme.accentPrimary : '#3B82F6') : '#374151',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 4
-        }}>
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 16,
-            paddingVertical: 14
-          }}>
-            <Ionicons 
-              name="search" 
-              size={20} 
-              color={searchQuery.length > 0 ? (isElite ? theme.accentPrimary : '#3B82F6') : '#9CA3AF'} 
-              style={{ marginRight: 12 }} 
-            />
-            <TextInput
-              ref={searchRef}
-              style={{
-                flex: 1,
-                color: '#FFFFFF',
-                fontSize: 16,
-                fontWeight: '500'
-              }}
-              placeholder={searchMode === 'players' 
-                ? "Search any player (Aaron Judge, Caitlin Clark...)" 
-                : "Search any team (Yankees, Lakers, Chiefs...)"
-              }
-              placeholderTextColor="#6B7280"
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                console.log('Search query changed:', text);
-              }}
-              returnKeyType="search"
-              onSubmitEditing={() => {
-                const q = searchQuery.trim();
-                if (q.length >= 2) {
-                  if (searchMode === 'players') {
-                    searchPlayers(q);
-                  } else {
-                    searchTeams(q);
-                  }
-                }
-              }}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={{ marginLeft: 8 }}>
-                <Ionicons name="close-circle" size={20} color="#6B7280" />
-              </TouchableOpacity>
-            )}
-            {isSearching && (
-              <ActivityIndicator size="small" color={isElite ? theme.accentPrimary : '#3B82F6'} style={{ marginLeft: 8 }} />
-            )}
-          </View>
-        </View>
-
-        {/* Search Loading */}
-        {isSearching && searchQuery.length >= 2 && (
-          <View style={{
-            backgroundColor: '#1F2937',
-            borderRadius: 12,
-            padding: 20,
-            marginBottom: 20,
-            borderWidth: 1,
-            borderColor: '#374151',
-            alignItems: 'center'
-          }}>
-            <ActivityIndicator size="small" color="#3B82F6" />
             <Text style={{
               color: '#9CA3AF',
-              marginTop: 8,
-              fontSize: 14
+              fontSize: 14,
+              marginTop: 2
             }}>
-              Searching for "{searchQuery}"...
+              AI-powered betting insights
             </Text>
           </View>
-        )}
 
-        {/* Search Results with Pull to Refresh */}
-        <ScrollView 
-          style={{ flex: 1 }} 
-          showsVerticalScrollIndicator={false} 
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#3B82F6"
-              colors={['#3B82F6']}
-            />
-          }
-          contentContainerStyle={{ paddingBottom: 24 }}
-          contentInsetAdjustmentBehavior="automatic"
-        >
-          {searchQuery.length >= 2 && getCurrentResults().length > 0 && !isSearching && (
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '600',
-                color: '#FFFFFF',
-                marginBottom: 12
-              }}>
-                Search Results ({getCurrentResults().length})
-              </Text>
-              {searchMode === 'players' && playerResults.map((player, index) => (
-                <TouchableOpacity
-                  key={player.id}
-                  onPress={() => selectPlayer(player)}
-                  style={{
-                    backgroundColor: '#1F2937',
-                    borderRadius: 16,
-                    padding: 18,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: '#374151',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {/* Player Headshot */}
-                    <View style={{
-                      position: 'relative',
-                      marginRight: 14
-                    }}>
-                      {player.has_headshot && player.headshot_url ? (
-                        <View style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 28,
-                          borderWidth: 2,
-                          borderColor: getSportColor(player.sport),
-                          shadowColor: getSportColor(player.sport),
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 4,
-                          elevation: 4
-                        }}>
-                          <Image
-                            source={{ uri: player.headshot_url }}
-                            style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: 26,
-                              backgroundColor: '#374151'
-                            }}
-                            onError={() => {
-                              console.log('Failed to load headshot for', player.name);
-                            }}
-                          />
-                          {/* Sport indicator */}
-                          <View style={{
-                            position: 'absolute',
-                            bottom: -1,
-                            right: -1,
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            backgroundColor: getSportColor(player.sport),
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#1F2937'
-                          }}>
-                            <Text style={{
-                              color: '#FFFFFF',
-                              fontSize: 8,
-                              fontWeight: 'bold'
-                            }}>
-                              {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
-                            </Text>
-                          </View>
-                        </View>
-                      ) : (
-                        /* Fallback for players without headshots */
-                        <View style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 28,
-                          borderWidth: 2,
-                          borderColor: getSportColor(player.sport),
-                          backgroundColor: '#374151',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          shadowColor: getSportColor(player.sport),
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 4,
-                          elevation: 4
-                        }}>
-                          <Ionicons 
-                            name="person" 
-                            size={24} 
-                            color="#9CA3AF" 
-                          />
-                          {/* Sport indicator */}
-                          <View style={{
-                            position: 'absolute',
-                            bottom: -1,
-                            right: -1,
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            backgroundColor: getSportColor(player.sport),
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#1F2937'
-                          }}>
-                            <Text style={{
-                              color: '#FFFFFF',
-                              fontSize: 8,
-                              fontWeight: 'bold'
-                            }}>
-                              {player.sport === 'MLB' ? '⚾' : player.sport === 'WNBA' ? '🏀' : '🏈'}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            {/* Search Button */}
+            <TouchableOpacity
+              onPress={() => setSearchModalVisible(true)}
+              style={{
+                backgroundColor: '#374151',
+                borderWidth: 1,
+                borderColor: '#4B5563',
+                borderRadius: 12,
+                padding: 12
+              }}
+            >
+              <Ionicons 
+                name="search" 
+                size={20} 
+                color="#9CA3AF" 
+              />
+            </TouchableOpacity>
 
-                    {/* Player Info */}
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={{
-                          fontSize: 17,
-                          fontWeight: '700',
-                          color: '#FFFFFF'
-                        }}>
-                          {player.name}
-                        </Text>
-                        {index === 0 && playerResults.length > 1 && (
-                          <View style={{
-                            backgroundColor: isElite ? `${theme.accentPrimary}33` : '#059669',
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                            borderRadius: 8,
-                            marginLeft: 8
-                          }}>
-                            <Text style={{
-                              color: isElite ? theme.accentPrimary : '#FFFFFF',
-                              fontSize: 10,
-                              fontWeight: '600'
-                            }}>
-                              TOP MATCH
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                        <View style={{
-                          backgroundColor: getSportColor(player.sport),
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 6,
-                          marginRight: 10
-                        }}>
-                          <Text style={{
-                            color: '#FFFFFF',
-                            fontSize: 11,
-                            fontWeight: '700'
-                          }}>
-                            {player.sport}
-                          </Text>
-                        </View>
-                        <Text style={{
-                          color: '#D1D5DB',
-                          fontSize: 15,
-                          fontWeight: '600'
-                        }}>
-                          {player.team}
-                        </Text>
-                        {player.position && (
-                          <Text style={{
-                            color: '#9CA3AF',
-                            fontSize: 14,
-                            marginLeft: 8
-                          }}>
-                            • {player.position}
-                          </Text>
-                        )}
-                      </View>
-                      
-                      {player.recent_games_count > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Ionicons name="stats-chart" size={14} color="#10B981" />
-                          <Text style={{
-                            color: '#10B981',
-                            fontSize: 13,
-                            marginLeft: 4,
-                            fontWeight: '600'
-                          }}>
-                            {player.recent_games_count} recent games with stats
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Ionicons name="information-circle" size={14} color="#F59E0B" />
-                          <Text style={{
-                            color: '#F59E0B',
-                            fontSize: 13,
-                            marginLeft: 4,
-                            fontWeight: '500'
-                          }}>
-                            Limited recent data available
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+            {/* AI Report Button */}
+            <TouchableOpacity
+              onPress={showAIReport}
+              style={{
+                backgroundColor: isElite ? `${theme.accentPrimary}1A` : 'rgba(59, 130, 246, 0.2)',
+                borderWidth: 1,
+                borderColor: isElite ? `${theme.accentPrimary}33` : '#3B82F6',
+                borderRadius: 12,
+                padding: 12
+              }}
+            >
+              <Ionicons 
+                name="sparkles" 
+                size={20} 
+                color={isElite ? theme.accentPrimary : '#3B82F6'} 
+              />
+            </TouchableOpacity>
 
-                    {/* Chevron */}
-                    <TouchableOpacity 
-                      style={{
-                        backgroundColor: '#374151',
-                        borderRadius: 12,
-                        padding: 8,
-                        marginLeft: 12
-                      }}
-                      onPress={() => selectPlayer(player)}
-                    >
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {searchMode === 'teams' && teamResults.map((team, index) => (
-                <TouchableOpacity
-                  key={team.id}
-                  onPress={() => selectTeam(team)}
-                  style={{
-                    backgroundColor: '#1F2937',
-                    borderRadius: 16,
-                    padding: 18,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: '#374151',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {/* Team Logo */}
-                    <View style={{
-                      position: 'relative',
-                      marginRight: 14
-                    }}>
-                      {team.logo_url ? (
-                        <View style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 28,
-                          borderWidth: 2,
-                          borderColor: getSportColor(team.sport),
-                          shadowColor: getSportColor(team.sport),
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 4,
-                          elevation: 4,
-                          backgroundColor: '#FFFFFF'
-                        }}>
-                          <Image
-                            source={{ uri: team.logo_url }}
-                            style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: 26,
-                              backgroundColor: '#FFFFFF'
-                            }}
-                            onError={() => {
-                              console.log('Failed to load logo for', team.name);
-                            }}
-                          />
-                          {/* Sport indicator */}
-                          <View style={{
-                            position: 'absolute',
-                            bottom: -1,
-                            right: -1,
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            backgroundColor: getSportColor(team.sport),
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#1F2937'
-                          }}>
-                            <Text style={{
-                              color: '#FFFFFF',
-                              fontSize: 8,
-                              fontWeight: 'bold'
-                            }}>
-                              {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
-                            </Text>
-                          </View>
-                        </View>
-                      ) : (
-                        /* Fallback for teams without logos */
-                        <View style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 28,
-                          borderWidth: 2,
-                          borderColor: getSportColor(team.sport),
-                          backgroundColor: '#374151',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          shadowColor: getSportColor(team.sport),
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 4,
-                          elevation: 4
-                        }}>
-                          <Text style={{
-                            color: '#FFFFFF',
-                            fontSize: 16,
-                            fontWeight: 'bold'
-                          }}>
-                            {team.abbreviation}
-                          </Text>
-                          {/* Sport indicator */}
-                          <View style={{
-                            position: 'absolute',
-                            bottom: -1,
-                            right: -1,
-                            width: 18,
-                            height: 18,
-                            borderRadius: 9,
-                            backgroundColor: getSportColor(team.sport),
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#1F2937'
-                          }}>
-                            <Text style={{
-                              color: '#FFFFFF',
-                              fontSize: 8,
-                              fontWeight: 'bold'
-                            }}>
-                              {team.sport === 'MLB' ? '⚾' : team.sport === 'WNBA' || team.sport === 'NBA' ? '🏀' : '🏈'}
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Team Info */}
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={{
-                          fontSize: 17,
-                          fontWeight: '700',
-                          color: '#FFFFFF'
-                        }}>
-                          {team.name}
-                        </Text>
-                        {index === 0 && teamResults.length > 1 && (
-                          <View style={{
-                            backgroundColor: '#059669',
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                            borderRadius: 8,
-                            marginLeft: 8
-                          }}>
-                            <Text style={{
-                              color: '#FFFFFF',
-                              fontSize: 10,
-                              fontWeight: '600'
-                            }}>
-                              TOP MATCH
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                        <View style={{
-                          backgroundColor: getSportColor(team.sport),
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 6,
-                          marginRight: 10
-                        }}>
-                          <Text style={{
-                            color: '#FFFFFF',
-                            fontSize: 11,
-                            fontWeight: '700'
-                          }}>
-                            {team.sport}
-                          </Text>
-                        </View>
-                        <Text style={{
-                          color: '#D1D5DB',
-                          fontSize: 15,
-                          fontWeight: '600'
-                        }}>
-                          {team.city}
-                        </Text>
-                      </View>
-                      
-                      {team.recent_games_count > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Ionicons name="stats-chart" size={14} color="#10B981" />
-                          <Text style={{
-                            color: '#10B981',
-                            fontSize: 13,
-                            marginLeft: 4,
-                            fontWeight: '600'
-                          }}>
-                            {team.recent_games_count} recent games with stats
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Ionicons name="information-circle" size={14} color="#F59E0B" />
-                          <Text style={{
-                            color: '#F59E0B',
-                            fontSize: 13,
-                            marginLeft: 4,
-                            fontWeight: '500'
-                          }}>
-                            Limited recent data available
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Chevron */}
-                    <TouchableOpacity 
-                      style={{
-                        backgroundColor: '#374151',
-                        borderRadius: 12,
-                        padding: 8,
-                        marginLeft: 12
-                      }}
-                      onPress={() => selectTeam(team)}
-                    >
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Recent Searches */}
-          {getCurrentRecentSearches().length > 0 && searchQuery.length < 2 && (
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '600',
-                color: '#FFFFFF',
-                marginBottom: 12
-              }}>
-                Recent Searches
-              </Text>
-              {searchMode === 'players' && recentPlayerSearches.map((player) => (
-                <TouchableOpacity
-                  key={player.id}
-                  onPress={() => selectPlayer(player as PlayerSearchResult)}
-                  style={{
-                    backgroundColor: '#1F2937',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: '#374151'
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View>
-                      <Text style={{
-                        fontSize: 16,
-                        fontWeight: '600',
-                        color: '#FFFFFF',
-                        marginBottom: 4
-                      }}>
-                        {player.name}
-                      </Text>
-                      <Text style={{
-                        color: '#9CA3AF',
-                        fontSize: 14
-                      }}>
-                        {player.team} • {player.sport}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-              {searchMode === 'teams' && recentTeamSearches.map((team) => (
-                <TouchableOpacity
-                  key={team.id}
-                  onPress={() => selectTeam(team as TeamSearchResult)}
-                  style={{
-                    backgroundColor: '#1F2937',
-                    borderRadius: 12,
-                    padding: 16,
-                    marginBottom: 12,
-                    borderWidth: 1,
-                    borderColor: '#374151'
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View>
-                      <Text style={{
-                        fontSize: 16,
-                        fontWeight: '600',
-                        color: '#FFFFFF',
-                        marginBottom: 4
-                      }}>
-                        {team.name}
-                      </Text>
-                      <Text style={{
-                        color: '#9CA3AF',
-                        fontSize: 14
-                      }}>
-                        {team.city} • {team.sport}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Empty State */}
-          {searchQuery.length >= 2 && getCurrentResults().length === 0 && !isSearching && (
-            <View style={{
-              backgroundColor: '#1F2937',
-              borderRadius: 12,
-              padding: 24,
-              alignItems: 'center',
-              marginBottom: 20
-            }}>
-              <Ionicons name="search" size={48} color="#6B7280" style={{ marginBottom: 12 }} />
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '600',
-                color: '#FFFFFF',
-                marginBottom: 8,
-                textAlign: 'center'
-              }}>
-                No {searchMode === 'players' ? 'Players' : 'Teams'} Found
-              </Text>
-              <Text style={{
-                fontSize: 14,
-                color: '#9CA3AF',
-                textAlign: 'center',
-                lineHeight: 20
-              }}>
-                Try adjusting your search terms or check a different sport filter
-              </Text>
-            </View>
-          )}
-
-          {/* Instructions */}
-          {searchQuery.length < 2 && getCurrentRecentSearches().length === 0 && (
-            <View style={{
-              backgroundColor: '#1F2937',
-              borderRadius: 12,
-              padding: 24,
-              alignItems: 'center'
-            }}>
-              <LinearGradient
-                colors={['#3B82F6', '#1D4ED8']}
+            {/* Picks Slip Indicator */}
+            {picksSlip.length > 0 && (
+              <TouchableOpacity
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 32,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 16
+                  backgroundColor: '#10B981',
+                  borderRadius: 12,
+                  padding: 12,
+                  position: 'relative'
                 }}
               >
-                <Ionicons name="trending-up" size={32} color="#FFFFFF" />
-              </LinearGradient>
-              <Text style={{
-                fontSize: 20,
-                fontWeight: 'bold',
-                color: '#FFFFFF',
-                marginBottom: 8,
-                textAlign: 'center'
-              }}>
-                Discover {searchMode === 'players' ? 'Player' : 'Team'} Trends
-              </Text>
-              <Text style={{
-                fontSize: 16,
-                color: '#9CA3AF',
-                textAlign: 'center',
-                lineHeight: 22,
-                marginBottom: 20
-              }}>
-                Search for any {searchMode === 'players' ? 'player' : 'team'} to see their last 10 games performance with detailed analytics and visual charts
-              </Text>
-              <View style={{
-                backgroundColor: '#111827',
-                borderRadius: 8,
-                padding: 16,
-                width: '100%'
-              }}>
-                <Text style={{
-                  fontSize: 14,
-                  color: '#F59E0B',
-                  fontWeight: '600',
-                  marginBottom: 8
+                <Ionicons name="bookmark" size={20} color="#FFFFFF" />
+                <View style={{
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                  backgroundColor: '#EF4444',
+                  borderRadius: 10,
+                  minWidth: 20,
+                  height: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 4
                 }}>
-                  Features:
-                </Text>
-                <Text style={{ color: '#D1D5DB', fontSize: 14, marginBottom: 4 }}>
-                  • Visual charts for last 10 games
-                </Text>
-                <Text style={{ color: '#D1D5DB', fontSize: 14, marginBottom: 4 }}>
-                  • Prop line analysis with over/under
-                </Text>
-                <Text style={{ color: '#D1D5DB', fontSize: 14, marginBottom: 4 }}>
-                  • Multi-sport support (MLB, WNBA, NFL, UFC)
-                </Text>
-                <Text style={{ color: '#D1D5DB', fontSize: 14 }}>
-                  • Performance trends and insights
+                  <Text style={{
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: '700'
+                  }}>
+                    {picksSlip.length}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Enhanced Trends List */}
+        <EnhancedTrendsList
+          onAddToPicks={handleAddToPicks}
+          onViewDetails={handleViewDetails}
+        />
+
+        {/* Modals */}
+        <PlayerTrendsModal
+          visible={playerModalVisible}
+          player={selectedPlayer}
+          onClose={() => {
+            setPlayerModalVisible(false);
+            setSelectedPlayer(null);
+          }}
+        />
+
+        <AIReportModal
+          visible={aiReportModalVisible}
+          onClose={() => setAiReportModalVisible(false)}
+        />
+
+        {/* Player Search Modal */}
+        <Modal
+          visible={searchModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setSearchModalVisible(false)}
+        >
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            paddingTop: Platform.OS === 'ios' ? 60 : 40
+          }}>
+            <View style={{
+              flex: 1,
+              backgroundColor: '#1F2937',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24
+            }}>
+              {/* Search Header */}
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#374151'
+              }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchModalVisible(false);
+                    setSearchQuery('');
+                    setSearchResults([]);
+                  }}
+                  style={{ marginRight: 16 }}
+                >
+                  <Ionicons name="close" size={28} color="#9CA3AF" />
+                </TouchableOpacity>
+                <Text style={{
+                  color: '#FFFFFF',
+                  fontSize: 20,
+                  fontWeight: '700'
+                }}>
+                  Search Players
                 </Text>
               </View>
-            </View>
-          )}
-        </ScrollView>
-      </View>
-      </KeyboardAvoidingView>
 
-      {/* Player Trends Modal */}
-      <PlayerTrendsModal
-        visible={playerModalVisible}
-        player={selectedPlayer}
-        onClose={() => setPlayerModalVisible(false)}
-      />
-      
-      {/* Team Trends Modal */}
-      <TeamTrendsModal
-        visible={teamModalVisible}
-        team={selectedTeam}
-        onClose={() => setTeamModalVisible(false)}
-      />
-      
-      {/* AI Report Modal */}
-      <AIReportModal
-        visible={aiReportModalVisible}
-        onClose={() => setAiReportModalVisible(false)}
-        onUpgrade={() => {
-          setAiReportModalVisible(false);
-          // Open subscription modal here if you have one in trends
-          Alert.alert('Upgrade to Pro', 'Get access to full AI reports and advanced features!', [
-            { text: 'Maybe Later', style: 'cancel' },
-            { text: 'Upgrade Now', onPress: () => {
-              // Navigate to subscription page or open subscription modal
-              console.log('Opening subscription modal...');
-            }}
-          ]);
-        }}
-      />
+              {/* Search Input */}
+              <View style={{
+                paddingHorizontal: 20,
+                paddingVertical: 16
+              }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#374151',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12
+                }}>
+                  <Ionicons name="search" size={20} color="#9CA3AF" style={{ marginRight: 12 }} />
+                  <TextInput
+                    value={searchQuery}
+                    onChangeText={handlePlayerSearch}
+                    placeholder="Search by player name..."
+                    placeholderTextColor="#6B7280"
+                    style={{
+                      flex: 1,
+                      color: '#FFFFFF',
+                      fontSize: 16
+                    }}
+                    autoFocus
+                    autoCapitalize="words"
+                  />
+                  {searchLoading && (
+                    <ActivityIndicator size="small" color={isElite ? theme.accentPrimary : '#3B82F6'} />
+                  )}
+                </View>
+              </View>
+
+              {/* Search Results */}
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                ListEmptyComponent={
+                  searchQuery.length >= 2 && !searchLoading ? (
+                    <View style={{
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 60
+                    }}>
+                      <Ionicons name="search-outline" size={64} color="#374151" />
+                      <Text style={{
+                        color: '#9CA3AF',
+                        fontSize: 16,
+                        marginTop: 16,
+                        textAlign: 'center'
+                      }}>
+                        No players found
+                      </Text>
+                      <Text style={{
+                        color: '#6B7280',
+                        fontSize: 14,
+                        marginTop: 8,
+                        textAlign: 'center',
+                        paddingHorizontal: 40
+                      }}>
+                        Try searching for a different player name
+                      </Text>
+                    </View>
+                  ) : searchQuery.length < 2 ? (
+                    <View style={{
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 60
+                    }}>
+                      <Ionicons name="analytics" size={64} color="#374151" />
+                      <Text style={{
+                        color: '#9CA3AF',
+                        fontSize: 16,
+                        marginTop: 16,
+                        textAlign: 'center'
+                      }}>
+                        Start typing to search
+                      </Text>
+                      <Text style={{
+                        color: '#6B7280',
+                        fontSize: 14,
+                        marginTop: 8,
+                        textAlign: 'center',
+                        paddingHorizontal: 40
+                      }}>
+                        Find any player with trend data
+                      </Text>
+                    </View>
+                  ) : null
+                }
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => handleSelectPlayer(item)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 20,
+                      paddingVertical: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#374151'
+                    }}
+                  >
+                    {item.headshot_url ? (
+                      <Image
+                        source={{ uri: item.headshot_url }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          marginRight: 16,
+                          backgroundColor: '#374151'
+                        }}
+                      />
+                    ) : (
+                      <View style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        backgroundColor: '#374151',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 16
+                      }}>
+                        <Ionicons name="person" size={24} color="#9CA3AF" />
+                      </View>
+                    )}
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontWeight: '600',
+                        marginBottom: 4
+                      }}>
+                        {item.name}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{
+                          color: '#3B82F6',
+                          fontSize: 12,
+                          fontWeight: '600'
+                        }}>
+                          {item.sport}
+                        </Text>
+                        <Text style={{ color: '#6B7280', fontSize: 12 }}>•</Text>
+                        <Text style={{
+                          color: '#9CA3AF',
+                          fontSize: 12
+                        }}>
+                          {item.team}
+                        </Text>
+                        {item.position && (
+                          <>
+                            <Text style={{ color: '#6B7280', fontSize: 12 }}>•</Text>
+                            <Text style={{
+                              color: '#9CA3AF',
+                              fontSize: 12
+                            }}>
+                              {item.position}
+                            </Text>
+                          </>
+                        )}
+                      </View>
+                    </View>
+
+                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

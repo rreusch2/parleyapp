@@ -332,7 +332,7 @@ export class ParlayOrchestrator {
         .gte('event_time', now) // Only future games
         .eq('status', 'pending')
         .order('confidence', { ascending: false })
-        .limit(20);
+        .limit(100); // Increased limit to get more picks across all sports
 
       if (sports && sports.length > 0) {
         const filters: string[] = [];
@@ -364,6 +364,41 @@ export class ParlayOrchestrator {
       const { data, error } = await pQuery;
 
       if (error) throw error;
+      
+      // MULTI-SPORT BALANCING: When no specific sport requested, balance across all sports
+      if (!sports || sports.length === 0) {
+        const bySport: Record<string, any[]> = {};
+        (data || []).forEach(pick => {
+          const sport = pick.sport || 'Other';
+          if (!bySport[sport]) bySport[sport] = [];
+          bySport[sport].push(pick);
+        });
+        
+        // Round-robin selection across sports to ensure diversity
+        const balanced: any[] = [];
+        const sportKeys = Object.keys(bySport);
+        const indices: Record<string, number> = {};
+        sportKeys.forEach(k => indices[k] = 0);
+        
+        const targetPicks = 30; // Return 30 balanced picks
+        while (balanced.length < targetPicks && balanced.length < (data?.length || 0)) {
+          let added = false;
+          for (const sport of sportKeys) {
+            const picks = bySport[sport];
+            const idx = indices[sport];
+            if (idx < picks.length) {
+              balanced.push(picks[idx]);
+              indices[sport] = idx + 1;
+              added = true;
+              if (balanced.length >= targetPicks) break;
+            }
+          }
+          if (!added) break; // No more picks available
+        }
+        
+        logger.info(`Balanced ${balanced.length} AI predictions across ${sportKeys.length} sports: ${sportKeys.join(', ')}`);
+        return balanced;
+      }
       
       logger.info(`Found ${data?.length || 0} AI predictions`);
       return data || [];

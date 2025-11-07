@@ -43,6 +43,7 @@ import EventSource from 'react-native-sse';
 import Markdown from 'react-native-markdown-display';
 import { useSubscription } from '../services/subscriptionContext';
 import { supabase } from '../services/api/supabaseClient';
+import SportFilterDropdown from './SportFilterDropdown';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -50,6 +51,8 @@ interface ParlayConfig {
   legs: number;
   riskLevel: 'safe' | 'balanced' | 'risky';
   betType: 'player' | 'team' | 'mixed';
+  sports?: string[];
+  sport?: string;
 }
 
 interface ToolEvent {
@@ -87,6 +90,7 @@ export default function AIParlayBuilder() {
   const [copied, setCopied] = useState<boolean>(false);
   const [oddsManuallyEdited, setOddsManuallyEdited] = useState<boolean>(false);
   const [autoCombinedOdds, setAutoCombinedOdds] = useState<{ american: number; decimal: number } | null>(null);
+  const [selectedSport, setSelectedSport] = useState<string>('ALL');
   
 
   const getLegOptions = () => [
@@ -169,7 +173,7 @@ export default function AIParlayBuilder() {
           'Authorization': `Bearer ${user.id}`,
         },
         body: JSON.stringify({
-          config,
+          config: (selectedSport && selectedSport !== 'ALL') ? { ...config, sport: selectedSport } : config,
           userId: user.id,
         }),
       });
@@ -396,6 +400,16 @@ export default function AIParlayBuilder() {
               );
             })}
           </View>
+        </View>
+
+        {/* Sport Selection */}
+        <View style={styles.configGroup}>
+          <Text style={styles.configLabel}>Sport</Text>
+          <SportFilterDropdown
+            selectedSport={selectedSport}
+            onSelectSport={setSelectedSport}
+            isElite={isElite}
+          />
         </View>
 
         {/* Bankroll selection removed */}
