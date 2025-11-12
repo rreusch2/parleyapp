@@ -217,12 +217,7 @@ class TrendsService {
           team,
           sport,
           position,
-          headshot_url,
-          player_trend_patterns!inner (
-            id,
-            confidence_score,
-            hit_rate
-          )
+          headshot_url
         `)
         .ilike('name', `%${query}%`)
         .eq('active', true);
