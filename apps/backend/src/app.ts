@@ -39,6 +39,7 @@ import chatkitRouter from './api/chatkit';
 // import { subscriptionCleanupJob } from './jobs/subscriptionCleanup';
 // import { initRewardExpiryCron } from './cron/rewardExpiryCron';
 import { initNotificationsCron } from './cron/notificationsCron';
+import { initOddsV2Cron } from './cron/oddsV2Cron';
 import { dayPassScheduler } from './schedulers/dayPassScheduler';
 // import { startSubscriptionTierFixCron } from './cron/subscriptionTierFixCron';
 
@@ -199,6 +200,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 if (process.env.NODE_ENV === 'production' || process.env.ENABLE_CRON === 'true') {
   // Leave notifications cron enabled
   initNotificationsCron();
+  // Initialize odds:v2 cron for daily odds and props updates
+  initOddsV2Cron();
   // Do NOT start any cron that mutates profiles.subscription_tier outside RevenueCat webhook
   // startSubscriptionTierFixCron(); // disabled
   // initRewardExpiryCron(); // disabled
