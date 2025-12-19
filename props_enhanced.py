@@ -2454,7 +2454,7 @@ def parse_arguments():
                       help='Generate 5 best NFL picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--nfl-only', action='store_true',
                       help='Generate picks for NFL games only (ignore other sports)')
-    parser.add_argument('--sport', type=str, choices=['NFL', 'MLB', 'WNBA', 'CFB'],
+    parser.add_argument('--sport', type=str, choices=['NFL', 'NHL', 'NBA', 'MLB', 'WNBA', 'CFB'],
                       help='Limit props to a single sport (overrides multi-sport distribution)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')

@@ -211,6 +211,7 @@ class DatabaseClient:
             else:
                 sports = [
                     "Major League Baseball",
+                    "National Basketball Association",
                     "Women's National Basketball Association",
                     "Ultimate Fighting Championship",
                     "National Football League",
@@ -509,13 +510,15 @@ class IntelligentTeamsAgent:
     
     def _distribute_picks_by_sport(self, games: List[Dict], target_picks: int = 15) -> Dict[str, int]:
         """Distribute picks optimally across available sports"""
-        sport_counts = {"MLB": 0, "NHL": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        sport_counts = {"MLB": 0, "NBA": 0, "NHL": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # Count available games by sport (map full names to abbreviations)
         for game in games:
             sport = game.get("sport", "")
             if sport == "Major League Baseball":
                 sport_counts["MLB"] += 1
+            elif sport == "National Basketball Association":
+                sport_counts["NBA"] += 1
             elif sport == "Women's National Basketball Association":
                 sport_counts["WNBA"] += 1
             elif sport == "Ultimate Fighting Championship":
@@ -530,7 +533,7 @@ class IntelligentTeamsAgent:
         logger.info(f"Available games by sport: {sport_counts}")
         
         # Initialize distribution
-        distribution = {"MLB": 0, "NHL": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
+        distribution = {"MLB": 0, "NBA": 0, "NHL": 0, "WNBA": 0, "MMA": 0, "NFL": 0, "CFB": 0}
         
         # NFL-only mode: allocate all picks to NFL
         if hasattr(self, 'nfl_only_mode') and self.nfl_only_mode:
@@ -566,6 +569,13 @@ class IntelligentTeamsAgent:
             distribution["NFL"] = nfl_picks
             remaining_picks -= nfl_picks
             logger.info(f"🏈 Allocated {nfl_picks} picks to NFL (priority sport)")
+        
+        # NBA gets high priority allocation (major sport with multiple games)
+        if sport_counts["NBA"] > 0 and remaining_picks > 0:
+            nba_picks = min(6, sport_counts["NBA"] * 2, remaining_picks)  # Up to 6 NBA picks
+            distribution["NBA"] = nba_picks
+            remaining_picks -= nba_picks
+            logger.info(f"🏀 Allocated {nba_picks} picks to NBA")
         
         # MLB gets good allocation (major sport with multiple games)
         if sport_counts["MLB"] > 0 and remaining_picks > 0:
@@ -605,7 +615,7 @@ class IntelligentTeamsAgent:
         if total_allocated > target_picks:
             # Trim excess picks starting from lowest priority sports
             excess = total_allocated - target_picks
-            for sport in ["CFB", "MMA", "WNBA", "MLB", "NFL"]:
+            for sport in ["CFB", "MMA", "WNBA", "MLB", "NBA", "NFL"]:
                 if excess <= 0:
                     break
                 reduction = min(excess, distribution[sport])
@@ -653,6 +663,8 @@ class IntelligentTeamsAgent:
             # Build event->sport map and capacities per sport from available bets
             event_sport = {str(g.get("id")): g.get("sport", "") for g in games}
             def map_display_sport(full_name: str) -> str:
+                if full_name == "National Basketball Association":
+                    return "NBA"
                 if full_name == "Women's National Basketball Association":
                     return "WNBA"
                 if full_name == "Major League Baseball":
@@ -664,12 +676,12 @@ class IntelligentTeamsAgent:
                 if full_name == "Ultimate Fighting Championship":
                     return "MMA"
                 return "OTHER"
-            capacities: Dict[str, int] = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
+            capacities: Dict[str, int] = {"MLB": 0, "NBA": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
             for b in bets:
                 sport_full = event_sport.get(str(b.event_id), "")
                 capacities[map_display_sport(sport_full)] = capacities.get(map_display_sport(sport_full), 0) + 1
 
-            games_by_sport = {"MLB": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
+            games_by_sport = {"MLB": 0, "NBA": 0, "WNBA": 0, "NFL": 0, "CFB": 0, "MMA": 0}
             for g in games:
                 games_by_sport[map_display_sport(g.get("sport", ""))] += 1
 
@@ -678,19 +690,20 @@ You are an elite betting strategist. Allocate EXACTLY {target_picks} TEAM picks 
 
 Sports and availability today (games, available_bets):
 - MLB: {games_by_sport['MLB']} games, {capacities['MLB']} bets
+- NBA: {games_by_sport['NBA']} games, {capacities['NBA']} bets
 - WNBA: {games_by_sport['WNBA']} games, {capacities['WNBA']} bets
 - NFL: {games_by_sport['NFL']} games, {capacities['NFL']} bets
 - CFB: {games_by_sport['CFB']} games, {capacities['CFB']} bets
 - MMA: {games_by_sport['MMA']} events, {capacities['MMA']} bets
 
 Rules:
-- Output JSON only with keys: MLB, WNBA, NFL, CFB, MMA
+- Output JSON only with keys: MLB, NBA, WNBA, NFL, CFB, MMA
 - Sum of values MUST equal {target_picks}
 - Do not assign picks to sports with 0 games or 0 available bets
 - Prefer richer slates (more games and bets)
 
 Return JSON like:
-{{"MLB": 7, "WNBA": 3, "NFL": 4, "CFB": 1, "MMA": 0}}
+{{"MLB": 7, "NBA": 4, "WNBA": 3, "NFL": 4, "CFB": 1, "MMA": 0}}
 """
 
             response = await self.grok_client.chat.completions.create(
@@ -852,6 +865,7 @@ Return JSON like:
         
         # STEP 3: Calculate research allocation based on mode or AI-decided distribution
         target_nfl_queries = 0
+        target_nba_queries = 0
         target_wnba_queries = 0
         target_mlb_queries = 0
         target_cfb_queries = 0
@@ -862,6 +876,7 @@ Return JSON like:
             # NHL-ONLY MODE: Focus EXCLUSIVELY on hockey
             nhl_picks = sport_distribution.get("NHL", 0) if sport_distribution else 6
             target_nhl_queries = max(12, min(20, nhl_picks * 2))  # 12-20 NHL team queries
+            target_nba_queries = 0
             target_wnba_queries = 0
             target_mlb_queries = 0
             target_nfl_queries = 0
@@ -876,6 +891,7 @@ Return JSON like:
             # NFL Week Mode or NFL Only Mode - Focus exclusively on NFL
             nfl_games = len([g for g in games if g.get('sport') == 'National Football League'])
             target_nfl_queries = min(22, max(15, nfl_games))  # 15-22 NFL team queries
+            target_nba_queries = 0
             target_wnba_queries = 0
             target_mlb_queries = 0
             target_web_searches = 6  # NFL injury/lineup/weather searches
@@ -892,6 +908,7 @@ Return JSON like:
                 return max(min_q, min(max_q, picks * per_pick)) if picks > 0 else 0
 
             target_mlb_queries = q_for(sport_distribution.get("MLB", 0))
+            target_nba_queries = q_for(sport_distribution.get("NBA", 0), per_pick=2)
             target_nhl_queries = q_for(sport_distribution.get("NHL", 0), per_pick=2)
             target_wnba_queries = q_for(sport_distribution.get("WNBA", 0))
             target_nfl_queries = q_for(sport_distribution.get("NFL", 0), per_pick=3)
@@ -901,7 +918,7 @@ Return JSON like:
 
             research_focus = "Multi-sport"
             parts = []
-            for label, q in [("MLB", target_mlb_queries), ("NHL", target_nhl_queries), ("WNBA", target_wnba_queries), ("NFL", target_nfl_queries), ("CFB", target_cfb_queries), ("MMA", target_mma_queries)]:
+            for label, q in [("MLB", target_mlb_queries), ("NBA", target_nba_queries), ("NHL", target_nhl_queries), ("WNBA", target_wnba_queries), ("NFL", target_nfl_queries), ("CFB", target_cfb_queries), ("MMA", target_mma_queries)]:
                 if q > 0:
                     parts.append(f"**{label} Team Research**: {q} different teams/matchups")
             sport_queries_text = "\n".join(["- " + p for p in parts]) if parts else "- Balanced team research across active sports"
@@ -926,6 +943,7 @@ Return JSON like:
             # Target: 6-8 WNBA teams for 3 picks, 16-20 MLB teams for 7 picks  
             target_wnba_queries = min(8, max(6, int(15 * wnba_research_ratio)))
             target_mlb_queries = min(20, max(16, int(15 * mlb_research_ratio)))
+            target_nba_queries = 0
             target_nfl_queries = 0
             target_web_searches = 6
             
@@ -946,12 +964,14 @@ Return JSON like:
             task_focus = f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups (mix of favorites, underdogs, different conferences)"
         elif sport_distribution and sum(sport_distribution.values()) > 0:
             mlb_game_count = len([g for g in games if g.get('sport') == 'Major League Baseball'])
+            nba_game_count = len([g for g in games if g.get('sport') == 'National Basketball Association'])
             wnba_game_count = len([g for g in games if g.get('sport') == "Women's National Basketball Association"])            
             nfl_game_count = len([g for g in games if g.get('sport') == 'National Football League'])
             cfb_game_count = len([g for g in games if g.get('sport') == 'College Football'])
-            sport_info = f"MLB Games: {mlb_game_count}, WNBA Games: {wnba_game_count}, NFL Games: {nfl_game_count}, CFB Games: {cfb_game_count}"
+            sport_info = f"MLB Games: {mlb_game_count}, NBA Games: {nba_game_count}, WNBA Games: {wnba_game_count}, NFL Games: {nfl_game_count}, CFB Games: {cfb_game_count}"
             focus_parts = []
             if target_mlb_queries: focus_parts.append(f"**MLB Focus**: Research {target_mlb_queries} DIFFERENT MLB teams/matchups")
+            if target_nba_queries: focus_parts.append(f"**NBA Focus**: Research {target_nba_queries} DIFFERENT NBA teams/matchups")
             if target_nhl_queries: focus_parts.append(f"**NHL Focus**: Research {target_nhl_queries} DIFFERENT NHL teams/matchups")
             if target_wnba_queries: focus_parts.append(f"**WNBA Focus**: Research {target_wnba_queries} DIFFERENT WNBA teams/matchups")
             if target_nfl_queries: focus_parts.append(f"**NFL Focus**: Research {target_nfl_queries} DIFFERENT NFL teams/matchups")
@@ -970,7 +990,7 @@ Return JSON like:
 
 ## RESEARCH ALLOCATION (MUST FOLLOW EXACTLY):
 {sport_queries_text}
-- **Total StatMuse Queries**: {target_nfl_queries + target_nhl_queries + target_wnba_queries + target_mlb_queries + target_cfb_queries + target_mma_queries}
+- **Total StatMuse Queries**: {target_nfl_queries + target_nba_queries + target_nhl_queries + target_wnba_queries + target_mlb_queries + target_cfb_queries + target_mma_queries}
 {web_searches_text}
 
 ## DIVERSITY REQUIREMENTS FOR TEAMS:
@@ -1669,7 +1689,9 @@ REMEMBER:
                         # Use safer dictionary access with get() for all fields
                         # Determine sport from game data - map from database sport names to display names
                         game_sport = game.get("sport", "Major League Baseball") if game else "Major League Baseball"
-                        if game_sport == "Women's National Basketball Association":
+                        if game_sport == "National Basketball Association":
+                            display_sport = "NBA"
+                        elif game_sport == "Women's National Basketball Association":
                             display_sport = "WNBA"
                         elif game_sport == "Ultimate Fighting Championship":
                             display_sport = "MMA"
@@ -1942,7 +1964,7 @@ def parse_arguments():
                       help='Generate 5 best NFL team picks for the entire week ahead (Thu-Sun)')
     parser.add_argument('--nfl-only', action='store_true',
                       help='Generate picks for NFL games only (ignore other sports)')
-    parser.add_argument('--sport', type=str, choices=['NFL', 'NHL', 'MLB', 'WNBA', 'CFB', 'MMA', 'UFC'],
+    parser.add_argument('--sport', type=str, choices=['NFL', 'NHL', 'NBA', 'MLB', 'WNBA', 'CFB', 'MMA', 'UFC'],
                       help='Limit team picks to a single sport (overrides multi-sport distribution)')
     parser.add_argument('--verbose', '-v', action='store_true',
                       help='Enable verbose logging')
@@ -2002,6 +2024,7 @@ async def main():
                 sport_map = {
                     'NFL': 'National Football League',
                     'NHL': 'National Hockey League',
+                    'NBA': 'National Basketball Association',
                     'MLB': 'Major League Baseball',
                     'WNBA': "Women's National Basketball Association",
                     'CFB': 'College Football',

@@ -346,37 +346,53 @@ export const SUPPORTED_SPORTS: Record<string, SportConfig> = {
 // Get only active sports (dynamic check)
 export const getActiveSportConfigs = (): SportConfig[] => {
   const activeSports = getActiveSports();
-  return Object.values(SUPPORTED_SPORTS).filter(sport => {
+  console.log('🔍 ACTIVE_SPORTS env:', process.env.ACTIVE_SPORTS);
+  console.log('🔍 Parsed active sports:', activeSports);
+  
+  const filtered = Object.values(SUPPORTED_SPORTS).filter(sport => {
+    let isActive = false;
+    
     if (sport.sportKey === 'MLB') {
-      return activeSports.includes('MLB') && process.env.ENABLE_MLB_DATA !== 'false';
+      isActive = activeSports.includes('MLB') && process.env.ENABLE_MLB_DATA !== 'false';
     }
     if (sport.sportKey === 'WNBA') {
-      return activeSports.includes('WNBA') && process.env.ENABLE_WNBA_DATA === 'true';
+      isActive = activeSports.includes('WNBA') && process.env.ENABLE_WNBA_DATA === 'true';
     }
     if (sport.sportKey === 'NBA') {
-      return activeSports.includes('NBA') && process.env.ENABLE_NBA_DATA === 'true';
+      isActive = activeSports.includes('NBA') && process.env.ENABLE_NBA_DATA === 'true';
     }
     if (sport.sportKey === 'NHL') {
-      return activeSports.includes('NHL') && process.env.ENABLE_NHL_DATA === 'true';
+      const inList = activeSports.includes('NHL');
+      const enabled = process.env.ENABLE_NHL_DATA === 'true';
+      isActive = inList && enabled;
+      console.log(`🏒 NHL check: inList=${inList}, ENABLE_NHL_DATA=${process.env.ENABLE_NHL_DATA}, enabled=${enabled}, isActive=${isActive}`);
     }
     if (sport.sportKey === 'UFC') {
-      return activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
+      isActive = activeSports.includes('UFC') && process.env.ENABLE_UFC_DATA === 'true';
     }
     if (sport.sportKey === 'CFB') {
-      return activeSports.includes('CFB') && process.env.ENABLE_CFB_DATA !== 'false';
+      isActive = activeSports.includes('CFB') && process.env.ENABLE_CFB_DATA !== 'false';
     }
     if (sport.sportKey === 'NFL') {
-      return activeSports.includes('NFL') && process.env.ENABLE_NFL_DATA === 'true';
+      isActive = activeSports.includes('NFL') && process.env.ENABLE_NFL_DATA === 'true';
     }
     // Soccer leagues (all 7 use same enable flag)
     if (sport.sportKey.startsWith('SOCCER_')) {
-      return activeSports.includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true';
+      isActive = activeSports.includes('SOCCER') && process.env.ENABLE_SOCCER_DATA === 'true';
     }
     if (sport.sportKey === 'TENNIS') {
-      return activeSports.includes('TENNIS') && process.env.ENABLE_TENNIS_DATA === 'true';
+      isActive = activeSports.includes('TENNIS') && process.env.ENABLE_TENNIS_DATA === 'true';
     }
-    return false;
+    
+    if (isActive) {
+      console.log(`✅ ${sport.sportKey} is active`);
+    }
+    
+    return isActive;
   });
+  
+  console.log('🏆 Final active sports:', filtered.map(s => s.sportKey).join(', '));
+  return filtered;
 };
 
 // Bookmaker configurations

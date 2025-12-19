@@ -1,0 +1,187 @@
+name: Daily Sports Predictions Automation
+
+on:
+  # Run daily at 10:00 PM EST (3:00 AM UTC next day)
+  schedule:
+    - cron: '0 3 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      sports:
+        description: 'Sports to run (comma-separated: NBA,NFL,CFB,NHL,MLB,WNBA or "all")'
+        required: false
+        default: 'all'
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  run-predictions:
+    name: Generate Daily Predictions
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hour timeout
+    
+    steps:
+      # ============================================
+      # Setup Environment
+      # ============================================
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: apps/backend/package-lock.json
+
+      # ============================================
+      # Install Dependencies
+      # ============================================
+      - name: 📚 Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install python-dotenv
+          pip install supabase
+          pip install openai
+          pip install requests
+          pip install httpx
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 📚 Install Backend Dependencies
+        run: |
+          cd apps/backend
+          npm ci --legacy-peer-deps
+
+      # ============================================
+      # Setup Environment Variables
+      # ============================================
+      - name: 🔐 Configure Environment
+        run: |
+          cat > .env << EOF
+          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          THEODDSAPI_KEY=${{ secrets.THEODDSAPI_KEY }}
+          STATMUSE_API_URL=${{ secrets.STATMUSE_API_URL }}
+          ACTIVE_SPORTS=${{ secrets.ACTIVE_SPORTS }}
+          ENABLE_NHL_DATA=${{ secrets.ENABLE_NHL_DATA }}
+          NODE_ENV=production
+          EOF
+
+      # ============================================
+      # Step 1: Start StatMuse API Server
+      # ============================================
+      - name: 🚀 Start StatMuse API Server
+        run: |
+          echo "Starting StatMuse API server..."
+          nohup python statmuse_api_server.py > logs/statmuse-server.log 2>&1 &
+          sleep 15
+          echo "StatMuse API server started"
+        continue-on-error: true
+
+      # ============================================
+      # Step 2: Fetch Odds Data
+      # ============================================
+      - name: 🎲 Fetch Odds and Games Data
+        run: |
+          cd apps/backend
+          npm run odds:v2
+        timeout-minutes: 20
+        continue-on-error: true
+
+      # ============================================
+      # Step 3: Generate Team Predictions
+      # ============================================
+      - name: 🏆 Generate NBA Team Picks
+        run: python teams_enhanced.py --tomorrow --sport NBA
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: 🏈 Generate NFL Team Picks
+        run: python teams_enhanced.py --tomorrow --sport NFL
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: 🏫 Generate CFB Team Picks
+        run: python teams_enhanced.py --tomorrow --sport CFB
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: 🏒 Generate NHL Team Picks
+        run: python teams_enhanced.py --tomorrow --sport NHL
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: ⚾ Generate MLB Team Picks
+        run: python teams_enhanced.py --tomorrow --sport MLB
+        timeout-minutes: 15
+        continue-on-error: true
+
+      - name: 🏀 Generate WNBA Team Picks
+        run: python teams_enhanced.py --tomorrow --sport WNBA
+        timeout-minutes: 15
+        continue-on-error: true
+
+      # ============================================
+      # Step 4: Generate Prop Predictions
+      # ============================================
+      - name: 🎯 Generate NBA Prop Picks
+        run: python props_intelligent_v3.py --sport NBA --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: 🎯 Generate NFL Prop Picks
+        run: python props_intelligent_v3.py --sport NFL --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: 🎯 Generate CFB Prop Picks
+        run: python props_intelligent_v3.py --sport CFB --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: 🎯 Generate NHL Prop Picks
+        run: python props_intelligent_v3.py --sport NHL --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: 🎯 Generate MLB Prop Picks
+        run: python props_intelligent_v3.py --sport MLB --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      - name: 🎯 Generate WNBA Prop Picks
+        run: python props_intelligent_v3.py --sport WNBA --tomorrow
+        timeout-minutes: 20
+        continue-on-error: true
+
+      # ============================================
+      # Upload Logs
+      # ============================================
+      - name: 📤 Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 14
+
+      # ============================================
+      # Notification
+      # ============================================
+      - name: 📧 Send Completion Notification
+        if: always()
+        run: |
+          echo "Daily automation completed with status: ${{ job.status }}"
+          echo "Check the logs for details"

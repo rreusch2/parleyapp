@@ -155,6 +155,16 @@ class DB:
             'CFB': 'College Football'
         }
         
+        # Convert to abbreviated sport keys for player_props_v2
+        abbr_map = {
+            'MLB': 'MLB',
+            'NHL': 'NHL', 
+            'NBA': 'NBA',
+            'NFL': 'NFL',
+            'WNBA': 'WNBA',
+            'CFB': 'CFB'
+        }
+        
         # If sport filter provided, use only that sport
         if sport_filter:
             full_sport_name = sport_map.get(sport_filter.upper())
@@ -166,7 +176,7 @@ class DB:
         else:
             sports = list(sport_map.values())
         
-        # Use local timezone midnight window, then convert to UTC for querying
+        # Query sports_events for game metadata
         tz = ZoneInfo(APP_TIMEZONE)
         start_local = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=tz)
         end_local = start_local + timedelta(days=1)
@@ -184,22 +194,57 @@ class DB:
         all_games.sort(key=lambda g: g['start_time'])
         return all_games
     
-    def get_flat_props_for_games(self, game_ids: List[str]) -> List[FlatProp]:
+    def get_flat_props_for_games(self, target_date: datetime.date, sport_filter: Optional[str]) -> tuple[List[FlatProp], Dict[str, Dict[str, Any]]]:
         """
-        Fetch props from the comprehensive player_props_with_details view.
+        Fetch props from the fast player_props_v2 table directly by local_game_date.
         This includes main lines with alt lines from the alt_lines column.
+        Returns tuple of (props, event_map) where event_map has game metadata.
         """
-        if not game_ids:
-            return []
+        # Format date as YYYY-MM-DD string for local_game_date field
+        date_str = target_date.strftime('%Y-%m-%d')
+        logger.info(f"📦 Fetching props for local_game_date={date_str}")
         
-        # Use the same view as props_enhanced_v2.py for consistency
-        sel = 'event_id, sport, stat_type, main_line, best_over_odds, best_under_odds, best_over_book, best_under_book, player_name, headshot_url, player_team, position, home_team, away_team, prop_display_name, alt_lines, line_movement, num_bookmakers'
-        resp = self.client.table('player_props_with_details').select(sel).in_('event_id', game_ids).execute()
+        # Query player_props_v2 table directly with joins to get player and game data
+        sel = '*, players!player_id(name, headshot_url, team, position), sports_events!event_id(id, home_team, away_team, start_time, sport)'
         
-        rows = resp.data or []
+        try:
+            query = self.client.table('player_props_v2').select(sel).eq('local_game_date', date_str)
+            
+            # Apply sport filter if provided
+            if sport_filter:
+                query = query.eq('sport', sport_filter.upper())
+                logger.info(f"🎯 Sport filter: {sport_filter.upper()} only")
+            
+            resp = query.execute()
+            rows = resp.data or []
+            logger.info(f"✅ Retrieved {len(rows)} props for {date_str}")
+        except Exception as e:
+            logger.error(f"❌ Error fetching props: {e}")
+            rows = []
+        
+        logger.info(f"🎯 Total props retrieved: {len(rows)}")
         props: List[FlatProp] = []
+        event_map: Dict[str, Dict[str, Any]] = {}
         for r in rows:
             try:
+                # Extract joined data
+                player_data = r.get('players') or {}
+                player_name = player_data.get('name') or 'Unknown'
+                headshot_url = player_data.get('headshot_url')
+                
+                # Build event map from joined sports_events data
+                event_data = r.get('sports_events')
+                if event_data and r.get('event_id'):
+                    event_id = str(r['event_id'])
+                    if event_id not in event_map:
+                        event_map[event_id] = {
+                            'id': event_data.get('id'),
+                            'home_team': event_data.get('home_team'),
+                            'away_team': event_data.get('away_team'),
+                            'start_time': event_data.get('start_time'),
+                            'sport': event_data.get('sport')
+                        }
+                
                 # Add main line
                 if r.get('best_over_odds') or r.get('best_under_odds'):
                     # Filter odds between -300 and +300
@@ -210,15 +255,15 @@ class DB:
                             FlatProp(
                                 event_id=r['event_id'],
                                 sport=(r.get('sport') or '').upper(),
-                                player_name=r.get('player_name') or 'Unknown',
+                                player_name=player_name,
                                 stat_key=r.get('stat_type') or '',
-                                prop_label=r.get('prop_display_name') or display_name_for_stat(r.get('stat_type') or ''),
+                                prop_label=display_name_for_stat(r.get('stat_type') or ''),
                                 line=float(r.get('main_line', 0)),
                                 bookmaker=(r.get('best_over_book') or r.get('best_under_book') or 'fanduel').lower(),
                                 over_odds=int(over_odds) if over_odds is not None else None,
                                 under_odds=int(under_odds) if under_odds is not None else None,
                                 is_alt=False,
-                                player_headshot_url=r.get('headshot_url')
+                                player_headshot_url=headshot_url
                             )
                         )
                 
@@ -236,21 +281,21 @@ class DB:
                                         FlatProp(
                                             event_id=r['event_id'],
                                             sport=(r.get('sport') or '').upper(),
-                                            player_name=r.get('player_name') or 'Unknown',
+                                            player_name=player_name,
                                             stat_key=r.get('stat_type') or '',
-                                            prop_label=r.get('prop_display_name') or display_name_for_stat(r.get('stat_type') or ''),
+                                            prop_label=display_name_for_stat(r.get('stat_type') or ''),
                                             line=float(alt.get('line', 0)),
                                             bookmaker=(alt.get('bookmaker') or 'fanduel').lower(),
                                             over_odds=int(alt_over_odds) if alt_over_odds is not None else None,
                                             under_odds=int(alt_under_odds) if alt_under_odds is not None else None,
                                             is_alt=True,
-                                            player_headshot_url=r.get('headshot_url')
+                                            player_headshot_url=headshot_url
                                         )
                                     )
             except Exception as e:
                 logger.warning(f"Failed to parse prop: {e}")
                 continue
-        return props
+        return props, event_map
     
     def get_bookmaker_logos(self) -> Dict[str, Dict[str, str]]:
         resp = self.client.table('bookmaker_logos').select('*').execute()
@@ -362,19 +407,19 @@ class Agent:
     
     async def run(self, target_date: datetime.date, picks_target: int, sport_filter: Optional[str]) -> None:
         logger.info(f"🚀 Starting intelligent props generation for {target_date}")
+        if sport_filter:
+            logger.info(f"🎯 Sport filter active: {sport_filter.upper()} only")
         
-        games = self.db.get_games_for_date(target_date, sport_filter)
-        if not games:
-            logger.warning(f"No games found for {target_date}")
-            return
-        logger.info(f"Found {len(games)} games for {target_date}")
-        
-        event_ids = [g['id'] for g in games]
-        props = self.db.get_flat_props_for_games(event_ids)
+        # Fetch props directly by date from player_props_v2 (returns props + event_map)
+        props, event_map = self.db.get_flat_props_for_games(target_date, sport_filter)
         if not props:
             logger.warning("No props found")
             return
         logger.info(f"Found {len(props)} total props (main + alt lines) across all games")
+        
+        # Build games list from event_map
+        games = list(event_map.values())
+        logger.info(f"Found {len(games)} games with props for {target_date}")
         
         # Count main vs alt
         main_count = sum(1 for p in props if not p.is_alt)
@@ -390,15 +435,14 @@ class Agent:
         logger.info(f"Gathered {len(insights)} research insights")
         
         # GENERATE PICKS WITH RESEARCH
-        games_map = {str(g['id']): g for g in games}
         logos = self.db.get_bookmaker_logos()
         league_logos = self.db.get_league_logos()
         
-        picks = await self.generate_picks_with_research(props, games, insights, picks_target, logos, league_logos, games_map)
+        picks = await self.generate_picks_with_research(props, games, insights, picks_target, logos, league_logos, event_map)
         logger.info(f"Generated {len(picks)} picks")
         
         if picks:
-            self.db.store_predictions(picks, games_map)
+            self.db.store_predictions(picks, event_map)
             logger.info(f"✅ Successfully stored {len(picks)} player prop predictions")
     
     async def create_intelligent_research_plan(self, props: List[FlatProp], games: List[Dict], picks_target: int) -> Dict[str, Any]:
@@ -461,12 +505,10 @@ AVAILABLE PROPS ({len(prop_sample)} unique players across {len(sport_distributio
    - "[Player] stats in [weather condition]" - Environmental factors
    - DO NOT use generic queries - be ultra-specific!
 
-3. **WEB SEARCH INTELLIGENCE** (5-8 searches - CRITICAL INFO):
-   - "[Player] injury report today [date]" - Health status
+3. **WEB SEARCH INTELLIGENCE** (2-3 searches MAX - CRITICAL INFO ONLY):
+   - "[Player] injury report today [date]" - Health status (TOP PRIORITY)
    - "[Team] starting lineup confirmed [date]" - Lineup news
-   - "[Team] weather forecast game time" - Environmental conditions
-   - "[Player] recent practice reports" - Preparation status
-   - "[Coach] comments on [Player] usage" - Role/minutes info
+   - LIMIT searches to avoid rate limits - only search for injury/lineup concerns
 
 4. **DIVERSITY REQUIREMENTS**:
    - Cover at least 3 different sports if available
@@ -560,11 +602,11 @@ Return JSON:
             except Exception as e:
                 logger.error(f"StatMuse query failed: {e}")
         
-        # Web searches - MORE COMPREHENSIVE
+        # Web searches - LIMITED to avoid rate limits
         web_searches = plan.get('web_searches', [])
         logger.info(f"🌐 Executing {len(web_searches)} web searches...")
         
-        for i, search_obj in enumerate(web_searches[:8], 1):  # Increased limit
+        for i, search_obj in enumerate(web_searches[:3], 1):  # Limited to 3 to avoid rate limits
             try:
                 query = search_obj.get('query', search_obj) if isinstance(search_obj, dict) else search_obj
                 logger.info(f"🌐 Web Search {i}/{len(web_searches)}: {query}")

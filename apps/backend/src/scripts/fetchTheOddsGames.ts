@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { supabaseAdmin } from '../services/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import { getActiveSportConfigs } from './multiSportConfig';
+import { getActiveSportConfigs, BOOKMAKER_CONFIG, SUPPORTED_SPORTS } from './multiSportConfig';
 
 // Load environment variables from backend directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -15,13 +15,13 @@ const envVars = {
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? 'exists' : 'missing',
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'exists' : 'missing',
-  THEODDS_API_KEY: process.env.THEODDS_API_KEY ? 'exists' : 'missing'
+  THEODDS_API_KEY: (process.env.THEODDS_API_KEY || process.env.ODDS_API_KEY) ? 'exists' : 'missing'
 };
 console.log('Environment variables:', envVars);
 
 // Validate required environment variables
-if (!process.env.THEODDS_API_KEY) {
-  console.error('❌ THEODDS_API_KEY is required but not found in environment variables');
+if (!process.env.THEODDS_API_KEY && !process.env.ODDS_API_KEY) {
+  console.error('❌ THEODDS_API_KEY (or ODDS_API_KEY) is required but not found in environment variables');
   process.exit(1);
 }
 
@@ -54,7 +54,7 @@ interface GameData {
   bookmakers: BookmakerOdds[];
 }
 
-const THEODDS_API_KEY = process.env.THEODDS_API_KEY;
+const THEODDS_API_KEY = process.env.THEODDS_API_KEY || process.env.ODDS_API_KEY;
 const API_BASE_URL = 'https://api.the-odds-api.com/v4';
 
 // Multi-sport leagues dynamically loaded from configuration
@@ -80,7 +80,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     
     // Check if we should extend range for UFC events (next 14 days) or NFL week (next N days, default 7)
     if (sportInfo.key === 'mma_mixed_martial_arts') {
-      const ufcDays = Number(process.env.UFC_AHEAD_DAYS || 14);
+      const ufcDays = Number(process.env.UFC_AHEAD_DAYS || 7);
       // For UFC, start from beginning of today to catch events that already started
       startDate = new Date(now);
       startDate.setUTCHours(0, 0, 0, 0);
@@ -108,11 +108,12 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
     console.log(`Fetching games from ${commenceTimeFrom} to ${commenceTimeTo}`);
     
     // Get upcoming games with odds (for specified date range)
+    const marketsStr = sportInfo.key === 'mma_mixed_martial_arts' ? 'h2h' : 'h2h,spreads,totals';
     const response = await axios.get(`${API_BASE_URL}/sports/${sportInfo.key}/odds`, {
       params: {
         apiKey: THEODDS_API_KEY,
         regions: 'us',
-        markets: 'h2h,spreads,totals', // Fetch moneyline, spread, and total odds
+        markets: marketsStr, // MMA: h2h only; others: h2h, spreads, totals
         oddsFormat: 'american',
         dateFormat: 'iso',
         commenceTimeFrom: commenceTimeFrom,
@@ -122,9 +123,24 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
 
     const games = response.data as GameData[];
     console.log(`✅ Found ${games.length} ${sportInfo.name} games in selected window`);
-    
+
+    // For MMA, keep only likely UFC events by requiring coverage from multiple major US books
+    let filteredGames = games;
+    if (sportInfo.key === 'mma_mixed_martial_arts') {
+      const majorBooks = BOOKMAKER_CONFIG.ufcFights || ['fanduel', 'draftkings', 'betmgm'];
+      filteredGames = games.filter((g) => {
+        const majorCount = (g.bookmakers || []).filter((b) => majorBooks.includes(b.key)).length;
+        const keep = majorCount >= 2; // Heuristic: UFC cards have broader US coverage
+        if (!keep) {
+          console.log(`⏭️  Skipping non-UFC/low-coverage MMA event ${g.id}: majorBooks=${majorCount}`);
+        }
+        return keep;
+      });
+      console.log(`🥊 UFC filter applied: ${filteredGames.length}/${games.length} events retained`);
+    }
+
     // Process each game
-    for (const game of games) {
+    for (const game of filteredGames) {
       // Check if game already exists
       const { data: existingGame } = await supabaseAdmin
         .from('sports_events')
@@ -144,7 +160,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
         external_event_id: game.id,
         sport: sportInfo.name, // Required field - set to our standard sport key (MLB, NBA, etc.)
         sport_key: sportInfo.key, // Use TheOdds API key for foreign key constraint
-        league: game.sport_title,
+        league: sportInfo.key === 'mma_mixed_martial_arts' ? 'UFC' : game.sport_title,
         home_team: game.home_team,
         away_team: game.away_team,
         start_time: game.commence_time,
@@ -154,6 +170,7 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
         metadata: {
           source: 'theodds_api',
           api_sport_key: sportInfo.key, // Store the API's sport key for reference
+          promotion: sportInfo.key === 'mma_mixed_martial_arts' ? 'UFC' : undefined,
           full_data: game
         }
       };
@@ -317,17 +334,30 @@ export async function fetchAllGameData(extendedNflWeek = false, sportFilters?: s
   
   // Apply sport filters if provided
   if (sportFilters && sportFilters.length > 0) {
-    activeSports = activeSports.filter(sport => 
+    let filtered = activeSports.filter(sport => 
       sportFilters.includes(sport.sportKey.toUpperCase()) ||
       sportFilters.includes(sport.sportName.toUpperCase())
     );
-    
-    if (activeSports.length === 0) {
-      console.warn(`⚠️  No active sports matched filters: ${sportFilters.join(', ')}`);
+
+    // Fallback: if nothing matched from activeSports, allow filtered fetch from SUPPORTED_SPORTS (ignoring isActive flags)
+    if (filtered.length === 0) {
+      const allSupported = Object.values(SUPPORTED_SPORTS);
+      filtered = allSupported.filter(sport => 
+        sportFilters.includes(sport.sportKey.toUpperCase()) ||
+        sportFilters.includes(sport.sportName.toUpperCase())
+      );
+      if (filtered.length > 0) {
+        console.warn(`⚠️  No ACTIVE sports matched filters. Falling back to SUPPORTED sports: ${filtered.map(s => s.sportKey).join(', ')}`);
+      }
+    }
+
+    if (filtered.length === 0) {
+      console.warn(`⚠️  No sports matched filters: ${sportFilters.join(', ')}`);
       console.warn('Available sports:', getActiveSportConfigs().map(s => s.sportKey).join(', '));
       return 0;
     }
-    
+
+    activeSports = filtered;
     console.log(`🎯 Filtering to ${activeSports.length} sport(s): ${activeSports.map(s => s.sportKey).join(', ')}`);
   }
   
