@@ -7,11 +7,22 @@ Simple HTTP API that all AI systems can query for real StatMuse data
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
+import os
+import sys
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
 import re
+
+# Force line-buffered stdout/stderr so logs show up immediately when this
+# process's output is piped/captured (e.g. in an IDE terminal) instead of
+# sitting in a block buffer until the process exits.
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except AttributeError:
+    pass  # Python < 3.7 fallback, not expected here
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,7 +47,6 @@ class StatMuseAPI:
     
     def clean_statmuse_text(self, text: str) -> str:
         """Clean up StatMuse text to fix spacing and grammar issues"""
-        import re
         
         # Fix missing spaces between words
         # "TheNew York Yankees" -> "The New York Yankees"  
@@ -130,17 +140,73 @@ class StatMuseAPI:
             # Common CFB stat terms
             'passing yards', 'rushing yards', 'receiving yards', 'passing tds', 'rushing tds', 'receiving tds',
             # Conferences
-            'sec', 'big 12', 'big ten', 'acc', 'pac-12', 'pac 12', 'mountain west', 'aac', 'sun belt',
-            # Team identifiers (subset; expand as needed)
+            'sec', 'big 12', 'big ten', 'acc', 'pac-12', 'pac 12', 'mountain west', 'aac', 'sun belt', 'conference usa', 'cusa',
+            # Team identifiers (expanded)
             'texas a&m', 'aggies', 'kansas state', 'wildcats', 'arizona wildcats', 'ucla bruins', 'usc trojans',
             'georgia bulldogs', 'alabama crimson tide', 'ohio state buckeyes', 'michigan wolverines',
             'florida state seminoles', 'notre dame fighting irish', 'lsu tigers', 'tennessee volunteers',
             'clemson tigers', 'oklahoma sooners', 'oregon ducks', 'washington huskies', 'iowa hawkeyes',
             'penn state nittany lions', 'miami hurricanes', 'louisville cardinals', 'north carolina tar heels',
-            'new mexico lobos', 'ucla', 'k-state', 'kansas st', 'houston cougars'
+            'new mexico lobos', 'ucla', 'k-state', 'kansas st', 'houston cougars',
+            # New teams from logs
+            'kennesaw state owls', 'kennesaw state', 'louisiana tech bulldogs', 'louisiana tech',
+            'tulane green wave', 'tulane', 'east carolina pirates', 'east carolina', 'ecu',
+            # More common CFB teams
+            'boise state broncos', 'san diego state aztecs', 'fresno state bulldogs', 'memphis tigers',
+            'south florida bulls', 'usf', 'ucf knights', 'temple owls', 'smu mustangs',
+            'navy midshipmen', 'army black knights', 'air force falcons'
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in cfb_keywords)
+    
+    def is_nhl_query(self, query: str) -> bool:
+        """Check if query is likely about NHL"""
+        nhl_keywords = [
+            # NHL league terms
+            'nhl', 'national hockey league', 'stanley cup', 'hockey',
+            # NHL stats terms
+            'goals', 'assists', 'points', 'plus minus', 'shots on goal', 'saves', 'save percentage',
+            'goals against average', 'gaa', 'shutout', 'hat trick', 'power play',
+            # NHL teams
+            'anaheim ducks', 'arizona coyotes', 'boston bruins', 'buffalo sabres', 'calgary flames',
+            'carolina hurricanes', 'chicago blackhawks', 'colorado avalanche', 'columbus blue jackets',
+            'dallas stars', 'detroit red wings', 'edmonton oilers', 'florida panthers',
+            'los angeles kings', 'minnesota wild', 'montreal canadiens', 'nashville predators',
+            'new jersey devils', 'new york islanders', 'new york rangers', 'ottawa senators',
+            'philadelphia flyers', 'pittsburgh penguins', 'san jose sharks', 'seattle kraken',
+            'st louis blues', 'tampa bay lightning', 'toronto maple leafs', 'vancouver canucks',
+            'vegas golden knights', 'washington capitals', 'winnipeg jets',
+            # Common NHL player names
+            'connor mcdavid', 'auston matthews', 'nathan mackinnon', 'leon draisaitl',
+            'david pastrnak', 'nikita kucherov', 'cale makar', 'roman josi',
+            'igor shesterkin', 'andrei vasilevskiy', 'sidney crosby', 'alex ovechkin'
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in nhl_keywords)
+    
+    def is_nba_query(self, query: str) -> bool:
+        """Check if query is likely about NBA"""
+        nba_keywords = [
+            # NBA league terms
+            'nba', 'national basketball association', 'playoffs', 'finals',
+            # NBA stats terms
+            'points', 'rebounds', 'assists', 'blocks', 'steals', 'three pointers', 'threes',
+            'field goal percentage', 'free throw percentage', 'double double', 'triple double',
+            # NBA teams
+            'atlanta hawks', 'boston celtics', 'brooklyn nets', 'charlotte hornets', 'chicago bulls',
+            'cleveland cavaliers', 'dallas mavericks', 'denver nuggets', 'detroit pistons',
+            'golden state warriors', 'houston rockets', 'indiana pacers', 'la clippers',
+            'los angeles lakers', 'memphis grizzlies', 'miami heat', 'milwaukee bucks',
+            'minnesota timberwolves', 'new orleans pelicans', 'new york knicks', 'oklahoma city thunder',
+            'orlando magic', 'philadelphia 76ers', 'phoenix suns', 'portland trail blazers',
+            'sacramento kings', 'san antonio spurs', 'toronto raptors', 'utah jazz', 'washington wizards',
+            # Common NBA player names
+            'lebron james', 'stephen curry', 'kevin durant', 'giannis antetokounmpo',
+            'luka doncic', 'nikola jokic', 'joel embiid', 'jayson tatum', 'damian lillard',
+            'anthony davis', 'kawhi leonard', 'jimmy butler', 'devin booker', 'donovan mitchell'
+        ]
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in nba_keywords)
     
     def scrape_main_sports_pages(self) -> dict:
         """Scrape main StatMuse sports pages to gather current context and insights"""
@@ -148,34 +214,37 @@ class StatMuseAPI:
         
         context = {
             'mlb': {},
+            'nhl': {},
+            'nba': {},
+            'nfl': {},
             'wnba': {},
+            'cfb': {},
             'trending_players': [],
             'recent_performances': [],
             'league_leaders': {},
             'betting_trends': {}
         }
         
-        # Scrape MLB main page
-        try:
-            mlb_url = "https://www.statmuse.com/mlb"
-            response = requests.get(mlb_url, headers=self.headers, timeout=15)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                context['mlb'] = self._extract_sports_page_insights(soup, 'MLB')
-                logger.info(f"✅ MLB main page scraped successfully")
-        except Exception as e:
-            logger.warning(f"⚠️ MLB main page scraping failed: {e}")
+        # Define sports to scrape
+        sports_to_scrape = [
+            ('mlb', 'https://www.statmuse.com/mlb', 'MLB'),
+            ('nhl', 'https://www.statmuse.com/nhl', 'NHL'),
+            ('nba', 'https://www.statmuse.com/nba', 'NBA'),
+            ('nfl', 'https://www.statmuse.com/nfl', 'NFL'),
+            ('wnba', 'https://www.statmuse.com/wnba', 'WNBA'),
+            ('cfb', 'https://www.statmuse.com/cfb', 'CFB')
+        ]
         
-        # Scrape WNBA main page
-        try:
-            wnba_url = "https://www.statmuse.com/wnba"
-            response = requests.get(wnba_url, headers=self.headers, timeout=15)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                context['wnba'] = self._extract_sports_page_insights(soup, 'WNBA')
-                logger.info(f"✅ WNBA main page scraped successfully")
-        except Exception as e:
-            logger.warning(f"⚠️ WNBA main page scraping failed: {e}")
+        # Scrape each sport
+        for sport_key, sport_url, sport_name in sports_to_scrape:
+            try:
+                response = requests.get(sport_url, headers=self.headers, timeout=15)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    context[sport_key] = self._extract_sports_page_insights(soup, sport_name)
+                    logger.info(f"✅ {sport_name} main page scraped successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ {sport_name} main page scraping failed: {e}")
         
         return context
     
@@ -343,31 +412,30 @@ class StatMuseAPI:
         
         return insights
     
-    def query_statmuse(self, query: str) -> dict:
-        """Query StatMuse with caching"""
-        cache_key = query.lower()
+    def query_statmuse(self, query: str, sport: str = None) -> dict:
+        """Query StatMuse with explicit sport parameter (NO keyword detection)"""
+        cache_key = f"{sport}:{query.lower()}" if sport else query.lower()
         current_time = time.time()
         
         # Check cache
         if cache_key in self.cache:
             cached_data, timestamp = self.cache[cache_key]
             if current_time - timestamp < self.cache_ttl:
-                logger.info(f"💾 Cache hit for: {query}")
+                logger.info(f"💾 Cache hit for: {query} ({sport})")
                 cached_data['cached'] = True
                 return cached_data
         
-        # Execute the query using standard approach
-        result = self._try_standard_query(query, current_time, cache_key)
+        # Execute the query using standard approach with explicit sport
+        result = self._try_standard_query(query, current_time, cache_key, sport=sport)
         return result
     
-    def _try_standard_query(self, query: str, current_time: float, cache_key: str) -> dict:
-        """Try the standard StatMuse query approach"""
+    def _try_standard_query(self, query: str, current_time: float, cache_key: str, sport: str = None) -> dict:
+        """Try the standard StatMuse query approach with explicit sport (NO DETECTION)"""
         try:
-            logger.info(f"🔍 StatMuse Query: {query}")
+            logger.info(f"🔍 StatMuse Query: {query} [Sport: {sport}]")
             
             # Format query for URL to match working StatMuse format
-            # Examples: "A'ja Wilson points this season" -> "aja-wilson-points-this-season"
-            #          "Caitlin Clark stats last 5 games" -> "caitlin-clark-stats-last-5-games"
+            # Examples: "LJ Martin rushing yards last 5 games" -> "lj-martin-rushing-yards-last-5-games"
             formatted_query = query.lower()
             # Remove apostrophes and special characters
             formatted_query = formatted_query.replace("'", "").replace("'", "")
@@ -378,32 +446,25 @@ class StatMuseAPI:
             # Remove leading/trailing hyphens
             formatted_query = formatted_query.strip('-')
             
-            # Determine the correct StatMuse endpoint based on sport
-            primary_base_url = "https://www.statmuse.com/mlb/ask"
-            sport_context = "MLB"
-            if self.is_wnba_query(query):
-                primary_base_url = "https://www.statmuse.com/wnba/ask"
-                sport_context = "WNBA"
-            elif self.is_nfl_query(query):
-                primary_base_url = "https://www.statmuse.com/nfl/ask"
-                sport_context = "NFL"
-            elif self.is_cfb_query(query):
-                primary_base_url = "https://www.statmuse.com/cfb/ask"
-                sport_context = "CFB"
+            # Map sport to StatMuse URL - NO DETECTION, USE EXPLICIT PARAMETER
+            sport_url_map = {
+                'CFB': 'https://www.statmuse.com/cfb/ask',
+                'NCAAF': 'https://www.statmuse.com/cfb/ask',
+                'NFL': 'https://www.statmuse.com/nfl/ask',
+                'MLB': 'https://www.statmuse.com/mlb/ask',
+                'NBA': 'https://www.statmuse.com/nba/ask',
+                'NHL': 'https://www.statmuse.com/nhl/ask',
+                'WNBA': 'https://www.statmuse.com/wnba/ask'
+            }
             
-            # Build candidate endpoints for fallback if primary fails (e.g., HTTP 422)
-            candidate_bases = [primary_base_url]
-            # Heuristic fallbacks based on query tokens
-            ql = query.lower()
-            if any(tok in ql for tok in ["passing yards", "rushing yards", "receiving yards", "touchdowns", "tds"]):
-                # Football-related; prefer NFL/CFB
-                for base in ["https://www.statmuse.com/cfb/ask", "https://www.statmuse.com/nfl/ask"]:
-                    if base not in candidate_bases:
-                        candidate_bases.append(base)
-            # Always include MLB and WNBA as generic fallbacks
-            for base in ["https://www.statmuse.com/mlb/ask", "https://www.statmuse.com/wnba/ask"]:
-                if base not in candidate_bases:
-                    candidate_bases.append(base)
+            # Get the correct URL for this sport
+            if sport and sport.upper() in sport_url_map:
+                base_url = sport_url_map[sport.upper()]
+                candidate_bases = [base_url]  # ONLY try the correct sport URL
+            else:
+                # Fallback to all sports if no sport specified (backward compatibility)
+                logger.warning(f"⚠️ No sport specified, falling back to all URLs")
+                candidate_bases = list(sport_url_map.values())
             
             # Try candidates in order until one returns 200
             response = None
@@ -495,7 +556,7 @@ def health_check():
 
 @app.route('/query', methods=['POST'])
 def query_statmuse():
-    """Main StatMuse query endpoint"""
+    """Main StatMuse query endpoint - REQUIRES sport parameter"""
     try:
         data = request.get_json()
         
@@ -505,8 +566,24 @@ def query_statmuse():
                 'error': 'Missing query parameter'
             }), 400
         
+        if 'sport' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing sport parameter. Must specify: MLB, NHL, NBA, NFL, CFB, or WNBA'
+            }), 400
+        
         query = data['query']
-        result = statmuse_api.query_statmuse(query)
+        sport = data['sport'].upper()
+        
+        # Validate sport
+        valid_sports = ['MLB', 'NHL', 'NBA', 'NFL', 'CFB', 'NCAAF', 'WNBA']
+        if sport not in valid_sports:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid sport: {sport}. Must be one of: {", ".join(valid_sports)}'
+            }), 400
+        
+        result = statmuse_api.query_statmuse(query, sport=sport)
         
         return jsonify(result)
         
@@ -646,4 +723,7 @@ if __name__ == '__main__':
     logger.info("  GET /health - Health check")
     logger.info("  GET /cache-stats - Cache statistics")
     
-    app.run(host='0.0.0.0', port=5001, debug=False) 
+    # Railway (and most PaaS providers) assign a dynamic port via $PORT and
+    # route traffic there. Fall back to 5001 for local dev only.
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False) 
