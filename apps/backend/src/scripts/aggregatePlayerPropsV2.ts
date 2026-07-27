@@ -289,19 +289,26 @@ export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDa
     }
 
     // Query upcoming games from sports_events
-    const { data: games, error: gamesError } = await supabaseAdmin
-      .from('sports_events')
-      .select('id, external_event_id, sport, home_team, away_team, start_time, local_game_date')
-      .eq('sport', sportConfig.sportName)
-      .gte('start_time', now.toISOString())
-      .lt('start_time', windowEnd.toISOString())
-      .limit((extendedNflWeek && sportConfig.sportKey === 'NFL') ? Number(process.env.NFL_PROPS_LIMIT || 50) : 12);
-
-    if (gamesError) {
-      console.error(`❌ Error fetching ${sportConfig.sportName} games:`, gamesError.message);
+    let games: any[] | null = null;
+    let gamesErrorMsg: string | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data, error } = await supabaseAdmin
+        .from('sports_events')
+        .select('id, external_event_id, sport, home_team, away_team, start_time, local_game_date')
+        .eq('sport', sportConfig.sportName)
+        .gte('start_time', now.toISOString())
+        .lt('start_time', windowEnd.toISOString())
+        .limit((extendedNflWeek && sportConfig.sportKey === 'NFL') ? Number(process.env.NFL_PROPS_LIMIT || 50) : 12);
+      if (!error) { games = data || []; break; }
+      gamesErrorMsg = error.message;
+      console.log(`  ⚠️ Fetching ${sportConfig.sportName} games failed (attempt ${attempt}/3): ${error.message}`);
+      if (attempt < 3) { await new Promise(res => setTimeout(res, 500 * attempt)); }
+    }
+    if (games === null) {
+      console.error(`❌ Error fetching ${sportConfig.sportName} games after retries:`, gamesErrorMsg);
       continue;
     }
-    if (!games || games.length === 0) {
+    if (games.length === 0) {
       console.log(`⚠️ No upcoming ${sportConfig.sportName} games found (${windowLabel})`);
       continue;
     }
