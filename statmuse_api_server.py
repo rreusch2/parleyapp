@@ -7,11 +7,22 @@ Simple HTTP API that all AI systems can query for real StatMuse data
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
+import os
+import sys
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
 import re
+
+# Force line-buffered stdout/stderr so logs show up immediately when this
+# process's output is piped/captured (e.g. in an IDE terminal) instead of
+# sitting in a block buffer until the process exits.
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except AttributeError:
+    pass  # Python < 3.7 fallback, not expected here
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -712,4 +723,7 @@ if __name__ == '__main__':
     logger.info("  GET /health - Health check")
     logger.info("  GET /cache-stats - Cache statistics")
     
-    app.run(host='0.0.0.0', port=5001, debug=False) 
+    # Railway (and most PaaS providers) assign a dynamic port via $PORT and
+    # route traffic there. Fall back to 5001 for local dev only.
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False) 

@@ -334,8 +334,16 @@ export async function aggregatePlayerPropsV2(extendedNflWeek = false, nflAheadDa
       if (!propsData) continue;
 
       const aggregated = aggregateProps(propsData, baseMarkets, allowedBooks);
-      // Use local_game_date for consistent date handling (Eastern Time)
-      const gameDateStr = game.local_game_date || (game.start_time ? new Date(game.start_time).toISOString().slice(0, 10) : (propsData.commence_time ? new Date(propsData.commence_time).toISOString().slice(0, 10) : null));
+      // Use local_game_date for consistent date handling (Eastern Time).
+      // Fall back to the ET date of the start time; a raw UTC slice would put
+      // evening ET games on the following date.
+      const toEtDate = (iso: string) => new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(new Date(iso));
+      const gameDateStr = game.local_game_date || (game.start_time ? toEtDate(game.start_time) : (propsData.commence_time ? toEtDate(propsData.commence_time) : null));
 
       for (const agg of aggregated.values()) {
         // Keep a convenience consensus main_line (not used for per-book odds)

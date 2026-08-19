@@ -1,0 +1,30 @@
+﻿{
+    "status":  "SUCCESS",
+    "startedAt":  "2026-08-17T22:00:04",
+    "endedAt":  "2026-08-17T22:28:54",
+    "duration":  "00:28:49",
+    "target":  "--tomorrow",
+    "logFile":  "C:\\Users\\reidr\\parleyapp\\logs\\nightly_20260817_220004.log",
+    "steps":  [
+                  {
+                      "Step":  "odds:v2",
+                      "Status":  "OK",
+                      "Duration":  "00:22:36"
+                  },
+                  {
+                      "Step":  "props_intelligent_v3",
+                      "Status":  "OK",
+                      "Duration":  "00:03:00"
+                  },
+                  {
+                      "Step":  "teams_enhanced",
+                      "Status":  "OK",
+                      "Duration":  "00:02:49"
+                  },
+                  {
+                      "Step":  "enhanced_insights",
+                      "Status":  "OK",
+                      "Duration":  "00:00:17"
+                  }
+              ]
+}

@@ -148,11 +148,17 @@ async function fetchGamesWithOdds(sportInfo: {key: string, name: string}, extend
         .eq('external_event_id', game.id)
         .single();
       
-      // Calculate local game date (Eastern Time for US sports)
+      // Calculate local game date (Eastern Time for US sports).
+      // en-CA formats as YYYY-MM-DD directly. Round-tripping through
+      // new Date(toLocaleString(...)) would re-parse the ET wall clock in the host's
+      // zone, pushing every game after 7pm ET onto the next date on non-ET machines.
       const startTime = new Date(game.commence_time);
-      // Convert to ET (UTC-5 for EST or UTC-4 for EDT - JS handles DST automatically)
-      const etDate = new Date(startTime.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-      const localGameDate = etDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const localGameDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).format(startTime);
       
       // Format the game data for insertion
       const gameData = {
