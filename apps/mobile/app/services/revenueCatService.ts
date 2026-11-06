@@ -10,6 +10,7 @@ import Purchases, {
 } from 'react-native-purchases';
 import { Platform, Alert } from 'react-native';
 import { supabase } from './api/supabaseClient';
+import metaService from './metaService';
 
 import Constants from 'expo-constants';
 
@@ -279,6 +280,12 @@ class RevenueCatService {
         activeEntitlements: customerInfo.entitlements.active,
         originalAppUserId: customerInfo.originalAppUserId
       });
+
+      metaService.trackPurchase(
+        productIdentifier,
+        targetPackage.product.price,
+        targetPackage.product.currencyCode
+      );
 
       // Update user's subscription status in Supabase
       console.log('🔄 Updating user subscription status in Supabase...');

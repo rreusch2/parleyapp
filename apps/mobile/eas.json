@@ -18,7 +18,8 @@
         "EXPO_NO_CAPABILITY_SYNC": "1"
       },
       "ios": {
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "image": "macos-sequoia-15.6-xcode-26.2"
       },
       "android": {
         "buildType": "app-bundle"

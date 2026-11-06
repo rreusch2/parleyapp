@@ -8,6 +8,10 @@ const googleIosUrlScheme = reversedGoogleClientId
 
 const rcRedemptionScheme = process.env.EXPO_PUBLIC_REVENUECAT_REDEMPTION_SCHEME || null;
 
+// The Facebook SDK crashes on launch if FacebookAppID/FacebookClientToken are missing or placeholders.
+const facebookAppId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID || '1019527860059930';
+const facebookClientToken = process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || '7747f5a3770c076aa49ba1634a9aef8f';
+
 module.exports = {
  expo: {
    name: "Predictive Play",
@@ -36,7 +40,7 @@ module.exports = {
     infoPlist: {
        // Only include permissions that your app actually uses
        "ITSAppUsesNonExemptEncryption": false,
-       // App Tracking Transparency prompt text (used for AppsFlyer attribution)
+       // App Tracking Transparency prompt text (used for Meta and AppsFlyer attribution)
       "NSUserTrackingUsageDescription": "We use your data to deliver more relevant ads and to measure campaign performance.",
        // Camera permission (required by third-party SDKs even if not used)
        "NSCameraUsageDescription": "This app does not use the camera, but this permission is required by third-party SDKs.",
@@ -117,7 +121,35 @@ module.exports = {
      androidMode: "default",
      androidCollapsedTitle: "#{unread_notifications} new predictions",
    },
-   plugins: [],
+   plugins: [
+     [
+       "expo-build-properties",
+       {
+         ios: {
+           // GoogleSignIn 9.x pulls in the Swift pod AppCheckCore, which can't build as a static library
+           // unless these Objective-C dependencies generate module maps.
+           extraPods: [
+             { name: "GoogleUtilities", modular_headers: true },
+             { name: "RecaptchaInterop", modular_headers: true }
+           ]
+         }
+       }
+     ],
+     [
+       "react-native-fbsdk-next",
+       {
+         appID: facebookAppId,
+         clientToken: facebookClientToken,
+         displayName: "Predictive Play",
+         scheme: `fb${facebookAppId}`,
+         // Android only; on iOS the SDK is initialized in AppDelegate by withFacebookAppDelegate.
+         isAutoInitEnabled: true,
+         autoLogAppEventsEnabled: true,
+         advertiserIDCollectionEnabled: true
+       }
+     ],
+     "./plugins/withFacebookAppDelegate"
+   ],
    experiments: {
      typedRoutes: true
    },

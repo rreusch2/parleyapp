@@ -31,6 +31,7 @@ import {
 import { aiService, AIPrediction, UserStats } from '../services/api/aiService';
 import { FacebookPixel } from '../services/analytics';
 import appsFlyerService from '../services/appsFlyerService';
+import metaService from '../services/metaService';
 import { supabase } from '../services/api/supabaseClient';
 import { router } from 'expo-router';
 
@@ -129,9 +130,9 @@ export default function HomeScreen() {
         // Analytics tracking (non-critical)
         async () => {
           try {
-            await appsFlyerService.trackPredictionView();
+            metaService.trackViewContent('prediction');
           } catch (err) {
-            console.error('Analytics tracking failed:', err);
+            console.error('Meta tracking failed:', err);
           }
         },
         async () => {

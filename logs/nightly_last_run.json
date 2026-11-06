@@ -1,30 +1,30 @@
 ﻿{
     "status":  "SUCCESS",
-    "startedAt":  "2026-08-17T22:00:04",
-    "endedAt":  "2026-08-17T22:28:54",
-    "duration":  "00:28:49",
+    "startedAt":  "2026-11-05T22:00:03",
+    "endedAt":  "2026-11-05T22:41:56",
+    "duration":  "00:41:52",
     "target":  "--tomorrow",
-    "logFile":  "C:\\Users\\reidr\\parleyapp\\logs\\nightly_20260817_220004.log",
+    "logFile":  "C:\\Users\\reidr\\parleyapp\\logs\\nightly_20261105_220003.log",
     "steps":  [
                   {
                       "Step":  "odds:v2",
                       "Status":  "OK",
-                      "Duration":  "00:22:36"
+                      "Duration":  "00:40:43"
                   },
                   {
                       "Step":  "props_intelligent_v3",
                       "Status":  "OK",
-                      "Duration":  "00:03:00"
+                      "Duration":  "00:00:32"
                   },
                   {
                       "Step":  "teams_enhanced",
                       "Status":  "OK",
-                      "Duration":  "00:02:49"
+                      "Duration":  "00:00:27"
                   },
                   {
                       "Step":  "enhanced_insights",
                       "Status":  "OK",
-                      "Duration":  "00:00:17"
+                      "Duration":  "00:00:02"
                   }
               ]
 }

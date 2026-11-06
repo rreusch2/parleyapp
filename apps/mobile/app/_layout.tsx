@@ -15,6 +15,7 @@ import { useReview } from './hooks/useReview';
 import { supabase } from './services/api/supabaseClient';
 import { registerForPushNotificationsAsync, savePushTokenToProfile } from './services/notificationsService';
 import appsFlyerService from './services/appsFlyerService';
+import metaService from './services/metaService';
 import { attService } from './services/attService';
 // ReviewDebugPanel removed (dev-only overlay disabled)
 // Removed deferred initialization to ensure ATT prompt appears immediately on launch
@@ -52,7 +53,9 @@ function AppContent() {
         if (status) {
           hasRequestedATT.current = true;
           console.log(`📱 ATT handled with status: ${status}`);
-          
+
+          await metaService.setTrackingPermission(status);
+
           // Initialize AppsFlyer after ATT
           await appsFlyerService.initialize();
           console.log('✅ AppsFlyer initialized after ATT');

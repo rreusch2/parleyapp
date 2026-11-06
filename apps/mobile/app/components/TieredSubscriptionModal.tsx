@@ -17,6 +17,7 @@ import { Video, ResizeMode } from 'expo-av';
 import Constants from 'expo-constants';
 import revenueCatService, { SubscriptionPlan, SubscriptionTier, SUBSCRIPTION_TIERS } from '../services/revenueCatService';
 import { useSubscription } from '../services/subscriptionContext';
+import metaService from '../services/metaService';
 import Colors from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -172,10 +173,9 @@ const TieredSubscriptionModal: React.FC<TieredSubscriptionModalProps> = ({
 
         const dynamic = dbPricing[selectedPlan]?.price;
         const price = (typeof dynamic === 'number' ? dynamic : planPrices[selectedPlan]) || 0;
-        // Tracking handled by AppsFlyer
-        console.log('📊 Subscription selection tracked');
+        metaService.trackInitiateCheckout(selectedPlan, price);
       } catch (error) {
-        console.error('❌ Failed to track Add to Cart with Facebook Analytics:', error);
+        console.error('❌ Failed to track InitiateCheckout with Meta:', error);
       }
 
       // Apple App Store checkout

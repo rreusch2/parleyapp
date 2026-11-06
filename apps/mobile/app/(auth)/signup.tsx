@@ -32,6 +32,7 @@ import Constants from 'expo-constants';
 // Complete pending auth sessions (required by expo-auth-session)
 WebBrowser.maybeCompleteAuthSession();
 import appsFlyerService from '../services/appsFlyerService';
+import metaService from '../services/metaService';
 
 
 export default function SignupScreen() {
@@ -343,6 +344,7 @@ export default function SignupScreen() {
         }
 
         console.log('✅ Google Sign Up successful! User ID:', data.user.id);
+        metaService.trackCompleteRegistration('google');
         setCurrentUserId(data.user.id);
         setShowPreferencesModal(true);
       }
@@ -624,6 +626,7 @@ export default function SignupScreen() {
           }
 
           console.log('✅ Apple Sign Up successful! User ID:', data.user.id);
+          metaService.trackCompleteRegistration('apple');
           
           // Store user ID and show preferences modal first
           setCurrentUserId(data.user.id);
@@ -729,14 +732,6 @@ export default function SignupScreen() {
         console.log('✅ Signup successful! User ID:', data.user.id);
         console.log('🎯 About to show preferences modal...');
         
-        // Track signup with AppsFlyer for TikTok attribution
-        try {
-          await appsFlyerService.trackSignup('email');
-          console.log('📊 AppsFlyer signup event tracked');
-        } catch (error) {
-          console.error('❌ Failed to track signup with AppsFlyer:', error);
-        }
-        
         // Generate unique referral code for new user
         const generateReferralCode = () => {
           const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -794,7 +789,8 @@ export default function SignupScreen() {
           }
         }
 
-        // Track signup with AppsFlyer for attribution
+        // Track signup for attribution
+        metaService.trackCompleteRegistration('email');
         try {
           await appsFlyerService.trackSignup('email');
           console.log('📊 AppsFlyer signup event tracked');
